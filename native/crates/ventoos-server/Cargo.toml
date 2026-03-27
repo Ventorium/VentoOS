@@ -1,0 +1,38 @@
+[package]
+name = "ventoos-server"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "ventoos"
+path = "src/main.rs"
+
+[dependencies]
+ventoos-core = { workspace = true }
+ventoos-connection = { workspace = true }
+ventoos-task = { workspace = true }
+ventoos-persist = { workspace = true }
+ventoos-k8s = { workspace = true }
+ventoos-db = { workspace = true }
+ventoos-redis = { workspace = true }
+ventoos-vfs = { workspace = true }
+ventoos-agent = { workspace = true }
+
+axum = { workspace = true }
+axum-extra = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+rust-embed = { workspace = true }
+mime_guess = "2"
+uuid = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

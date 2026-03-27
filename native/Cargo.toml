@@ -1,0 +1,74 @@
+[workspace]
+members = [
+    "crates/ventoos-server",
+    "crates/ventoos-core",
+    "crates/ventoos-connection",
+    "crates/ventoos-k8s",
+    "crates/ventoos-db",
+    "crates/ventoos-redis",
+    "crates/ventoos-vfs",
+    "crates/ventoos-task",
+    "crates/ventoos-agent",
+    "crates/ventoos-persist",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/user/VentoOS"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web framework
+axum = { version = "0.8", features = ["ws", "macros"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
+tower = { version = "0.5" }
+tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Database
+rusqlite = { version = "0.35", features = ["bundled"] }
+
+# UUID & Time
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Frontend embedding
+rust-embed = { version = "8", features = ["mime-guess"] }
+
+# Internal crates
+ventoos-core = { path = "crates/ventoos-core" }
+ventoos-connection = { path = "crates/ventoos-connection" }
+ventoos-k8s = { path = "crates/ventoos-k8s" }
+ventoos-db = { path = "crates/ventoos-db" }
+ventoos-redis = { path = "crates/ventoos-redis" }
+ventoos-vfs = { path = "crates/ventoos-vfs" }
+ventoos-task = { path = "crates/ventoos-task" }
+ventoos-agent = { path = "crates/ventoos-agent" }
+ventoos-persist = { path = "crates/ventoos-persist" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
