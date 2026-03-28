@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { CornerDownLeft, Search } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store/app'
 import { useWindowStore } from '@/store/window'
 import { tokens } from '@/theme'
@@ -17,7 +17,9 @@ export default function CommandPalette() {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
-  const apps = useAppStore(s => s.getAllApps())
+  // Use stable s.apps (Map) reference, derive array via useMemo
+  const appsMap = useAppStore(s => s.apps)
+  const apps = useMemo(() => Array.from(appsMap.values()), [appsMap])
   const openWindow = useWindowStore(s => s.openWindow)
 
   // Build command list

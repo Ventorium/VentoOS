@@ -72,15 +72,15 @@ function Toast({ notification }: { notification: NotificationItem }) {
 }
 
 export default function NotificationToast() {
-  // Show only the most recent 3 unread toasts
-  const notifications = useNotificationStore(s =>
-    s.notifications.filter(n => !n.read).slice(0, 3)
-  )
+  // Select the full array (stable reference), then filter inside render
+  // Filtering inside selector returns new array ref every render → infinite loop
+  const notifications = useNotificationStore(s => s.notifications)
+  const visible = notifications.filter(n => !n.read).slice(0, 3)
 
   return createPortal(
     <div className="vos-toast-container">
       <AnimatePresence mode="popLayout">
-        {notifications.map(n => (
+        {visible.map(n => (
           <Toast key={n.id} notification={n} />
         ))}
       </AnimatePresence>

@@ -85,7 +85,12 @@ function ResizeHandles({ onResizeStart }: { onResizeStart: (dir: ResizeDir, e: R
 
 /* ——— Window Component ——— */
 export default function Window({ win, children }: { win: WindowInstance; children: ReactNode }) {
-  const { focusWindow, closeWindow, minimizeWindow, toggleMaximize, moveWindow, resizeWindow } = useWindowStore()
+  const focusWindow = useWindowStore(s => s.focusWindow)
+  const closeWindow = useWindowStore(s => s.closeWindow)
+  const minimizeWindow = useWindowStore(s => s.minimizeWindow)
+  const toggleMaximize = useWindowStore(s => s.toggleMaximize)
+  const moveWindow = useWindowStore(s => s.moveWindow)
+  const resizeWindow = useWindowStore(s => s.resizeWindow)
   const shouldRender = useProcessStore(s => s.shouldRender(win.id))
 
   // Drag state

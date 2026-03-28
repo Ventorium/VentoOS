@@ -11,7 +11,7 @@ const DEFAULT_GRADIENT = 'linear-gradient(145deg, #0d1117 0%, #161b27 30%, #1a20
 export default function Desktop() {
   const wallpaper = useDesktopStore(s => s.wallpaper)
   const windows = useWindowStore(s => s.windows)
-  const { toggle: openLaunchpad } = useLaunchpadStore()
+  const openLaunchpad = useLaunchpadStore(s => s.toggle)
 
   const handleDesktopClick = () => {
     const focused = windows.find(w => w.isFocused)

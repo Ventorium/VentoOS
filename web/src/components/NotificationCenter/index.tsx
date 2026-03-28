@@ -4,7 +4,8 @@ import { type NotificationItem, useNotificationStore } from '@/store/notificatio
 import { tokens } from '@/theme'
 
 function NotifItem({ n }: { n: NotificationItem }) {
-  const { markAsRead, removeNotification } = useNotificationStore()
+  const markAsRead = useNotificationStore(s => s.markAsRead)
+  const removeNotification = useNotificationStore(s => s.removeNotification)
   const levelColor = {
     info: 'var(--vos-accent-info)',
     success: 'var(--vos-accent-success)',
@@ -58,7 +59,11 @@ function NotifItem({ n }: { n: NotificationItem }) {
 }
 
 export default function NotificationCenter() {
-  const { panelOpen, notifications, setPanel, markAllAsRead, clearAll } = useNotificationStore()
+  const panelOpen = useNotificationStore(s => s.panelOpen)
+  const notifications = useNotificationStore(s => s.notifications)
+  const setPanel = useNotificationStore(s => s.setPanel)
+  const markAllAsRead = useNotificationStore(s => s.markAllAsRead)
+  const clearAll = useNotificationStore(s => s.clearAll)
 
   return (
     <AnimatePresence>

@@ -10,6 +10,7 @@ import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { type ContextMenuItems, type MenuItem, useContextMenuStore } from '@/store/contextMenu'
+import { useShallow } from 'zustand/react/shallow'
 import { tokens } from '@/theme'
 
 /* ---- Sub Menu ---- */
@@ -111,7 +112,13 @@ function MenuPanel({ items }: { items: ContextMenuItems }) {
 
 /* ---- Root Context Menu ---- */
 export default function ContextMenu() {
-  const { visible, x, y, items, hide } = useContextMenuStore()
+  const { visible, x, y, items, hide } = useContextMenuStore(useShallow(s => ({
+    visible: s.visible,
+    x: s.x,
+    y: s.y,
+    items: s.items,
+    hide: s.hide
+  })))
   const menuRef = useRef<HTMLDivElement>(null)
   const [finalPos, setFinalPos] = useState({ left: x, top: y })
 

@@ -10,7 +10,7 @@
  */
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { Grid3X3 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { type AppDefinition, useAppStore } from '@/store/app'
 import { useLaunchpadStore } from '@/store/launchpad'
 import { useWindowStore } from '@/store/window'
@@ -120,20 +120,23 @@ function DockSeparator() {
 
 /* ---- Dock Root ---- */
 export default function Dock() {
-  const apps = useAppStore(s => s.getAllApps())
+  const appsMap = useAppStore(s => s.apps)
+  const apps = useMemo(() => Array.from(appsMap.values()), [appsMap])
   const windows = useWindowStore(s => s.windows)
-  const { openWindow, focusWindow, restoreWindow, getWindowsByApp } = useWindowStore()
-  const { toggle: toggleLaunchpad } = useLaunchpadStore()
+  const openWindow = useWindowStore(s => s.openWindow)
+  const focusWindow = useWindowStore(s => s.focusWindow)
+  const restoreWindow = useWindowStore(s => s.restoreWindow)
+  const toggleLaunchpad = useLaunchpadStore(s => s.toggle)
   const mouseX = useMotionValue(999)
 
   const handleAppClick = (app: AppDefinition) => {
+    const getWindowsByApp = useWindowStore.getState().getWindowsByApp
     const appWindows = getWindowsByApp(app.id).filter(w => !w.isMinimized)
     const allWins = getWindowsByApp(app.id)
 
     if (allWins.length === 0) {
       openWindow(app.id, app.name, { width: app.defaultWidth, height: app.defaultHeight })
     } else if (appWindows.length === 0) {
-      // All windows are minimized — restore the most recent
       const latest = allWins.reduce((a, b) => (a.zIndex > b.zIndex ? a : b))
       restoreWindow(latest.id)
     } else if (!app.multiWindow) {

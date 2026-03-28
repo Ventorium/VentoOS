@@ -6,7 +6,7 @@
  */
 import { AnimatePresence, motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore } from '@/store/app'
 import { useLaunchpadStore } from '@/store/launchpad'
@@ -18,10 +18,11 @@ function AppIcon({ app, index, onLaunch }: {
   index: number
   onLaunch: () => void
 }) {
-  const { getWindowsByApp, openWindow, focusWindow } = useWindowStore()
+  const openWindow = useWindowStore(s => s.openWindow)
+  const focusWindow = useWindowStore(s => s.focusWindow)
 
   function launch() {
-    const existing = getWindowsByApp(app.id)
+    const existing = useWindowStore.getState().getWindowsByApp(app.id)
     if (existing.length > 0 && !app.multiWindow) {
       const top = existing.reduce((a, b) => (a.zIndex > b.zIndex ? a : b))
       focusWindow(top.id)
@@ -62,8 +63,12 @@ function AppIcon({ app, index, onLaunch }: {
 }
 
 export default function Launchpad() {
-  const { isOpen, searchQuery, close, setSearch } = useLaunchpadStore()
-  const allApps = useAppStore(s => s.getAllApps())
+  const isOpen = useLaunchpadStore(s => s.isOpen)
+  const searchQuery = useLaunchpadStore(s => s.searchQuery)
+  const close = useLaunchpadStore(s => s.close)
+  const setSearch = useLaunchpadStore(s => s.setSearch)
+  const appsMap = useAppStore(s => s.apps)
+  const allApps = useMemo(() => Array.from(appsMap.values()), [appsMap])
   const searchRef = useRef<HTMLInputElement>(null)
 
   const filtered = searchQuery.trim()

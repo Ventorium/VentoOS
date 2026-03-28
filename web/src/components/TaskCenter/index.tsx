@@ -47,7 +47,10 @@ function TaskRow({ task }: { task: TaskItem }) {
 }
 
 export default function TaskCenter() {
-  const { panelOpen, tasks, setPanel, clearCompleted } = useTaskStore()
+  const panelOpen = useTaskStore(s => s.panelOpen)
+  const tasks = useTaskStore(s => s.tasks)
+  const setPanel = useTaskStore(s => s.setPanel)
+  const clearCompleted = useTaskStore(s => s.clearCompleted)
 
   return (
     <AnimatePresence>

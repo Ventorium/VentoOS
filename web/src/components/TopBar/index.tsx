@@ -21,12 +21,13 @@ const H = tokens.topBar.height
 
 /* ---- Left: Logo + Active App ---- */
 function MenuBarLeft() {
-  const { toggle: toggleLaunchpad } = useLaunchpadStore()
-  const { closeAllWindows } = useWindowStore()
-  const focusedWindow = useWindowStore(s => s.getFocusedWindow())
+  const toggleLaunchpad = useLaunchpadStore(s => s.toggle)
+  // Select primitives only — object selectors cause infinite re-renders via unstable references
+  const closeAllWindows = useWindowStore(s => s.closeAllWindows)
+  const focusedAppId = useWindowStore(s => s.windows.find(w => w.isFocused)?.appId ?? null)
   const getApp = useAppStore(s => s.getApp)
-  const activeApp = focusedWindow ? getApp(focusedWindow.appId) : null
-  const { show: showCtxMenu } = useContextMenuStore()
+  const activeApp = focusedAppId ? getApp(focusedAppId) : null
+  const showCtxMenu = useContextMenuStore(s => s.show)
 
   function openLogoMenu(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -56,12 +57,18 @@ function MenuBarLeft() {
 
 /* ---- Right: System Status ---- */
 function MenuBarRight() {
-  const { batteryLevel, isCharging, isOnline, clock } = useSystemStore()
-  const { themeMode, setThemeMode, resolvedTheme } = useDesktopStore()
-  const unreadCount = useNotificationStore(s => s.getUnreadCount())
-  const { togglePanel: toggleNotifPanel } = useNotificationStore()
-  const activeTasks = useTaskStore(s => s.getActiveTasks())
-  const { togglePanel: toggleTaskPanel } = useTaskStore()
+  const batteryLevel = useSystemStore(s => s.batteryLevel)
+  const isCharging = useSystemStore(s => s.isCharging)
+  const isOnline = useSystemStore(s => s.isOnline)
+  const clock = useSystemStore(s => s.clock)
+  const themeMode = useDesktopStore(s => s.themeMode)
+  const setThemeMode = useDesktopStore(s => s.setThemeMode)
+  const resolvedTheme = useDesktopStore(s => s.resolvedTheme)
+  // Select count (number primitive) not array — avoids unstable reference
+  const unreadCount = useNotificationStore(s => s.notifications.filter(n => !n.read).length)
+  const toggleNotifPanel = useNotificationStore(s => s.togglePanel)
+  const activeTaskCount = useTaskStore(s => s.tasks.filter(t => t.status === 'queued' || t.status === 'running').length)
+  const toggleTaskPanel = useTaskStore(s => s.togglePanel)
 
   const timeStr = clock.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
   const dateStr = clock.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })
@@ -92,10 +99,10 @@ function MenuBarRight() {
         </div>
       )}
 
-      {activeTasks.length > 0 && (
+      {activeTaskCount > 0 && (
         <button type="button" className="vos-topbar-btn" onClick={toggleTaskPanel} title="任务中心">
           <Loader2 size={13} className="vos-spin" />
-          <span style={{ fontSize: 11 }}>{activeTasks.length}</span>
+          <span style={{ fontSize: 11 }}>{activeTaskCount}</span>
         </button>
       )}
 
@@ -122,12 +129,13 @@ function MenuBarRight() {
 }
 
 export default function TopBar() {
-  const focusedWindow = useWindowStore(s => s.getFocusedWindow())
+  // Select title string (primitive) not window object — avoids unstable reference
+  const focusedWindowTitle = useWindowStore(s => s.windows.find(w => w.isFocused)?.title ?? null)
 
   return (
     <header className="vos-topbar" style={{ height: H }}>
       <MenuBarLeft />
-      <div className="vos-topbar-title">{focusedWindow?.title}</div>
+      <div className="vos-topbar-title">{focusedWindowTitle}</div>
       <MenuBarRight />
     </header>
   )
