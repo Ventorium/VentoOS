@@ -48,6 +48,17 @@ rusqlite = { version = "0.35", features = ["bundled"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 
+# Auth
+bcrypt = "0.19"
+rand = "0.9"
+base64 = "0.22"
+
+# SSH
+russh = "0.58"
+
+# PTY
+portable-pty = "0.9"
+
 # Frontend embedding
 rust-embed = { version = "8", features = ["mime-guess"] }
 

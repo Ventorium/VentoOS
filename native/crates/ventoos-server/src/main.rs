@@ -1,4 +1,7 @@
+mod auth;
 mod routes;
+mod shell;
+mod ssh_manager;
 mod state;
 mod websocket;
 

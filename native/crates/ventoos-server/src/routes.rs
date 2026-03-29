@@ -1,29 +1,54 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::middleware;
 use axum::response::{Html, IntoResponse};
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use rust_embed::Embed;
 
+use crate::auth;
+use crate::shell;
 use crate::state::AppState;
 use crate::websocket;
 use ventoos_core::connection::{CreateConnectionRequest, UpdateConnectionRequest};
+use ventoos_core::ssh::{
+    CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest,
+    UpdateSshServerRequest,
+};
 use ventoos_core::task::CreateTaskRequest;
 use ventoos_core::types::{ApiResponse, Id};
 
 /// Embedded frontend assets (from vite build output).
 #[derive(Embed)]
 #[folder = "../../../web/dist/"]
-#[prefix = ""]
 struct FrontendAssets;
 
 /// Create the application router.
 pub fn create_router(state: AppState) -> Router {
-    let api_router = Router::new()
-        // Health check
+    // Public routes (no auth required)
+    let public_routes = Router::new()
         .route("/api/health", get(health_check))
+        .route("/api/auth/status", get(auth::auth_status))
+        .route("/api/auth/setup", post(auth::auth_setup))
+        .route("/api/auth/login", post(auth::auth_login))
+        .with_state(state.auth.clone());
+
+    // Protected routes (auth required)
+    let protected_routes = Router::new()
+        // Auth management
+        .route("/api/auth/logout", post(auth::auth_logout))
+        .route(
+            "/api/auth/change-password",
+            post(auth::auth_change_password),
+        )
+        .with_state(state.auth.clone());
+
+    let protected_api = Router::new()
         // Connection routes
-        .route("/api/connections", get(list_connections).post(create_connection))
+        .route(
+            "/api/connections",
+            get(list_connections).post(create_connection),
+        )
         .route(
             "/api/connections/{id}",
             get(get_connection)
@@ -37,16 +62,69 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/tasks/{id}/cancel", post(cancel_task))
         // Notification routes
         .route("/api/notifications", get(list_notifications))
+        // SSH server routes
+        .route(
+            "/api/ssh/servers",
+            get(list_ssh_servers).post(create_ssh_server),
+        )
+        .route(
+            "/api/ssh/servers/{id}",
+            get(get_ssh_server)
+                .put(update_ssh_server)
+                .delete(delete_ssh_server),
+        )
+        .route("/api/ssh/servers/{id}/test", post(test_ssh_server))
+        // Port mapping routes
+        .route(
+            "/api/port-mappings",
+            get(list_port_mappings).post(create_port_mapping),
+        )
+        .route(
+            "/api/port-mappings/{id}",
+            get(get_port_mapping).delete(delete_port_mapping),
+        )
+        .route("/api/port-mappings/{id}/start", post(start_port_mapping))
+        .route("/api/port-mappings/{id}/stop", post(stop_port_mapping))
+        // Service exposure routes
+        .route(
+            "/api/service-exposures",
+            get(list_service_exposures).post(create_service_exposure),
+        )
+        .route(
+            "/api/service-exposures/{id}",
+            get(get_service_exposure).delete(delete_service_exposure),
+        )
+        .route(
+            "/api/service-exposures/{id}/start",
+            post(start_service_exposure),
+        )
+        .route(
+            "/api/service-exposures/{id}/stop",
+            post(stop_service_exposure),
+        )
         // Settings routes
-        .route("/api/settings/desktop", get(get_desktop_state).put(save_desktop_state))
-        .route("/api/settings/windows", get(get_window_states).put(save_window_states))
-        // WebSocket
+        .route(
+            "/api/settings/desktop",
+            get(get_desktop_state).put(save_desktop_state),
+        )
+        .route(
+            "/api/settings/windows",
+            get(get_window_states).put(save_window_states),
+        )
+        // WebSocket (task events)
         .route("/ws", get(websocket::ws_handler))
+        // WebShell WebSocket
+        .route("/ws/shell", get(shell::ws_shell_handler))
+        .route_layer(middleware::from_fn_with_state(
+            state.auth.clone(),
+            auth::auth_middleware,
+        ))
         .with_state(state);
 
-    // Merge API routes with frontend fallback
     Router::new()
-        .merge(api_router)
+        .merge(public_routes)
+        .merge(protected_routes)
+        .merge(protected_api)
         .fallback(frontend_handler)
 }
 
@@ -184,6 +262,238 @@ async fn cancel_task(
 async fn list_notifications() -> Json<ApiResponse<Vec<ventoos_core::notification::Notification>>> {
     // Stub - return empty list for now
     Json(ApiResponse::ok(vec![]))
+}
+
+// --- SSH Server Routes ---
+
+async fn list_ssh_servers(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Vec<ventoos_core::ssh::SshServer>>> {
+    let servers = state.ssh.list_servers().await;
+    Json(ApiResponse::ok(servers))
+}
+
+async fn create_ssh_server(
+    State(state): State<AppState>,
+    Json(req): Json<CreateSshServerRequest>,
+) -> (
+    StatusCode,
+    Json<ApiResponse<ventoos_core::ssh::SshServer>>,
+) {
+    let server = state.ssh.create_server(req).await;
+    (StatusCode::CREATED, Json(ApiResponse::ok(server)))
+}
+
+async fn get_ssh_server(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.ssh.get_server(id).await {
+        Some(server) => Json(ApiResponse::ok(server)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn update_ssh_server(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+    Json(req): Json<UpdateSshServerRequest>,
+) -> impl IntoResponse {
+    match state.ssh.update_server(id, req).await {
+        Some(server) => Json(ApiResponse::ok(server)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn delete_ssh_server(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    if state.ssh.delete_server(id).await {
+        Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response()
+    }
+}
+
+async fn test_ssh_server(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.ssh.test_server(id).await {
+        Some(result) => Json(ApiResponse::ok(result)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response(),
+    }
+}
+
+// --- Port Mapping Routes ---
+
+async fn list_port_mappings(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Vec<ventoos_core::ssh::PortMapping>>> {
+    let mappings = state.ssh.list_port_mappings().await;
+    Json(ApiResponse::ok(mappings))
+}
+
+async fn create_port_mapping(
+    State(state): State<AppState>,
+    Json(req): Json<CreatePortMappingRequest>,
+) -> (
+    StatusCode,
+    Json<ApiResponse<ventoos_core::ssh::PortMapping>>,
+) {
+    let mapping = state.ssh.create_port_mapping(req).await;
+    (StatusCode::CREATED, Json(ApiResponse::ok(mapping)))
+}
+
+async fn get_port_mapping(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.ssh.get_port_mapping(id).await {
+        Some(mapping) => Json(ApiResponse::ok(mapping)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Port mapping not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn delete_port_mapping(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    if state.ssh.delete_port_mapping(id).await {
+        Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Port mapping not found")),
+        )
+            .into_response()
+    }
+}
+
+async fn start_port_mapping(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.ssh.start_port_mapping(id).await {
+        Some(mapping) => Json(ApiResponse::ok(mapping)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Port mapping not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn stop_port_mapping(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.ssh.stop_port_mapping(id).await {
+        Some(mapping) => Json(ApiResponse::ok(mapping)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Port mapping not found")),
+        )
+            .into_response(),
+    }
+}
+
+// --- Service Exposure Routes ---
+
+async fn list_service_exposures(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Vec<ventoos_core::ssh::ServiceExposure>>> {
+    let exposures = state.ssh.list_service_exposures().await;
+    Json(ApiResponse::ok(exposures))
+}
+
+async fn create_service_exposure(
+    State(state): State<AppState>,
+    Json(req): Json<CreateServiceExposureRequest>,
+) -> (
+    StatusCode,
+    Json<ApiResponse<ventoos_core::ssh::ServiceExposure>>,
+) {
+    let exposure = state.ssh.create_service_exposure(req).await;
+    (StatusCode::CREATED, Json(ApiResponse::ok(exposure)))
+}
+
+async fn get_service_exposure(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.ssh.get_service_exposure(id).await {
+        Some(exposure) => Json(ApiResponse::ok(exposure)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Service exposure not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn delete_service_exposure(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    if state.ssh.delete_service_exposure(id).await {
+        Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Service exposure not found")),
+        )
+            .into_response()
+    }
+}
+
+async fn start_service_exposure(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.ssh.start_service_exposure(id).await {
+        Some(exposure) => Json(ApiResponse::ok(exposure)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Service exposure not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn stop_service_exposure(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.ssh.stop_service_exposure(id).await {
+        Some(exposure) => Json(ApiResponse::ok(exposure)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Service exposure not found")),
+        )
+            .into_response(),
+    }
 }
 
 // --- Settings Routes ---

@@ -9,6 +9,7 @@ const KubernetesApp = lazy(() => import('./kubernetes'))
 const DatabaseApp = lazy(() => import('./database'))
 const RedisApp = lazy(() => import('./redis'))
 const ExplorerApp = lazy(() => import('./explorer'))
+const SshApp = lazy(() => import('./ssh'))
 const AIAssistantApp = lazy(() => import('./ai-assistant'))
 const SettingsApp = lazy(() => import('./settings'))
 
@@ -17,6 +18,7 @@ const registry: Record<string, ComponentType<AppComponentProps>> = {
   database: DatabaseApp,
   redis: RedisApp,
   explorer: ExplorerApp,
+  ssh: SshApp,
   'ai-assistant': AIAssistantApp,
   settings: SettingsApp
 }

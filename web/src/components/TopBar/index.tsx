@@ -7,7 +7,9 @@
  */
 import { AnimatePresence, motion } from 'framer-motion'
 import { Battery, BatteryCharging, BatteryLow, Bell, Loader2, Moon, Sun, Wifi, WifiOff } from 'lucide-react'
+import { api } from '@/api/client'
 import { useAppStore } from '@/store/app'
+import { useAuthStore } from '@/store/auth'
 import { useContextMenuStore } from '@/store/contextMenu'
 import { useDesktopStore } from '@/store/desktop'
 import { useLaunchpadStore } from '@/store/launchpad'
@@ -35,6 +37,11 @@ function MenuBarLeft() {
       { id: 'about', label: '关于 VentoOS', action: () => {} },
       { type: 'separator' },
       { id: 'launchpad', label: '启动台', shortcut: '⌘Space', action: toggleLaunchpad },
+      { type: 'separator' },
+      { id: 'lock', label: '锁定屏幕', action: () => {
+        api.authLogout().catch(() => {})
+        useAuthStore.getState().lock()
+      }},
       { type: 'separator' },
       { id: 'close-all', label: '关闭所有窗口', action: closeAllWindows }
     ])

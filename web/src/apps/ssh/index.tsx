@@ -1,0 +1,767 @@
+/**
+ * SSH Management App
+ *
+ * Tabs:
+ *  1. SSH 服务器 — CRUD, 测试连接, 打开 WebShell
+ *  2. 端口映射   — CRUD, 启动/停止
+ *  3. 服务暴露   — CRUD, 启动/停止
+ */
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  Activity,
+  AlertCircle,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  ExternalLink,
+  Globe,
+  Key,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Shield,
+  Square,
+  Terminal,
+  Trash2,
+  X,
+  Zap,
+} from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  type CreatePortMappingReq,
+  type CreateServiceExposureReq,
+  type CreateSshServerReq,
+  type PortMapping,
+  type ServiceExposure,
+  type SshServer,
+  api,
+} from '@/api/client'
+import WebShell from '@/components/WebShell'
+import type { AppComponentProps } from '../registry'
+
+type TabId = 'servers' | 'port-mappings' | 'exposures'
+
+/* ─── Status Badge ─────────────────────────────────────────── */
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { color: string; icon: React.ReactNode }> = {
+    connected: { color: '#22c55e', icon: <CheckCircle2 size={11} /> },
+    active: { color: '#22c55e', icon: <CheckCircle2 size={11} /> },
+    connecting: { color: '#f59e0b', icon: <Loader2 size={11} className="vos-spin" /> },
+    starting: { color: '#f59e0b', icon: <Loader2 size={11} className="vos-spin" /> },
+    disconnected: { color: '#6b7280', icon: <Circle size={11} /> },
+    stopped: { color: '#6b7280', icon: <Circle size={11} /> },
+    error: { color: '#ef4444', icon: <AlertCircle size={11} /> },
+  }
+  const s = map[status] ?? map.disconnected
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: s.color, fontSize: 11, fontWeight: 500 }}>
+      {s.icon} {status}
+    </span>
+  )
+}
+
+/* ─── Delete Confirm Button ────────────────────────────────── */
+function DelBtn({ onConfirm }: { onConfirm: () => void }) {
+  const [confirm, setConfirm] = useState(false)
+  if (confirm)
+    return (
+      <button type="button" className="vos-btn vos-btn-danger" style={{ padding: '3px 10px', fontSize: 12 }}
+        onClick={onConfirm}>确认删除</button>
+    )
+  return (
+    <button type="button" className="vos-icon-btn" onClick={() => setConfirm(true)} title="删除">
+      <Trash2 size={14} />
+    </button>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SSH Server Section
+═══════════════════════════════════════════════════════════ */
+function ServersTab() {
+  const [servers, setServers] = useState<SshServer[]>([])
+  const [loading, setLoading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [testing, setTesting] = useState<string | null>(null)
+  const [testResult, setTestResult] = useState<{ id: string; ok: boolean; msg: string } | null>(null)
+  const [openShell, setOpenShell] = useState<SshServer | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await api.getSshServers()
+      setServers(res.data)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function handleDelete(id: string) {
+    await api.deleteSshServer(id)
+    load()
+  }
+
+  async function handleTest(id: string) {
+    setTesting(id)
+    setTestResult(null)
+    try {
+      const res = await api.testSshServer(id)
+      setTestResult({ id, ok: res.data.success, msg: res.data.message })
+    } catch (e: unknown) {
+      setTestResult({ id, ok: false, msg: e instanceof Error ? e.message : '连接失败' })
+    } finally {
+      setTesting(null)
+    }
+  }
+
+  return (
+    <div className="ssh-section">
+      <div className="ssh-toolbar">
+        <span className="ssh-count">{servers.length} 台服务器</span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className="vos-icon-btn" onClick={load} title="刷新">
+            <RefreshCw size={14} className={loading ? 'vos-spin' : ''} />
+          </button>
+          <button type="button" className="vos-btn vos-btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={14} /> 添加服务器
+          </button>
+        </div>
+      </div>
+
+      {servers.length === 0 && !loading && (
+        <div className="ssh-empty">
+          <Terminal size={32} style={{ opacity: 0.3 }} />
+          <p>还没有 SSH 服务器</p>
+          <button type="button" className="vos-btn vos-btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={14} /> 添加第一台
+          </button>
+        </div>
+      )}
+
+      <div className="ssh-list">
+        {servers.map(srv => (
+          <div key={srv.id} className="ssh-card">
+            <div className="ssh-card-header">
+              <div className="ssh-card-icon">
+                <Terminal size={18} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="ssh-card-name">{srv.name}</div>
+                <div className="ssh-card-host">{srv.username}@{srv.host}:{srv.port}</div>
+              </div>
+              <StatusBadge status={srv.status} />
+            </div>
+
+            {testResult?.id === srv.id && (
+              <div className={`ssh-test-result ${testResult.ok ? 'ok' : 'fail'}`}>
+                {testResult.ok ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
+                {testResult.msg}
+              </div>
+            )}
+
+            <div className="ssh-card-actions">
+              <button type="button" className="vos-btn vos-btn-sm" onClick={() => handleTest(srv.id)}
+                disabled={testing === srv.id}>
+                {testing === srv.id
+                  ? <Loader2 size={13} className="vos-spin" />
+                  : <Activity size={13} />}
+                测试
+              </button>
+              <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={() => setOpenShell(srv)}>
+                <Terminal size={13} /> 打开 Shell
+              </button>
+              <DelBtn onConfirm={() => handleDelete(srv.id)} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showForm && (
+        <SshServerForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
+      )}
+
+      {openShell && (
+        <ShellModal server={openShell} onClose={() => setOpenShell(null)} />
+      )}
+    </div>
+  )
+}
+
+/* ─── SSH Server Add Form ──────────────────────────────────── */
+function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState<CreateSshServerReq>({
+    name: '',
+    host: '',
+    port: 22,
+    username: '',
+    auth_method: { type: 'password' },
+    password: ''
+  })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function handleSave() {
+    if (!form.name || !form.host || !form.username) {
+      setErr('名称、主机、用户名为必填')
+      return
+    }
+    setSaving(true)
+    setErr('')
+    try {
+      await api.createSshServer(form)
+      onSaved()
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="vos-modal-overlay" onClick={onClose}>
+      <motion.div className="vos-modal" initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}>
+        <div className="vos-modal-header">
+          <span>添加 SSH 服务器</span>
+          <button type="button" className="vos-icon-btn" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="vos-modal-body">
+          <div className="vos-form-row">
+            <label>名称</label>
+            <input className="vos-input" placeholder="生产环境 Web01" value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div className="vos-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8 }}>
+            <div>
+              <label>主机</label>
+              <input className="vos-input" placeholder="192.168.1.100 或 example.com" value={form.host}
+                onChange={e => setForm(f => ({ ...f, host: e.target.value }))} />
+            </div>
+            <div>
+              <label>端口</label>
+              <input className="vos-input" type="number" value={form.port}
+                onChange={e => setForm(f => ({ ...f, port: Number(e.target.value) }))} />
+            </div>
+          </div>
+          <div className="vos-form-row">
+            <label>用户名</label>
+            <input className="vos-input" placeholder="root" value={form.username}
+              onChange={e => setForm(f => ({ ...f, username: e.target.value }))} />
+          </div>
+          <div className="vos-form-row">
+            <label>认证方式</label>
+            <div className="vos-segmented">
+              {(['password', 'private_key', 'agent'] as const).map(t => (
+                <button key={t} type="button"
+                  className={`vos-segmented-item ${form.auth_method.type === t ? 'active' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, auth_method: { type: t } }))}>
+                  {t === 'password' ? '密码' : t === 'private_key' ? '私钥' : 'Agent'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {form.auth_method.type === 'password' && (
+            <div className="vos-form-row">
+              <label>密码</label>
+              <input className="vos-input" type="password" placeholder="••••••••" value={form.password ?? ''}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+            </div>
+          )}
+          {form.auth_method.type === 'private_key' && (
+            <div className="vos-form-row">
+              <label>私钥路径</label>
+              <input className="vos-input" placeholder="~/.ssh/id_rsa" value={
+                (form.auth_method as { type: 'private_key'; key_path?: string }).key_path ?? ''
+              }
+                onChange={e => setForm(f => ({
+                  ...f, auth_method: { type: 'private_key', key_path: e.target.value }
+                }))} />
+            </div>
+          )}
+          {err && <p className="vos-form-error">{err}</p>}
+        </div>
+        <div className="vos-modal-footer">
+          <button type="button" className="vos-btn" onClick={onClose}>取消</button>
+          <button type="button" className="vos-btn vos-btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 size={14} className="vos-spin" /> : null} 保存
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+/* ─── Shell Modal ──────────────────────────────────────────── */
+function ShellModal({ server, onClose }: { server: SshServer; onClose: () => void }) {
+  return (
+    <div className="vos-modal-overlay" onClick={onClose}>
+      <motion.div className="vos-modal" style={{ width: 800, height: 500 }}
+        initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}>
+        <div className="vos-modal-header">
+          <Terminal size={14} />
+          <span>{server.name} — {server.host}</span>
+          <button type="button" className="vos-icon-btn" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div style={{ flex: 1, background: '#0d0d0d', overflow: 'hidden', borderRadius: '0 0 10px 10px' }}>
+          <WebShellEmbed target={server.id} />
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+/* ─── WebShell Embed ───────────────────────────────────────── */
+function WebShellEmbed({ target }: { target: string }) {
+  return <WebShell target={target} />
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Port Mappings Section
+═══════════════════════════════════════════════════════════ */
+function PortMappingsTab({ servers }: { servers: SshServer[] }) {
+  const [mappings, setMappings] = useState<PortMapping[]>([])
+  const [loading, setLoading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [acting, setActing] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await api.getPortMappings()
+      setMappings(res.data)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function toggle(m: PortMapping) {
+    setActing(m.id)
+    try {
+      if (m.status === 'active') await api.stopPortMapping(m.id)
+      else await api.startPortMapping(m.id)
+      load()
+    } finally {
+      setActing(null)
+    }
+  }
+
+  const serverName = (id: string) => servers.find(s => s.id === id)?.name ?? id
+
+  return (
+    <div className="ssh-section">
+      <div className="ssh-toolbar">
+        <span className="ssh-count">{mappings.length} 条映射</span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className="vos-icon-btn" onClick={load}>
+            <RefreshCw size={14} className={loading ? 'vos-spin' : ''} />
+          </button>
+          <button type="button" className="vos-btn vos-btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={14} /> 新建映射
+          </button>
+        </div>
+      </div>
+
+      {mappings.length === 0 && !loading && (
+        <div className="ssh-empty">
+          <Zap size={32} style={{ opacity: 0.3 }} />
+          <p>还没有端口映射</p>
+        </div>
+      )}
+
+      <table className="ssh-table">
+        <thead>
+          <tr>
+            <th>名称</th><th>服务器</th><th>远端</th><th>本地端口</th><th>状态</th><th />
+          </tr>
+        </thead>
+        <tbody>
+          {mappings.map(m => (
+            <tr key={m.id}>
+              <td><strong>{m.name}</strong></td>
+              <td>{serverName(m.ssh_server_id)}</td>
+              <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{m.remote_host}:{m.remote_port}</td>
+              <td style={{ fontFamily: 'monospace', fontSize: 12 }}>:{m.local_port}</td>
+              <td><StatusBadge status={m.status} /></td>
+              <td>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <button type="button" className="vos-icon-btn" onClick={() => toggle(m)}
+                    disabled={acting === m.id} title={m.status === 'active' ? '停止' : '启动'}>
+                    {acting === m.id
+                      ? <Loader2 size={14} className="vos-spin" />
+                      : m.status === 'active' ? <Square size={14} /> : <Activity size={14} />}
+                  </button>
+                  <DelBtn onConfirm={async () => { await api.deletePortMapping(m.id); load() }} />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {showForm && (
+        <PortMappingForm servers={servers} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
+      )}
+    </div>
+  )
+}
+
+function PortMappingForm({
+  servers,
+  onClose,
+  onSaved,
+}: { servers: SshServer[]; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState<CreatePortMappingReq>({
+    name: '',
+    ssh_server_id: servers[0]?.id ?? '',
+    remote_host: 'localhost',
+    remote_port: 3306,
+    local_port: 13306,
+  })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function handleSave() {
+    if (!form.name || !form.ssh_server_id) { setErr('名称和服务器为必填'); return }
+    setSaving(true)
+    setErr('')
+    try {
+      await api.createPortMapping(form)
+      onSaved()
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="vos-modal-overlay" onClick={onClose}>
+      <motion.div className="vos-modal" initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}>
+        <div className="vos-modal-header">
+          <span>新建端口映射</span>
+          <button type="button" className="vos-icon-btn" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="vos-modal-body">
+          <div className="vos-form-row">
+            <label>名称</label>
+            <input className="vos-input" placeholder="MySQL 生产" value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div className="vos-form-row">
+            <label>SSH 服务器</label>
+            <div className="vos-select-wrap">
+              <select className="vos-input" value={form.ssh_server_id}
+                onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}>
+                {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <ChevronDown size={14} className="vos-select-arrow" />
+            </div>
+          </div>
+          <div className="vos-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
+            <div>
+              <label>远端主机</label>
+              <input className="vos-input" value={form.remote_host}
+                onChange={e => setForm(f => ({ ...f, remote_host: e.target.value }))} />
+            </div>
+            <div>
+              <label>远端端口</label>
+              <input className="vos-input" type="number" value={form.remote_port}
+                onChange={e => setForm(f => ({ ...f, remote_port: Number(e.target.value) }))} />
+            </div>
+          </div>
+          <div className="vos-form-row">
+            <label>本地端口</label>
+            <input className="vos-input" type="number" value={form.local_port}
+              onChange={e => setForm(f => ({ ...f, local_port: Number(e.target.value) }))} />
+          </div>
+          {err && <p className="vos-form-error">{err}</p>}
+        </div>
+        <div className="vos-modal-footer">
+          <button type="button" className="vos-btn" onClick={onClose}>取消</button>
+          <button type="button" className="vos-btn vos-btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 size={14} className="vos-spin" /> : null} 保存
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Service Exposures Section
+═══════════════════════════════════════════════════════════ */
+function ExposuresTab({ servers }: { servers: SshServer[] }) {
+  const [exposures, setExposures] = useState<ServiceExposure[]>([])
+  const [loading, setLoading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [acting, setActing] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await api.getServiceExposures()
+      setExposures(res.data)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function toggle(e: ServiceExposure) {
+    setActing(e.id)
+    try {
+      if (e.status === 'active') await api.stopServiceExposure(e.id)
+      else await api.startServiceExposure(e.id)
+      load()
+    } finally {
+      setActing(null)
+    }
+  }
+
+  return (
+    <div className="ssh-section">
+      <div className="ssh-toolbar">
+        <span className="ssh-count">{exposures.length} 条暴露</span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className="vos-icon-btn" onClick={load}>
+            <RefreshCw size={14} className={loading ? 'vos-spin' : ''} />
+          </button>
+          <button type="button" className="vos-btn vos-btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={14} /> 新建暴露
+          </button>
+        </div>
+      </div>
+
+      {exposures.length === 0 && !loading && (
+        <div className="ssh-empty">
+          <Globe size={32} style={{ opacity: 0.3 }} />
+          <p>还没有服务暴露</p>
+        </div>
+      )}
+
+      <table className="ssh-table">
+        <thead>
+          <tr>
+            <th>名称</th><th>来源</th><th>公开端口</th><th>鉴权</th><th>状态</th><th />
+          </tr>
+        </thead>
+        <tbody>
+          {exposures.map(e => (
+            <tr key={e.id}>
+              <td><strong>{e.name}</strong></td>
+              <td style={{ fontSize: 12 }}>
+                {e.source_type === 'local' ? '本地' : `SSH: ${servers.find(s => s.id === e.ssh_server_id)?.name ?? e.ssh_server_id}`}
+                {' '}{e.source_host}:{e.source_port}
+              </td>
+              <td>
+                <a href={`http://localhost:${e.public_port}`} target="_blank" rel="noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--vos-accent-primary)', fontSize: 12 }}>
+                  :{e.public_port} <ExternalLink size={10} />
+                </a>
+              </td>
+              <td>
+                {e.basic_auth_enabled
+                  ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#f59e0b', fontSize: 11 }}><Shield size={11} /> 已启用</span>
+                  : <span style={{ fontSize: 11, color: '#6b7280' }}>无</span>}
+              </td>
+              <td><StatusBadge status={e.status} /></td>
+              <td>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <button type="button" className="vos-icon-btn" onClick={() => toggle(e)}
+                    disabled={acting === e.id} title={e.status === 'active' ? '停止' : '启动'}>
+                    {acting === e.id
+                      ? <Loader2 size={14} className="vos-spin" />
+                      : e.status === 'active' ? <Square size={14} /> : <Activity size={14} />}
+                  </button>
+                  <DelBtn onConfirm={async () => { await api.deleteServiceExposure(e.id); load() }} />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {showForm && (
+        <ExposureForm servers={servers} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
+      )}
+    </div>
+  )
+}
+
+function ExposureForm({
+  servers,
+  onClose,
+  onSaved,
+}: { servers: SshServer[]; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState<CreateServiceExposureReq>({
+    name: '',
+    source_type: 'local',
+    source_host: 'localhost',
+    source_port: 8080,
+    public_port: 8080,
+    basic_auth_enabled: false,
+  })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function handleSave() {
+    if (!form.name) { setErr('名称为必填'); return }
+    setSaving(true)
+    setErr('')
+    try {
+      await api.createServiceExposure(form)
+      onSaved()
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="vos-modal-overlay" onClick={onClose}>
+      <motion.div className="vos-modal" initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}>
+        <div className="vos-modal-header">
+          <span>新建服务暴露</span>
+          <button type="button" className="vos-icon-btn" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="vos-modal-body">
+          <div className="vos-form-row">
+            <label>名称</label>
+            <input className="vos-input" placeholder="我的服务" value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div className="vos-form-row">
+            <label>来源类型</label>
+            <div className="vos-segmented">
+              {(['local', 'ssh'] as const).map(t => (
+                <button key={t} type="button"
+                  className={`vos-segmented-item ${form.source_type === t ? 'active' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, source_type: t }))}>
+                  {t === 'local' ? '本地' : 'SSH 跳板'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {form.source_type === 'ssh' && (
+            <div className="vos-form-row">
+              <label>SSH 服务器</label>
+              <div className="vos-select-wrap">
+                <select className="vos-input" value={form.ssh_server_id ?? ''}
+                  onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}>
+                  <option value="">选择服务器…</option>
+                  {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <ChevronDown size={14} className="vos-select-arrow" />
+              </div>
+            </div>
+          )}
+          <div className="vos-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
+            <div>
+              <label>来源主机</label>
+              <input className="vos-input" value={form.source_host}
+                onChange={e => setForm(f => ({ ...f, source_host: e.target.value }))} />
+            </div>
+            <div>
+              <label>来源端口</label>
+              <input className="vos-input" type="number" value={form.source_port}
+                onChange={e => setForm(f => ({ ...f, source_port: Number(e.target.value) }))} />
+            </div>
+          </div>
+          <div className="vos-form-row">
+            <label>公开端口</label>
+            <input className="vos-input" type="number" value={form.public_port}
+              onChange={e => setForm(f => ({ ...f, public_port: Number(e.target.value) }))} />
+          </div>
+          <div className="vos-form-row" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <button type="button" className={`vos-toggle ${form.basic_auth_enabled ? 'on' : ''}`}
+              onClick={() => setForm(f => ({ ...f, basic_auth_enabled: !f.basic_auth_enabled }))}>
+              <span className="vos-toggle-thumb" />
+            </button>
+            <label style={{ marginBottom: 0 }}>启用 Basic Auth</label>
+          </div>
+          {form.basic_auth_enabled && (
+            <>
+              <div className="vos-form-row">
+                <label>用户名</label>
+                <input className="vos-input" value={form.basic_auth_username ?? ''}
+                  onChange={e => setForm(f => ({ ...f, basic_auth_username: e.target.value }))} />
+              </div>
+              <div className="vos-form-row">
+                <label>密码</label>
+                <input className="vos-input" type="password"
+                  onChange={e => setForm(f => ({ ...f, basic_auth_password: e.target.value }))} />
+              </div>
+            </>
+          )}
+          {err && <p className="vos-form-error">{err}</p>}
+        </div>
+        <div className="vos-modal-footer">
+          <button type="button" className="vos-btn" onClick={onClose}>取消</button>
+          <button type="button" className="vos-btn vos-btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 size={14} className="vos-spin" /> : null} 保存
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SSH App Root
+═══════════════════════════════════════════════════════════ */
+export default function SshApp(_props: AppComponentProps) {
+  const [tab, setTab] = useState<TabId>('servers')
+  const [servers, setServers] = useState<SshServer[]>([])
+
+  useEffect(() => {
+    api.getSshServers().then(r => setServers(r.data)).catch(() => {})
+  }, [])
+
+  const TABS = [
+    { id: 'servers' as TabId, label: 'SSH 服务器', icon: <Terminal size={14} /> },
+    { id: 'port-mappings' as TabId, label: '端口映射', icon: <Zap size={14} /> },
+    { id: 'exposures' as TabId, label: '服务暴露', icon: <Globe size={14} /> },
+  ]
+
+  return (
+    <div className="ssh-app">
+      {/* Sidebar */}
+      <div className="ssh-sidebar">
+        <div className="ssh-sidebar-header">
+          <Key size={16} />
+          <span>SSH 管理</span>
+        </div>
+        <nav className="ssh-nav">
+          {TABS.map(t => (
+            <button key={t.id} type="button"
+              className={`ssh-nav-item ${tab === t.id ? 'active' : ''}`}
+              onClick={() => setTab(t.id)}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content */}
+      <div className="ssh-content">
+        <AnimatePresence mode="wait">
+          <motion.div key={tab} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }} style={{ height: '100%' }}>
+            {tab === 'servers' && <ServersTab />}
+            {tab === 'port-mappings' && <PortMappingsTab servers={servers} />}
+            {tab === 'exposures' && <ExposuresTab servers={servers} />}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
