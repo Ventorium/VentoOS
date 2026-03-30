@@ -211,7 +211,7 @@ export default function RedisApp(_props: AppComponentProps) {
     if (!selectedConn || !cliInput.trim()) return
     try {
       const r = await apiClient.executeRedisCommand(selectedConn, cliInput)
-      setCliHistory(h => [...h, { cmd: cliInput, result: r.data.result }])
+      setCliHistory(h => [...h, { cmd: cliInput, result: String(r.data?.result ?? '') }])
       setCliInput('')
       setTimeout(() => cliRef.current?.scrollTo(0, cliRef.current.scrollHeight), 50)
     } catch (e) {
@@ -490,7 +490,7 @@ export default function RedisApp(_props: AppComponentProps) {
                         className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap"
                         style={{ color: 'var(--vos-text-primary)' }}
                       >
-                        {selectedKey.value}
+                        {String(selectedKey.value ?? '')}
                       </div>
                     </>
                   ) : (

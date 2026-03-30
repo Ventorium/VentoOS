@@ -25,11 +25,11 @@ interface AppStore {
   getAllApps: () => AppManifest[]
 }
 
-export const useAppStore = create<AppStore>(() => ({
+export const useAppStore = create<AppStore>((set, get) => ({
   apps: new Map(),
 
   registerApp(manifest) {
-    useAppStore.setState(state => {
+    set(state => {
       const next = new Map(state.apps)
       next.set(manifest.id, manifest)
       return { apps: next }
@@ -37,7 +37,7 @@ export const useAppStore = create<AppStore>(() => ({
   },
 
   unregisterApp(appId) {
-    useAppStore.setState(state => {
+    set(state => {
       const next = new Map(state.apps)
       next.delete(appId)
       return { apps: next }
@@ -45,10 +45,10 @@ export const useAppStore = create<AppStore>(() => ({
   },
 
   getApp(appId) {
-    return useAppStore.getState().apps.get(appId)
+    return get().apps.get(appId)
   },
 
   getAllApps() {
-    return [...useAppStore.getState().apps.values()]
+    return [...get().apps.values()]
   }
 }))

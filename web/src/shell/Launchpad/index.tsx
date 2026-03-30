@@ -21,7 +21,7 @@ function AppIcon({
     id: string
     name: string
     icon: React.ReactNode
-    description: string
+    description?: string
     multiWindow: boolean
     defaultSize?: { width: number; height: number }
   }
@@ -85,7 +85,7 @@ export default function Launchpad() {
     ? allApps.filter(
         a =>
           a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          a.description.toLowerCase().includes(searchQuery.toLowerCase())
+          (a.description ?? '').toLowerCase().includes(searchQuery.toLowerCase())
       )
     : allApps
 

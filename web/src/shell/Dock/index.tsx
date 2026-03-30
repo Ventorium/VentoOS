@@ -8,7 +8,7 @@
  * - Launchpad launcher button
  * - Tooltip on hover
  */
-import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { Grid3X3 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type AppManifest, focusWindow, openWindow, restoreWindow, useAppStore, useWindowStore } from '@/kernel'

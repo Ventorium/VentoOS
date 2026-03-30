@@ -22,41 +22,41 @@ const RESOURCE_GROUPS: { label: string; icon: React.ReactNode; kinds: { kind: K8
     label: 'Workloads',
     icon: <Server size={12} />,
     kinds: [
-      { kind: 'Pod', label: 'Pods' },
-      { kind: 'Deployment', label: 'Deployments' },
-      { kind: 'StatefulSet', label: 'StatefulSets' },
-      { kind: 'DaemonSet', label: 'DaemonSets' },
-      { kind: 'Job', label: 'Jobs' },
-      { kind: 'CronJob', label: 'CronJobs' },
-      { kind: 'ReplicaSet', label: 'ReplicaSets' }
+      { kind: 'pod', label: 'Pods' },
+      { kind: 'deployment', label: 'Deployments' },
+      { kind: 'statefulset', label: 'StatefulSets' },
+      { kind: 'daemonset', label: 'DaemonSets' },
+      { kind: 'job', label: 'Jobs' },
+      { kind: 'cronjob', label: 'CronJobs' },
+      { kind: 'replicaset', label: 'ReplicaSets' }
     ]
   },
   {
     label: 'Network',
     icon: <Network size={12} />,
     kinds: [
-      { kind: 'Service', label: 'Services' },
-      { kind: 'Ingress', label: 'Ingresses' },
-      { kind: 'NetworkPolicy', label: 'Network Policies' }
+      { kind: 'service', label: 'Services' },
+      { kind: 'ingress', label: 'Ingresses' },
+      { kind: 'networkpolicy', label: 'Network Policies' }
     ]
   },
   {
     label: 'Storage',
     icon: <HardDrive size={12} />,
     kinds: [
-      { kind: 'PersistentVolumeClaim', label: 'PVCs' },
-      { kind: 'PersistentVolume', label: 'PVs' },
-      { kind: 'StorageClass', label: 'Storage Classes' }
+      { kind: 'persistentvolumeclaim', label: 'PVCs' },
+      { kind: 'persistentvolume', label: 'PVs' },
+      { kind: 'storageclass', label: 'Storage Classes' }
     ]
   },
   {
     label: 'Config',
     icon: <Settings size={12} />,
     kinds: [
-      { kind: 'ConfigMap', label: 'ConfigMaps' },
-      { kind: 'Secret', label: 'Secrets' },
-      { kind: 'Namespace', label: 'Namespaces' },
-      { kind: 'ServiceAccount', label: 'Service Accounts' }
+      { kind: 'configmap', label: 'ConfigMaps' },
+      { kind: 'secret', label: 'Secrets' },
+      { kind: 'namespace', label: 'Namespaces' },
+      { kind: 'serviceaccount', label: 'Service Accounts' }
     ]
   }
 ]
@@ -153,7 +153,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null)
   const [namespaces, setNamespaces] = useState<K8sNamespace[]>([])
   const [selectedNs, setSelectedNs] = useState<string>('default')
-  const [selectedKind, setSelectedKind] = useState<K8sResourceKind>('Pod')
+  const [selectedKind, setSelectedKind] = useState<K8sResourceKind>('pod')
   const [resources, setResources] = useState<K8sResource[]>([])
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Workloads']))
   const [loading, setLoading] = useState(false)

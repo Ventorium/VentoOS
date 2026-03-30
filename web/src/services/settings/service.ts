@@ -6,6 +6,7 @@
 
 import { apiClient } from '@/infra/api'
 import { createLogger } from '@/infra/logger'
+import type { ThemeMode } from './store'
 import { useSettingsStore } from './store'
 
 const logger = createLogger('services/settings')
@@ -18,9 +19,7 @@ export const settingsService = {
       const data = res.data as Partial<{ wallpaper: string; theme_mode: string }>
       if (data.wallpaper) useSettingsStore.getState().setWallpaper(data.wallpaper)
       if (data.theme_mode) {
-        useSettingsStore
-          .getState()
-          .setThemeMode(data.theme_mode as Parameters<typeof useSettingsStore.getState.prototype.setThemeMode>[0])
+        useSettingsStore.getState().setThemeMode(data.theme_mode as ThemeMode)
       }
     } catch (err) {
       logger.warn('Failed to fetch desktop settings', err)

@@ -9,6 +9,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, Loader2, Moon, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { apiClient } from '@/infra/api'
+import type { AppManifest } from '@/kernel'
 import { closeAllWindows as closeAllWindowsFn, useAppStore, useWindowStore } from '@/kernel'
 import { useAuthStore } from '@/services/auth'
 import { useNotificationStore } from '@/services/notification'
@@ -27,12 +28,7 @@ function MenuBarLeft() {
   const getApp = useAppStore(s => s.getApp)
   const activeApp = focusedAppId ? getApp(focusedAppId) : null
   const showCtxMenu = useContextMenuStore(s => s.show)
-  const [aboutApp, setAboutApp] = useState<{
-    name: string
-    version: string
-    author: { name: string; email?: string; url?: string }
-    description?: string
-  } | null>(null)
+  const [aboutApp, setAboutApp] = useState<AppManifest | null>(null)
 
   function openLogoMenu(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -73,7 +69,7 @@ function MenuBarLeft() {
                 id: 'about-app',
                 label: `关于 ${activeApp.name}`,
                 action: () => {
-                  setAboutApp(activeApp)
+                  setAboutApp(activeApp ?? null)
                 }
               },
               { type: 'separator' },

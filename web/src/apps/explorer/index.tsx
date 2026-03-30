@@ -328,7 +328,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
                             {e.name}
                           </td>
                           <td className="px-3 py-1.5" style={{ color: 'var(--vos-text-tertiary)' }}>
-                            {e.is_dir ? '—' : fmtSize(e.size)}
+                            {e.is_dir ? '—' : fmtSize(e.size ?? 0)}
                           </td>
                           <td className="px-3 py-1.5" style={{ color: 'var(--vos-text-tertiary)' }}>
                             {e.modified ?? '—'}

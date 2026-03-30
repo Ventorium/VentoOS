@@ -51,7 +51,7 @@ export interface SshServer {
   port: number
   username: string
   auth_method:
-    | { type: 'password'; credential_id: string }
+    | { type: 'password'; credential_id?: string }
     | { type: 'private_key'; key_path?: string }
     | { type: 'agent' }
   group?: string
@@ -303,8 +303,13 @@ export type K8sResourceKind =
   | 'job'
   | 'cronjob'
   | 'persistentvolumeclaim'
+  | 'persistentvolume'
+  | 'storageclass'
   | 'namespace'
   | 'node'
+  | 'replicaset'
+  | 'networkpolicy'
+  | 'serviceaccount'
 
 export interface K8sResource {
   name: string

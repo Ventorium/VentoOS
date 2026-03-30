@@ -15,7 +15,7 @@ import WindowManager from '@/shell/WindowManager'
 
 function App() {
   useThemeSync()
-  const { token, initialized, locked, setInitialized } = useAuthStore()
+  const { token, locked, setInitialized } = useAuthStore()
 
   // On mount: check auth status from backend, auto-unlock if token is valid
   useEffect(() => {
