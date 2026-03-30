@@ -6,7 +6,7 @@
  */
 import { Bell, Info, Layout, Monitor, Palette } from 'lucide-react'
 import { useState } from 'react'
-import { useSettingsStore, type ThemeMode, type DockPosition } from '@/services/settings'
+import { type DockPosition, type ThemeMode, useSettingsStore } from '@/services/settings'
 
 type Category = 'appearance' | 'desktop' | 'notifications' | 'general'
 
@@ -27,10 +27,7 @@ function AppearancePanel() {
     { value: 'auto', label: '自动', desc: '随日出日落自动切换' }
   ]
 
-  const accentColors = [
-    '#007AFF', '#FF3B30', '#FF9500', '#30D158',
-    '#5AC8FA', '#BF5AF2', '#FF2D55', '#A2845E'
-  ]
+  const accentColors = ['#007AFF', '#FF3B30', '#FF9500', '#30D158', '#5AC8FA', '#BF5AF2', '#FF2D55', '#A2845E']
 
   const gradientWallpapers = [
     '/wallpapers/dark-aurora.jpg',
@@ -41,7 +38,7 @@ function AppearancePanel() {
     '/wallpapers/light-field.jpg',
     'linear-gradient(145deg, #0d1117 0%, #161b27 30%, #1a2035 60%, #0f1a2e 100%)',
     'linear-gradient(135deg, #1a1a2e 0%, #16213e 30%, #0f3460 60%, #533483 100%)',
-    'linear-gradient(160deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+    'linear-gradient(160deg, #0f2027 0%, #203a43 50%, #2c5364 100%)'
   ]
 
   return (
@@ -227,9 +224,7 @@ function NotificationsPanel() {
 
       <div className="vos-settings-group" style={{ opacity: 0.5 }}>
         <label className="vos-settings-label">应用通知（即将推出）</label>
-        <p style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>
-          即将支持每个应用的通知权限控制。
-        </p>
+        <p style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>即将支持每个应用的通知权限控制。</p>
       </div>
     </div>
   )
@@ -242,20 +237,28 @@ function GeneralPanel() {
       <h2 className="vos-settings-section-title">通用</h2>
 
       <div className="vos-settings-group">
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          padding: '16px',
-          background: 'var(--vos-bg-surface)',
-          borderRadius: 8,
-          border: '0.5px solid var(--vos-border-default)'
-        }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 12,
-            background: 'linear-gradient(135deg, #1a1a2e, #0f3460)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            padding: '16px',
+            background: 'var(--vos-bg-surface)',
+            borderRadius: 8,
+            border: '0.5px solid var(--vos-border-default)'
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 12,
+              background: 'linear-gradient(135deg, #1a1a2e, #0f3460)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
             <svg width="30" height="30" viewBox="0 0 16 16" fill="white">
               <circle cx="8" cy="4.5" r="2.5" />
               <path d="M8 9c-3 0-5.5 1.3-5.5 3S5 15 8 15s5.5-1.3 5.5-3S11 9 8 9z" />
@@ -302,7 +305,16 @@ export default function SettingsApp(_props: { windowId: string; processId: numbe
     <div style={{ display: 'flex', height: '100%', background: 'var(--vos-bg-window)' }}>
       {/* Sidebar */}
       <div className="vos-settings-sidebar">
-        <div style={{ padding: '12px 8px 8px', fontSize: 11, fontWeight: 600, color: 'var(--vos-text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+        <div
+          style={{
+            padding: '12px 8px 8px',
+            fontSize: 11,
+            fontWeight: 600,
+            color: 'var(--vos-text-tertiary)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase'
+          }}
+        >
           设置
         </div>
 

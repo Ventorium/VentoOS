@@ -48,5 +48,5 @@ export type {
   VfsMount,
   VfsNode,
   VfsSourceKind,
-  VProcess,
+  VProcess
 } from './types'

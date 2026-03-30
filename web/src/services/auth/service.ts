@@ -71,5 +71,5 @@ export const authService = {
       useAuthStore.getState().lock()
       return false
     }
-  },
+  }
 }

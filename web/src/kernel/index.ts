@@ -5,35 +5,32 @@
  * This is what shell components and apps import from the kernel.
  */
 
-// ── SystemChannel ──────────────────────────────────────────────────────────
-export { systemChannel } from './channel'
-export type { SystemNotifications } from './channel'
-
+export { useApp, useAppComponent, useAppList } from './apps/hooks'
+export { getAllApps, getApp, getAppComponent, registerApp, registerApps } from './apps/manager'
+export type { AppComponentProps, AppLifecycle, AppManifest, AppPermission } from './apps/manifest'
 // ── App registry ───────────────────────────────────────────────────────────
 export { useAppStore } from './apps/store'
-export { registerApp, registerApps, getApp, getAllApps, getAppComponent } from './apps/manager'
-export { useApp, useAppList, useAppComponent } from './apps/hooks'
-export type { AppManifest, AppComponentProps, AppLifecycle, AppPermission } from './apps/manifest'
-
-// ── Window management ──────────────────────────────────────────────────────
-export { useWindowStore } from './window/store'
+// ── Bootstrap ──────────────────────────────────────────────────────────────
+export { bootKernel } from './bootstrap'
+export type { SystemNotifications } from './channel'
+// ── SystemChannel ──────────────────────────────────────────────────────────
+export { systemChannel } from './channel'
 export {
-  openWindow,
+  useAppWindows,
+  useFocusedWindow,
+  useWindow,
+  useWindowActions,
+  useWindowList
+} from './window/hooks'
+export {
+  closeAllWindows,
   closeWindow,
   focusWindow,
   minimizeWindow,
+  openWindow,
   restoreWindow,
-  toggleMaximize,
-  closeAllWindows,
+  toggleMaximize
 } from './window/manager'
-export {
-  useWindow,
-  useWindowList,
-  useFocusedWindow,
-  useAppWindows,
-  useWindowActions,
-} from './window/hooks'
+// ── Window management ──────────────────────────────────────────────────────
+export { useWindowStore } from './window/store'
 export type { WindowInstance, WindowOpenOptions } from './window/types'
-
-// ── Bootstrap ──────────────────────────────────────────────────────────────
-export { bootKernel } from './bootstrap'

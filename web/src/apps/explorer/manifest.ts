@@ -13,8 +13,8 @@ function ExplorerIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
     React.createElement(FolderOpen, { size: 22 })
   )
@@ -32,5 +32,5 @@ export const explorerManifest: AppManifest = {
   minSize: { width: 700, height: 440 },
   permissions: ['network', 'connections', 'storage', 'notifications'],
   hasBackendPlugin: true,
-  component: () => import('./index'),
+  component: () => import('./index')
 }

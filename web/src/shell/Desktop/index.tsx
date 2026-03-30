@@ -1,10 +1,11 @@
 /**
  * Desktop — Background layer with right-click context menu
  */
-import { useContextMenu } from '@/shell/ContextMenu/store'
-import { useSettingsStore } from '@/services/settings'
-import { useLaunchpadStore } from '@/shell/Launchpad/store'
+
 import { useWindowStore } from '@/kernel'
+import { useSettingsStore } from '@/services/settings'
+import { useContextMenu } from '@/shell/ContextMenu/store'
+import { useLaunchpadStore } from '@/shell/Launchpad/store'
 
 const DEFAULT_GRADIENT = 'linear-gradient(145deg, #0d1117 0%, #161b27 30%, #1a2035 60%, #0f1a2e 100%)'
 
@@ -43,9 +44,10 @@ export default function Desktop() {
       role="presentation"
       className="absolute inset-0"
       style={{
-        backgroundImage: wallpaper.startsWith('linear-') || wallpaper.startsWith('radial-')
-          ? wallpaper
-          : `url(${wallpaper}), ${DEFAULT_GRADIENT}`,
+        backgroundImage:
+          wallpaper.startsWith('linear-') || wallpaper.startsWith('radial-')
+            ? wallpaper
+            : `url(${wallpaper}), ${DEFAULT_GRADIENT}`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         zIndex: 0

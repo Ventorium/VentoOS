@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { CornerDownLeft, Search } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useAppStore, openWindow } from '@/kernel'
+import { openWindow, useAppStore } from '@/kernel'
 import { tokens } from '@/theme'
 
 interface Command {

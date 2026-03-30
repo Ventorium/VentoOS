@@ -50,5 +50,5 @@ export const useAppStore = create<AppStore>(() => ({
 
   getAllApps() {
     return [...useAppStore.getState().apps.values()]
-  },
+  }
 }))

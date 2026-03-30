@@ -41,6 +41,6 @@ export function createLogger(module: string) {
     debug: (...args: unknown[]) => log('debug', module, ...args),
     info: (...args: unknown[]) => log('info', module, ...args),
     warn: (...args: unknown[]) => log('warn', module, ...args),
-    error: (...args: unknown[]) => log('error', module, ...args),
+    error: (...args: unknown[]) => log('error', module, ...args)
   }
 }

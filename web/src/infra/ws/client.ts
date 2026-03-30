@@ -89,7 +89,7 @@ class WsClient {
    */
   on<K extends ServerMessage['type']>(
     type: K,
-    handler: MessageHandler<Extract<ServerMessage, { type: K }> extends { data: infer D } ? D : undefined>,
+    handler: MessageHandler<Extract<ServerMessage, { type: K }> extends { data: infer D } ? D : undefined>
   ): () => void {
     const set = this.handlers.get(type)
     if (set) {

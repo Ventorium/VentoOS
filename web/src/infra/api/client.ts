@@ -45,7 +45,7 @@ import type {
   VfsFileContent,
   VfsMount,
   VfsNode,
-  VProcess,
+  VProcess
 } from './types'
 
 // ─── Token provider (set by services/auth at boot) ─────────────────────────
@@ -57,10 +57,7 @@ let _onUnauthorized: () => void = () => {}
  * Configure the API client with auth callbacks.
  * Call this once during app bootstrap before making any requests.
  */
-export function configureApiClient(opts: {
-  tokenProvider: () => string | null
-  onUnauthorized: () => void
-}): void {
+export function configureApiClient(opts: { tokenProvider: () => string | null; onUnauthorized: () => void }): void {
   _tokenProvider = opts.tokenProvider
   _onUnauthorized = opts.onUnauthorized
 }
@@ -76,7 +73,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const res = await fetch(path, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined
   })
 
   if (!res.ok) {
@@ -152,12 +149,16 @@ export const apiClient = {
     request<ApiResponse<SshServer>>('PUT', `/api/ssh/servers/${id}`, body),
   deleteSshServer: (id: string) => request<ApiResponse<null>>('DELETE', `/api/ssh/servers/${id}`),
   testSshServer: (id: string) =>
-    request<ApiResponse<{ success: boolean; message: string; latency_ms?: number }>>('POST', `/api/ssh/servers/${id}/test`),
+    request<ApiResponse<{ success: boolean; message: string; latency_ms?: number }>>(
+      'POST',
+      `/api/ssh/servers/${id}/test`
+    ),
 
   // ── Port Mappings ─────────────────────────────────────────────────────────
 
   getPortMappings: () => request<ApiResponse<PortMapping[]>>('GET', '/api/port-mappings'),
-  createPortMapping: (body: CreatePortMappingReq) => request<ApiResponse<PortMapping>>('POST', '/api/port-mappings', body),
+  createPortMapping: (body: CreatePortMappingReq) =>
+    request<ApiResponse<PortMapping>>('POST', '/api/port-mappings', body),
   deletePortMapping: (id: string) => request<ApiResponse<null>>('DELETE', `/api/port-mappings/${id}`),
   startPortMapping: (id: string) => request<ApiResponse<PortMapping>>('POST', `/api/port-mappings/${id}/start`),
   stopPortMapping: (id: string) => request<ApiResponse<PortMapping>>('POST', `/api/port-mappings/${id}/stop`),
@@ -168,8 +169,10 @@ export const apiClient = {
   createServiceExposure: (body: CreateServiceExposureReq) =>
     request<ApiResponse<ServiceExposure>>('POST', '/api/service-exposures', body),
   deleteServiceExposure: (id: string) => request<ApiResponse<null>>('DELETE', `/api/service-exposures/${id}`),
-  startServiceExposure: (id: string) => request<ApiResponse<ServiceExposure>>('POST', `/api/service-exposures/${id}/start`),
-  stopServiceExposure: (id: string) => request<ApiResponse<ServiceExposure>>('POST', `/api/service-exposures/${id}/stop`),
+  startServiceExposure: (id: string) =>
+    request<ApiResponse<ServiceExposure>>('POST', `/api/service-exposures/${id}/start`),
+  stopServiceExposure: (id: string) =>
+    request<ApiResponse<ServiceExposure>>('POST', `/api/service-exposures/${id}/stop`),
 
   // ── Database ──────────────────────────────────────────────────────────────
 
@@ -187,7 +190,7 @@ export const apiClient = {
   getDbTableData: (id: string, table: string, page?: number, pageSize?: number) =>
     request<ApiResponse<QueryResult>>(
       'GET',
-      `/api/db/connections/${id}/tables/${table}/data?page=${page ?? 1}&page_size=${pageSize ?? 50}`,
+      `/api/db/connections/${id}/tables/${table}/data?page=${page ?? 1}&page_size=${pageSize ?? 50}`
     ),
   executeDbSql: (id: string, sql: string) =>
     request<ApiResponse<QueryResult>>('POST', `/api/db/connections/${id}/query`, { sql }),
@@ -219,19 +222,16 @@ export const apiClient = {
     request<ApiResponse<unknown>>('DELETE', `/api/redis/connections/${id}/keys/${encodeURIComponent(key)}`),
   executeRedisCommand: (id: string, command: string) =>
     request<ApiResponse<RedisCommandResult>>('POST', `/api/redis/connections/${id}/command`, { command }),
-  getRedisServerInfo: (id: string) =>
-    request<ApiResponse<RedisServerInfo>>('GET', `/api/redis/connections/${id}/info`),
+  getRedisServerInfo: (id: string) => request<ApiResponse<RedisServerInfo>>('GET', `/api/redis/connections/${id}/info`),
 
   // ── Kubernetes ────────────────────────────────────────────────────────────
 
   getK8sClusters: () => request<ApiResponse<K8sCluster[]>>('GET', '/api/k8s/clusters'),
-  createK8sCluster: (body: CreateK8sClusterReq) =>
-    request<ApiResponse<K8sCluster>>('POST', '/api/k8s/clusters', body),
+  createK8sCluster: (body: CreateK8sClusterReq) => request<ApiResponse<K8sCluster>>('POST', '/api/k8s/clusters', body),
   getK8sCluster: (id: string) => request<ApiResponse<K8sCluster>>('GET', `/api/k8s/clusters/${id}`),
   deleteK8sCluster: (id: string) => request<ApiResponse<null>>('DELETE', `/api/k8s/clusters/${id}`),
   testK8sCluster: (id: string) => request<ApiResponse<K8sTestResult>>('POST', `/api/k8s/clusters/${id}/test`),
-  getK8sNamespaces: (id: string) =>
-    request<ApiResponse<K8sNamespace[]>>('GET', `/api/k8s/clusters/${id}/namespaces`),
+  getK8sNamespaces: (id: string) => request<ApiResponse<K8sNamespace[]>>('GET', `/api/k8s/clusters/${id}/namespaces`),
   getK8sResources: (id: string, kind: K8sResourceKind, namespace?: string) => {
     const params = new URLSearchParams({ kind })
     if (namespace) params.set('namespace', namespace)
@@ -243,8 +243,7 @@ export const apiClient = {
   // ── VFS ───────────────────────────────────────────────────────────────────
 
   getVfsMounts: () => request<ApiResponse<VfsMount[]>>('GET', '/api/vfs/mounts'),
-  createVfsMount: (body: CreateVfsMountReq) =>
-    request<ApiResponse<VfsMount>>('POST', '/api/vfs/mounts', body),
+  createVfsMount: (body: CreateVfsMountReq) => request<ApiResponse<VfsMount>>('POST', '/api/vfs/mounts', body),
   getVfsMount: (id: string) => request<ApiResponse<VfsMount>>('GET', `/api/vfs/mounts/${id}`),
   deleteVfsMount: (id: string) => request<ApiResponse<null>>('DELETE', `/api/vfs/mounts/${id}`),
   listVfsDir: (id: string, path?: string) =>
@@ -266,5 +265,5 @@ export const apiClient = {
 
   // ── SSH Config ────────────────────────────────────────────────────────────
 
-  getSshConfigAliases: () => request<ApiResponse<string[]>>('GET', '/api/ssh/config-aliases'),
+  getSshConfigAliases: () => request<ApiResponse<string[]>>('GET', '/api/ssh/config-aliases')
 }

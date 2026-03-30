@@ -1,3 +1,6 @@
+import { useEffect } from 'react'
+import { useThemeSync } from '@/hooks/useTheme'
+import { authService, useAuthStore } from '@/services/auth'
 import CommandPalette from '@/shell/CommandPalette'
 import ContextMenu from '@/shell/ContextMenu'
 import Desktop from '@/shell/Desktop'
@@ -9,9 +12,6 @@ import NotificationToast from '@/shell/NotificationToast'
 import TaskCenter from '@/shell/TaskCenter'
 import TopBar from '@/shell/TopBar'
 import WindowManager from '@/shell/WindowManager'
-import { useThemeSync } from '@/hooks/useTheme'
-import { authService, useAuthStore } from '@/services/auth'
-import { useEffect } from 'react'
 
 function App() {
   useThemeSync()
@@ -19,16 +19,19 @@ function App() {
 
   // On mount: check auth status from backend, auto-unlock if token is valid
   useEffect(() => {
-    authService.checkStatus().then(res => {
-      setInitialized(res.initialized)
-      if (res.initialized && token) {
-        // Re-validate stored token
-        authService.revalidateToken().catch(() => useAuthStore.getState().lock())
-      }
-    }).catch(() => {
-      // Backend not reachable — still show UI
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    authService
+      .checkStatus()
+      .then(res => {
+        setInitialized(res.initialized)
+        if (res.initialized && token) {
+          // Re-validate stored token
+          authService.revalidateToken().catch(() => useAuthStore.getState().lock())
+        }
+      })
+      .catch(() => {
+        // Backend not reachable — still show UI
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const showLockScreen = locked || !token

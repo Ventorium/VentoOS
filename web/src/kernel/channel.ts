@@ -41,10 +41,7 @@ class SystemChannelImpl {
    * Usage in React components:
    *   useEffect(() => systemChannel.subscribe('window:opened', handler), [])
    */
-  subscribe<K extends keyof SystemNotifications>(
-    event: K,
-    handler: Handler<SystemNotifications[K]>,
-  ): () => void {
+  subscribe<K extends keyof SystemNotifications>(event: K, handler: Handler<SystemNotifications[K]>): () => void {
     const set = this.listeners.get(event)
     if (set) {
       set.add(handler as Handler<unknown>)

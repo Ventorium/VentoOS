@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, CheckCircle, Info, X, XCircle } from 'lucide-react'
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useNotificationStore, type NotificationItem } from '@/services/notification'
+import { type NotificationItem, useNotificationStore } from '@/services/notification'
 import { tokens } from '@/theme'
 
 const LEVEL_CONFIG = {
@@ -44,10 +44,7 @@ function Toast({ notification }: { notification: NotificationItem }) {
       className="vos-toast"
     >
       {/* Level bar */}
-      <div
-        className="vos-toast-bar"
-        style={{ background: config.color }}
-      />
+      <div className="vos-toast-bar" style={{ background: config.color }} />
 
       <div className="vos-toast-body">
         <div className="vos-toast-icon" style={{ color: config.color }}>
@@ -55,15 +52,9 @@ function Toast({ notification }: { notification: NotificationItem }) {
         </div>
         <div className="vos-toast-content">
           <p className="vos-toast-title">{notification.title}</p>
-          {notification.message && (
-            <p className="vos-toast-message">{notification.message}</p>
-          )}
+          {notification.message && <p className="vos-toast-message">{notification.message}</p>}
         </div>
-        <button
-          type="button"
-          className="vos-toast-close"
-          onClick={() => remove(notification.id)}
-        >
+        <button type="button" className="vos-toast-close" onClick={() => remove(notification.id)}>
           <X size={12} />
         </button>
       </div>

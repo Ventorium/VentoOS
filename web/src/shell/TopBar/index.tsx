@@ -9,13 +9,13 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, Loader2, Moon, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { apiClient } from '@/infra/api'
-import { useAppStore, useWindowStore, closeAllWindows as closeAllWindowsFn } from '@/kernel'
+import { closeAllWindows as closeAllWindowsFn, useAppStore, useWindowStore } from '@/kernel'
 import { useAuthStore } from '@/services/auth'
-import { useContextMenuStore } from '@/shell/ContextMenu/store'
-import { useSettingsStore } from '@/services/settings'
-import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { useNotificationStore } from '@/services/notification'
+import { useSettingsStore } from '@/services/settings'
 import { useTaskStore } from '@/services/task'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
+import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { tokens } from '@/theme'
 
 const H = tokens.topBar.height
@@ -27,7 +27,12 @@ function MenuBarLeft() {
   const getApp = useAppStore(s => s.getApp)
   const activeApp = focusedAppId ? getApp(focusedAppId) : null
   const showCtxMenu = useContextMenuStore(s => s.show)
-  const [aboutApp, setAboutApp] = useState<{ name: string; version: string; author: { name: string; email?: string; url?: string }; description?: string } | null>(null)
+  const [aboutApp, setAboutApp] = useState<{
+    name: string
+    version: string
+    author: { name: string; email?: string; url?: string }
+    description?: string
+  } | null>(null)
 
   function openLogoMenu(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -36,10 +41,14 @@ function MenuBarLeft() {
       { type: 'separator' },
       { id: 'launchpad', label: '启动台', shortcut: '⌘Space', action: toggleLaunchpad },
       { type: 'separator' },
-      { id: 'lock', label: '锁定屏幕', action: () => {
-        apiClient.authLogout().catch(() => {})
-        useAuthStore.getState().lock()
-      }},
+      {
+        id: 'lock',
+        label: '锁定屏幕',
+        action: () => {
+          apiClient.authLogout().catch(() => {})
+          useAuthStore.getState().lock()
+        }
+      },
       { type: 'separator' },
       { id: 'close-all', label: '关闭所有窗口', action: () => closeAllWindowsFn() }
     ])
@@ -57,17 +66,25 @@ function MenuBarLeft() {
         <button
           type="button"
           className="vos-topbar-btn vos-topbar-appname"
-          onClick={(e) => {
+          onClick={e => {
             const rect = e.currentTarget.getBoundingClientRect()
             showCtxMenu(rect.left, rect.bottom + 2, [
-              { id: 'about-app', label: `关于 ${activeApp.name}`, action: () => {
-                setAboutApp(activeApp)
-              }},
+              {
+                id: 'about-app',
+                label: `关于 ${activeApp.name}`,
+                action: () => {
+                  setAboutApp(activeApp)
+                }
+              },
               { type: 'separator' },
               { id: 'hide-app', label: `隐藏 ${activeApp.name}`, disabled: true },
-              { id: 'quit-app', label: `退出 ${activeApp.name}`, action: () => {
-                closeAllWindowsFn()
-              }},
+              {
+                id: 'quit-app',
+                label: `退出 ${activeApp.name}`,
+                action: () => {
+                  closeAllWindowsFn()
+                }
+              }
             ])
           }}
         >
@@ -87,9 +104,7 @@ function MenuBarLeft() {
           >
             <div style={{ padding: '24px 24px 20px', textAlign: 'center' }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>{aboutApp.icon ?? '📦'}</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
-                {aboutApp.name}
-              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--vos-text-primary)' }}>{aboutApp.name}</div>
               <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>
                 版本 {aboutApp.version}
               </div>
@@ -153,7 +168,13 @@ function MenuBarRight() {
         </button>
       )}
 
-      <button type="button" className="vos-topbar-btn" onClick={toggleNotifPanel} title="通知中心" style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="vos-topbar-btn"
+        onClick={toggleNotifPanel}
+        title="通知中心"
+        style={{ position: 'relative' }}
+      >
         <Bell size={13} />
         <AnimatePresence>
           {unreadCount > 0 && (

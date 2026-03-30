@@ -1,3 +1,3 @@
-export { useSettingsStore } from './store'
-export type { ThemeMode, DockPosition } from './store'
 export { settingsService } from './service'
+export type { DockPosition, ThemeMode } from './store'
+export { useSettingsStore } from './store'

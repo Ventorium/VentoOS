@@ -13,8 +13,8 @@ function AIAssistantIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
     React.createElement(Sparkles, { size: 22 })
   )
@@ -31,5 +31,5 @@ export const aiAssistantManifest: AppManifest = {
   defaultSize: { width: 480, height: 640 },
   minSize: { width: 360, height: 480 },
   permissions: ['network', 'notifications', 'ipc'],
-  component: () => import('./index'),
+  component: () => import('./index')
 }

@@ -6,12 +6,12 @@
  * Integrates with the SystemChannel to propagate process lifecycle events.
  */
 
-import { apiClient } from '@/infra/api'
 import type { VProcess } from '@/infra/api'
-import { wsClient } from '@/infra/ws'
-import type { ProcessUpdatePayload } from '@/infra/ws'
-import { systemChannel } from '@/kernel/channel'
+import { apiClient } from '@/infra/api'
 import { createLogger } from '@/infra/logger'
+import type { ProcessUpdatePayload } from '@/infra/ws'
+import { wsClient } from '@/infra/ws'
+import { systemChannel } from '@/kernel/channel'
 
 const logger = createLogger('services/process')
 
@@ -56,14 +56,14 @@ export const processService = {
       if (data.status === 'terminated') {
         systemChannel.notify('process:terminated', {
           pid: data.pid,
-          windowId: data.window_id,
+          windowId: data.window_id
         })
       } else if (data.status === 'suspended') {
         systemChannel.notify('process:suspended', {
           pid: data.pid,
-          windowId: data.window_id,
+          windowId: data.window_id
         })
       }
     })
-  },
+  }
 }

@@ -19,13 +19,13 @@ export interface AppComponentProps {
 // ─── Permissions ───────────────────────────────────────────────────────────
 
 export type AppPermission =
-  | 'network'       // External network connections
-  | 'storage'       // Access to app data directory
-  | 'connections'   // Access to connection manager
-  | 'shell'         // Execute shell commands
+  | 'network' // External network connections
+  | 'storage' // Access to app data directory
+  | 'connections' // Access to connection manager
+  | 'shell' // Execute shell commands
   | 'notifications' // Send system notifications
-  | 'clipboard'     // Access clipboard
-  | 'ipc'           // Cross-app IPC messaging
+  | 'clipboard' // Access clipboard
+  | 'ipc' // Cross-app IPC messaging
 
 // ─── Lifecycle hooks ───────────────────────────────────────────────────────
 

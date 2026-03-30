@@ -8,12 +8,12 @@
  * - Launchpad launcher button
  * - Tooltip on hover
  */
-import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { Grid3X3 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { type AppManifest, useAppStore, openWindow, focusWindow, restoreWindow, useWindowStore } from '@/kernel'
-import { useLaunchpadStore } from '@/shell/Launchpad/store'
+import { type AppManifest, focusWindow, openWindow, restoreWindow, useAppStore, useWindowStore } from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
+import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { tokens } from '@/theme'
 
 const { gap } = tokens.dock
@@ -54,10 +54,10 @@ function DockIcon({
     { stiffness: 350, damping: 30, mass: 0.5 }
   )
 
-  const y = useSpring(
-    useTransform(distance, [0, 80, 160], magnification ? [-14, -6, 0] : [0, 0, 0]),
-    { stiffness: 350, damping: 30 }
-  )
+  const y = useSpring(useTransform(distance, [0, 80, 160], magnification ? [-14, -6, 0] : [0, 0, 0]), {
+    stiffness: 350,
+    damping: 30
+  })
 
   function handleClick() {
     if (!isRunning) {
@@ -92,15 +92,16 @@ function DockIcon({
         animate={bouncing ? { y: [0, -16, 0, -8, 0] } : {}}
         transition={bouncing ? { duration: 0.5, ease: 'easeInOut' } : {}}
       >
-        <div className="vos-dock-icon-inner" style={{ width: iconSize, height: iconSize, borderRadius: iconSize * 0.28 }}>
+        <div
+          className="vos-dock-icon-inner"
+          style={{ width: iconSize, height: iconSize, borderRadius: iconSize * 0.28 }}
+        >
           {icon}
         </div>
       </motion.button>
 
       {/* Running indicator */}
-      {isRunning && (
-        <div className="vos-dock-dot" />
-      )}
+      {isRunning && <div className="vos-dock-dot" />}
     </div>
   )
 }
@@ -108,13 +109,15 @@ function DockIcon({
 /* ---- Dock Separator ---- */
 function DockSeparator({ iconSize }: { iconSize: number }) {
   return (
-    <div style={{
-      width: 1,
-      height: iconSize * 0.6,
-      background: 'var(--vos-border-default)',
-      margin: `0 ${gap}px`,
-      alignSelf: 'center'
-    }} />
+    <div
+      style={{
+        width: 1,
+        height: iconSize * 0.6,
+        background: 'var(--vos-border-default)',
+        margin: `0 ${gap}px`,
+        alignSelf: 'center'
+      }}
+    />
   )
 }
 
@@ -171,11 +174,33 @@ export default function Dock() {
 
   // Position-dependent styles
   const isHorizontal = dockPosition === 'bottom'
-  const wrapperStyle: React.CSSProperties = dockPosition === 'bottom'
-    ? { position: 'absolute', bottom: 8, left: '50%', transform: `translateX(-50%) translateY(${!visible && autoHide ? '100%' : '0'})`, transition: 'transform 0.3s ease', zIndex: 2001 }
-    : dockPosition === 'left'
-    ? { position: 'absolute', left: 8, top: '50%', transform: `translateY(-50%) translateX(${!visible && autoHide ? '-100%' : '0'})`, transition: 'transform 0.3s ease', zIndex: 2001 }
-    : { position: 'absolute', right: 8, top: '50%', transform: `translateY(-50%) translateX(${!visible && autoHide ? '100%' : '0'})`, transition: 'transform 0.3s ease', zIndex: 2001 }
+  const wrapperStyle: React.CSSProperties =
+    dockPosition === 'bottom'
+      ? {
+          position: 'absolute',
+          bottom: 8,
+          left: '50%',
+          transform: `translateX(-50%) translateY(${!visible && autoHide ? '100%' : '0'})`,
+          transition: 'transform 0.3s ease',
+          zIndex: 2001
+        }
+      : dockPosition === 'left'
+        ? {
+            position: 'absolute',
+            left: 8,
+            top: '50%',
+            transform: `translateY(-50%) translateX(${!visible && autoHide ? '-100%' : '0'})`,
+            transition: 'transform 0.3s ease',
+            zIndex: 2001
+          }
+        : {
+            position: 'absolute',
+            right: 8,
+            top: '50%',
+            transform: `translateY(-50%) translateX(${!visible && autoHide ? '100%' : '0'})`,
+            transition: 'transform 0.3s ease',
+            zIndex: 2001
+          }
 
   const dockStyle: React.CSSProperties = {
     display: 'flex',
@@ -189,25 +214,27 @@ export default function Dock() {
     border: '0.5px solid var(--vos-border-default)',
     borderRadius: 18,
     boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.08) inset',
-    pointerEvents: 'all',
+    pointerEvents: 'all'
   }
 
   // Auto-hide trigger zone
-  const triggerStyle: React.CSSProperties = dockPosition === 'bottom'
-    ? { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, zIndex: 2001 }
-    : dockPosition === 'left'
-    ? { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, zIndex: 2001 }
-    : { position: 'absolute', right: 0, top: 0, bottom: 0, width: 4, zIndex: 2001 }
+  const triggerStyle: React.CSSProperties =
+    dockPosition === 'bottom'
+      ? { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, zIndex: 2001 }
+      : dockPosition === 'left'
+        ? { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, zIndex: 2001 }
+        : { position: 'absolute', right: 0, top: 0, bottom: 0, width: 4, zIndex: 2001 }
 
   return (
     <>
-      {autoHide && !visible && (
-        <div style={triggerStyle} onMouseEnter={showDock} />
-      )}
+      {autoHide && !visible && <div style={triggerStyle} onMouseEnter={showDock} />}
       <div
         style={{ ...wrapperStyle, pointerEvents: 'none' }}
         onMouseMove={e => mouseX.set(isHorizontal ? e.clientX : e.clientY)}
-        onMouseLeave={() => { mouseX.set(999); schedulHide() }}
+        onMouseLeave={() => {
+          mouseX.set(999)
+          schedulHide()
+        }}
         onMouseEnter={showDock}
       >
         <div style={dockStyle}>

@@ -9,8 +9,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { type ContextMenuItems, type MenuItem, useContextMenuStore } from '@/shell/ContextMenu/store'
 import { useShallow } from 'zustand/react/shallow'
+import { type ContextMenuItems, type MenuItem, useContextMenuStore } from '@/shell/ContextMenu/store'
 import { tokens } from '@/theme'
 
 /* ---- Sub Menu ---- */
@@ -60,27 +60,29 @@ function MenuItemRow({ item, close }: { item: MenuItem; close: () => void }) {
         disabled={item.disabled}
         className="vos-ctx-item"
         style={{
-          color: item.danger ? 'var(--vos-accent-danger)' : item.disabled ? 'var(--vos-text-tertiary)' : 'var(--vos-text-primary)',
+          color: item.danger
+            ? 'var(--vos-accent-danger)'
+            : item.disabled
+              ? 'var(--vos-text-tertiary)'
+              : 'var(--vos-text-primary)',
           cursor: item.disabled ? 'default' : 'pointer'
         }}
-        onMouseEnter={() => { if (item.submenu) setShowSub(true) }}
-        onMouseLeave={() => { if (item.submenu) setShowSub(false) }}
+        onMouseEnter={() => {
+          if (item.submenu) setShowSub(true)
+        }}
+        onMouseLeave={() => {
+          if (item.submenu) setShowSub(false)
+        }}
         onClick={() => {
           if (item.disabled || item.submenu) return
           item.action?.()
           close()
         }}
       >
-        {item.icon && (
-          <span className="vos-ctx-icon">{item.icon}</span>
-        )}
+        {item.icon && <span className="vos-ctx-icon">{item.icon}</span>}
         <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
-        {item.shortcut && (
-          <span className="vos-ctx-shortcut">{item.shortcut}</span>
-        )}
-        {item.submenu && (
-          <ChevronRight size={12} style={{ marginLeft: 4, opacity: 0.5 }} />
-        )}
+        {item.shortcut && <span className="vos-ctx-shortcut">{item.shortcut}</span>}
+        {item.submenu && <ChevronRight size={12} style={{ marginLeft: 4, opacity: 0.5 }} />}
       </button>
       {showSub && item.submenu && rowRef.current && (
         <SubMenu items={item.submenu} parentRect={rowRef.current.getBoundingClientRect()} />
@@ -112,13 +114,15 @@ function MenuPanel({ items }: { items: ContextMenuItems }) {
 
 /* ---- Root Context Menu ---- */
 export default function ContextMenu() {
-  const { visible, x, y, items, hide } = useContextMenuStore(useShallow(s => ({
-    visible: s.visible,
-    x: s.x,
-    y: s.y,
-    items: s.items,
-    hide: s.hide
-  })))
+  const { visible, x, y, items, hide } = useContextMenuStore(
+    useShallow(s => ({
+      visible: s.visible,
+      x: s.x,
+      y: s.y,
+      items: s.items,
+      hide: s.hide
+    }))
+  )
   const menuRef = useRef<HTMLDivElement>(null)
   const [finalPos, setFinalPos] = useState({ left: x, top: y })
 
@@ -134,7 +138,9 @@ export default function ContextMenu() {
   // Close on Escape
   useEffect(() => {
     if (!visible) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') hide() }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') hide()
+    }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [visible, hide])
@@ -152,7 +158,10 @@ export default function ContextMenu() {
               zIndex: 9990
             }}
             onMouseDown={hide}
-            onContextMenu={e => { e.preventDefault(); hide() }}
+            onContextMenu={e => {
+              e.preventDefault()
+              hide()
+            }}
           />
 
           <motion.div

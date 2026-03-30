@@ -1,12 +1,12 @@
-export { useWindowStore } from './store'
+export { useAppWindows, useFocusedWindow, useWindow, useWindowActions, useWindowList } from './hooks'
 export {
-  openWindow,
+  closeAllWindows,
   closeWindow,
   focusWindow,
   minimizeWindow,
+  openWindow,
   restoreWindow,
-  toggleMaximize,
-  closeAllWindows,
+  toggleMaximize
 } from './manager'
-export { useWindow, useWindowList, useFocusedWindow, useAppWindows, useWindowActions } from './hooks'
+export { useWindowStore } from './store'
 export type { WindowInstance, WindowOpenOptions } from './types'

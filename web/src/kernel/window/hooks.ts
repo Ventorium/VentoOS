@@ -48,12 +48,12 @@ export function useWindowActions(windowId: string) {
     setTitle: useCallback((title: string) => updateTitle(windowId, title), [windowId, updateTitle]),
     setAppState: useCallback(
       (appState: Record<string, unknown>) => updateAppState(windowId, appState),
-      [windowId, updateAppState],
+      [windowId, updateAppState]
     ),
     move: useCallback((x: number, y: number) => moveWindow(windowId, x, y), [windowId, moveWindow]),
     resize: useCallback(
       (width: number, height: number) => resizeWindow(windowId, width, height),
-      [windowId, resizeWindow],
-    ),
+      [windowId, resizeWindow]
+    )
   }
 }

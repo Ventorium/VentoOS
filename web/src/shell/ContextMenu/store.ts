@@ -48,7 +48,7 @@ export const useContextMenuStore = create<ContextMenuStore>(set => ({
 
   hide() {
     set({ visible: false, items: [] })
-  },
+  }
 }))
 
 /** Convenience hook: returns a right-click handler that shows the context menu. */

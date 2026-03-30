@@ -68,12 +68,15 @@ export const useSystemStore = create<SystemStore>((set, get) => ({
     const nav = navigator as NavigatorWithBattery
     let battery: BatteryManager | null = null
     if (nav.getBattery) {
-      nav.getBattery().then(b => {
-        battery = b
-        get().setBattery(b.level, b.charging)
-        b.onchargingchange = () => get().setBattery(b.level, b.charging)
-        b.onlevelchange = () => get().setBattery(b.level, b.charging)
-      }).catch(() => {})
+      nav
+        .getBattery()
+        .then(b => {
+          battery = b
+          get().setBattery(b.level, b.charging)
+          b.onchargingchange = () => get().setBattery(b.level, b.charging)
+          b.onlevelchange = () => get().setBattery(b.level, b.charging)
+        })
+        .catch(() => {})
     }
 
     // Network
@@ -97,5 +100,5 @@ export const useSystemStore = create<SystemStore>((set, get) => ({
         battery.onlevelchange = null
       }
     }
-  },
+  }
 }))

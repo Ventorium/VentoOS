@@ -13,8 +13,8 @@ function DatabaseIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
     React.createElement(Database, { size: 22 })
   )
@@ -32,5 +32,5 @@ export const databaseManifest: AppManifest = {
   minSize: { width: 800, height: 480 },
   permissions: ['network', 'connections', 'notifications'],
   hasBackendPlugin: true,
-  component: () => import('./index'),
+  component: () => import('./index')
 }

@@ -34,5 +34,5 @@ export const useLaunchpadStore = create<LaunchpadStore>(set => ({
 
   setSearch(q) {
     set({ searchQuery: q })
-  },
+  }
 }))

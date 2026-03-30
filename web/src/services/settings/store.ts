@@ -68,7 +68,7 @@ export const useSettingsStore = create<SettingsStore>()(
 
       setDockAutoHide(on) {
         set({ dockAutoHide: on })
-      },
+      }
     }),
     {
       name: 'ventoos-settings',
@@ -78,8 +78,8 @@ export const useSettingsStore = create<SettingsStore>()(
         dockIconSize: state.dockIconSize,
         dockPosition: state.dockPosition,
         dockMagnification: state.dockMagnification,
-        dockAutoHide: state.dockAutoHide,
-      }),
-    },
-  ),
+        dockAutoHide: state.dockAutoHide
+      })
+    }
+  )
 )

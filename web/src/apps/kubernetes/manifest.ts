@@ -13,8 +13,8 @@ function KubernetesIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
     React.createElement(Box, { size: 22 })
   )
@@ -32,5 +32,5 @@ export const kubernetesManifest: AppManifest = {
   minSize: { width: 800, height: 480 },
   permissions: ['network', 'connections', 'notifications', 'shell'],
   hasBackendPlugin: true,
-  component: () => import('./index'),
+  component: () => import('./index')
 }

@@ -9,7 +9,9 @@
       "a11y": {
         "noStaticElementInteractions": "warn",
         "useSemanticElements": "warn",
-        "useAriaPropsForRole": "warn"
+        "useAriaPropsForRole": "warn",
+        "noLabelWithoutControl": "warn",
+        "noSvgWithoutTitle": "warn"
       }
     }
   }

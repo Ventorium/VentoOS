@@ -59,13 +59,13 @@ export const useConnectionStore = create<ConnectionStore>()(
 
       _updateConnection(id, updates) {
         set(s => ({
-          connections: s.connections.map(c => (c.id === id ? { ...c, ...updates } : c)),
+          connections: s.connections.map(c => (c.id === id ? { ...c, ...updates } : c))
         }))
       },
 
       _removeConnection(id) {
         set(s => ({
-          connections: s.connections.filter(c => c.id !== id),
+          connections: s.connections.filter(c => c.id !== id)
         }))
       },
 
@@ -76,10 +76,10 @@ export const useConnectionStore = create<ConnectionStore>()(
               ? {
                   ...c,
                   status,
-                  lastConnectedAt: status === 'connected' ? Date.now() : c.lastConnectedAt,
+                  lastConnectedAt: status === 'connected' ? Date.now() : c.lastConnectedAt
                 }
-              : c,
-          ),
+              : c
+          )
         }))
       },
 
@@ -89,11 +89,11 @@ export const useConnectionStore = create<ConnectionStore>()(
 
       getConnectionsByType(type) {
         return get().connections.filter(c => c.type === type)
-      },
+      }
     }),
     {
       name: 'ventoos-connections',
-      partialize: state => ({ connections: state.connections }),
-    },
-  ),
+      partialize: state => ({ connections: state.connections })
+    }
+  )
 )

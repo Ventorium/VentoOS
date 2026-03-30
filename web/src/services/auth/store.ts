@@ -39,11 +39,11 @@ export const useAuthStore = create<AuthStore>()(
 
       unlock(token) {
         set({ locked: false, token })
-      },
+      }
     }),
     {
       name: 'ventoos-auth',
-      partialize: state => ({ token: state.token, initialized: state.initialized }),
-    },
-  ),
+      partialize: state => ({ token: state.token, initialized: state.initialized })
+    }
+  )
 )

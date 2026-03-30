@@ -14,8 +14,8 @@
 
 import { apiClient } from '@/infra/api'
 import { createLogger } from '@/infra/logger'
-import { systemChannel } from '../channel'
 import { useAppStore } from '../apps/store'
+import { systemChannel } from '../channel'
 import { useWindowStore } from './store'
 import type { WindowInstance, WindowOpenOptions } from './types'
 
@@ -32,14 +32,14 @@ function generateWindowId(): string {
 
 function calculatePosition(
   existingCount: number,
-  options?: WindowOpenOptions,
+  options?: WindowOpenOptions
 ): Pick<WindowInstance, 'x' | 'y' | 'width' | 'height'> {
   const offset = (existingCount % 10) * 26
   return {
     x: options?.x ?? 120 + offset,
     y: options?.y ?? 80 + offset,
     width: options?.width ?? 1000,
-    height: options?.height ?? 680,
+    height: options?.height ?? 680
   }
 }
 
@@ -73,7 +73,7 @@ export async function openWindow(appId: string, options?: WindowOpenOptions): Pr
   const pos = calculatePosition(windows.length, {
     width: options?.width ?? manifest.defaultSize?.width,
     height: options?.height ?? manifest.defaultSize?.height,
-    ...options,
+    ...options
   })
 
   const newWindow: WindowInstance = {
@@ -85,7 +85,7 @@ export async function openWindow(appId: string, options?: WindowOpenOptions): Pr
     isMaximized: false,
     isMinimized: false,
     isFocused: true,
-    appState: options?.appState,
+    appState: options?.appState
   }
 
   // 1. Add window to UI store
@@ -100,7 +100,7 @@ export async function openWindow(appId: string, options?: WindowOpenOptions): Pr
         systemChannel.notify('process:created', {
           pid: res.data.pid,
           windowId,
-          appId,
+          appId
         })
       }
     })

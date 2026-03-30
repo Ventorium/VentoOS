@@ -31,18 +31,14 @@ function parseCombo(combo: string): {
     meta: parts.includes('cmd') || parts.includes('meta'),
     ctrl: parts.includes('ctrl'),
     shift: parts.includes('shift'),
-    alt: parts.includes('alt') || parts.includes('option'),
+    alt: parts.includes('alt') || parts.includes('option')
   }
 }
 
 function matchesEvent(combo: string, e: KeyboardEvent): boolean {
   const { key, meta, ctrl, shift, alt } = parseCombo(combo)
   return (
-    e.key.toLowerCase() === key &&
-    e.metaKey === meta &&
-    e.ctrlKey === ctrl &&
-    e.shiftKey === shift &&
-    e.altKey === alt
+    e.key.toLowerCase() === key && e.metaKey === meta && e.ctrlKey === ctrl && e.shiftKey === shift && e.altKey === alt
   )
 }
 
@@ -77,7 +73,7 @@ export const useKeyboardStore = create<KeyboardStore>((set, get) => ({
         return
       }
     }
-  },
+  }
 }))
 
 /**
@@ -88,7 +84,7 @@ export function useShortcut(
   combo: string,
   description: string,
   handler: () => void,
-  deps?: React.DependencyList,
+  deps?: React.DependencyList
 ): void {
   const { register, unregister } = useKeyboardStore()
   useEffect(() => {

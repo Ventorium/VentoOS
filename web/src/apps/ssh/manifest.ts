@@ -13,8 +13,8 @@ function SshIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
     React.createElement(Terminal, { size: 22 })
   )
@@ -32,5 +32,5 @@ export const sshManifest: AppManifest = {
   minSize: { width: 700, height: 440 },
   permissions: ['network', 'connections', 'shell', 'notifications'],
   hasBackendPlugin: true,
-  component: () => import('./index'),
+  component: () => import('./index')
 }
