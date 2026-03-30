@@ -5,8 +5,8 @@ use chrono::Utc;
 use tokio::sync::RwLock;
 use ventoos_core::ssh::{
     CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest, PortMapping,
-    PortMappingStatus, ServiceExposure, ServiceExposureStatus, ServiceSourceType, SshServer,
-    SshServerStatus, UpdateSshServerRequest,
+    PortMappingStatus, ServiceExposure, ServiceExposureStatus, SshServer, SshServerStatus,
+    UpdateSshServerRequest,
 };
 use ventoos_core::types::{Id, new_id};
 
@@ -244,7 +244,7 @@ pub struct SshServerTestResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ventoos_core::ssh::SshAuthMethod;
+    use ventoos_core::ssh::{ServiceSourceType, SshAuthMethod};
 
     #[tokio::test]
     async fn test_create_and_list_servers() {

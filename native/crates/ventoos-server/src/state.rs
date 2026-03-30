@@ -17,6 +17,7 @@ use crate::ssh_manager::SshManager;
 /// Shared application state passed to all route handlers.
 #[derive(Clone)]
 pub struct AppState {
+    #[allow(dead_code)]
     pub db: Arc<Database>,
     pub connections: Arc<ConnectionManager>,
     pub tasks: Arc<TaskEngine>,
@@ -49,6 +50,7 @@ impl AppState {
     }
 
     /// Create state with in-memory database (for testing).
+    #[allow(dead_code)]
     pub fn new_test() -> Result<Self, anyhow::Error> {
         let db = Arc::new(Database::open_in_memory()?);
         Ok(Self {

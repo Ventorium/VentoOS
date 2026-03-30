@@ -20,7 +20,7 @@ pub struct DbConnectionConfig {
     pub username: Option<String>,
     pub password: Option<String>,
     pub database: Option<String>,
-    /// For SQLite: file path
+    /// For `SQLite`: file path
     pub file_path: Option<String>,
     pub group: Option<String>,
     pub ssl_enabled: bool,

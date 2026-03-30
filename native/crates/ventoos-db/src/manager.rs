@@ -4,9 +4,12 @@ use std::time::Instant;
 
 use serde_json::Value;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::info;
 
-use crate::types::*;
+use crate::types::{
+    ColumnInfo, CreateDbConnectionReq, DbConnectionConfig, DbEngine, DbTestResult, IndexInfo,
+    QueryResult, SchemaInfo, TableDataReq, TableInfo, TableStructure,
+};
 
 /// Database connection manager.
 /// Manages multiple database connections and provides schema browsing + SQL execution.
@@ -16,8 +19,8 @@ pub struct DbManager {
     pools: Arc<RwLock<HashMap<String, DbPool>>>,
 }
 
-/// Internal pool wrapper — uses rusqlite for SQLite, raw TCP for PG/MySQL.
-/// For this implementation we use rusqlite for SQLite and stub PG/MySQL queries
+/// Internal pool wrapper — uses rusqlite for `SQLite`, raw TCP for PG/MySQL.
+/// For this implementation we use rusqlite for `SQLite` and stub PG/MySQL queries
 /// via a simple TCP connection approach (production would use sqlx).
 enum DbPool {
     Sqlite(Arc<std::sync::Mutex<rusqlite::Connection>>),
@@ -83,14 +86,18 @@ impl DbManager {
                         Some(DbTestResult {
                             success: true,
                             message: "Connected successfully".into(),
-                            latency_ms: Some(start.elapsed().as_millis() as u64),
+                            latency_ms: Some(
+                                u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                            ),
                             server_version: Some(format!("SQLite {version}")),
                         })
                     }
                     Err(e) => Some(DbTestResult {
                         success: false,
                         message: format!("Connection failed: {e}"),
-                        latency_ms: Some(start.elapsed().as_millis() as u64),
+                        latency_ms: Some(
+                            u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                        ),
                         server_version: None,
                     }),
                 }
@@ -101,19 +108,23 @@ impl DbManager {
                 let port = config.port.unwrap_or(match config.engine {
                     DbEngine::PostgreSql => 5432,
                     DbEngine::MySql => 3306,
-                    _ => 0,
+                    DbEngine::Sqlite => 0,
                 });
                 match tokio::net::TcpStream::connect(format!("{host}:{port}")).await {
                     Ok(_) => Some(DbTestResult {
                         success: true,
                         message: format!("TCP connection to {host}:{port} successful"),
-                        latency_ms: Some(start.elapsed().as_millis() as u64),
+                        latency_ms: Some(
+                            u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                        ),
                         server_version: None,
                     }),
                     Err(e) => Some(DbTestResult {
                         success: false,
                         message: format!("Cannot reach {host}:{port}: {e}"),
-                        latency_ms: Some(start.elapsed().as_millis() as u64),
+                        latency_ms: Some(
+                            u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                        ),
                         server_version: None,
                     }),
                 }
@@ -237,7 +248,7 @@ impl DbManager {
                         Ok((name, unique))
                     })
                     .map_err(|e| e.to_string())?
-                    .filter_map(|r| r.ok())
+                    .filter_map(Result::ok)
                     .map(|(name, unique)| {
                         let cols: Vec<String> = conn
                             .prepare(&format!("PRAGMA index_info('{name}')"))
@@ -245,7 +256,7 @@ impl DbManager {
                             .map(|mut s| {
                                 s.query_map([], |row| row.get::<_, String>(2))
                                     .ok()
-                                    .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                                    .map(|iter| iter.filter_map(Result::ok).collect())
                                     .unwrap_or_default()
                             })
                             .unwrap_or_default();
@@ -304,12 +315,10 @@ impl DbManager {
                         let mut vals = Vec::with_capacity(col_count);
                         for i in 0..col_count {
                             let val: Value = match row.get_ref(i) {
-                                Ok(rusqlite::types::ValueRef::Null) => Value::Null,
                                 Ok(rusqlite::types::ValueRef::Integer(n)) => Value::from(n),
                                 Ok(rusqlite::types::ValueRef::Real(f)) => {
                                     serde_json::Number::from_f64(f)
-                                        .map(Value::Number)
-                                        .unwrap_or(Value::Null)
+                                        .map_or(Value::Null, Value::Number)
                                 }
                                 Ok(rusqlite::types::ValueRef::Text(t)) => {
                                     Value::String(String::from_utf8_lossy(t).into_owned())
@@ -317,7 +326,7 @@ impl DbManager {
                                 Ok(rusqlite::types::ValueRef::Blob(b)) => {
                                     Value::String(format!("[BLOB {} bytes]", b.len()))
                                 }
-                                Err(_) => Value::Null,
+                                Ok(rusqlite::types::ValueRef::Null) | Err(_) => Value::Null,
                             };
                             vals.push(val);
                         }
@@ -333,7 +342,8 @@ impl DbManager {
                     rows,
                     row_count,
                     affected_rows: None,
-                    execution_time_ms: start.elapsed().as_millis() as u64,
+                    execution_time_ms: u64::try_from(start.elapsed().as_millis())
+                        .unwrap_or(u64::MAX),
                 })
             }
             DbPool::Remote(_) => Ok(QueryResult {
@@ -341,7 +351,7 @@ impl DbManager {
                 rows: vec![],
                 row_count: 0,
                 affected_rows: None,
-                execution_time_ms: start.elapsed().as_millis() as u64,
+                execution_time_ms: u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
             }),
         }
     }
@@ -373,12 +383,10 @@ impl DbManager {
                             let mut vals = Vec::with_capacity(col_count);
                             for i in 0..col_count {
                                 let val: Value = match row.get_ref(i) {
-                                    Ok(rusqlite::types::ValueRef::Null) => Value::Null,
                                     Ok(rusqlite::types::ValueRef::Integer(n)) => Value::from(n),
                                     Ok(rusqlite::types::ValueRef::Real(f)) => {
                                         serde_json::Number::from_f64(f)
-                                            .map(Value::Number)
-                                            .unwrap_or(Value::Null)
+                                            .map_or(Value::Null, Value::Number)
                                     }
                                     Ok(rusqlite::types::ValueRef::Text(t)) => {
                                         Value::String(String::from_utf8_lossy(t).into_owned())
@@ -386,7 +394,7 @@ impl DbManager {
                                     Ok(rusqlite::types::ValueRef::Blob(b)) => {
                                         Value::String(format!("[BLOB {} bytes]", b.len()))
                                     }
-                                    Err(_) => Value::Null,
+                                    Ok(rusqlite::types::ValueRef::Null) | Err(_) => Value::Null,
                                 };
                                 vals.push(val);
                             }
@@ -402,19 +410,21 @@ impl DbManager {
                         rows,
                         row_count,
                         affected_rows: None,
-                        execution_time_ms: start.elapsed().as_millis() as u64,
+                        execution_time_ms: u64::try_from(start.elapsed().as_millis())
+                            .unwrap_or(u64::MAX),
                     })
                 } else {
                     let affected = conn
                         .execute_batch(trimmed)
-                        .map(|_| 0u64)
+                        .map(|()| 0u64)
                         .map_err(|e| e.to_string())?;
                     Ok(QueryResult {
                         columns: vec![],
                         rows: vec![],
                         row_count: 0,
                         affected_rows: Some(affected),
-                        execution_time_ms: start.elapsed().as_millis() as u64,
+                        execution_time_ms: u64::try_from(start.elapsed().as_millis())
+                            .unwrap_or(u64::MAX),
                     })
                 }
             }

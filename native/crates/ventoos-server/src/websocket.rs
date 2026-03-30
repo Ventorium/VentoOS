@@ -1,7 +1,6 @@
 use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::response::IntoResponse;
-use tokio::sync::broadcast;
 use tracing::{info, warn};
 
 use crate::state::AppState;
@@ -40,10 +39,8 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                     Ok(Message::Text(text)) => {
                         info!("Received message: {text}");
                         // Handle client messages (ping, subscribe, etc.)
-                        if text.as_str() == "ping" {
-                            if socket.send(Message::Text("pong".into())).await.is_err() {
-                                break;
-                            }
+                        if text.as_str() == "ping" && socket.send(Message::Text("pong".into())).await.is_err() {
+                            break;
                         }
                     }
                     Ok(Message::Close(_)) => {

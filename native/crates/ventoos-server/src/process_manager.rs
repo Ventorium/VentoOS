@@ -50,6 +50,7 @@ impl ProcessManager {
     }
 
     /// Get a single process by PID.
+    #[allow(dead_code)]
     pub async fn get(&self, pid: u32) -> Option<VProcess> {
         self.processes.read().await.get(&pid).cloned()
     }

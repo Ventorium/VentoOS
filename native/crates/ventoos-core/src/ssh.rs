@@ -169,7 +169,7 @@ pub struct CreateServiceExposureRequest {
     pub basic_auth_password: Option<String>,
 }
 
-/// WebShell session request.
+/// `WebShell` session request.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WebShellRequest {
     /// "local" for local PTY, or SSH server ID for remote.
@@ -178,7 +178,7 @@ pub struct WebShellRequest {
     pub rows: Option<u16>,
 }
 
-/// WebShell target.
+/// `WebShell` target.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum WebShellTarget {

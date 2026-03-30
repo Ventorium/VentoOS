@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
-use tracing::info;
 
-use crate::types::*;
+use crate::types::{
+    CreateVfsMountReq, VfsFileContent, VfsListReq, VfsMount, VfsNode, VfsReadReq, VfsSourceKind,
+};
 
 /// Virtual file system manager.
 /// Currently supports local filesystem; remote sources (SFTP, S3, SMB) are stubs.
@@ -96,7 +97,7 @@ impl VfsManager {
                 continue;
             }
             let metadata = entry.metadata().await.ok();
-            let is_dir = metadata.as_ref().is_some_and(|m| m.is_dir());
+            let is_dir = metadata.as_ref().is_some_and(std::fs::Metadata::is_dir);
             let size = metadata
                 .as_ref()
                 .and_then(|m| if m.is_file() { Some(m.len()) } else { None });
@@ -181,7 +182,7 @@ impl VfsManager {
 
         let truncated = bytes.len() as u64 > limit;
         let slice = if truncated {
-            &bytes[..limit as usize]
+            &bytes[..usize::try_from(limit).unwrap_or(usize::MAX)]
         } else {
             &bytes
         };
@@ -191,7 +192,7 @@ impl VfsManager {
         let is_binary = slice[..check_len].contains(&0);
 
         let content = if is_binary {
-            format!("[Binary file, {} bytes]", file_size)
+            format!("[Binary file, {file_size} bytes]")
         } else {
             String::from_utf8_lossy(slice).into_owned()
         };

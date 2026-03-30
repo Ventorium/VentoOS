@@ -2,7 +2,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::middleware;
 use axum::response::{Html, IntoResponse};
-use axum::routing::{delete, get, post, put};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use rust_embed::Embed;
 
@@ -25,6 +25,7 @@ use ventoos_core::types::{ApiResponse, Id};
 struct FrontendAssets;
 
 /// Create the application router.
+#[allow(clippy::too_many_lines)]
 pub fn create_router(state: AppState) -> Router {
     // Public routes (no auth required)
     let public_routes = Router::new()

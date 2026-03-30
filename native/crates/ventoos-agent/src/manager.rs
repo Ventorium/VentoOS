@@ -4,7 +4,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
 
-use crate::types::*;
+use crate::types::{
+    AgentConfig, AgentEngine, ChatMessage, ChatRequest, ChatResponse, ChatRole, ChatSession,
+};
 
 /// AI Agent manager.
 /// Manages chat sessions, delegates to configured agent engines.
@@ -67,7 +69,7 @@ impl AgentManager {
         };
 
         // Generate stub response (real impl would invoke agent engine)
-        let assistant_content = self.generate_response(&req.message).await;
+        let assistant_content = Self::generate_response(&req.message);
 
         let assistant_msg = ChatMessage {
             id: uuid::Uuid::new_v4().to_string(),
@@ -103,7 +105,7 @@ impl AgentManager {
     }
 
     /// Stub response generator. Will be replaced with real agent integration.
-    async fn generate_response(&self, message: &str) -> String {
+    fn generate_response(message: &str) -> String {
         let lower = message.to_lowercase();
         if lower.contains("help") || lower.contains("帮助") {
             "I can help with Kubernetes, database, Redis, and file operations. What would you like to do?".into()

@@ -4,7 +4,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
 
-use crate::types::*;
+use crate::types::{
+    CreateK8sClusterReq, K8sCluster, K8sNamespace, K8sResource, K8sResourceKind,
+    K8sResourceListReq, K8sTestResult, KubeconfigContext,
+};
 
 /// Kubernetes cluster manager.
 /// Manages registered clusters, connects via kubeconfig, browses resources.
@@ -258,7 +261,7 @@ impl K8sManager {
         info!("Getting {kind:?}/{name} in ns {namespace:?} for cluster {cluster_id}");
         Ok(K8sResource {
             name: name.to_string(),
-            namespace: namespace.map(|s| s.to_string()),
+            namespace: namespace.map(ToString::to_string),
             kind: format!("{kind:?}"),
             status: Some("Running".into()),
             age: Some("--".into()),
@@ -318,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_parse_kubeconfig_yaml() {
-        let yaml = r#"
+        let yaml = r"
 apiVersion: v1
 kind: Config
 contexts:
@@ -332,7 +335,7 @@ contexts:
     cluster: prod-cluster
     user: prod-user
 current-context: dev
-"#;
+";
         let contexts = K8sManager::parse_kubeconfig_yaml(yaml).unwrap();
         assert_eq!(contexts.len(), 2);
         assert_eq!(contexts[0].name, "dev");

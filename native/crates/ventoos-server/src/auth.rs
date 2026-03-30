@@ -7,7 +7,7 @@ use axum::extract::State;
 use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use serde::{Deserialize, Serialize};
+
 use tokio::sync::RwLock;
 use tracing::warn;
 
@@ -174,10 +174,10 @@ impl AuthManager {
 }
 
 fn generate_token() -> String {
+    use base64::Engine;
     use rand::Rng;
     let mut rng = rand::rng();
     let bytes: Vec<u8> = (0..32).map(|_| rng.random::<u8>()).collect();
-    use base64::Engine;
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&bytes)
 }
 
@@ -257,7 +257,7 @@ fn extract_token(req: &Request<Body>) -> Option<String> {
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
 }
 
 #[cfg(test)]

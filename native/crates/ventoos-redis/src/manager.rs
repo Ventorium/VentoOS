@@ -2,10 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::info;
 
-use crate::types::*;
+use crate::types::{
+    CreateRedisConnectionReq, RedisCommandResult, RedisConnectionConfig, RedisKeyInfo,
+    RedisKeyValue, RedisScanReq, RedisScanResult, RedisServerInfo, RedisTestResult,
+};
 
 /// Redis connection manager.
 /// Manages multiple Redis connections and provides key browsing, value editing, etc.
@@ -16,9 +20,8 @@ pub struct RedisManager {
 }
 
 /// Internal Redis connection wrapper.
-/// Uses tokio TcpStream with RESP protocol for communication.
+/// Uses tokio `TcpStream` with RESP protocol for communication.
 struct RedisConn {
-    config: RedisConnectionConfig,
     /// Simple RESP client using raw TCP.
     stream: Arc<tokio::sync::Mutex<tokio::net::TcpStream>>,
 }
@@ -71,8 +74,6 @@ impl RedisManager {
         let addr = format!("{}:{}", config.host, config.port);
         match tokio::net::TcpStream::connect(&addr).await {
             Ok(mut stream) => {
-                // Send PING via raw RESP
-                use tokio::io::{AsyncReadExt, AsyncWriteExt};
                 let ping_cmd = "*1\r\n$4\r\nPING\r\n";
                 if stream.write_all(ping_cmd.as_bytes()).await.is_ok() {
                     let mut buf = [0u8; 128];
@@ -82,7 +83,9 @@ impl RedisManager {
                             return Some(RedisTestResult {
                                 success: true,
                                 message: "PONG — Connected successfully".into(),
-                                latency_ms: Some(start.elapsed().as_millis() as u64),
+                                latency_ms: Some(
+                                    u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                                ),
                                 server_info: None,
                             });
                         }
@@ -91,7 +94,9 @@ impl RedisManager {
                             return Some(RedisTestResult {
                                 success: true,
                                 message: "Server reachable (requires authentication)".into(),
-                                latency_ms: Some(start.elapsed().as_millis() as u64),
+                                latency_ms: Some(
+                                    u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                                ),
                                 server_info: None,
                             });
                         }
@@ -100,14 +105,16 @@ impl RedisManager {
                 Some(RedisTestResult {
                     success: true,
                     message: "TCP connection established".into(),
-                    latency_ms: Some(start.elapsed().as_millis() as u64),
+                    latency_ms: Some(
+                        u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    ),
                     server_info: None,
                 })
             }
             Err(e) => Some(RedisTestResult {
                 success: false,
                 message: format!("Cannot reach {addr}: {e}"),
-                latency_ms: Some(start.elapsed().as_millis() as u64),
+                latency_ms: Some(u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX)),
                 server_info: None,
             }),
         }
@@ -123,7 +130,6 @@ impl RedisManager {
             .cloned()
             .ok_or_else(|| "Connection not found".to_string())?;
 
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let addr = format!("{}:{}", config.host, config.port);
         let mut stream = tokio::net::TcpStream::connect(&addr)
             .await
@@ -174,7 +180,6 @@ impl RedisManager {
         }
 
         let conn = RedisConn {
-            config,
             stream: Arc::new(tokio::sync::Mutex::new(stream)),
         };
         self.connections.write().await.insert(id.to_string(), conn);
@@ -188,11 +193,11 @@ impl RedisManager {
 
     /// Send raw RESP command and get response.
     async fn send_command(conn: &RedisConn, args: &[&str]) -> Result<String, String> {
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use std::fmt::Write as _;
 
         let mut cmd = format!("*{}\r\n", args.len());
         for arg in args {
-            cmd.push_str(&format!("${}\r\n{}\r\n", arg.len(), arg));
+            write!(cmd, "${}\r\n{}\r\n", arg.len(), arg).unwrap();
         }
 
         let mut stream = conn.stream.lock().await;
@@ -210,11 +215,16 @@ impl RedisManager {
     fn parse_resp_value(resp: &str) -> serde_json::Value {
         let trimmed = resp.trim();
         if trimmed.starts_with('+') {
-            serde_json::Value::String(trimmed[1..].trim().to_string())
+            serde_json::Value::String(trimmed.strip_prefix('+').unwrap_or("").trim().to_string())
         } else if trimmed.starts_with('-') {
             serde_json::Value::String(trimmed.to_string())
         } else if trimmed.starts_with(':') {
-            if let Ok(n) = trimmed[1..].trim().parse::<i64>() {
+            if let Ok(n) = trimmed
+                .strip_prefix(':')
+                .unwrap_or("")
+                .trim()
+                .parse::<i64>()
+            {
                 serde_json::Value::Number(n.into())
             } else {
                 serde_json::Value::String(trimmed.to_string())
@@ -224,11 +234,11 @@ impl RedisManager {
         } else if trimmed.starts_with('$') {
             // Bulk string — extract value after \r\n
             if let Some(pos) = trimmed.find("\r\n") {
-                let rest = &trimmed[pos + 2..];
-                if let Some(end) = rest.find("\r\n") {
-                    serde_json::Value::String(rest[..end].to_string())
+                let bulk_data = &trimmed[pos + 2..];
+                if let Some(end) = bulk_data.find("\r\n") {
+                    serde_json::Value::String(bulk_data[..end].to_string())
                 } else {
-                    serde_json::Value::String(rest.trim().to_string())
+                    serde_json::Value::String(bulk_data.trim().to_string())
                 }
             } else {
                 serde_json::Value::String(trimmed.to_string())
@@ -268,11 +278,10 @@ impl RedisManager {
             // lines[0] = *2, lines[1] = $len, lines[2] = cursor value
             cursor = lines[2].to_string();
             // Parse keys array
-            for i in 4..lines.len() {
-                let line = lines[i];
+            for line in lines.iter().skip(4) {
                 if !line.is_empty() && !line.starts_with('*') && !line.starts_with('$') {
                     keys.push(RedisKeyInfo {
-                        key: line.to_string(),
+                        key: (*line).to_string(),
                         key_type: "unknown".into(),
                         ttl: -1,
                         size: None,
@@ -359,7 +368,7 @@ impl RedisManager {
 
         Ok(RedisCommandResult {
             result: value,
-            execution_time_ms: start.elapsed().as_millis() as u64,
+            execution_time_ms: u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX),
         })
     }
 
@@ -410,27 +419,27 @@ impl RedisManager {
             .collect::<Vec<_>>()
             .join("\n");
 
-        fn extract_field(info: &str, field: &str) -> String {
-            info.lines()
-                .find(|l| l.starts_with(field))
-                .and_then(|l| l.split(':').nth(1))
-                .unwrap_or("")
-                .trim()
-                .to_string()
-        }
-
         Ok(RedisServerInfo {
-            version: extract_field(&info_str, "redis_version"),
-            connected_clients: extract_field(&info_str, "connected_clients")
+            version: extract_redis_field(&info_str, "redis_version"),
+            connected_clients: extract_redis_field(&info_str, "connected_clients")
                 .parse()
                 .unwrap_or(0),
-            used_memory_human: extract_field(&info_str, "used_memory_human"),
+            used_memory_human: extract_redis_field(&info_str, "used_memory_human"),
             total_keys: 0, // Would need INFO keyspace
-            uptime_days: extract_field(&info_str, "uptime_in_days")
+            uptime_days: extract_redis_field(&info_str, "uptime_in_days")
                 .parse()
                 .unwrap_or(0),
         })
     }
+}
+
+fn extract_redis_field(info: &str, field: &str) -> String {
+    info.lines()
+        .find(|l| l.starts_with(field))
+        .and_then(|l| l.split(':').nth(1))
+        .unwrap_or("")
+        .trim()
+        .to_string()
 }
 
 impl Default for RedisManager {

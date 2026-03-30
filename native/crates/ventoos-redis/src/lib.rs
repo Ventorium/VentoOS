@@ -1,4 +1,4 @@
-/// VentoOS Redis adapter.
+/// `VentoOS` Redis adapter.
 ///
 /// Supports Redis Standalone, Sentinel, and Cluster modes.
 /// Provides key browsing, value editing, command execution, and monitoring.
