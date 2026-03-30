@@ -228,7 +228,7 @@ function NotificationsPanel() {
       <div className="vos-settings-group" style={{ opacity: 0.5 }}>
         <label className="vos-settings-label">应用通知（即将推出）</label>
         <p style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>
-          在 M2 阶段将支持每个应用的通知权限控制。
+          即将支持每个应用的通知权限控制。
         </p>
       </div>
     </div>
@@ -263,7 +263,7 @@ function GeneralPanel() {
           </div>
           <div>
             <div style={{ fontWeight: 600, fontSize: 15 }}>VentoOS</div>
-            <div style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>版本 0.1.0 (M1)</div>
+            <div style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>版本 0.1.0</div>
             <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)', marginTop: 2 }}>
               本地优先 · 运维基础设施管理平台
             </div>
@@ -326,7 +326,7 @@ export default function SettingsApp(_props: { windowId: string; processId: numbe
         <div style={{ padding: '8px 12px', borderTop: '0.5px solid var(--vos-border-subtle)' }}>
           <div className="vos-settings-nav-item" style={{ opacity: 0.6 }}>
             <Info size={14} />
-            <span style={{ fontSize: 11 }}>VentoOS M1</span>
+            <span style={{ fontSize: 11 }}>VentoOS</span>
           </div>
         </div>
       </div>

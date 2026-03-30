@@ -1,9 +1,14 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use ventoos_agent::AgentManager;
 use ventoos_connection::ConnectionManager;
+use ventoos_db::DbManager;
+use ventoos_k8s::K8sManager;
 use ventoos_persist::Database;
+use ventoos_redis::RedisManager;
 use ventoos_task::TaskEngine;
+use ventoos_vfs::VfsManager;
 
 use crate::auth::AuthManager;
 use crate::process_manager::ProcessManager;
@@ -18,6 +23,11 @@ pub struct AppState {
     pub auth: AuthManager,
     pub ssh: Arc<SshManager>,
     pub processes: Arc<ProcessManager>,
+    pub db_manager: Arc<DbManager>,
+    pub redis_manager: Arc<RedisManager>,
+    pub k8s_manager: Arc<K8sManager>,
+    pub vfs_manager: Arc<VfsManager>,
+    pub agent_manager: Arc<AgentManager>,
 }
 
 impl AppState {
@@ -30,6 +40,11 @@ impl AppState {
             tasks: Arc::new(TaskEngine::new()),
             ssh: Arc::new(SshManager::new()),
             processes: Arc::new(ProcessManager::new()),
+            db_manager: Arc::new(DbManager::new()),
+            redis_manager: Arc::new(RedisManager::new()),
+            k8s_manager: Arc::new(K8sManager::new()),
+            vfs_manager: Arc::new(VfsManager::new()),
+            agent_manager: Arc::new(AgentManager::new()),
         })
     }
 
@@ -43,6 +58,11 @@ impl AppState {
             tasks: Arc::new(TaskEngine::new()),
             ssh: Arc::new(SshManager::new()),
             processes: Arc::new(ProcessManager::new()),
+            db_manager: Arc::new(DbManager::new()),
+            redis_manager: Arc::new(RedisManager::new()),
+            k8s_manager: Arc::new(K8sManager::new()),
+            vfs_manager: Arc::new(VfsManager::new()),
+            agent_manager: Arc::new(AgentManager::new()),
         })
     }
 }

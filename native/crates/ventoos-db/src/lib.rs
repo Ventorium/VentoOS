@@ -2,21 +2,9 @@
 ///
 /// Supports PostgreSQL, MySQL, and SQLite connections,
 /// schema browsing, SQL execution, and data maintenance.
-///
-/// Current status: M1 skeleton – interfaces defined, implementation pending.
 
-pub mod placeholder {
-    pub fn ready() -> bool {
-        true
-    }
-}
+pub mod manager;
+pub mod types;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_placeholder() {
-        assert!(placeholder::ready());
-    }
-}
+pub use manager::DbManager;
+pub use types::*;

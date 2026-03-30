@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Circle,
+  Download,
   ExternalLink,
   Globe,
   Key,
@@ -85,6 +86,8 @@ function ServersTab() {
   const [testing, setTesting] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; msg: string } | null>(null)
   const [openShell, setOpenShell] = useState<SshServer | null>(null)
+  const [importingConfig, setImportingConfig] = useState(false)
+  const [sshAliases, setSshAliases] = useState<string[] | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -116,6 +119,32 @@ function ServersTab() {
     }
   }
 
+  async function handleImportConfig() {
+    setImportingConfig(true)
+    try {
+      const res = await api.getSshConfigAliases()
+      setSshAliases(res.data)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setImportingConfig(false)
+    }
+  }
+
+  async function importAlias(alias: string) {
+    try {
+      await api.createSshServer({
+        name: alias,
+        host: alias,
+        port: 22,
+        username: 'root',
+        auth_method: { type: 'private_key', key_path: '~/.ssh/id_rsa' },
+      })
+      load()
+      setSshAliases(null)
+    } catch (e) { console.error(e) }
+  }
+
   return (
     <div className="ssh-section">
       <div className="ssh-toolbar">
@@ -123,6 +152,9 @@ function ServersTab() {
         <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className="vos-icon-btn" onClick={load} title="刷新">
             <RefreshCw size={14} className={loading ? 'vos-spin' : ''} />
+          </button>
+          <button type="button" className="vos-btn" onClick={handleImportConfig} disabled={importingConfig} title="从 ~/.ssh/config 导入">
+            {importingConfig ? <Loader2 size={14} className="vos-spin" /> : <Download size={14} />} 导入配置
           </button>
           <button type="button" className="vos-btn vos-btn-primary" onClick={() => setShowForm(true)}>
             <Plus size={14} /> 添加服务器
@@ -180,6 +212,29 @@ function ServersTab() {
 
       {showForm && (
         <SshServerForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
+      )}
+
+      {sshAliases && (
+        <div className="vos-modal-overlay" onClick={() => setSshAliases(null)}>
+          <motion.div className="vos-modal" style={{ maxWidth: 380 }} initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            onClick={e => e.stopPropagation()}>
+            <div className="vos-modal-header">
+              <span>~/.ssh/config Hosts</span>
+              <button type="button" className="vos-icon-btn" onClick={() => setSshAliases(null)}><X size={16} /></button>
+            </div>
+            <div className="vos-modal-body" style={{ maxHeight: 300, overflow: 'auto' }}>
+              {sshAliases.length === 0 && <p style={{ color: 'var(--vos-text-tertiary)', fontSize: 12 }}>未发现 SSH Host 配置</p>}
+              {sshAliases.map(alias => (
+                <div key={alias} className="ssh-card" style={{ padding: '8px 12px', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12 }}>{alias}</span>
+                  <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={() => importAlias(alias)}>
+                    <Plus size={12} /> 导入
+                  </button>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
       )}
 
       {openShell && (

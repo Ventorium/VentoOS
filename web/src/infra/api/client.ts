@@ -7,16 +7,44 @@
  */
 
 import type {
+  AgentConfig,
   ApiResponse,
   AuthLoginData,
   AuthStatusData,
+  ChatRequest,
+  ChatResponse,
+  ChatSession,
+  CreateDbConnectionReq,
+  CreateK8sClusterReq,
   CreatePortMappingReq,
   CreateProcessReq,
+  CreateRedisConnectionReq,
   CreateServiceExposureReq,
   CreateSshServerReq,
+  CreateVfsMountReq,
+  DbConnectionConfig,
+  DbTestResult,
+  K8sCluster,
+  K8sNamespace,
+  K8sResource,
+  K8sResourceKind,
+  K8sTestResult,
+  KubeconfigContext,
   PortMapping,
+  QueryResult,
+  RedisCommandResult,
+  RedisConnectionConfig,
+  RedisKeyValue,
+  RedisScanResult,
+  RedisServerInfo,
+  RedisTestResult,
+  SchemaInfo,
   ServiceExposure,
   SshServer,
+  TableStructure,
+  VfsFileContent,
+  VfsMount,
+  VfsNode,
   VProcess,
 } from './types'
 
@@ -142,4 +170,101 @@ export const apiClient = {
   deleteServiceExposure: (id: string) => request<ApiResponse<null>>('DELETE', `/api/service-exposures/${id}`),
   startServiceExposure: (id: string) => request<ApiResponse<ServiceExposure>>('POST', `/api/service-exposures/${id}/start`),
   stopServiceExposure: (id: string) => request<ApiResponse<ServiceExposure>>('POST', `/api/service-exposures/${id}/stop`),
+
+  // ── Database ──────────────────────────────────────────────────────────────
+
+  getDbConnections: () => request<ApiResponse<DbConnectionConfig[]>>('GET', '/api/db/connections'),
+  createDbConnection: (body: CreateDbConnectionReq) =>
+    request<ApiResponse<DbConnectionConfig>>('POST', '/api/db/connections', body),
+  getDbConnection: (id: string) => request<ApiResponse<DbConnectionConfig>>('GET', `/api/db/connections/${id}`),
+  deleteDbConnection: (id: string) => request<ApiResponse<null>>('DELETE', `/api/db/connections/${id}`),
+  testDbConnection: (id: string) => request<ApiResponse<DbTestResult>>('POST', `/api/db/connections/${id}/test`),
+  connectDb: (id: string) => request<ApiResponse<unknown>>('POST', `/api/db/connections/${id}/connect`),
+  disconnectDb: (id: string) => request<ApiResponse<unknown>>('POST', `/api/db/connections/${id}/disconnect`),
+  getDbSchemas: (id: string) => request<ApiResponse<SchemaInfo[]>>('GET', `/api/db/connections/${id}/schemas`),
+  getDbTableStructure: (id: string, table: string) =>
+    request<ApiResponse<TableStructure>>('GET', `/api/db/connections/${id}/tables/${table}/structure`),
+  getDbTableData: (id: string, table: string, page?: number, pageSize?: number) =>
+    request<ApiResponse<QueryResult>>(
+      'GET',
+      `/api/db/connections/${id}/tables/${table}/data?page=${page ?? 1}&page_size=${pageSize ?? 50}`,
+    ),
+  executeDbSql: (id: string, sql: string) =>
+    request<ApiResponse<QueryResult>>('POST', `/api/db/connections/${id}/query`, { sql }),
+
+  // ── Redis ─────────────────────────────────────────────────────────────────
+
+  getRedisConnections: () => request<ApiResponse<RedisConnectionConfig[]>>('GET', '/api/redis/connections'),
+  createRedisConnection: (body: CreateRedisConnectionReq) =>
+    request<ApiResponse<RedisConnectionConfig>>('POST', '/api/redis/connections', body),
+  getRedisConnection: (id: string) =>
+    request<ApiResponse<RedisConnectionConfig>>('GET', `/api/redis/connections/${id}`),
+  deleteRedisConnection: (id: string) => request<ApiResponse<null>>('DELETE', `/api/redis/connections/${id}`),
+  testRedisConnection: (id: string) =>
+    request<ApiResponse<RedisTestResult>>('POST', `/api/redis/connections/${id}/test`),
+  connectRedis: (id: string) => request<ApiResponse<unknown>>('POST', `/api/redis/connections/${id}/connect`),
+  disconnectRedis: (id: string) => request<ApiResponse<unknown>>('POST', `/api/redis/connections/${id}/disconnect`),
+  scanRedisKeys: (id: string, cursor?: string, pattern?: string, count?: number) => {
+    const params = new URLSearchParams()
+    if (cursor) params.set('cursor', cursor)
+    if (pattern) params.set('pattern', pattern)
+    if (count) params.set('count', String(count))
+    return request<ApiResponse<RedisScanResult>>('GET', `/api/redis/connections/${id}/scan?${params}`)
+  },
+  getRedisKey: (id: string, key: string) =>
+    request<ApiResponse<RedisKeyValue>>('GET', `/api/redis/connections/${id}/keys/${encodeURIComponent(key)}`),
+  setRedisKey: (id: string, key: string, value: string, ttl?: number) =>
+    request<ApiResponse<unknown>>('POST', `/api/redis/connections/${id}/keys`, { key, value, ttl }),
+  deleteRedisKey: (id: string, key: string) =>
+    request<ApiResponse<unknown>>('DELETE', `/api/redis/connections/${id}/keys/${encodeURIComponent(key)}`),
+  executeRedisCommand: (id: string, command: string) =>
+    request<ApiResponse<RedisCommandResult>>('POST', `/api/redis/connections/${id}/command`, { command }),
+  getRedisServerInfo: (id: string) =>
+    request<ApiResponse<RedisServerInfo>>('GET', `/api/redis/connections/${id}/info`),
+
+  // ── Kubernetes ────────────────────────────────────────────────────────────
+
+  getK8sClusters: () => request<ApiResponse<K8sCluster[]>>('GET', '/api/k8s/clusters'),
+  createK8sCluster: (body: CreateK8sClusterReq) =>
+    request<ApiResponse<K8sCluster>>('POST', '/api/k8s/clusters', body),
+  getK8sCluster: (id: string) => request<ApiResponse<K8sCluster>>('GET', `/api/k8s/clusters/${id}`),
+  deleteK8sCluster: (id: string) => request<ApiResponse<null>>('DELETE', `/api/k8s/clusters/${id}`),
+  testK8sCluster: (id: string) => request<ApiResponse<K8sTestResult>>('POST', `/api/k8s/clusters/${id}/test`),
+  getK8sNamespaces: (id: string) =>
+    request<ApiResponse<K8sNamespace[]>>('GET', `/api/k8s/clusters/${id}/namespaces`),
+  getK8sResources: (id: string, kind: K8sResourceKind, namespace?: string) => {
+    const params = new URLSearchParams({ kind })
+    if (namespace) params.set('namespace', namespace)
+    return request<ApiResponse<K8sResource[]>>('GET', `/api/k8s/clusters/${id}/resources?${params}`)
+  },
+  parseKubeconfig: (body: { path?: string; content?: string }) =>
+    request<ApiResponse<KubeconfigContext[]>>('POST', '/api/k8s/kubeconfig/parse', body),
+
+  // ── VFS ───────────────────────────────────────────────────────────────────
+
+  getVfsMounts: () => request<ApiResponse<VfsMount[]>>('GET', '/api/vfs/mounts'),
+  createVfsMount: (body: CreateVfsMountReq) =>
+    request<ApiResponse<VfsMount>>('POST', '/api/vfs/mounts', body),
+  getVfsMount: (id: string) => request<ApiResponse<VfsMount>>('GET', `/api/vfs/mounts/${id}`),
+  deleteVfsMount: (id: string) => request<ApiResponse<null>>('DELETE', `/api/vfs/mounts/${id}`),
+  listVfsDir: (id: string, path?: string) =>
+    request<ApiResponse<VfsNode[]>>('GET', `/api/vfs/mounts/${id}/ls?path=${encodeURIComponent(path ?? '/')}`),
+  readVfsFile: (id: string, path: string, maxBytes?: number) => {
+    const params = new URLSearchParams({ path })
+    if (maxBytes) params.set('max_bytes', String(maxBytes))
+    return request<ApiResponse<VfsFileContent>>('GET', `/api/vfs/mounts/${id}/read?${params}`)
+  },
+
+  // ── AI Agent ──────────────────────────────────────────────────────────────
+
+  getAgentSessions: () => request<ApiResponse<ChatSession[]>>('GET', '/api/agent/sessions'),
+  getAgentSession: (id: string) => request<ApiResponse<ChatSession>>('GET', `/api/agent/sessions/${id}`),
+  deleteAgentSession: (id: string) => request<ApiResponse<null>>('DELETE', `/api/agent/sessions/${id}`),
+  agentChat: (body: ChatRequest) => request<ApiResponse<ChatResponse>>('POST', '/api/agent/chat', body),
+  getAgentConfig: () => request<ApiResponse<AgentConfig>>('GET', '/api/agent/config'),
+  updateAgentConfig: (body: AgentConfig) => request<ApiResponse<unknown>>('PUT', '/api/agent/config', body),
+
+  // ── SSH Config ────────────────────────────────────────────────────────────
+
+  getSshConfigAliases: () => request<ApiResponse<string[]>>('GET', '/api/ssh/config-aliases'),
 }

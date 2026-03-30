@@ -2,21 +2,9 @@
 ///
 /// Adapts local agent engines (Claude Code, Codex, OpenCode) into
 /// a unified tool/skill registration and execution framework.
-///
-/// Current status: M1 skeleton – interfaces defined, implementation pending.
 
-pub mod placeholder {
-    pub fn ready() -> bool {
-        true
-    }
-}
+pub mod manager;
+pub mod types;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_placeholder() {
-        assert!(placeholder::ready());
-    }
-}
+pub use manager::AgentManager;
+pub use types::*;

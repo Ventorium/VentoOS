@@ -208,29 +208,6 @@ VentoOS 是一个运行在本机、通过浏览器承载交互的 WebOS，面向
 1. 保持好系统架构分层，不跨层，后续好维护，好加功能
 2. Rust项目尽量减少第三方库依赖，除了一些核心库，其它尽量从别的库/工具中复制核心需要的代码
 
-## 里程碑
-
-### M1：系统骨架（当前）
-
-* WebOS Shell：桌面、Dock、窗口系统、TopBar、通知中心、任务中心、AI 入口。
-* Rust Core：Axum 服务、核心类型、连接管理、任务系统基础、SQLite 持久化。
-* 前后端通信层：HTTP REST + WebSocket。
-* 应用骨架：K8s、DB、Redis、Explorer、AI 5 个应用的基础框架。
-* CI/CD：GitHub Actions。
-
-### M2：核心工具可用
-
-* Kubernetes App MVP：多集群、资源总览、Workloads、Config、Network、Storage、日志、终端。
-* Database App MVP：连接管理、对象浏览、SQL 工作区、数据维护。
-* Redis App MVP：连接管理、Key 浏览、Value 编辑、命令执行。
-* Explorer App MVP：VFS 挂载、Finder 风格文件浏览。
-
-### M3：跨模块联动
-
-* K8s → DB/Redis 一键直连。
-* 任务中心与通知中心联动。
-* AI 跨应用操作闭环。
-
 ## 开发顺序
 
 1. 更新 CLAUDE.md（技术规范与约定）。
@@ -238,9 +215,9 @@ VentoOS 是一个运行在本机、通过浏览器承载交互的 WebOS，面向
 3. 重构前端为 WebOS Shell（桌面、窗口管理器、Dock、TopBar）。
 4. 建立前后端通信协议（HTTP REST + WebSocket）。
 5. 实现连接中心、任务中心基础。
-6. 实现 K8s、数据库、Redis、Explorer、AI 5 个应用骨架。
+6. 实现 K8s、数据库、Redis、Explorer、AI 5 个应用。
 7. 补充 CI/CD 配置。
-8. 逐步完善各模块 MVP 能力。
+8. 完善各模块能力。
 
 ## 常用命令
 
@@ -268,7 +245,7 @@ cd native && cargo build --release  # 再构建 Rust（会嵌入前端产物）
 
 * 任何实现都应优先对齐本目录下需求文档。
 * 如果需求文档之间冲突，以更细的专题文档为准；若仍冲突，先补文档再开发。
-* 若某项实现超出当前里程碑，应先提出拆分方案，不直接扩散范围。
+* 若某项实现范围较大，应先提出拆分方案，不直接扩散范围。
 
 ## 其它
 
