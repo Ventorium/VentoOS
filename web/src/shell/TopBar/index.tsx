@@ -6,7 +6,8 @@
  * Right: Network, Battery, Tasks, Notifications, Theme, Clock
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { Battery, BatteryCharging, BatteryLow, Bell, Loader2, Moon, Sun, Wifi, WifiOff } from 'lucide-react'
+import { Bell, Loader2, Moon, Sun } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { apiClient } from '@/infra/api'
 import { useAppStore, useWindowStore, closeAllWindows as closeAllWindowsFn } from '@/kernel'
 import { useAuthStore } from '@/services/auth'
@@ -14,7 +15,6 @@ import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { useSettingsStore } from '@/services/settings'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { useNotificationStore } from '@/services/notification'
-import { useSystemStore } from '@/services/system'
 import { useTaskStore } from '@/services/task'
 import { tokens } from '@/theme'
 
@@ -23,11 +23,11 @@ const H = tokens.topBar.height
 /* ---- Left: Logo + Active App ---- */
 function MenuBarLeft() {
   const toggleLaunchpad = useLaunchpadStore(s => s.toggle)
-  // Select primitives only — object selectors cause infinite re-renders via unstable references
   const focusedAppId = useWindowStore(s => s.windows.find(w => w.isFocused)?.appId ?? null)
   const getApp = useAppStore(s => s.getApp)
   const activeApp = focusedAppId ? getApp(focusedAppId) : null
   const showCtxMenu = useContextMenuStore(s => s.show)
+  const [aboutApp, setAboutApp] = useState<{ name: string; version: string; author: { name: string; email?: string; url?: string }; description?: string } | null>(null)
 
   function openLogoMenu(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -54,7 +54,65 @@ function MenuBarLeft() {
         </svg>
       </button>
       {activeApp && (
-        <span className="vos-topbar-appname">{activeApp.name}</span>
+        <button
+          type="button"
+          className="vos-topbar-btn vos-topbar-appname"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            showCtxMenu(rect.left, rect.bottom + 2, [
+              { id: 'about-app', label: `关于 ${activeApp.name}`, action: () => {
+                setAboutApp(activeApp)
+              }},
+              { type: 'separator' },
+              { id: 'hide-app', label: `隐藏 ${activeApp.name}`, disabled: true },
+              { id: 'quit-app', label: `退出 ${activeApp.name}`, action: () => {
+                closeAllWindowsFn()
+              }},
+            ])
+          }}
+        >
+          {activeApp.name}
+        </button>
+      )}
+
+      {/* About Dialog */}
+      {aboutApp && (
+        <div className="vos-modal-overlay" onClick={() => setAboutApp(null)}>
+          <motion.div
+            className="vos-modal"
+            style={{ width: 320, padding: 0 }}
+            initial={{ scale: 0.93, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ padding: '24px 24px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>{aboutApp.icon ?? '📦'}</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
+                {aboutApp.name}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>
+                版本 {aboutApp.version}
+              </div>
+              {aboutApp.description && (
+                <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)', marginTop: 8 }}>
+                  {aboutApp.description}
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 12 }}>
+                作者: {aboutApp.author.name}
+                {aboutApp.author.email && ` <${aboutApp.author.email}>`}
+              </div>
+              <button
+                type="button"
+                className="vos-btn vos-btn-primary"
+                style={{ marginTop: 16, minWidth: 80 }}
+                onClick={() => setAboutApp(null)}
+              >
+                好
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   )
@@ -62,28 +120,23 @@ function MenuBarLeft() {
 
 /* ---- Right: System Status ---- */
 function MenuBarRight() {
-  const batteryLevel = useSystemStore(s => s.batteryLevel)
-  const isCharging = useSystemStore(s => s.isCharging)
-  const isOnline = useSystemStore(s => s.isOnline)
-  const clock = useSystemStore(s => s.clock)
   const themeMode = useSettingsStore(s => s.themeMode)
   const setThemeMode = useSettingsStore(s => s.setThemeMode)
   const resolvedTheme = useSettingsStore(s => s.resolvedTheme)
-  // Select count (number primitive) not array — avoids unstable reference
   const unreadCount = useNotificationStore(s => s.notifications.filter(n => !n.read).length)
   const toggleNotifPanel = useNotificationStore(s => s.togglePanel)
   const activeTaskCount = useTaskStore(s => s.tasks.filter(t => t.status === 'queued' || t.status === 'running').length)
   const toggleTaskPanel = useTaskStore(s => s.togglePanel)
 
-  const timeStr = clock.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-  const dateStr = clock.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })
+  // Clock tick
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30000)
+    return () => clearInterval(timer)
+  }, [])
 
-  function BatteryIndicator() {
-    if (batteryLevel === null) return null
-    if (isCharging) return <BatteryCharging size={13} />
-    if (batteryLevel < 20) return <BatteryLow size={13} style={{ color: 'var(--vos-accent-danger)' }} />
-    return <Battery size={13} />
-  }
+  const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const dateStr = now.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })
 
   function cycleTheme() {
     const modes: Array<typeof themeMode> = ['light', 'dark', 'auto']
@@ -93,17 +146,6 @@ function MenuBarRight() {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-      <div className="vos-topbar-status" title={isOnline ? '已连接' : '未连接'}>
-        {isOnline ? <Wifi size={13} /> : <WifiOff size={13} style={{ color: 'var(--vos-accent-danger)' }} />}
-      </div>
-
-      {batteryLevel !== null && (
-        <div className="vos-topbar-status" title={`电池: ${batteryLevel}%`}>
-          <BatteryIndicator />
-          {batteryLevel < 100 && <span style={{ fontSize: 10 }}>{batteryLevel}</span>}
-        </div>
-      )}
-
       {activeTaskCount > 0 && (
         <button type="button" className="vos-topbar-btn" onClick={toggleTaskPanel} title="任务中心">
           <Loader2 size={13} className="vos-spin" />

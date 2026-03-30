@@ -253,11 +253,11 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           <div className="vos-form-row">
             <label>认证方式</label>
             <div className="vos-segmented">
-              {(['password', 'private_key', 'agent'] as const).map(t => (
+              {(['password', 'private_key'] as const).map(t => (
                 <button key={t} type="button"
                   className={`vos-segmented-item ${form.auth_method.type === t ? 'active' : ''}`}
                   onClick={() => setForm(f => ({ ...f, auth_method: { type: t } }))}>
-                  {t === 'password' ? '密码' : t === 'private_key' ? '私钥' : 'Agent'}
+                  {t === 'password' ? '密码' : '私钥'}
                 </button>
               ))}
             </div>

@@ -27,12 +27,16 @@ pub struct SshServer {
 pub enum SshAuthMethod {
     Password {
         /// Credential ID referencing securely stored password.
-        credential_id: Id,
+        /// None when creating — the server generates this after storing the credential.
+        #[serde(default)]
+        credential_id: Option<Id>,
     },
     PrivateKey {
         /// Path to private key file, or credential ID.
         key_path: Option<String>,
+        #[serde(default)]
         credential_id: Option<Id>,
+        #[serde(default)]
         passphrase_credential_id: Option<Id>,
     },
     Agent,

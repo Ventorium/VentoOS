@@ -6,7 +6,7 @@
  */
 import { Bell, Info, Layout, Monitor, Palette } from 'lucide-react'
 import { useState } from 'react'
-import { useSettingsStore, type ThemeMode } from '@/services/settings'
+import { useSettingsStore, type ThemeMode, type DockPosition } from '@/services/settings'
 
 type Category = 'appearance' | 'desktop' | 'notifications' | 'general'
 
@@ -33,12 +33,15 @@ function AppearancePanel() {
   ]
 
   const gradientWallpapers = [
+    '/wallpapers/dark-aurora.jpg',
+    '/wallpapers/dark-mountain.jpg',
+    '/wallpapers/dark-ocean.jpg',
+    '/wallpapers/light-beach.jpg',
+    '/wallpapers/light-sunset.jpg',
+    '/wallpapers/light-field.jpg',
     'linear-gradient(145deg, #0d1117 0%, #161b27 30%, #1a2035 60%, #0f1a2e 100%)',
     'linear-gradient(135deg, #1a1a2e 0%, #16213e 30%, #0f3460 60%, #533483 100%)',
     'linear-gradient(160deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
-    'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
-    'linear-gradient(135deg, #0a0a0a 0%, #1a0533 50%, #0d1b2a 100%)',
-    'linear-gradient(135deg, #00416a 0%, #e4e5e6 100%)'
   ]
 
   return (
@@ -101,7 +104,9 @@ function AppearancePanel() {
               key={i}
               type="button"
               className={`vos-settings-wallpaper ${wallpaper === g ? 'active' : ''}`}
-              style={{ background: g }}
+              style={{
+                background: g.startsWith('/') ? `url(${g}) center/cover no-repeat` : g
+              }}
               onClick={() => setWallpaper(g)}
               aria-label={`壁纸 ${i + 1}`}
             />
@@ -114,10 +119,14 @@ function AppearancePanel() {
 
 /* ---- Desktop & Dock Settings ---- */
 function DesktopPanel() {
-  const [dockSize, setDockSize] = useState(48)
-  const [dockPosition, setDockPosition] = useState<'bottom' | 'left' | 'right'>('bottom')
-  const [magnification, setMagnification] = useState(true)
-  const [autohide, setAutohide] = useState(false)
+  const dockSize = useSettingsStore(s => s.dockIconSize)
+  const setDockSize = useSettingsStore(s => s.setDockIconSize)
+  const dockPosition = useSettingsStore(s => s.dockPosition)
+  const setDockPosition = useSettingsStore(s => s.setDockPosition)
+  const magnification = useSettingsStore(s => s.dockMagnification)
+  const setMagnification = useSettingsStore(s => s.setDockMagnification)
+  const autohide = useSettingsStore(s => s.dockAutoHide)
+  const setAutohide = useSettingsStore(s => s.setDockAutoHide)
 
   return (
     <div className="vos-settings-content">

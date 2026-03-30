@@ -30,11 +30,11 @@ function TrafficLights({
       aria-label={label}
       onClick={e => { e.stopPropagation(); handler() }}
       style={{
-        width: 12, height: 12, borderRadius: '50%',
+        width: 14, height: 14, borderRadius: '50%',
         background: focused ? color : 'var(--vos-tl-inactive)',
         border: 'none', cursor: 'pointer', padding: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 7, fontWeight: 700, color: 'rgba(0,0,0,0.45)', lineHeight: 1,
+        fontSize: 10, fontWeight: 700, color: 'rgba(0,0,0,0.45)', lineHeight: 1,
         flexShrink: 0, transition: 'background 0.1s'
       }}
     >
@@ -256,7 +256,9 @@ export default function Window({ win, children }: { win: WindowInstance; childre
         overflow: 'hidden',
         boxShadow: win.isFocused ? tokens.shadow.windowFocused : tokens.shadow.window,
         border: '0.5px solid var(--vos-border-subtle)',
-        background: win.isFocused ? 'var(--vos-bg-window-active)' : 'var(--vos-bg-window)'
+        background: win.isFocused ? 'var(--vos-bg-window-active)' : 'var(--vos-bg-window)',
+        backdropFilter: `blur(${tokens.blur.surface}px) saturate(180%)`,
+        WebkitBackdropFilter: `blur(${tokens.blur.surface}px) saturate(180%)`
       }}
       onMouseDown={() => { if (!win.isFocused) focusWindow(win.id) }}
     >

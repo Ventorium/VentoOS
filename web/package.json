@@ -7,7 +7,6 @@
     "build": "node scripts/build-info.mjs && vite build",
     "dev": "vite",
     "format": "biome check --write .",
-    "postinstall": "igit install",
     "lint:all": "npm run format",
     "preview": "vite preview"
   },
@@ -40,7 +39,6 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.9",
     "@doremijs/biome-config": "^0.2.1",
-    "@doremijs/igit-cli": "0.0.10-fix1",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
