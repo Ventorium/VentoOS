@@ -34,10 +34,10 @@ import {
   type PortMapping,
   type ServiceExposure,
   type SshServer,
-  api,
-} from '@/api/client'
-import WebShell from '@/components/WebShell'
-import type { AppComponentProps } from '../registry'
+  apiClient as api,
+} from '@/infra/api'
+import WebShell from '@/shell/WebShell'
+import type { AppComponentProps } from '@/kernel'
 
 type TabId = 'servers' | 'port-mappings' | 'exposures'
 

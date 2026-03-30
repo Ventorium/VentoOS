@@ -1,35 +1,29 @@
-import CommandPalette from '@/components/CommandPalette'
-import ContextMenu from '@/components/ContextMenu'
-import Desktop from '@/components/Desktop'
-import Dock from '@/components/Dock'
-import Launchpad from '@/components/Launchpad'
-import LoginScreen from '@/components/LoginScreen'
-import NotificationCenter from '@/components/NotificationCenter'
-import NotificationToast from '@/components/NotificationToast'
-import TaskCenter from '@/components/TaskCenter'
-import TopBar from '@/components/TopBar'
-import WindowManager from '@/components/WindowManager'
+import CommandPalette from '@/shell/CommandPalette'
+import ContextMenu from '@/shell/ContextMenu'
+import Desktop from '@/shell/Desktop'
+import Dock from '@/shell/Dock'
+import Launchpad from '@/shell/Launchpad'
+import LoginScreen from '@/shell/LoginScreen'
+import NotificationCenter from '@/shell/NotificationCenter'
+import NotificationToast from '@/shell/NotificationToast'
+import TaskCenter from '@/shell/TaskCenter'
+import TopBar from '@/shell/TopBar'
+import WindowManager from '@/shell/WindowManager'
 import { useThemeSync } from '@/hooks/useTheme'
-import { useAuthStore } from '@/store/auth'
+import { authService, useAuthStore } from '@/services/auth'
 import { useEffect } from 'react'
-import { api } from './api/client'
 
 function App() {
   useThemeSync()
-  const { token, initialized, locked, setInitialized, unlock } = useAuthStore()
+  const { token, initialized, locked, setInitialized } = useAuthStore()
 
   // On mount: check auth status from backend, auto-unlock if token is valid
   useEffect(() => {
-    api.authStatus().then(res => {
-      setInitialized(res.data.initialized)
-      // If not initialized, skip lock screen — setup mode
-      if (!res.data.initialized) {
-        // Auto-setup with no password needed (will be prompted in LoginScreen)
-      } else if (token) {
+    authService.checkStatus().then(res => {
+      setInitialized(res.initialized)
+      if (res.initialized && token) {
         // Re-validate stored token
-        api.health()
-          .then(() => unlock(token))
-          .catch(() => useAuthStore.getState().lock())
+        authService.revalidateToken().catch(() => useAuthStore.getState().lock())
       }
     }).catch(() => {
       // Backend not reachable — still show UI

@@ -1,6 +1,6 @@
 import { Box, HardDrive, Layers, Network, RefreshCw, Server, Settings } from 'lucide-react'
 import { useState } from 'react'
-import type { AppComponentProps } from '../registry'
+import type { AppComponentProps } from '@/kernel'
 
 const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: <Layers size={16} /> },

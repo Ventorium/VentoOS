@@ -1,4 +1,5 @@
 mod auth;
+mod process_manager;
 mod routes;
 mod shell;
 mod ssh_manager;

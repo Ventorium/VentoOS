@@ -1,6 +1,6 @@
 import { Key, List, Plus, Search, Terminal } from 'lucide-react'
 import { useState } from 'react'
-import type { AppComponentProps } from '../registry'
+import type { AppComponentProps } from '@/kernel'
 
 const SECTIONS = [
   { id: 'keys', label: 'Keys', icon: <Key size={16} /> },

@@ -2,6 +2,7 @@ pub mod auth;
 pub mod connection;
 pub mod error;
 pub mod notification;
+pub mod process;
 pub mod resource;
 pub mod session;
 pub mod ssh;

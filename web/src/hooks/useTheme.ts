@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useDesktopStore } from '@/store/desktop'
+import { useSettingsStore } from '@/services/settings'
 import { darkTheme, lightTheme, type ThemeColors } from '@/theme'
 
 function applyThemeVars(theme: ThemeColors) {
@@ -43,8 +43,8 @@ function applyThemeVars(theme: ThemeColors) {
  * Call once at the app root.
  */
 export function useThemeSync() {
-  const themeMode = useDesktopStore(s => s.themeMode)
-  const setResolvedTheme = useDesktopStore(s => s.setResolvedTheme)
+  const themeMode = useSettingsStore(s => s.themeMode)
+  const setResolvedTheme = useSettingsStore(s => s.setResolvedTheme)
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')

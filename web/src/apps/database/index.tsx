@@ -1,6 +1,6 @@
 import { Database, FileCode, FolderTree, Play, Plus, Table } from 'lucide-react'
 import { useState } from 'react'
-import type { AppComponentProps } from '../registry'
+import type { AppComponentProps } from '@/kernel'
 
 const SIDEBAR_ITEMS = [
   { id: 'connections', label: 'Connections', icon: <Database size={16} /> },

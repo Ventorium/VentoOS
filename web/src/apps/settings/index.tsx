@@ -6,7 +6,7 @@
  */
 import { Bell, Info, Layout, Monitor, Palette } from 'lucide-react'
 import { useState } from 'react'
-import { useDesktopStore, type ThemeMode } from '@/store/desktop'
+import { useSettingsStore, type ThemeMode } from '@/services/settings'
 
 type Category = 'appearance' | 'desktop' | 'notifications' | 'general'
 
@@ -19,7 +19,7 @@ const CATEGORIES = [
 
 /* ---- Appearance Settings ---- */
 function AppearancePanel() {
-  const { themeMode, setThemeMode, wallpaper, setWallpaper } = useDesktopStore()
+  const { themeMode, setThemeMode, wallpaper, setWallpaper } = useSettingsStore()
 
   const themes: { value: ThemeMode; label: string; desc: string }[] = [
     { value: 'light', label: '浅色', desc: '始终使用浅色外观' },
@@ -285,7 +285,7 @@ const PANELS: Record<Category, React.ComponentType> = {
 }
 
 /* ---- Settings App Root ---- */
-export default function SettingsApp(_props: { windowId: string }) {
+export default function SettingsApp(_props: { windowId: string; processId: number }) {
   const [activeCategory, setActiveCategory] = useState<Category>('appearance')
   const Panel = PANELS[activeCategory]
 

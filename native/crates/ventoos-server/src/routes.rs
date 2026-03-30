@@ -11,6 +11,7 @@ use crate::shell;
 use crate::state::AppState;
 use crate::websocket;
 use ventoos_core::connection::{CreateConnectionRequest, UpdateConnectionRequest};
+use ventoos_core::process::CreateProcessRequest;
 use ventoos_core::ssh::{
     CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest,
     UpdateSshServerRequest,
@@ -44,6 +45,14 @@ pub fn create_router(state: AppState) -> Router {
         .with_state(state.auth.clone());
 
     let protected_api = Router::new()
+        // Process routes
+        .route(
+            "/api/processes",
+            get(list_processes).post(create_process),
+        )
+        .route("/api/processes/{pid}", delete(terminate_process))
+        .route("/api/processes/{pid}/suspend", post(suspend_process))
+        .route("/api/processes/{pid}/resume", post(resume_process))
         // Connection routes
         .route(
             "/api/connections",
@@ -542,6 +551,48 @@ async fn frontend_handler(uri: axum::http::Uri) -> impl IntoResponse {
         Some(file) => Html(String::from_utf8_lossy(&file.data).to_string()).into_response(),
         None => (StatusCode::OK, Html("<h1>VentoOS</h1><p>Frontend not built yet. Run <code>cd web && pnpm build</code> first.</p>".to_string())).into_response(),
     }
+}
+
+// --- Process Routes ---
+
+async fn list_processes(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Vec<ventoos_core::process::VProcess>>> {
+    let processes = state.processes.list().await;
+    Json(ApiResponse::ok(processes))
+}
+
+async fn create_process(
+    State(state): State<AppState>,
+    Json(req): Json<CreateProcessRequest>,
+) -> (StatusCode, Json<ApiResponse<ventoos_core::process::CreateProcessResponse>>) {
+    let proc = state.processes.create(req).await;
+    let response = ventoos_core::process::CreateProcessResponse { pid: proc.pid };
+    (StatusCode::CREATED, Json(ApiResponse::ok(response)))
+}
+
+async fn terminate_process(
+    State(state): State<AppState>,
+    Path(pid): Path<u32>,
+) -> Json<ApiResponse<()>> {
+    state.processes.terminate(pid).await;
+    Json(ApiResponse::ok(()))
+}
+
+async fn suspend_process(
+    State(state): State<AppState>,
+    Path(pid): Path<u32>,
+) -> Json<ApiResponse<()>> {
+    state.processes.suspend(pid).await;
+    Json(ApiResponse::ok(()))
+}
+
+async fn resume_process(
+    State(state): State<AppState>,
+    Path(pid): Path<u32>,
+) -> Json<ApiResponse<()>> {
+    state.processes.resume(pid).await;
+    Json(ApiResponse::ok(()))
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 import { Send, Sparkles, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { AppComponentProps } from '../registry'
+import type { AppComponentProps } from '@/kernel'
 
 interface Message {
   id: string

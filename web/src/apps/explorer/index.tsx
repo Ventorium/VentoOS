@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, Download, File, FolderOpen, Grid, List, Upload } from 'lucide-react'
 import { useState } from 'react'
-import type { AppComponentProps } from '../registry'
+import type { AppComponentProps } from '@/kernel'
 
 interface FileNode {
   name: string

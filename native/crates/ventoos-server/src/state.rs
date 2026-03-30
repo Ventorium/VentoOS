@@ -6,6 +6,7 @@ use ventoos_persist::Database;
 use ventoos_task::TaskEngine;
 
 use crate::auth::AuthManager;
+use crate::process_manager::ProcessManager;
 use crate::ssh_manager::SshManager;
 
 /// Shared application state passed to all route handlers.
@@ -16,6 +17,7 @@ pub struct AppState {
     pub tasks: Arc<TaskEngine>,
     pub auth: AuthManager,
     pub ssh: Arc<SshManager>,
+    pub processes: Arc<ProcessManager>,
 }
 
 impl AppState {
@@ -27,6 +29,7 @@ impl AppState {
             connections: Arc::new(ConnectionManager::new()),
             tasks: Arc::new(TaskEngine::new()),
             ssh: Arc::new(SshManager::new()),
+            processes: Arc::new(ProcessManager::new()),
         })
     }
 
@@ -39,6 +42,7 @@ impl AppState {
             connections: Arc::new(ConnectionManager::new()),
             tasks: Arc::new(TaskEngine::new()),
             ssh: Arc::new(SshManager::new()),
+            processes: Arc::new(ProcessManager::new()),
         })
     }
 }
