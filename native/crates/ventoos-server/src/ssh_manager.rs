@@ -4,11 +4,11 @@ use std::sync::Arc;
 use chrono::Utc;
 use tokio::sync::RwLock;
 use ventoos_core::ssh::{
-    CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest,
-    PortMapping, PortMappingStatus, ServiceExposure, ServiceExposureStatus, ServiceSourceType,
-    SshServer, SshServerStatus, UpdateSshServerRequest,
+    CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest, PortMapping,
+    PortMappingStatus, ServiceExposure, ServiceExposureStatus, ServiceSourceType, SshServer,
+    SshServerStatus, UpdateSshServerRequest,
 };
-use ventoos_core::types::{new_id, Id};
+use ventoos_core::types::{Id, new_id};
 
 /// SSH server manager — CRUD + port mapping + service exposure management.
 pub struct SshManager {

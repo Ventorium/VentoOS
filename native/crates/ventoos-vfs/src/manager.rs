@@ -85,8 +85,9 @@ impl VfsManager {
         };
 
         let mut entries = Vec::new();
-        let mut read_dir =
-            tokio::fs::read_dir(&full).await.map_err(|e| format!("Read dir failed: {e}"))?;
+        let mut read_dir = tokio::fs::read_dir(&full)
+            .await
+            .map_err(|e| format!("Read dir failed: {e}"))?;
 
         while let Ok(Some(entry)) = read_dir.next_entry().await {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -96,14 +97,13 @@ impl VfsManager {
             }
             let metadata = entry.metadata().await.ok();
             let is_dir = metadata.as_ref().is_some_and(|m| m.is_dir());
-            let size = metadata.as_ref().and_then(|m| if m.is_file() { Some(m.len()) } else { None });
-            let modified = metadata
+            let size = metadata
                 .as_ref()
-                .and_then(|m| m.modified().ok())
-                .map(|t| {
-                    let dt: chrono::DateTime<chrono::Utc> = t.into();
-                    dt.to_rfc3339()
-                });
+                .and_then(|m| if m.is_file() { Some(m.len()) } else { None });
+            let modified = metadata.as_ref().and_then(|m| m.modified().ok()).map(|t| {
+                let dt: chrono::DateTime<chrono::Utc> = t.into();
+                dt.to_rfc3339()
+            });
 
             let entry_path = if rel_path.is_empty() || rel_path == "/" {
                 format!("/{name}")
@@ -142,7 +142,10 @@ impl VfsManager {
             .ok_or("Mount not found")?;
 
         match mount.kind {
-            VfsSourceKind::Local => self.read_local_file(&mount.root, &req.path, req.max_bytes).await,
+            VfsSourceKind::Local => {
+                self.read_local_file(&mount.root, &req.path, req.max_bytes)
+                    .await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }

@@ -46,10 +46,7 @@ pub fn create_router(state: AppState) -> Router {
 
     let protected_api = Router::new()
         // Process routes
-        .route(
-            "/api/processes",
-            get(list_processes).post(create_process),
-        )
+        .route("/api/processes", get(list_processes).post(create_process))
         .route("/api/processes/{pid}", delete(terminate_process))
         .route("/api/processes/{pid}/suspend", post(suspend_process))
         .route("/api/processes/{pid}/resume", post(resume_process))
@@ -165,10 +162,7 @@ pub fn create_router(state: AppState) -> Router {
             "/api/redis/connections/{id}/keys/{key}",
             get(get_redis_key).delete(delete_redis_key),
         )
-        .route(
-            "/api/redis/connections/{id}/keys",
-            post(set_redis_key),
-        )
+        .route("/api/redis/connections/{id}/keys", post(set_redis_key))
         .route(
             "/api/redis/connections/{id}/command",
             post(execute_redis_command),
@@ -194,7 +188,10 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/k8s/clusters/{id}/resources", get(list_k8s_resources))
         .route("/api/k8s/kubeconfig/parse", post(parse_kubeconfig))
         // VFS routes
-        .route("/api/vfs/mounts", get(list_vfs_mounts).post(create_vfs_mount))
+        .route(
+            "/api/vfs/mounts",
+            get(list_vfs_mounts).post(create_vfs_mount),
+        )
         .route(
             "/api/vfs/mounts/{id}",
             get(get_vfs_mount).delete(delete_vfs_mount),
@@ -252,15 +249,15 @@ async fn list_connections(
 async fn create_connection(
     State(state): State<AppState>,
     Json(req): Json<CreateConnectionRequest>,
-) -> (StatusCode, Json<ApiResponse<ventoos_core::connection::Connection>>) {
+) -> (
+    StatusCode,
+    Json<ApiResponse<ventoos_core::connection::Connection>>,
+) {
     let conn = state.connections.create(req).await;
     (StatusCode::CREATED, Json(ApiResponse::ok(conn)))
 }
 
-async fn get_connection(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn get_connection(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     match state.connections.get(id).await {
         Some(conn) => Json(ApiResponse::ok(conn)).into_response(),
         None => (
@@ -286,10 +283,7 @@ async fn update_connection(
     }
 }
 
-async fn delete_connection(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn delete_connection(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     if state.connections.delete(id).await {
         Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response()
     } else {
@@ -301,10 +295,7 @@ async fn delete_connection(
     }
 }
 
-async fn test_connection(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn test_connection(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     match state.connections.test_connection(id).await {
         Some(result) => Json(ApiResponse::ok(result)).into_response(),
         None => (
@@ -332,10 +323,7 @@ async fn create_task(
     (StatusCode::CREATED, Json(ApiResponse::ok(task)))
 }
 
-async fn get_task(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn get_task(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     match state.tasks.get_task(id).await {
         Some(task) => Json(ApiResponse::ok(task)).into_response(),
         None => (
@@ -346,10 +334,7 @@ async fn get_task(
     }
 }
 
-async fn cancel_task(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn cancel_task(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     match state.tasks.cancel_task(id).await {
         Some(task) => Json(ApiResponse::ok(task)).into_response(),
         None => (
@@ -379,18 +364,12 @@ async fn list_ssh_servers(
 async fn create_ssh_server(
     State(state): State<AppState>,
     Json(req): Json<CreateSshServerRequest>,
-) -> (
-    StatusCode,
-    Json<ApiResponse<ventoos_core::ssh::SshServer>>,
-) {
+) -> (StatusCode, Json<ApiResponse<ventoos_core::ssh::SshServer>>) {
     let server = state.ssh.create_server(req).await;
     (StatusCode::CREATED, Json(ApiResponse::ok(server)))
 }
 
-async fn get_ssh_server(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn get_ssh_server(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     match state.ssh.get_server(id).await {
         Some(server) => Json(ApiResponse::ok(server)).into_response(),
         None => (
@@ -416,10 +395,7 @@ async fn update_ssh_server(
     }
 }
 
-async fn delete_ssh_server(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn delete_ssh_server(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     if state.ssh.delete_server(id).await {
         Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response()
     } else {
@@ -431,10 +407,7 @@ async fn delete_ssh_server(
     }
 }
 
-async fn test_ssh_server(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn test_ssh_server(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     match state.ssh.test_server(id).await {
         Some(result) => Json(ApiResponse::ok(result)).into_response(),
         None => (
@@ -465,10 +438,7 @@ async fn create_port_mapping(
     (StatusCode::CREATED, Json(ApiResponse::ok(mapping)))
 }
 
-async fn get_port_mapping(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn get_port_mapping(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     match state.ssh.get_port_mapping(id).await {
         Some(mapping) => Json(ApiResponse::ok(mapping)).into_response(),
         None => (
@@ -508,10 +478,7 @@ async fn start_port_mapping(
     }
 }
 
-async fn stop_port_mapping(
-    State(state): State<AppState>,
-    Path(id): Path<Id>,
-) -> impl IntoResponse {
+async fn stop_port_mapping(State(state): State<AppState>, Path(id): Path<Id>) -> impl IntoResponse {
     match state.ssh.stop_port_mapping(id).await {
         Some(mapping) => Json(ApiResponse::ok(mapping)).into_response(),
         None => (
@@ -659,7 +626,10 @@ async fn list_processes(
 async fn create_process(
     State(state): State<AppState>,
     Json(req): Json<CreateProcessRequest>,
-) -> (StatusCode, Json<ApiResponse<ventoos_core::process::CreateProcessResponse>>) {
+) -> (
+    StatusCode,
+    Json<ApiResponse<ventoos_core::process::CreateProcessResponse>>,
+) {
     let proc = state.processes.create(req).await;
     let response = ventoos_core::process::CreateProcessResponse { pid: proc.pid };
     (StatusCode::CREATED, Json(ApiResponse::ok(response)))
@@ -701,7 +671,10 @@ async fn list_db_connections(
 async fn create_db_connection(
     State(state): State<AppState>,
     Json(req): Json<ventoos_db::CreateDbConnectionReq>,
-) -> (StatusCode, Json<ApiResponse<ventoos_db::DbConnectionConfig>>) {
+) -> (
+    StatusCode,
+    Json<ApiResponse<ventoos_db::DbConnectionConfig>>,
+) {
     let conn = state.db_manager.create_connection(req).await;
     (StatusCode::CREATED, Json(ApiResponse::ok(conn)))
 }
@@ -749,17 +722,10 @@ async fn test_db_connection(
     }
 }
 
-async fn connect_db(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn connect_db(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     match state.db_manager.connect(&id).await {
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"connected": true}))).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -777,11 +743,7 @@ async fn list_db_schemas(
 ) -> impl IntoResponse {
     match state.db_manager.list_schemas(&id).await {
         Ok(schemas) => Json(ApiResponse::ok(schemas)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -791,11 +753,7 @@ async fn get_db_table_structure(
 ) -> impl IntoResponse {
     match state.db_manager.table_structure(&id, None, &table).await {
         Ok(structure) => Json(ApiResponse::ok(structure)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -824,11 +782,7 @@ async fn get_db_table_data(
     };
     match state.db_manager.table_data(&id, &req).await {
         Ok(data) => Json(ApiResponse::ok(data)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -844,11 +798,7 @@ async fn execute_db_sql(
 ) -> impl IntoResponse {
     match state.db_manager.execute_sql(&id, &body.sql).await {
         Ok(result) => Json(ApiResponse::ok(result)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -915,17 +865,10 @@ async fn test_redis_connection(
     }
 }
 
-async fn connect_redis(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn connect_redis(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     match state.redis_manager.connect(&id).await {
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"connected": true}))).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -958,11 +901,7 @@ async fn scan_redis_keys(
     };
     match state.redis_manager.scan_keys(&id, &req).await {
         Ok(result) => Json(ApiResponse::ok(result)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -972,11 +911,7 @@ async fn get_redis_key(
 ) -> impl IntoResponse {
     match state.redis_manager.get_key_value(&id, &key).await {
         Ok(val) => Json(ApiResponse::ok(val)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -985,12 +920,10 @@ async fn delete_redis_key(
     Path((id, key)): Path<(String, String)>,
 ) -> impl IntoResponse {
     match state.redis_manager.delete_key(&id, &key).await {
-        Ok(deleted) => Json(ApiResponse::ok(serde_json::json!({"deleted": deleted}))).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Ok(deleted) => {
+            Json(ApiResponse::ok(serde_json::json!({"deleted": deleted}))).into_response()
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -1012,11 +945,7 @@ async fn set_redis_key(
         .await
     {
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"ok": true}))).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -1030,13 +959,13 @@ async fn execute_redis_command(
     Path(id): Path<String>,
     Json(body): Json<RedisCommandBody>,
 ) -> impl IntoResponse {
-    match state.redis_manager.execute_command(&id, &body.command).await {
+    match state
+        .redis_manager
+        .execute_command(&id, &body.command)
+        .await
+    {
         Ok(result) => Json(ApiResponse::ok(result)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -1046,11 +975,7 @@ async fn get_redis_server_info(
 ) -> impl IntoResponse {
     match state.redis_manager.server_info(&id).await {
         Ok(info) => Json(ApiResponse::ok(info)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -1120,11 +1045,7 @@ async fn list_k8s_namespaces(
 ) -> impl IntoResponse {
     match state.k8s_manager.list_namespaces(&id).await {
         Ok(ns) => Json(ApiResponse::ok(ns)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -1151,11 +1072,7 @@ async fn list_k8s_resources(
     };
     match state.k8s_manager.list_resources(&req).await {
         Ok(resources) => Json(ApiResponse::ok(resources)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -1178,11 +1095,7 @@ async fn parse_kubeconfig(
     };
     match result {
         Ok(contexts) => Json(ApiResponse::ok(contexts)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -1203,10 +1116,7 @@ async fn create_vfs_mount(
     (StatusCode::CREATED, Json(ApiResponse::ok(mount)))
 }
 
-async fn get_vfs_mount(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn get_vfs_mount(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     match state.vfs_manager.get_mount(&id).await {
         Some(mount) => Json(ApiResponse::ok(mount)).into_response(),
         None => (
@@ -1248,11 +1158,7 @@ async fn list_vfs_dir(
     };
     match state.vfs_manager.list_dir(&req).await {
         Ok(nodes) => Json(ApiResponse::ok(nodes)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 
@@ -1274,11 +1180,7 @@ async fn read_vfs_file(
     };
     match state.vfs_manager.read_file(&req).await {
         Ok(content) => Json(ApiResponse::ok(content)).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::err(&e)),
-        )
-            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
 

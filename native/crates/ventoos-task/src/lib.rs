@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use chrono::Utc;
-use tokio::sync::{broadcast, RwLock};
-use ventoos_core::task::{CreateTaskRequest, Task, TaskPriority, TaskStatus, RiskLevel};
-use ventoos_core::types::{new_id, Id};
+use tokio::sync::{RwLock, broadcast};
+use ventoos_core::task::{CreateTaskRequest, RiskLevel, Task, TaskPriority, TaskStatus};
+use ventoos_core::types::{Id, new_id};
 
 /// Event emitted when a task changes.
 #[derive(Debug, Clone)]

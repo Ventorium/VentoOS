@@ -292,9 +292,7 @@ impl DbManager {
                     })
                     .unwrap_or_default();
 
-                let sql = format!(
-                    "SELECT * FROM \"{table}\"{order} LIMIT {limit} OFFSET {offset}"
-                );
+                let sql = format!("SELECT * FROM \"{table}\"{order} LIMIT {limit} OFFSET {offset}");
                 let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
                 let col_count = stmt.column_count();
                 let columns: Vec<String> = (0..col_count)
@@ -349,11 +347,7 @@ impl DbManager {
     }
 
     /// Execute arbitrary SQL.
-    pub async fn execute_sql(
-        &self,
-        conn_id: &str,
-        sql: &str,
-    ) -> Result<QueryResult, String> {
+    pub async fn execute_sql(&self, conn_id: &str, sql: &str) -> Result<QueryResult, String> {
         let pools = self.pools.read().await;
         let pool = pools.get(conn_id).ok_or("Not connected")?;
         let start = Instant::now();
@@ -411,7 +405,10 @@ impl DbManager {
                         execution_time_ms: start.elapsed().as_millis() as u64,
                     })
                 } else {
-                    let affected = conn.execute_batch(trimmed).map(|_| 0u64).map_err(|e| e.to_string())?;
+                    let affected = conn
+                        .execute_batch(trimmed)
+                        .map(|_| 0u64)
+                        .map_err(|e| e.to_string())?;
                     Ok(QueryResult {
                         columns: vec![],
                         rows: vec![],
@@ -479,9 +476,12 @@ mod tests {
         mgr.connect(&conn.id).await.unwrap();
 
         // Create a test table
-        mgr.execute_sql(&conn.id, "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-            .await
-            .unwrap();
+        mgr.execute_sql(
+            &conn.id,
+            "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)",
+        )
+        .await
+        .unwrap();
         mgr.execute_sql(&conn.id, "INSERT INTO test VALUES (1, 'hello')")
             .await
             .unwrap();

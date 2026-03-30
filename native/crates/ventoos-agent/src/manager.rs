@@ -109,12 +109,17 @@ impl AgentManager {
             "I can help with Kubernetes, database, Redis, and file operations. What would you like to do?".into()
         } else if lower.contains("k8s") || lower.contains("kubernetes") || lower.contains("pod") {
             "I can help with Kubernetes operations. Try asking about pods, deployments, services, or cluster status.".into()
-        } else if lower.contains("sql") || lower.contains("database") || lower.contains("数据库") {
-            "I can help with database queries. Describe the table or data you're looking for.".into()
+        } else if lower.contains("sql") || lower.contains("database") || lower.contains("数据库")
+        {
+            "I can help with database queries. Describe the table or data you're looking for."
+                .into()
         } else if lower.contains("redis") {
-            "I can help with Redis operations. What key or command would you like to work with?".into()
+            "I can help with Redis operations. What key or command would you like to work with?"
+                .into()
         } else {
-            format!("Received: \"{message}\". AI agent integration is being set up. This will connect to your configured agent engine for intelligent responses.")
+            format!(
+                "Received: \"{message}\". AI agent integration is being set up. This will connect to your configured agent engine for intelligent responses."
+            )
         }
     }
 }

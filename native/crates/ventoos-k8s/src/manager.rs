@@ -89,8 +89,9 @@ impl K8sManager {
         &self,
         path: &str,
     ) -> Result<Vec<KubeconfigContext>, String> {
-        let content =
-            tokio::fs::read_to_string(path).await.map_err(|e| format!("Read failed: {e}"))?;
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .map_err(|e| format!("Read failed: {e}"))?;
         Self::parse_kubeconfig_yaml(&content)
     }
 
@@ -146,16 +147,26 @@ impl K8sManager {
                             namespace: current_ns.clone(),
                         });
                     }
-                    current_name =
-                        trimmed.strip_prefix("- name:").unwrap_or("").trim().to_string();
+                    current_name = trimmed
+                        .strip_prefix("- name:")
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
                     current_cluster.clear();
                     current_user.clear();
                     current_ns = None;
                 } else if trimmed.starts_with("cluster:") {
-                    current_cluster =
-                        trimmed.strip_prefix("cluster:").unwrap_or("").trim().to_string();
+                    current_cluster = trimmed
+                        .strip_prefix("cluster:")
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
                 } else if trimmed.starts_with("user:") {
-                    current_user = trimmed.strip_prefix("user:").unwrap_or("").trim().to_string();
+                    current_user = trimmed
+                        .strip_prefix("user:")
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
                 } else if trimmed.starts_with("namespace:") {
                     current_ns = Some(
                         trimmed

@@ -1,12 +1,12 @@
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use axum::Json;
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::warn;
@@ -50,7 +50,8 @@ impl AuthManager {
         self.inner
             .db
             .with_conn(|conn| {
-                let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'password_hash'")?;
+                let mut stmt =
+                    conn.prepare("SELECT value FROM settings WHERE key = 'password_hash'")?;
                 let result: Result<String, _> = stmt.query_row([], |row| row.get(0));
                 Ok(result.is_ok())
             })
@@ -81,7 +82,8 @@ impl AuthManager {
             .inner
             .db
             .with_conn(|conn| {
-                let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'password_hash'")?;
+                let mut stmt =
+                    conn.prepare("SELECT value FROM settings WHERE key = 'password_hash'")?;
                 stmt.query_row([], |row| row.get(0))
                     .map_err(|_| rusqlite::Error::QueryReturnedNoRows)
             })
@@ -114,7 +116,8 @@ impl AuthManager {
             .inner
             .db
             .with_conn(|conn| {
-                let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'password_hash'")?;
+                let mut stmt =
+                    conn.prepare("SELECT value FROM settings WHERE key = 'password_hash'")?;
                 stmt.query_row([], |row| row.get(0))
                     .map_err(|_| rusqlite::Error::QueryReturnedNoRows)
             })
@@ -204,10 +207,7 @@ pub async fn auth_login(
     }
 }
 
-pub async fn auth_logout(
-    State(auth): State<AuthManager>,
-    req: Request<Body>,
-) -> impl IntoResponse {
+pub async fn auth_logout(State(auth): State<AuthManager>, req: Request<Body>) -> impl IntoResponse {
     if let Some(token) = extract_token(&req) {
         auth.logout(&token).await;
     }

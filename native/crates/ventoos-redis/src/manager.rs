@@ -134,12 +134,22 @@ impl RedisManager {
             let auth_cmd = if let Some(ref username) = config.username {
                 format!(
                     "*3\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n${}\r\n{}\r\n",
-                    username.len(), username, password.len(), password
+                    username.len(),
+                    username,
+                    password.len(),
+                    password
                 )
             } else {
-                format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", password.len(), password)
+                format!(
+                    "*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n",
+                    password.len(),
+                    password
+                )
             };
-            stream.write_all(auth_cmd.as_bytes()).await.map_err(|e| e.to_string())?;
+            stream
+                .write_all(auth_cmd.as_bytes())
+                .await
+                .map_err(|e| e.to_string())?;
             let mut buf = [0u8; 256];
             let n = stream.read(&mut buf).await.map_err(|e| e.to_string())?;
             let resp = String::from_utf8_lossy(&buf[..n]);
@@ -155,7 +165,10 @@ impl RedisManager {
                 config.db.to_string().len(),
                 config.db
             );
-            stream.write_all(select_cmd.as_bytes()).await.map_err(|e| e.to_string())?;
+            stream
+                .write_all(select_cmd.as_bytes())
+                .await
+                .map_err(|e| e.to_string())?;
             let mut buf = [0u8; 128];
             stream.read(&mut buf).await.map_err(|e| e.to_string())?;
         }
@@ -183,7 +196,10 @@ impl RedisManager {
         }
 
         let mut stream = conn.stream.lock().await;
-        stream.write_all(cmd.as_bytes()).await.map_err(|e| e.to_string())?;
+        stream
+            .write_all(cmd.as_bytes())
+            .await
+            .map_err(|e| e.to_string())?;
 
         let mut buf = vec![0u8; 65536];
         let n = stream.read(&mut buf).await.map_err(|e| e.to_string())?;
@@ -285,9 +301,7 @@ impl RedisManager {
 
         // Get TTL
         let ttl_resp = Self::send_command(conn, &["TTL", key]).await?;
-        let ttl = Self::parse_resp_value(&ttl_resp)
-            .as_i64()
-            .unwrap_or(-1);
+        let ttl = Self::parse_resp_value(&ttl_resp).as_i64().unwrap_or(-1);
 
         // Get value based on type
         let value = match key_type_str.as_str() {
@@ -308,7 +322,8 @@ impl RedisManager {
                 Self::parse_resp_value(&resp)
             }
             "zset" => {
-                let resp = Self::send_command(conn, &["ZRANGE", key, "0", "999", "WITHSCORES"]).await?;
+                let resp =
+                    Self::send_command(conn, &["ZRANGE", key, "0", "999", "WITHSCORES"]).await?;
                 Self::parse_resp_value(&resp)
             }
             _ => serde_json::Value::Null,
@@ -349,7 +364,13 @@ impl RedisManager {
     }
 
     /// Set a key value.
-    pub async fn set_key(&self, conn_id: &str, key: &str, value: &str, ttl: Option<i64>) -> Result<(), String> {
+    pub async fn set_key(
+        &self,
+        conn_id: &str,
+        key: &str,
+        value: &str,
+        ttl: Option<i64>,
+    ) -> Result<(), String> {
         let connections = self.connections.read().await;
         let conn = connections.get(conn_id).ok_or("Not connected")?;
 
@@ -383,7 +404,8 @@ impl RedisManager {
         let conn = connections.get(conn_id).ok_or("Not connected")?;
 
         let resp = Self::send_command(conn, &["INFO", "server"]).await?;
-        let info_str = resp.lines()
+        let info_str = resp
+            .lines()
             .filter(|l| !l.starts_with('$') && !l.starts_with('+') && !l.is_empty())
             .collect::<Vec<_>>()
             .join("\n");
