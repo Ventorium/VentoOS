@@ -1,14 +1,22 @@
 import {
   ChevronLeft,
   ChevronRight,
+  ClipboardPaste,
+  Copy,
   File,
+  FileUp,
   Folder,
   FolderOpen,
+  FolderPlus,
   HardDrive,
+  Info,
   Loader2,
   Monitor,
+  Pencil,
   Plus,
   RefreshCw,
+  Scissors,
+  Terminal,
   Trash2,
   X
 } from 'lucide-react'
@@ -16,7 +24,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CreateVfsMountReq, VfsFileContent, VfsMount, VfsNode, VfsSourceKind } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
+import { openWindow } from '@/kernel'
+import { useVfsClipboardStore } from '@/services/vfs'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { PathPickerInput } from '@/shell/FilePicker'
+
+const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent)
 
 // ─── Mount form ────────────────────────────────────────────────────────────
 
@@ -325,20 +338,37 @@ interface ColumnData {
 function ColumnView({
   mountId: _mountId,
   columns,
-  onNavigate,
-  onSelectFile,
-  onMoveFile
+  multiSelect,
+  activeColumn,
+  renamingPath,
+  renameValue,
+  onMoveFile,
+  onItemClick,
+  onItemContextMenu,
+  onColumnContextMenu,
+  onRenameChange,
+  onRenameConfirm,
+  onRenameCancel
 }: {
   mountId: string
   columns: ColumnData[]
-  onNavigate: (colIndex: number, entry: VfsNode) => void
-  onSelectFile: (path: string) => void
+  multiSelect: Map<number, Set<string>>
+  activeColumn: number
+  renamingPath: string | null
+  renameValue: string
   onMoveFile: (srcPath: string, destDir: string) => void
+  onItemClick: (colIndex: number, entry: VfsNode, e: React.MouseEvent) => void
+  onItemContextMenu: (colIndex: number, entry: VfsNode, e: React.MouseEvent) => void
+  onColumnContextMenu: (colIndex: number, path: string, e: React.MouseEvent) => void
+  onRenameChange: (val: string) => void
+  onRenameConfirm: () => void
+  onRenameCancel: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
 
   // Auto scroll to the right when new columns are added
+  // biome-ignore lint/correctness/useExhaustiveDependencies: columns.length triggers scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
@@ -368,18 +398,15 @@ function ColumnView({
     if (!targetDir.is_dir) return
     const srcPath = e.dataTransfer.getData('application/x-vfs-path')
     if (!srcPath || srcPath === targetDir.path) return
-    // Don't allow dropping into self or parent
-    if (targetDir.path.startsWith(srcPath + '/')) return
+    if (targetDir.path.startsWith(`${srcPath}/`)) return
     onMoveFile(srcPath, targetDir.path)
   }
 
-  // Allow dropping on column background (= its directory path)
   const handleColumnDrop = (e: React.DragEvent, colPath: string) => {
     e.preventDefault()
     setDropTarget(null)
     const srcPath = e.dataTransfer.getData('application/x-vfs-path')
     if (!srcPath) return
-    // Don't move to same parent
     const srcParent = srcPath.substring(0, srcPath.lastIndexOf('/')) || '/'
     if (srcParent === colPath) return
     onMoveFile(srcPath, colPath)
@@ -387,82 +414,120 @@ function ColumnView({
 
   return (
     <div ref={scrollRef} className="flex-1 flex overflow-x-auto overflow-y-hidden" style={{ scrollBehavior: 'smooth' }}>
-      {columns.map((col, colIdx) => (
-        <div
-          key={col.path}
-          className="flex flex-col flex-shrink-0 overflow-hidden"
-          style={{ width: 220, borderRight: '0.5px solid var(--vos-border-subtle)' }}
-          onDragOver={e => {
-            e.preventDefault()
-            e.dataTransfer.dropEffect = 'move'
-          }}
-          onDrop={e => handleColumnDrop(e, col.path)}
-        >
-          {col.loading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <Loader2 size={14} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
-            </div>
-          ) : col.entries.length === 0 ? (
-            <div
-              className="flex-1 flex items-center justify-center text-xs"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-            >
-              空目录
-            </div>
-          ) : (
-            <div className="flex-1 overflow-auto">
-              {col.entries.map(entry => {
-                const isSelected = col.selected === entry.name
-                const isDragTarget = entry.is_dir && dropTarget === entry.path
-                return (
-                  <div
-                    key={entry.name}
-                    draggable
-                    onDragStart={e => handleDragStart(e, entry)}
-                    onDragOver={e => handleDragOver(e, entry)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={e => handleDrop(e, entry)}
-                    className="flex items-center gap-1.5 px-2 py-[3px] text-xs cursor-pointer"
-                    style={{
-                      background: isDragTarget
-                        ? 'var(--vos-accent-primary-hover, rgba(59,130,246,0.2))'
-                        : isSelected
-                          ? 'var(--vos-accent-primary)'
-                          : 'transparent',
-                      color: isSelected ? '#fff' : 'var(--vos-text-primary)',
-                      borderRadius: 3,
-                      margin: '1px 4px',
-                      outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
-                    }}
-                    onClick={() => {
-                      if (entry.is_dir) {
-                        onNavigate(colIdx, entry)
-                      } else {
-                        onNavigate(colIdx, entry)
-                        onSelectFile(entry.path)
-                      }
-                    }}
-                  >
-                    {entry.is_dir ? (
-                      <Folder
-                        size={13}
-                        style={{ color: isSelected ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
-                      />
-                    ) : (
-                      <File
-                        size={13}
-                        style={{ color: isSelected ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }}
-                      />
-                    )}
-                    <span className="flex-1 truncate">{entry.name}</span>
-                    {entry.is_dir && <ChevronRight size={11} style={{ opacity: 0.5, flexShrink: 0 }} />}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      ))}
+      {columns.map((col, colIdx) => {
+        const colSelected = multiSelect.get(colIdx)
+        return (
+          <div
+            key={col.path}
+            role="listbox"
+            className="flex flex-col flex-shrink-0 overflow-hidden"
+            style={{
+              width: 220,
+              borderRight: '0.5px solid var(--vos-border-subtle)',
+              outline: colIdx === activeColumn ? '1px solid var(--vos-accent-primary)' : 'none',
+              outlineOffset: -1
+            }}
+            onDragOver={e => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+            }}
+            onDrop={e => handleColumnDrop(e, col.path)}
+            onContextMenu={e => {
+              // Only fire for empty area (not when right-clicking on an item)
+              if ((e.target as HTMLElement).closest('[data-vfs-entry]')) return
+              onColumnContextMenu(colIdx, col.path, e)
+            }}
+          >
+            {col.loading ? (
+              <div className="flex-1 flex items-center justify-center">
+                <Loader2 size={14} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+              </div>
+            ) : col.entries.length === 0 ? (
+              <div
+                className="flex-1 flex items-center justify-center text-xs"
+                style={{ color: 'var(--vos-text-tertiary)' }}
+              >
+                空目录
+              </div>
+            ) : (
+              <div className="flex-1 overflow-auto">
+                {col.entries.map(entry => {
+                  const isPrimary = col.selected === entry.name
+                  const isMulti = colSelected?.has(entry.name) ?? false
+                  const isHighlighted = isPrimary || isMulti
+                  const isDragTarget = entry.is_dir && dropTarget === entry.path
+                  const isRenaming = renamingPath === entry.path
+                  return (
+                    <div
+                      key={entry.name}
+                      role="option"
+                      tabIndex={-1}
+                      aria-selected={isHighlighted}
+                      data-vfs-entry={entry.name}
+                      draggable={!isRenaming}
+                      onDragStart={e => handleDragStart(e, entry)}
+                      onDragOver={e => handleDragOver(e, entry)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={e => handleDrop(e, entry)}
+                      className="flex items-center gap-1.5 px-2 py-[3px] text-xs cursor-pointer"
+                      style={{
+                        background: isDragTarget
+                          ? 'var(--vos-accent-primary-hover, rgba(59,130,246,0.2))'
+                          : isHighlighted
+                            ? 'var(--vos-accent-primary)'
+                            : 'transparent',
+                        color: isHighlighted ? '#fff' : 'var(--vos-text-primary)',
+                        borderRadius: 3,
+                        margin: '1px 4px',
+                        outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
+                      }}
+                      onClick={e => onItemClick(colIdx, entry, e)}
+                      onContextMenu={e => onItemContextMenu(colIdx, entry, e)}
+                    >
+                      {entry.is_dir ? (
+                        <Folder
+                          size={13}
+                          style={{ color: isHighlighted ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <File
+                          size={13}
+                          style={{ color: isHighlighted ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }}
+                        />
+                      )}
+                      {isRenaming ? (
+                        <input
+                          autoFocus
+                          className="flex-1 text-xs px-1 py-0 rounded border-none outline-none"
+                          style={{
+                            background: 'var(--vos-bg-input)',
+                            color: 'var(--vos-text-primary)',
+                            minWidth: 0
+                          }}
+                          value={renameValue}
+                          onChange={e => onRenameChange(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') onRenameConfirm()
+                            if (e.key === 'Escape') onRenameCancel()
+                            e.stopPropagation()
+                          }}
+                          onBlur={onRenameCancel}
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="flex-1 truncate">{entry.name}</span>
+                      )}
+                      {entry.is_dir && !isRenaming && (
+                        <ChevronRight size={11} style={{ opacity: 0.5, flexShrink: 0 }} />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -655,6 +720,38 @@ export default function ExplorerApp(_props: AppComponentProps) {
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
   const [showInfo, setShowInfo] = useState(false)
 
+  // Multi-select: colIdx -> Set of item names
+  const [multiSelect, setMultiSelect] = useState<Map<number, Set<string>>>(new Map())
+  const [activeColumn, setActiveColumn] = useState(0)
+  const [selectAnchor, setSelectAnchor] = useState<{ col: number; name: string } | null>(null)
+
+  // Rename state
+  const [renamingPath, setRenamingPath] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+
+  // New folder overlay
+  const [newFolderState, setNewFolderState] = useState<{ visible: boolean; colPath: string; name: string }>({
+    visible: false,
+    colPath: '',
+    name: ''
+  })
+
+  // Upload
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadTargetRef = useRef<string>('/')
+
+  // Container ref for keyboard events
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Clipboard store
+  const clipboard = useVfsClipboardStore(s => s.clipboard)
+  const setClipboard = useVfsClipboardStore(s => s.setClipboard)
+  const clearClipboard = useVfsClipboardStore(s => s.clearClipboard)
+
+  // Context menu
+  const showContextMenu = useContextMenuStore(s => s.show)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount-once
   const reload = useCallback(async () => {
     try {
       const r = await apiClient.getVfsMounts()
@@ -692,11 +789,30 @@ export default function ExplorerApp(_props: AppComponentProps) {
     }
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadColumn is stable
+  const refreshColumn = useCallback(
+    async (colIdx: number) => {
+      if (!selectedMount || colIdx < 0 || colIdx >= columns.length) return
+      const col = columns[colIdx]
+      const entries = await loadColumn(selectedMount, col.path)
+      setColumns(prev => {
+        const updated = [...prev]
+        if (colIdx < updated.length) {
+          updated[colIdx] = { ...prev[colIdx], entries, loading: false }
+        }
+        return updated
+      })
+    },
+    [selectedMount, columns]
+  )
+
   const selectMount = async (id: string) => {
     setSelectedMount(id)
     setPreview(null)
     setSelectedNode(null)
     setShowInfo(false)
+    setMultiSelect(new Map())
+    setActiveColumn(0)
     // Load root column
     setColumns([{ path: '/', entries: [], loading: true }])
     const entries = await loadColumn(id, '/')
@@ -714,13 +830,11 @@ export default function ExplorerApp(_props: AppComponentProps) {
         prev.map(col => {
           const srcParent = srcPath.substring(0, srcPath.lastIndexOf('/')) || '/'
           if (col.path === srcParent || col.path === destDir) {
-            // Mark for reload
             return { ...col, loading: true }
           }
           return col
         })
       )
-      // Reload entries for affected columns
       const updated = await Promise.all(
         columns.map(async col => {
           const srcParent = srcPath.substring(0, srcPath.lastIndexOf('/')) || '/'
@@ -748,7 +862,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
     })
 
     if (entry.is_dir) {
-      // Load new column for subdirectory
       const newPath = entry.path
       setColumns(prev => {
         const updated = prev.slice(0, colIndex + 1)
@@ -766,11 +879,10 @@ export default function ExplorerApp(_props: AppComponentProps) {
       })
       setSelectedNode(entry)
       setPreview(null)
+      setActiveColumn(colIndex + 1)
     } else {
-      // File selected — show info panel
       setSelectedNode(entry)
       setShowInfo(true)
-      // Load file preview
       try {
         const r = await apiClient.readVfsFile(selectedMount, entry.path)
         setPreview(r.data)
@@ -791,11 +903,525 @@ export default function ExplorerApp(_props: AppComponentProps) {
     reload()
   }
 
+  // ── Multi-select helpers ───────────────────────────────────────────
+
+  const clearMultiSelect = () => setMultiSelect(new Map())
+
+  const getSelectedEntries = (colIdx: number): VfsNode[] => {
+    const names = multiSelect.get(colIdx)
+    if (!names || names.size === 0) {
+      // Fall back to single selected
+      const col = columns[colIdx]
+      if (col?.selected) {
+        const entry = col.entries.find(e => e.name === col.selected)
+        return entry ? [entry] : []
+      }
+      return []
+    }
+    const col = columns[colIdx]
+    return col ? col.entries.filter(e => names.has(e.name)) : []
+  }
+
+  const handleItemClick = (colIdx: number, entry: VfsNode, e: React.MouseEvent) => {
+    const modKey = isMac ? e.metaKey : e.ctrlKey
+    setActiveColumn(colIdx)
+
+    if (modKey) {
+      // Toggle multi-select
+      setMultiSelect(prev => {
+        const next = new Map(prev)
+        const set = new Set(next.get(colIdx) ?? [])
+        if (set.has(entry.name)) {
+          set.delete(entry.name)
+        } else {
+          set.add(entry.name)
+        }
+        // Always include primary selection
+        const col = columns[colIdx]
+        if (col?.selected) set.add(col.selected)
+        next.set(colIdx, set)
+        return next
+      })
+      setSelectAnchor({ col: colIdx, name: entry.name })
+    } else if (e.shiftKey && selectAnchor?.col === colIdx) {
+      // Range select
+      const col = columns[colIdx]
+      if (col) {
+        const names = col.entries.map(n => n.name)
+        const anchorIdx = names.indexOf(selectAnchor.name)
+        const currentIdx = names.indexOf(entry.name)
+        if (anchorIdx >= 0 && currentIdx >= 0) {
+          const start = Math.min(anchorIdx, currentIdx)
+          const end = Math.max(anchorIdx, currentIdx)
+          const selected = new Set(names.slice(start, end + 1))
+          setMultiSelect(prev => {
+            const next = new Map(prev)
+            next.set(colIdx, selected)
+            return next
+          })
+        }
+      }
+    } else {
+      // Normal click — clear multi-select and navigate
+      clearMultiSelect()
+      setSelectAnchor({ col: colIdx, name: entry.name })
+      if (entry.is_dir) {
+        handleNavigate(colIdx, entry)
+      } else {
+        handleNavigate(colIdx, entry)
+      }
+    }
+  }
+
+  // ── File operations ────────────────────────────────────────────────
+
+  const handleCopy = () => {
+    if (!selectedMount) return
+    const entries = getSelectedEntries(activeColumn)
+    if (entries.length === 0) return
+    setClipboard({
+      items: entries.map(n => ({ mountId: selectedMount, node: n })),
+      operation: 'copy'
+    })
+  }
+
+  const handleCut = () => {
+    if (!selectedMount) return
+    const entries = getSelectedEntries(activeColumn)
+    if (entries.length === 0) return
+    setClipboard({
+      items: entries.map(n => ({ mountId: selectedMount, node: n })),
+      operation: 'cut'
+    })
+  }
+
+  const handlePaste = async (targetPath: string) => {
+    if (!selectedMount || !clipboard || clipboard.items.length === 0) return
+    try {
+      for (const item of clipboard.items) {
+        const fileName = item.node.name
+        const dest = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`
+        if (clipboard.operation === 'copy') {
+          await apiClient.copyVfsFile(item.mountId, item.node.path, dest)
+        } else {
+          await apiClient.moveVfsFile(item.mountId, item.node.path, dest)
+        }
+      }
+      if (clipboard.operation === 'cut') {
+        clearClipboard()
+      }
+      // Refresh the target column
+      const targetColIdx = columns.findIndex(c => c.path === targetPath)
+      if (targetColIdx >= 0) {
+        await refreshColumn(targetColIdx)
+      }
+    } catch (e) {
+      console.error('Paste failed:', e)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selectedMount) return
+    const entries = getSelectedEntries(activeColumn)
+    if (entries.length === 0) return
+    const names = entries.map(e => e.name).join(', ')
+    if (!window.confirm(`确认删除 ${entries.length} 项？\n${names}`)) return
+    try {
+      for (const entry of entries) {
+        await apiClient.deleteVfs(selectedMount, entry.path)
+      }
+      clearMultiSelect()
+      await refreshColumn(activeColumn)
+    } catch (e) {
+      console.error('Delete failed:', e)
+    }
+  }
+
+  const handleRenameStart = () => {
+    const entries = getSelectedEntries(activeColumn)
+    if (entries.length !== 1) return
+    setRenamingPath(entries[0].path)
+    setRenameValue(entries[0].name)
+  }
+
+  const handleRenameConfirm = async () => {
+    if (!selectedMount || !renamingPath || !renameValue.trim()) {
+      setRenamingPath(null)
+      return
+    }
+    const parentDir = renamingPath.substring(0, renamingPath.lastIndexOf('/')) || '/'
+    const newPath = parentDir === '/' ? `/${renameValue}` : `${parentDir}/${renameValue}`
+    if (newPath === renamingPath) {
+      setRenamingPath(null)
+      return
+    }
+    try {
+      await apiClient.moveVfsFile(selectedMount, renamingPath, newPath)
+      setRenamingPath(null)
+      await refreshColumn(activeColumn)
+    } catch (e) {
+      console.error('Rename failed:', e)
+      setRenamingPath(null)
+    }
+  }
+
+  const handleNewFolder = async () => {
+    if (!selectedMount || !newFolderState.name.trim()) return
+    const dirPath =
+      newFolderState.colPath === '/' ? `/${newFolderState.name}` : `${newFolderState.colPath}/${newFolderState.name}`
+    try {
+      await apiClient.mkdirVfs(selectedMount, dirPath)
+      setNewFolderState({ visible: false, colPath: '', name: '' })
+      const targetColIdx = columns.findIndex(c => c.path === newFolderState.colPath)
+      if (targetColIdx >= 0) {
+        await refreshColumn(targetColIdx)
+      }
+    } catch (e) {
+      console.error('New folder failed:', e)
+    }
+  }
+
+  const handleUpload = async (files: FileList) => {
+    if (!selectedMount || files.length === 0) return
+    const targetPath = uploadTargetRef.current
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const filePath = targetPath === '/' ? `/${file.name}` : `${targetPath}/${file.name}`
+        await apiClient.uploadVfsFile(selectedMount, filePath, file)
+      }
+      const targetColIdx = columns.findIndex(c => c.path === targetPath)
+      if (targetColIdx >= 0) {
+        await refreshColumn(targetColIdx)
+      }
+    } catch (e) {
+      console.error('Upload failed:', e)
+    }
+  }
+
+  const handleOpenInShell = (entry: VfsNode) => {
+    if (!selectedMount) return
+    const mount = mounts.find(m => m.id === selectedMount)
+    if (!mount) return
+    const dirPath = entry.is_dir ? entry.path : entry.path.substring(0, entry.path.lastIndexOf('/')) || '/'
+    openWindow('ssh', {
+      title: `Shell — ${entry.name}`,
+      appState: { mountId: selectedMount, mountKind: mount.kind, mountRoot: mount.root, initialPath: dirPath }
+    })
+  }
+
+  const handleShowProperties = (entry: VfsNode) => {
+    setSelectedNode(entry)
+    setShowInfo(true)
+    if (!entry.is_dir && selectedMount) {
+      apiClient
+        .readVfsFile(selectedMount, entry.path)
+        .then(r => setPreview(r.data))
+        .catch(console.error)
+    }
+  }
+
+  // ── Context menus ──────────────────────────────────────────────────
+
+  const handleItemContextMenu = (colIdx: number, entry: VfsNode, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setActiveColumn(colIdx)
+    // If not in multi-select, select this item
+    if (!multiSelect.get(colIdx)?.has(entry.name)) {
+      clearMultiSelect()
+      setColumns(prev => {
+        const updated = [...prev]
+        if (colIdx < updated.length) {
+          updated[colIdx] = { ...updated[colIdx], selected: entry.name }
+        }
+        return updated
+      })
+    }
+    const modSymbol = isMac ? '⌘' : 'Ctrl+'
+    const currentColPath = columns[colIdx]?.path ?? '/'
+    showContextMenu(e.clientX, e.clientY, [
+      {
+        id: 'open',
+        label: entry.is_dir ? '打开' : '预览',
+        icon: <FolderOpen size={14} />,
+        action: () => handleNavigate(colIdx, entry)
+      },
+      ...(entry.is_dir
+        ? [
+            {
+              id: 'open-shell',
+              label: '在终端中打开',
+              icon: <Terminal size={14} />,
+              action: () => handleOpenInShell(entry)
+            }
+          ]
+        : []),
+      { type: 'separator' as const },
+      {
+        id: 'copy',
+        label: '复制',
+        icon: <Copy size={14} />,
+        shortcut: `${modSymbol}C`,
+        action: () => {
+          if (!selectedMount) return
+          const entries = getSelectedEntries(colIdx)
+          if (entries.length === 0) {
+            setClipboard({ items: [{ mountId: selectedMount, node: entry }], operation: 'copy' })
+          } else {
+            handleCopy()
+          }
+        }
+      },
+      {
+        id: 'cut',
+        label: '剪切',
+        icon: <Scissors size={14} />,
+        shortcut: `${modSymbol}X`,
+        action: () => {
+          if (!selectedMount) return
+          const entries = getSelectedEntries(colIdx)
+          if (entries.length === 0) {
+            setClipboard({ items: [{ mountId: selectedMount, node: entry }], operation: 'cut' })
+          } else {
+            handleCut()
+          }
+        }
+      },
+      ...(clipboard && clipboard.items.length > 0
+        ? [
+            {
+              id: 'paste',
+              label: '粘贴',
+              icon: <ClipboardPaste size={14} />,
+              shortcut: `${modSymbol}V`,
+              action: () => handlePaste(entry.is_dir ? entry.path : currentColPath)
+            }
+          ]
+        : []),
+      { type: 'separator' as const },
+      {
+        id: 'rename',
+        label: '重命名',
+        icon: <Pencil size={14} />,
+        shortcut: 'F2',
+        action: () => {
+          setRenamingPath(entry.path)
+          setRenameValue(entry.name)
+        }
+      },
+      {
+        id: 'delete',
+        label: '删除',
+        icon: <Trash2 size={14} />,
+        danger: true,
+        action: () => {
+          if (!selectedMount) return
+          if (!window.confirm(`确认删除「${entry.name}」？`)) return
+          apiClient
+            .deleteVfs(selectedMount, entry.path)
+            .then(() => {
+              clearMultiSelect()
+              refreshColumn(colIdx)
+            })
+            .catch(console.error)
+        }
+      },
+      { type: 'separator' as const },
+      {
+        id: 'properties',
+        label: '属性',
+        icon: <Info size={14} />,
+        action: () => handleShowProperties(entry)
+      }
+    ])
+  }
+
+  const handleColumnContextMenu = (colIdx: number, colPath: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    setActiveColumn(colIdx)
+    showContextMenu(e.clientX, e.clientY, [
+      {
+        id: 'new-folder',
+        label: '新建文件夹',
+        icon: <FolderPlus size={14} />,
+        action: () => setNewFolderState({ visible: true, colPath, name: '' })
+      },
+      ...(clipboard && clipboard.items.length > 0
+        ? [
+            {
+              id: 'paste',
+              label: '粘贴',
+              icon: <ClipboardPaste size={14} />,
+              action: () => handlePaste(colPath)
+            }
+          ]
+        : []),
+      {
+        id: 'upload',
+        label: '上传文件',
+        icon: <FileUp size={14} />,
+        action: () => {
+          uploadTargetRef.current = colPath
+          fileInputRef.current?.click()
+        }
+      },
+      { type: 'separator' as const },
+      {
+        id: 'refresh',
+        label: '刷新',
+        icon: <RefreshCw size={14} />,
+        action: () => refreshColumn(colIdx)
+      }
+    ])
+  }
+
+  // ── Keyboard shortcuts ─────────────────────────────────────────────
+
+  // Use ref to avoid stale closures in the keydown handler
+  const kbStateRef = useRef({
+    selectedMount,
+    columns,
+    activeColumn,
+    handleCopy,
+    handleCut,
+    handlePaste,
+    handleDelete,
+    handleRenameStart,
+    handleNavigate,
+    getSelectedEntries,
+    clearMultiSelect
+  })
+  kbStateRef.current = {
+    selectedMount,
+    columns,
+    activeColumn,
+    handleCopy,
+    handleCut,
+    handlePaste,
+    handleDelete,
+    handleRenameStart,
+    handleNavigate,
+    getSelectedEntries,
+    clearMultiSelect
+  }
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const handler = (e: KeyboardEvent) => {
+      // Don't intercept if inside an input
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
+      const s = kbStateRef.current
+      if (!s.selectedMount) return
+
+      const modKey = isMac ? e.metaKey : e.ctrlKey
+      const col = s.columns[s.activeColumn]
+      if (!col) return
+
+      if (modKey && e.key === 'a') {
+        e.preventDefault()
+        const allNames = new Set(col.entries.map(n => n.name))
+        setMultiSelect(prev => {
+          const next = new Map(prev)
+          next.set(s.activeColumn, allNames)
+          return next
+        })
+        return
+      }
+
+      if (modKey && e.key === 'c') {
+        e.preventDefault()
+        s.handleCopy()
+        return
+      }
+
+      if (modKey && e.key === 'x') {
+        e.preventDefault()
+        s.handleCut()
+        return
+      }
+
+      if (modKey && e.key === 'v') {
+        e.preventDefault()
+        s.handlePaste(col.path)
+        return
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        s.handleDelete()
+        return
+      }
+
+      if (e.key === 'F2') {
+        e.preventDefault()
+        s.handleRenameStart()
+        return
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const entries = s.getSelectedEntries(s.activeColumn)
+        if (entries.length === 1) {
+          s.handleNavigate(s.activeColumn, entries[0])
+        }
+        return
+      }
+
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        const entries = col.entries
+        if (entries.length === 0) return
+        const currentName = col.selected
+        const currentIdx = currentName ? entries.findIndex(n => n.name === currentName) : -1
+        let nextIdx: number
+        if (e.key === 'ArrowUp') {
+          nextIdx = currentIdx <= 0 ? entries.length - 1 : currentIdx - 1
+        } else {
+          nextIdx = currentIdx >= entries.length - 1 ? 0 : currentIdx + 1
+        }
+        const nextEntry = entries[nextIdx]
+        s.clearMultiSelect()
+        setSelectAnchor({ col: s.activeColumn, name: nextEntry.name })
+        setColumns(prev => {
+          const updated = prev.slice(0, s.activeColumn + 1)
+          updated[s.activeColumn] = { ...updated[s.activeColumn], selected: nextEntry.name }
+          return updated
+        })
+        setSelectedNode(nextEntry)
+        return
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        if (s.activeColumn > 0) {
+          setActiveColumn(s.activeColumn - 1)
+          s.clearMultiSelect()
+        }
+        return
+      }
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        const entries = s.getSelectedEntries(s.activeColumn)
+        if (entries.length === 1 && entries[0].is_dir) {
+          s.handleNavigate(s.activeColumn, entries[0])
+        }
+        return
+      }
+    }
+
+    el.addEventListener('keydown', handler)
+    return () => el.removeEventListener('keydown', handler)
+  }, [])
+
   // Build current path from columns
   const currentPath = columns.length > 0 ? columns[columns.length - 1].path : '/'
 
   return (
-    <div className="flex h-full relative">
+    <div ref={containerRef} className="flex h-full relative" tabIndex={-1} style={{ outline: 'none' }}>
       {showForm && (
         <MountForm
           onClose={() => setShowForm(false)}
@@ -805,6 +1431,72 @@ export default function ExplorerApp(_props: AppComponentProps) {
           }}
         />
       )}
+
+      {/* New folder overlay */}
+      {newFolderState.visible && (
+        <div
+          className="absolute inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+        >
+          <div
+            className="rounded-lg p-4 flex flex-col gap-3"
+            style={{ width: 320, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+          >
+            <div className="text-sm font-medium">新建文件夹</div>
+            <input
+              autoFocus
+              className="w-full text-xs px-2 py-1.5 rounded border-none outline-none"
+              style={{
+                background: 'var(--vos-bg-input)',
+                color: 'var(--vos-text-primary)',
+                border: '0.5px solid var(--vos-border-subtle)'
+              }}
+              placeholder="文件夹名称"
+              value={newFolderState.name}
+              onChange={e => setNewFolderState(prev => ({ ...prev, name: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleNewFolder()
+                if (e.key === 'Escape') setNewFolderState({ visible: false, colPath: '', name: '' })
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                onClick={() => setNewFolderState({ visible: false, colPath: '', name: '' })}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+                style={{
+                  background: 'var(--vos-accent-primary)',
+                  color: '#fff',
+                  opacity: newFolderState.name.trim() ? 1 : 0.5
+                }}
+                disabled={!newFolderState.name.trim()}
+                onClick={handleNewFolder}
+              >
+                创建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden file input for upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={e => {
+          if (e.target.files) handleUpload(e.target.files)
+          e.target.value = ''
+        }}
+      />
 
       {/* Sidebar — mount sources */}
       <div
@@ -841,6 +1533,8 @@ export default function ExplorerApp(_props: AppComponentProps) {
           return (
             <div
               key={m.id}
+              role="button"
+              tabIndex={0}
               className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group"
               style={{
                 background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
@@ -849,6 +1543,9 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 margin: '1px 4px'
               }}
               onClick={() => selectMount(m.id)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') selectMount(m.id)
+              }}
             >
               <KindIcon size={13} style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }} />
               <span className="flex-1 truncate">{m.name}</span>
@@ -901,6 +1598,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
                     setPreview(null)
                     setSelectedNode(null)
                     setShowInfo(false)
+                    setActiveColumn(Math.max(0, activeColumn - 1))
                   }
                 }}
               >
@@ -915,7 +1613,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
                   .split('/')
                   .filter(Boolean)
                   .map((seg, i) => (
-                    <span key={i} className="flex items-center gap-0.5 truncate">
+                    <span key={seg} className="flex items-center gap-0.5 truncate">
                       {i > 0 && <ChevronRight size={10} style={{ opacity: 0.4, flexShrink: 0 }} />}
                       <span className="truncate">{seg}</span>
                     </span>
@@ -946,9 +1644,17 @@ export default function ExplorerApp(_props: AppComponentProps) {
               <ColumnView
                 mountId={selectedMount}
                 columns={columns}
-                onNavigate={handleNavigate}
-                onSelectFile={() => setShowInfo(true)}
+                multiSelect={multiSelect}
+                activeColumn={activeColumn}
+                renamingPath={renamingPath}
+                renameValue={renameValue}
                 onMoveFile={handleMoveFile}
+                onItemClick={handleItemClick}
+                onItemContextMenu={handleItemContextMenu}
+                onColumnContextMenu={handleColumnContextMenu}
+                onRenameChange={setRenameValue}
+                onRenameConfirm={handleRenameConfirm}
+                onRenameCancel={() => setRenamingPath(null)}
               />
 
               {/* Info / preview panel */}

@@ -68,15 +68,17 @@ export default function AISidePanel() {
     setInput('')
     setSending(true)
 
-    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: text, timestamp: new Date().toISOString() }
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: text,
+      timestamp: new Date().toISOString()
+    }
     setMessages(prev => [...prev, userMsg])
 
     try {
       const r = await apiClient.agentChat({ message: text, session_id: currentSession ?? undefined })
-      setMessages(prev => [
-        ...prev,
-        r.data.message
-      ])
+      setMessages(prev => [...prev, r.data.message])
       if (!currentSession && r.data.session_id) {
         setCurrentSession(r.data.session_id)
         loadSessions()
@@ -84,7 +86,12 @@ export default function AISidePanel() {
     } catch (e) {
       setMessages(prev => [
         ...prev,
-        { id: crypto.randomUUID(), role: 'assistant', content: '抱歉，出了点问题。', timestamp: new Date().toISOString() }
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: '抱歉，出了点问题。',
+          timestamp: new Date().toISOString()
+        }
       ])
       console.error(e)
     }
