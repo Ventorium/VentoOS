@@ -256,6 +256,15 @@ export const apiClient = {
     if (maxBytes) params.set('max_bytes', String(maxBytes))
     return request<ApiResponse<VfsFileContent>>('GET', `/api/vfs/mounts/${id}/read?${params}`)
   },
+  readVfsFileRaw: async (id: string, path: string): Promise<Blob> => {
+    const token = _tokenProvider()
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const params = new URLSearchParams({ path })
+    const res = await fetch(`/api/vfs/mounts/${id}/raw?${params}`, { headers })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return res.blob()
+  },
 
   // ── AI Agent ──────────────────────────────────────────────────────────────
 

@@ -201,6 +201,7 @@ pub fn create_router(state: AppState) -> Router {
         )
         .route("/api/vfs/mounts/{id}/ls", get(list_vfs_dir))
         .route("/api/vfs/mounts/{id}/read", get(read_vfs_file))
+        .route("/api/vfs/mounts/{id}/raw", get(read_vfs_file_raw))
         // Agent routes
         .route("/api/agent/sessions", get(list_agent_sessions))
         .route(
@@ -1277,6 +1278,30 @@ async fn read_vfs_file(
     };
     match state.vfs_manager.read_file(&req).await {
         Ok(content) => Json(ApiResponse::ok(content)).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::err(&e)),
+        )
+            .into_response(),
+    }
+}
+
+async fn read_vfs_file_raw(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Query(query): Query<VfsPathQuery>,
+) -> impl IntoResponse {
+    let path = query.path.unwrap_or_default();
+    match state.vfs_manager.read_file_raw(&id, &path).await {
+        Ok(bytes) => {
+            let mime = mime_guess::from_path(&path).first_or_octet_stream();
+            (
+                StatusCode::OK,
+                [(axum::http::header::CONTENT_TYPE, mime.as_ref().to_owned())],
+                bytes,
+            )
+                .into_response()
+        }
         Err(e) => (
             StatusCode::BAD_REQUEST,
             Json(ApiResponse::<()>::err(&e)),

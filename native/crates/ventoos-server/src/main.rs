@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
         .layer(CorsLayer::permissive());
 
     // Bind and serve
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 5454));
     info!("Listening on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;

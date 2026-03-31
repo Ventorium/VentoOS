@@ -321,8 +321,13 @@ export type K8sResourceKind =
   | 'daemonset'
   | 'job'
   | 'cronjob'
+  | 'replicaset'
   | 'persistentvolumeclaim'
+  | 'persistentvolume'
+  | 'storageclass'
   | 'namespace'
+  | 'serviceaccount'
+  | 'networkpolicy'
   | 'node'
 
 export interface K8sResource {

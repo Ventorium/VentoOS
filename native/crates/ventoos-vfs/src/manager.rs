@@ -147,6 +147,40 @@ impl VfsManager {
         }
     }
 
+    /// Read raw file bytes for download / image preview.
+    pub async fn read_file_raw(&self, mount_id: &str, path: &str) -> Result<Vec<u8>, String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => self.read_local_file_raw(&mount.root, path).await,
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+        }
+    }
+
+    async fn read_local_file_raw(&self, root: &str, rel_path: &str) -> Result<Vec<u8>, String> {
+        let base = std::path::Path::new(root);
+        let clean = rel_path.trim_start_matches('/');
+        let candidate = base.join(clean);
+        let canonical_root = base
+            .canonicalize()
+            .map_err(|e| format!("Root path error: {e}"))?;
+        let canonical = candidate
+            .canonicalize()
+            .map_err(|e| format!("Path error: {e}"))?;
+        if !canonical.starts_with(&canonical_root) {
+            return Err("Path traversal denied".into());
+        }
+        tokio::fs::read(&canonical)
+            .await
+            .map_err(|e| format!("Read error: {e}"))
+    }
+
     async fn read_local_file(
         &self,
         root: &str,

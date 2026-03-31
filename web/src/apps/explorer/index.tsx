@@ -5,7 +5,6 @@ import {
   Folder,
   FolderOpen,
   HardDrive,
-  Home,
   Loader2,
   Monitor,
   Plus,
@@ -24,7 +23,23 @@ import { PathPickerInput } from '@/shell/FilePicker'
 function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m: VfsMount) => void }) {
   const [name, setName] = useState('')
   const [kind, setKind] = useState<VfsSourceKind>('local')
-  const [source, setSource] = useState('')
+  // local
+  const [localPath, setLocalPath] = useState('')
+  // sftp / ftp
+  const [host, setHost] = useState('')
+  const [port, setPort] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [basePath, setBasePath] = useState('/')
+  // smb
+  const [share, setShare] = useState('')
+  // s3
+  const [bucket, setBucket] = useState('')
+  const [region, setRegion] = useState('')
+  const [accessKey, setAccessKey] = useState('')
+  const [secretKey, setSecretKey] = useState('')
+  const [endpoint, setEndpoint] = useState('')
+
   const [saving, setSaving] = useState(false)
   const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
   const fs = {
@@ -33,11 +48,54 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
     border: '0.5px solid var(--vos-border-subtle)'
   }
 
+  const buildRoot = (): string => {
+    switch (kind) {
+      case 'local':
+        return localPath
+      case 'sftp': {
+        const p = port || '22'
+        const auth = username ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
+        return `sftp://${auth}${host}:${p}${basePath || '/'}`
+      }
+      case 'ftp': {
+        const p = port || '21'
+        const auth = username ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
+        return `ftp://${auth}${host}:${p}${basePath || '/'}`
+      }
+      case 'smb': {
+        const auth = username ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
+        return `smb://${auth}${host}/${share}`
+      }
+      case 's3': {
+        const params = new URLSearchParams()
+        if (region) params.set('region', region)
+        if (endpoint) params.set('endpoint', endpoint)
+        const qs = params.toString() ? `?${params.toString()}` : ''
+        const auth = accessKey ? `${encodeURIComponent(accessKey)}:${encodeURIComponent(secretKey)}@` : ''
+        return `s3://${auth}${bucket}${qs}`
+      }
+      default:
+        return ''
+    }
+  }
+
+  const isValid = (): boolean => {
+    if (!name) return false
+    switch (kind) {
+      case 'local': return !!localPath
+      case 'sftp':
+      case 'ftp': return !!host
+      case 'smb': return !!host && !!share
+      case 's3': return !!bucket
+      default: return false
+    }
+  }
+
   const submit = async () => {
-    if (!name || !source) return
+    if (!isValid()) return
     setSaving(true)
     try {
-      const body: CreateVfsMountReq = { name, kind, root: source }
+      const body: CreateVfsMountReq = { name, kind, root: buildRoot() }
       const res = await apiClient.createVfsMount(body)
       onCreated(res.data)
     } catch (e) {
@@ -51,9 +109,9 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
     <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
       <div
         className="rounded-lg p-4 flex flex-col gap-3"
-        style={{ width: 380, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+        style={{ width: 400, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
       >
-        <div className="text-sm font-medium">添加挂载源</div>
+        <div className="text-sm font-medium">添加数据源</div>
         <input className={fc} style={fs} placeholder="名称" value={name} onChange={e => setName(e.target.value)} />
         <select className={fc} style={fs} value={kind} onChange={e => setKind(e.target.value as VfsSourceKind)}>
           <option value="local">本地磁盘</option>
@@ -62,24 +120,61 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
           <option value="smb">SMB 共享</option>
           <option value="s3">S3 对象存储</option>
         </select>
-        {kind === 'local' ? (
+
+        {/* ── Local disk ── */}
+        {kind === 'local' && (
           <PathPickerInput
             mode="directory"
-            value={source}
-            onChange={setSource}
+            value={localPath}
+            onChange={setLocalPath}
             placeholder="选择目录"
             className={fc}
             style={fs}
           />
-        ) : (
-          <input
-            className={fc}
-            style={fs}
-            placeholder="连接地址"
-            value={source}
-            onChange={e => setSource(e.target.value)}
-          />
         )}
+
+        {/* ── SFTP / FTP ── */}
+        {(kind === 'sftp' || kind === 'ftp') && (
+          <>
+            <div className="flex gap-2">
+              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="主机地址" value={host} onChange={e => setHost(e.target.value)} />
+              <input className={fc} style={{ ...fs, width: 72 }} placeholder={kind === 'sftp' ? '22' : '21'} value={port} onChange={e => setPort(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="用户名（可选）" value={username} onChange={e => setUsername(e.target.value)} />
+              <input className={fc} style={{ ...fs, flex: 1 }} type="password" placeholder="密码（可选）" value={password} onChange={e => setPassword(e.target.value)} />
+            </div>
+            <input className={fc} style={fs} placeholder="基础路径（如 /home/user）" value={basePath} onChange={e => setBasePath(e.target.value)} />
+          </>
+        )}
+
+        {/* ── SMB ── */}
+        {kind === 'smb' && (
+          <>
+            <input className={fc} style={fs} placeholder="主机地址" value={host} onChange={e => setHost(e.target.value)} />
+            <input className={fc} style={fs} placeholder="共享名称（share name）" value={share} onChange={e => setShare(e.target.value)} />
+            <div className="flex gap-2">
+              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="用户名（可选）" value={username} onChange={e => setUsername(e.target.value)} />
+              <input className={fc} style={{ ...fs, flex: 1 }} type="password" placeholder="密码（可选）" value={password} onChange={e => setPassword(e.target.value)} />
+            </div>
+          </>
+        )}
+
+        {/* ── S3 ── */}
+        {kind === 's3' && (
+          <>
+            <input className={fc} style={fs} placeholder="Bucket 名称" value={bucket} onChange={e => setBucket(e.target.value)} />
+            <div className="flex gap-2">
+              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="Region（如 us-east-1）" value={region} onChange={e => setRegion(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="Access Key" value={accessKey} onChange={e => setAccessKey(e.target.value)} />
+              <input className={fc} style={{ ...fs, flex: 1 }} type="password" placeholder="Secret Key" value={secretKey} onChange={e => setSecretKey(e.target.value)} />
+            </div>
+            <input className={fc} style={fs} placeholder="自定义 Endpoint（可选，兼容 MinIO 等）" value={endpoint} onChange={e => setEndpoint(e.target.value)} />
+          </>
+        )}
+
         <div className="flex justify-end gap-2 mt-1">
           <button
             type="button"
@@ -92,9 +187,9 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
           <button
             type="button"
             className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
+            style={{ background: 'var(--vos-accent-primary)', color: '#fff', opacity: isValid() ? 1 : 0.5 }}
             onClick={submit}
-            disabled={saving}
+            disabled={saving || !isValid()}
           >
             {saving ? '添加中…' : '添加'}
           </button>
@@ -136,7 +231,6 @@ interface ColumnData {
 // ─── Column View Component ─────────────────────────────────────────────────
 
 function ColumnView({
-  mountId,
   columns,
   onNavigate,
   onSelectFile
@@ -223,16 +317,63 @@ function ColumnView({
 
 // ─── File Info Panel ───────────────────────────────────────────────────────
 
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'])
+const CODE_EXTS = new Set([
+  'js', 'ts', 'jsx', 'tsx', 'json', 'yaml', 'yml', 'toml', 'rs', 'go', 'py',
+  'sh', 'bash', 'zsh', 'css', 'html', 'xml', 'md', 'sql', 'env',
+])
+
+function getFileExt(name: string): string {
+  const dot = name.lastIndexOf('.')
+  return dot >= 0 ? name.slice(dot + 1).toLowerCase() : ''
+}
+
+function tryFormatJson(content: string): string {
+  try {
+    return JSON.stringify(JSON.parse(content), null, 2)
+  } catch {
+    return content
+  }
+}
+
 function FileInfoPanel({
+  mountId,
   preview,
   node,
   onClose
 }: {
+  mountId: string
   preview: VfsFileContent | null
   node: VfsNode | null
   onClose: () => void
 }) {
+  const [imgSrc, setImgSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!node || node.is_dir) return
+    const ext = getFileExt(node.name)
+    if (!IMAGE_EXTS.has(ext)) {
+      setImgSrc(null)
+      return
+    }
+    let url: string | null = null
+    apiClient.readVfsFileRaw(mountId, node.path).then(blob => {
+      url = URL.createObjectURL(blob)
+      setImgSrc(url)
+    }).catch(() => setImgSrc(null))
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [mountId, node])
+
   if (!node) return null
+
+  const ext = getFileExt(node.name)
+  const isImage = IMAGE_EXTS.has(ext)
+  const isCode = CODE_EXTS.has(ext) || ext === 'json'
+  const displayContent = preview && !node.is_dir && !preview.is_binary
+    ? (ext === 'json' ? tryFormatJson(preview.content) : preview.content)
+    : null
 
   return (
     <div
@@ -256,12 +397,12 @@ function FileInfoPanel({
 
       {/* File metadata */}
       <div
-        className="px-3 py-2 text-xs flex flex-col gap-1"
+        className="px-3 py-2 text-xs flex flex-col gap-1 flex-shrink-0"
         style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
       >
         <div className="flex justify-between">
           <span style={{ color: 'var(--vos-text-tertiary)' }}>类型</span>
-          <span>{node.is_dir ? '目录' : '文件'}</span>
+          <span>{node.is_dir ? '目录' : (ext ? ext.toUpperCase() : '文件')}</span>
         </div>
         {!node.is_dir && node.size != null && (
           <div className="flex justify-between">
@@ -275,26 +416,49 @@ function FileInfoPanel({
             <span>{new Date(node.modified).toLocaleString()}</span>
           </div>
         )}
-        {node.path && (
-          <div className="flex justify-between">
-            <span style={{ color: 'var(--vos-text-tertiary)' }}>路径</span>
-            <span className="truncate ml-2 text-right" style={{ maxWidth: 160 }}>
-              {node.path}
-            </span>
-          </div>
+        {preview?.truncated && (
+          <div className="text-[10px]" style={{ color: 'var(--vos-accent-warning)' }}>仅预览前 1MB</div>
         )}
       </div>
 
-      {/* File preview content */}
-      {preview && !node.is_dir && (
-        <div
-          className="flex-1 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap"
-          style={{ color: 'var(--vos-text-primary)' }}
-        >
-          {preview.is_binary ? (
-            <span style={{ color: 'var(--vos-text-tertiary)', fontStyle: 'italic' }}>二进制文件，无法预览</span>
+      {/* Image preview */}
+      {isImage && (
+        <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
+          {imgSrc ? (
+            <img
+              src={imgSrc}
+              alt={node.name}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 4 }}
+            />
           ) : (
-            preview.content
+            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+          )}
+        </div>
+      )}
+
+      {/* Text / code preview */}
+      {!isImage && preview && !node.is_dir && (
+        <div className="flex-1 overflow-auto">
+          {preview.is_binary ? (
+            <div
+              className="flex-1 flex items-center justify-center p-4 text-xs"
+              style={{ color: 'var(--vos-text-tertiary)', fontStyle: 'italic' }}
+            >
+              二进制文件，无法预览
+            </div>
+          ) : (
+            <pre
+              className={`p-3 text-xs m-0 ${isCode ? 'font-mono' : ''}`}
+              style={{
+                color: 'var(--vos-text-primary)',
+                background: 'transparent',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                lineHeight: 1.6
+              }}
+            >
+              {displayContent}
+            </pre>
           )}
         </div>
       )}
@@ -538,7 +702,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 {currentPath
                   .split('/')
                   .filter(Boolean)
-                  .map((seg, i, arr) => (
+                  .map((seg, i) => (
                     <span key={i} className="flex items-center gap-0.5 truncate">
                       {i > 0 && <ChevronRight size={10} style={{ opacity: 0.4, flexShrink: 0 }} />}
                       <span className="truncate">{seg}</span>
@@ -550,7 +714,16 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 type="button"
                 className="bg-transparent border-none cursor-pointer p-0"
                 style={{ color: 'var(--vos-accent-primary)' }}
-                onClick={() => selectedMount && selectMount(selectedMount)}
+                onClick={async () => {
+                  if (!selectedMount || columns.length === 0) return
+                  const lastCol = columns[columns.length - 1]
+                  const entries = await loadColumn(selectedMount, lastCol.path)
+                  setColumns(prev => {
+                    const updated = [...prev]
+                    updated[updated.length - 1] = { ...updated[updated.length - 1], entries }
+                    return updated
+                  })
+                }}
               >
                 <RefreshCw size={12} />
               </button>
@@ -568,6 +741,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
               {/* Info / preview panel */}
               {showInfo && (
                 <FileInfoPanel
+                  mountId={selectedMount}
                   preview={preview}
                   node={selectedNode}
                   onClose={() => {

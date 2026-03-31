@@ -23,41 +23,41 @@ const RESOURCE_GROUPS: { label: string; icon: React.ReactNode; kinds: { kind: K8
     label: '工作负载',
     icon: <Server size={12} />,
     kinds: [
-      { kind: 'Pod', label: 'Pods' },
-      { kind: 'Deployment', label: 'Deployments' },
-      { kind: 'StatefulSet', label: 'StatefulSets' },
-      { kind: 'DaemonSet', label: 'DaemonSets' },
-      { kind: 'Job', label: 'Jobs' },
-      { kind: 'CronJob', label: 'CronJobs' },
-      { kind: 'ReplicaSet', label: 'ReplicaSets' }
+      { kind: 'pod', label: 'Pods' },
+      { kind: 'deployment', label: 'Deployments' },
+      { kind: 'statefulset', label: 'StatefulSets' },
+      { kind: 'daemonset', label: 'DaemonSets' },
+      { kind: 'job', label: 'Jobs' },
+      { kind: 'cronjob', label: 'CronJobs' },
+      { kind: 'replicaset', label: 'ReplicaSets' }
     ]
   },
   {
     label: '网络',
     icon: <Network size={12} />,
     kinds: [
-      { kind: 'Service', label: 'Services' },
-      { kind: 'Ingress', label: 'Ingresses' },
-      { kind: 'NetworkPolicy', label: 'NetworkPolicies' }
+      { kind: 'service', label: 'Services' },
+      { kind: 'ingress', label: 'Ingresses' },
+      { kind: 'networkpolicy', label: 'NetworkPolicies' }
     ]
   },
   {
     label: '存储',
     icon: <HardDrive size={12} />,
     kinds: [
-      { kind: 'PersistentVolumeClaim', label: 'PVCs' },
-      { kind: 'PersistentVolume', label: 'PVs' },
-      { kind: 'StorageClass', label: 'StorageClasses' }
+      { kind: 'persistentvolumeclaim', label: 'PVCs' },
+      { kind: 'persistentvolume', label: 'PVs' },
+      { kind: 'storageclass', label: 'StorageClasses' }
     ]
   },
   {
     label: '配置',
     icon: <Settings size={12} />,
     kinds: [
-      { kind: 'ConfigMap', label: 'ConfigMaps' },
-      { kind: 'Secret', label: 'Secrets' },
-      { kind: 'Namespace', label: 'Namespaces' },
-      { kind: 'ServiceAccount', label: 'ServiceAccounts' }
+      { kind: 'configmap', label: 'ConfigMaps' },
+      { kind: 'secret', label: 'Secrets' },
+      { kind: 'namespace', label: 'Namespaces' },
+      { kind: 'serviceaccount', label: 'ServiceAccounts' }
     ]
   }
 ]
@@ -149,7 +149,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null)
   const [namespaces, setNamespaces] = useState<K8sNamespace[]>([])
   const [selectedNs, setSelectedNs] = useState<string>('default')
-  const [selectedKind, setSelectedKind] = useState<K8sResourceKind>('Pod')
+  const [selectedKind, setSelectedKind] = useState<K8sResourceKind>('pod')
   const [resources, setResources] = useState<K8sResource[]>([])
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['工作负载']))
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set())
@@ -344,49 +344,53 @@ export default function KubernetesApp(_props: AppComponentProps) {
           </div>
         )}
 
-        {/* Divider */}
-        <div style={{ borderTop: '0.5px solid var(--vos-border-subtle)', margin: '8px 0 0' }} />
-        {/* Resource types nav */}
-        <div
-          className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider"
-          style={{ color: 'var(--vos-text-tertiary)' }}
-        >
-          资源类型
-        </div>
-        {RESOURCE_GROUPS.map(group => (
-          <div key={group.label}>
+        {/* Divider + Resource types — only visible when a cluster is selected */}
+        {selectedCluster && (
+          <>
+            <div style={{ borderTop: '0.5px solid var(--vos-border-subtle)', margin: '8px 0 0' }} />
+            {/* Resource types nav */}
             <div
-              className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs"
-              style={{ color: 'var(--vos-text-secondary)' }}
-              onClick={() => toggleGroup(group.label)}
-              onKeyDown={() => {}}
+              className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider"
+              style={{ color: 'var(--vos-text-tertiary)' }}
             >
-              {expandedGroups.has(group.label) ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-              {group.icon}
-              <span>{group.label}</span>
+              资源类型
             </div>
-            {expandedGroups.has(group.label) &&
-              group.kinds.map(k => (
+            {RESOURCE_GROUPS.map(group => (
+              <div key={group.label}>
                 <div
-                  key={k.kind}
-                  className="flex items-center gap-1 cursor-pointer text-xs rounded"
-                  style={{
-                    paddingLeft: 22,
-                    paddingRight: 8,
-                    paddingTop: 2,
-                    paddingBottom: 2,
-                    margin: '0 4px',
-                    background: selectedKind === k.kind ? 'var(--vos-accent-primary)' : 'transparent',
-                    color: selectedKind === k.kind ? '#fff' : 'var(--vos-text-primary)'
-                  }}
-                  onClick={() => pickKind(k.kind)}
+                  className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs"
+                  style={{ color: 'var(--vos-text-secondary)' }}
+                  onClick={() => toggleGroup(group.label)}
                   onKeyDown={() => {}}
                 >
-                  {k.label}
+                  {expandedGroups.has(group.label) ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                  {group.icon}
+                  <span>{group.label}</span>
                 </div>
-              ))}
-          </div>
-        ))}
+                {expandedGroups.has(group.label) &&
+                  group.kinds.map(k => (
+                    <div
+                      key={k.kind}
+                      className="flex items-center gap-1 cursor-pointer text-xs rounded"
+                      style={{
+                        paddingLeft: 22,
+                        paddingRight: 8,
+                        paddingTop: 2,
+                        paddingBottom: 2,
+                        margin: '0 4px',
+                        background: selectedKind === k.kind ? 'var(--vos-accent-primary)' : 'transparent',
+                        color: selectedKind === k.kind ? '#fff' : 'var(--vos-text-primary)'
+                      }}
+                      onClick={() => pickKind(k.kind)}
+                      onKeyDown={() => {}}
+                    >
+                      {k.label}
+                    </div>
+                  ))}
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       {/* Main content */}

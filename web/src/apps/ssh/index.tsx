@@ -966,8 +966,8 @@ function ExposureForm({
     name: '',
     source_type: 'local',
     source_host: 'localhost',
-    source_port: 8080,
-    public_port: 8080,
+    source_port: 5454,
+    public_port: 5454,
     basic_auth_enabled: false
   })
   const [saving, setSaving] = useState(false)

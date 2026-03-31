@@ -349,10 +349,10 @@ export function PathPickerInput({
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', ...style }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <input
           className={className ?? 'vos-input'}
-          style={{ flex: 1, fontFamily: 'monospace', fontSize: 12 }}
+          style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, ...style }}
           placeholder={placeholder ?? (mode === 'directory' ? '目录路径' : '文件路径')}
           value={value}
           onChange={e => onChange(e.target.value)}

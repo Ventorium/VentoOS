@@ -53,7 +53,7 @@ function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void 
             {app.author.email && ` <${app.author.email}>`}
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
-            <button type="button" className="vos-btn vos-btn-primary" style={{ minWidth: 80 }} onClick={onClose}>
+            <button type="button" className="vos-btn vos-btn-primary" style={{ minWidth: 80, textAlign: 'center' }} onClick={onClose}>
               好
             </button>
           </div>
