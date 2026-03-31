@@ -11,7 +11,8 @@
         "useSemanticElements": "warn",
         "useAriaPropsForRole": "warn",
         "noLabelWithoutControl": "warn",
-        "noSvgWithoutTitle": "warn"
+        "noSvgWithoutTitle": "warn",
+        "useKeyWithMouseEvents": "warn"
       }
     }
   }

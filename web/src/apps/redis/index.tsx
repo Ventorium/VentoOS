@@ -380,7 +380,13 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       <div className="flex-shrink-0 text-xs" style={{ background: 'var(--vos-bg-surface)' }}>
         <div className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
           {['Field', 'Value', ''].map(h => (
-            <div key={h} className="px-3 py-1.5 text-left font-medium" style={{ width: h === '' ? 24 : h === 'Field' ? '30%' : undefined, flex: h === 'Value' ? 1 : undefined }}>{h}</div>
+            <div
+              key={h}
+              className="px-3 py-1.5 text-left font-medium"
+              style={{ width: h === '' ? 24 : h === 'Field' ? '30%' : undefined, flex: h === 'Value' ? 1 : undefined }}
+            >
+              {h}
+            </div>
           ))}
         </div>
       </div>
@@ -388,10 +394,19 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       <VList style={{ flex: 1 }} className="text-xs">
         {entries.map(([f, v]) => (
           <div key={f} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)', width: '30%' }}>{f}</div>
-            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>{v}</div>
+            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)', width: '30%' }}>
+              {f}
+            </div>
+            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>
+              {v}
+            </div>
             <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
-              <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => delField(f)}>
+              <button
+                type="button"
+                className="bg-transparent border-none cursor-pointer p-0"
+                style={{ color: 'var(--vos-text-tertiary)' }}
+                onClick={() => delField(f)}
+              >
                 <Trash2 size={11} />
               </button>
             </div>
@@ -466,7 +481,9 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       {/* Header */}
       <div className="flex-shrink-0 text-xs" style={{ background: 'var(--vos-bg-surface)' }}>
         <div className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-          <div className="px-3 py-1.5 text-left font-medium" style={{ width: 48 }}>#</div>
+          <div className="px-3 py-1.5 text-left font-medium" style={{ width: 48 }}>
+            #
+          </div>
           <div className="px-3 py-1.5 text-left font-medium flex-1">Value</div>
           <div style={{ width: 24 }} />
         </div>
@@ -475,10 +492,19 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       <VList style={{ flex: 1 }} className="text-xs">
         {items.map((v, i) => (
           <div key={`${i}-${v}`} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-text-tertiary)', width: 48 }}>{i}</div>
-            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>{v}</div>
+            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-text-tertiary)', width: 48 }}>
+              {i}
+            </div>
+            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>
+              {v}
+            </div>
             <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
-              <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => delItem(v)}>
+              <button
+                type="button"
+                className="bg-transparent border-none cursor-pointer p-0"
+                style={{ color: 'var(--vos-text-tertiary)' }}
+                onClick={() => delItem(v)}
+              >
                 <Trash2 size={11} />
               </button>
             </div>
@@ -647,7 +673,9 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       {/* Header */}
       <div className="flex-shrink-0 text-xs" style={{ background: 'var(--vos-bg-surface)' }}>
         <div className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-          <div className="px-3 py-1.5 text-left font-medium" style={{ width: 80 }}>Score</div>
+          <div className="px-3 py-1.5 text-left font-medium" style={{ width: 80 }}>
+            Score
+          </div>
           <div className="px-3 py-1.5 text-left font-medium flex-1">Member</div>
           <div style={{ width: 24 }} />
         </div>
@@ -656,10 +684,19 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       <VList style={{ flex: 1 }} className="text-xs">
         {entries.map(e => (
           <div key={e.member} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)', width: 80 }}>{e.score}</div>
-            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>{e.member}</div>
+            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)', width: 80 }}>
+              {e.score}
+            </div>
+            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>
+              {e.member}
+            </div>
             <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
-              <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => delMember(e.member)}>
+              <button
+                type="button"
+                className="bg-transparent border-none cursor-pointer p-0"
+                style={{ color: 'var(--vos-text-tertiary)' }}
+                onClick={() => delMember(e.member)}
+              >
                 <Trash2 size={11} />
               </button>
             </div>

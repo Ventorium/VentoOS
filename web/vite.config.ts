@@ -1,8 +1,8 @@
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react-swc'
 import UnoCSS from 'unocss/vite'
-import { defineConfig } from 'vitest/config'
 import svgr from 'vite-plugin-svgr'
+import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [react(), UnoCSS(), svgr()],
@@ -15,7 +15,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
-    css: false,
+    css: false
   },
   server: {
     proxy: {

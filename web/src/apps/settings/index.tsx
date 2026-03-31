@@ -7,7 +7,7 @@
 import { Bell, Info, Layout, Monitor, Palette } from 'lucide-react'
 import { useState } from 'react'
 import { useNotificationStore } from '@/services/notification'
-import { type DockPosition, type ThemeMode, useSettingsStore } from '@/services/settings'
+import { type ThemeMode, useSettingsStore } from '@/services/settings'
 
 type Category = 'appearance' | 'desktop' | 'notifications' | 'general'
 

@@ -82,12 +82,17 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
   const isValid = (): boolean => {
     if (!name) return false
     switch (kind) {
-      case 'local': return !!localPath
+      case 'local':
+        return !!localPath
       case 'sftp':
-      case 'ftp': return !!host
-      case 'smb': return !!host && !!share
-      case 's3': return !!bucket
-      default: return false
+      case 'ftp':
+        return !!host
+      case 'smb':
+        return !!host && !!share
+      case 's3':
+        return !!bucket
+      default:
+        return false
     }
   }
 
@@ -137,25 +142,81 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
         {(kind === 'sftp' || kind === 'ftp') && (
           <>
             <div className="flex gap-2">
-              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="主机地址" value={host} onChange={e => setHost(e.target.value)} />
-              <input className={fc} style={{ ...fs, width: 72 }} placeholder={kind === 'sftp' ? '22' : '21'} value={port} onChange={e => setPort(e.target.value)} />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="主机地址"
+                value={host}
+                onChange={e => setHost(e.target.value)}
+              />
+              <input
+                className={fc}
+                style={{ ...fs, width: 72 }}
+                placeholder={kind === 'sftp' ? '22' : '21'}
+                value={port}
+                onChange={e => setPort(e.target.value)}
+              />
             </div>
             <div className="flex gap-2">
-              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="用户名（可选）" value={username} onChange={e => setUsername(e.target.value)} />
-              <input className={fc} style={{ ...fs, flex: 1 }} type="password" placeholder="密码（可选）" value={password} onChange={e => setPassword(e.target.value)} />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="用户名（可选）"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+              />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                type="password"
+                placeholder="密码（可选）"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
             </div>
-            <input className={fc} style={fs} placeholder="基础路径（如 /home/user）" value={basePath} onChange={e => setBasePath(e.target.value)} />
+            <input
+              className={fc}
+              style={fs}
+              placeholder="基础路径（如 /home/user）"
+              value={basePath}
+              onChange={e => setBasePath(e.target.value)}
+            />
           </>
         )}
 
         {/* ── SMB ── */}
         {kind === 'smb' && (
           <>
-            <input className={fc} style={fs} placeholder="主机地址" value={host} onChange={e => setHost(e.target.value)} />
-            <input className={fc} style={fs} placeholder="共享名称（share name）" value={share} onChange={e => setShare(e.target.value)} />
+            <input
+              className={fc}
+              style={fs}
+              placeholder="主机地址"
+              value={host}
+              onChange={e => setHost(e.target.value)}
+            />
+            <input
+              className={fc}
+              style={fs}
+              placeholder="共享名称（share name）"
+              value={share}
+              onChange={e => setShare(e.target.value)}
+            />
             <div className="flex gap-2">
-              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="用户名（可选）" value={username} onChange={e => setUsername(e.target.value)} />
-              <input className={fc} style={{ ...fs, flex: 1 }} type="password" placeholder="密码（可选）" value={password} onChange={e => setPassword(e.target.value)} />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="用户名（可选）"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+              />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                type="password"
+                placeholder="密码（可选）"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
             </div>
           </>
         )}
@@ -163,15 +224,46 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
         {/* ── S3 ── */}
         {kind === 's3' && (
           <>
-            <input className={fc} style={fs} placeholder="Bucket 名称" value={bucket} onChange={e => setBucket(e.target.value)} />
+            <input
+              className={fc}
+              style={fs}
+              placeholder="Bucket 名称"
+              value={bucket}
+              onChange={e => setBucket(e.target.value)}
+            />
             <div className="flex gap-2">
-              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="Region（如 us-east-1）" value={region} onChange={e => setRegion(e.target.value)} />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="Region（如 us-east-1）"
+                value={region}
+                onChange={e => setRegion(e.target.value)}
+              />
             </div>
             <div className="flex gap-2">
-              <input className={fc} style={{ ...fs, flex: 1 }} placeholder="Access Key" value={accessKey} onChange={e => setAccessKey(e.target.value)} />
-              <input className={fc} style={{ ...fs, flex: 1 }} type="password" placeholder="Secret Key" value={secretKey} onChange={e => setSecretKey(e.target.value)} />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="Access Key"
+                value={accessKey}
+                onChange={e => setAccessKey(e.target.value)}
+              />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                type="password"
+                placeholder="Secret Key"
+                value={secretKey}
+                onChange={e => setSecretKey(e.target.value)}
+              />
             </div>
-            <input className={fc} style={fs} placeholder="自定义 Endpoint（可选，兼容 MinIO 等）" value={endpoint} onChange={e => setEndpoint(e.target.value)} />
+            <input
+              className={fc}
+              style={fs}
+              placeholder="自定义 Endpoint（可选，兼容 MinIO 等）"
+              value={endpoint}
+              onChange={e => setEndpoint(e.target.value)}
+            />
           </>
         )}
 
@@ -231,7 +323,7 @@ interface ColumnData {
 // ─── Column View Component ─────────────────────────────────────────────────
 
 function ColumnView({
-  mountId,
+  mountId: _mountId,
   columns,
   onNavigate,
   onSelectFile,
@@ -300,7 +392,10 @@ function ColumnView({
           key={col.path}
           className="flex flex-col flex-shrink-0 overflow-hidden"
           style={{ width: 220, borderRight: '0.5px solid var(--vos-border-subtle)' }}
-          onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+          onDragOver={e => {
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+          }}
           onDrop={e => handleColumnDrop(e, col.path)}
         >
           {col.loading ? (
@@ -331,7 +426,9 @@ function ColumnView({
                     style={{
                       background: isDragTarget
                         ? 'var(--vos-accent-primary-hover, rgba(59,130,246,0.2))'
-                        : isSelected ? 'var(--vos-accent-primary)' : 'transparent',
+                        : isSelected
+                          ? 'var(--vos-accent-primary)'
+                          : 'transparent',
                       color: isSelected ? '#fff' : 'var(--vos-text-primary)',
                       borderRadius: 3,
                       margin: '1px 4px',
@@ -374,8 +471,26 @@ function ColumnView({
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'])
 const CODE_EXTS = new Set([
-  'js', 'ts', 'jsx', 'tsx', 'json', 'yaml', 'yml', 'toml', 'rs', 'go', 'py',
-  'sh', 'bash', 'zsh', 'css', 'html', 'xml', 'md', 'sql', 'env',
+  'js',
+  'ts',
+  'jsx',
+  'tsx',
+  'json',
+  'yaml',
+  'yml',
+  'toml',
+  'rs',
+  'go',
+  'py',
+  'sh',
+  'bash',
+  'zsh',
+  'css',
+  'html',
+  'xml',
+  'md',
+  'sql',
+  'env'
 ])
 
 function getFileExt(name: string): string {
@@ -412,10 +527,13 @@ function FileInfoPanel({
       return
     }
     let url: string | null = null
-    apiClient.readVfsFileRaw(mountId, node.path).then(blob => {
-      url = URL.createObjectURL(blob)
-      setImgSrc(url)
-    }).catch(() => setImgSrc(null))
+    apiClient
+      .readVfsFileRaw(mountId, node.path)
+      .then(blob => {
+        url = URL.createObjectURL(blob)
+        setImgSrc(url)
+      })
+      .catch(() => setImgSrc(null))
     return () => {
       if (url) URL.revokeObjectURL(url)
     }
@@ -426,9 +544,12 @@ function FileInfoPanel({
   const ext = getFileExt(node.name)
   const isImage = IMAGE_EXTS.has(ext)
   const isCode = CODE_EXTS.has(ext) || ext === 'json'
-  const displayContent = preview && !node.is_dir && !preview.is_binary
-    ? (ext === 'json' ? tryFormatJson(preview.content) : preview.content)
-    : null
+  const displayContent =
+    preview && !node.is_dir && !preview.is_binary
+      ? ext === 'json'
+        ? tryFormatJson(preview.content)
+        : preview.content
+      : null
 
   return (
     <div
@@ -457,7 +578,7 @@ function FileInfoPanel({
       >
         <div className="flex justify-between">
           <span style={{ color: 'var(--vos-text-tertiary)' }}>类型</span>
-          <span>{node.is_dir ? '目录' : (ext ? ext.toUpperCase() : '文件')}</span>
+          <span>{node.is_dir ? '目录' : ext ? ext.toUpperCase() : '文件'}</span>
         </div>
         {!node.is_dir && node.size != null && (
           <div className="flex justify-between">
@@ -472,7 +593,9 @@ function FileInfoPanel({
           </div>
         )}
         {preview?.truncated && (
-          <div className="text-[10px]" style={{ color: 'var(--vos-accent-warning)' }}>仅预览前 1MB</div>
+          <div className="text-[10px]" style={{ color: 'var(--vos-accent-warning)' }}>
+            仅预览前 1MB
+          </div>
         )}
       </div>
 
@@ -595,7 +718,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
             return { ...col, loading: true }
           }
           return col
-        }),
+        })
       )
       // Reload entries for affected columns
       const updated = await Promise.all(
@@ -606,7 +729,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
             return { ...col, entries, loading: false }
           }
           return col
-        }),
+        })
       )
       setColumns(updated)
     } catch (e) {

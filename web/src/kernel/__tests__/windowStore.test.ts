@@ -16,7 +16,7 @@ function makeWin(overrides: Partial<WindowInstance> = {}): WindowInstance {
     isMaximized: false,
     isMinimized: false,
     isFocused: true,
-    ...overrides,
+    ...overrides
   }
 }
 

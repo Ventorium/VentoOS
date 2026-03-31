@@ -361,10 +361,7 @@ impl VfsManager {
 }
 
 /// Recursively copy a directory.
-async fn copy_dir_recursive(
-    src: &std::path::Path,
-    dest: &std::path::Path,
-) -> Result<(), String> {
+async fn copy_dir_recursive(src: &std::path::Path, dest: &std::path::Path) -> Result<(), String> {
     tokio::fs::create_dir_all(dest)
         .await
         .map_err(|e| format!("Create dir failed: {e}"))?;
@@ -491,7 +488,10 @@ mod tests {
         assert!(result.is_ok());
         assert!(!dir.path().join("a.txt").exists());
         assert!(dir.path().join("b.txt").exists());
-        assert_eq!(std::fs::read_to_string(dir.path().join("b.txt")).unwrap(), "hello");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("b.txt")).unwrap(),
+            "hello"
+        );
     }
 
     #[tokio::test]
@@ -522,7 +522,10 @@ mod tests {
         assert!(result.is_ok());
         assert!(dir.path().join("orig.txt").exists());
         assert!(dir.path().join("copy.txt").exists());
-        assert_eq!(std::fs::read_to_string(dir.path().join("copy.txt")).unwrap(), "data");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("copy.txt")).unwrap(),
+            "data"
+        );
     }
 
     #[tokio::test]

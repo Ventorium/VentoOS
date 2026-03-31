@@ -309,7 +309,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                     background: 'var(--vos-bg-surface)',
                     borderBottom: '1px solid var(--vos-border-subtle)',
                     whiteSpace: 'nowrap',
-                    minWidth: 80,
+                    minWidth: 80
                   }}
                 >
                   {col}
@@ -328,7 +328,13 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 <div
                   key={j}
                   className="px-2 py-1 flex-shrink-0"
-                  style={{ whiteSpace: 'nowrap', minWidth: 80, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  style={{
+                    whiteSpace: 'nowrap',
+                    minWidth: 80,
+                    maxWidth: 300,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}
                 >
                   {cell === null ? (
                     <span style={{ color: 'var(--vos-text-tertiary)', fontStyle: 'italic' }}>NULL</span>

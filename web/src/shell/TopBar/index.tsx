@@ -6,7 +6,7 @@
  */
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, BellOff, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { apiClient } from '@/infra/api'
 import { closeAllWindows as closeAllWindowsFn, useAppStore, useWindowStore } from '@/kernel'
 import { useAuthStore } from '@/services/auth'
@@ -26,7 +26,7 @@ type AboutAppInfo = {
   version: string
   author: { name: string; email?: string; url?: string }
   description?: string
-  icon?: string
+  icon?: ReactNode
 }
 
 /* ---- About Dialog (shared, rendered outside header to avoid backdrop-filter fixed containment) ---- */

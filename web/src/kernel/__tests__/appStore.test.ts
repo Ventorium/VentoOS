@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useAppStore } from '../apps/store'
 import type { AppManifest } from '../apps/manifest'
+import { useAppStore } from '../apps/store'
 
 function makeManifest(id: string, name?: string): AppManifest {
   return {
@@ -10,7 +10,7 @@ function makeManifest(id: string, name?: string): AppManifest {
     author: { name: 'test' },
     icon: null,
     multiWindow: false,
-    component: () => Promise.resolve({ default: () => null }),
+    component: () => Promise.resolve({ default: () => null })
   }
 }
 

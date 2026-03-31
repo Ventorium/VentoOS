@@ -74,8 +74,6 @@ function TrafficLights({
 function ResizeHandles({ onResizeStart }: { onResizeStart: (dir: ResizeDir, e: React.MouseEvent) => void }) {
   const edge = (dir: ResizeDir, style: React.CSSProperties, cursor: string) => (
     // biome-ignore lint/a11y/useSemanticElements: resize handle needs exact CSS positioning
-    // biome-ignore lint/a11y/useAriaPropsForRole: resize handle doesn't need range values
-    // biome-ignore lint/a11y/noStaticElementInteractions: resize handle requires mouse events
     <div
       role="separator"
       aria-valuenow={50}
