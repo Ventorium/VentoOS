@@ -2,8 +2,7 @@
  * TopBar — System Menu Bar
  *
  * Left:  VentoOS logo (system menu) → Active app name
- * Center: Active window title
- * Right: Network, Battery, Tasks, Notifications, Theme, Clock
+ * Right: Tasks, Notifications, Theme, Clock
  */
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, BellOff, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
@@ -21,19 +20,115 @@ import { tokens } from '@/theme'
 
 const H = tokens.topBar.height
 
+type AboutAppInfo = { name: string; version: string; author: { name: string; email?: string; url?: string }; description?: string; icon?: string }
+
+/* ---- About Dialog (shared, rendered outside header to avoid backdrop-filter fixed containment) ---- */
+function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void }) {
+  return (
+    <div className="vos-modal-overlay" onClick={onClose}>
+      <motion.div
+        className="vos-modal"
+        style={{ width: 320, padding: 0 }}
+        initial={{ scale: 0.93, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ padding: '28px 28px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 52, marginBottom: 14 }}>{app.icon ?? '📦'}</div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
+            {app.name}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>
+            版本 {app.version}
+          </div>
+          {app.description && (
+            <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 10, lineHeight: 1.6 }}>
+              {app.description}
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginTop: 12 }}>
+            作者: {app.author.name}
+            {app.author.email && ` <${app.author.email}>`}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+            <button
+              type="button"
+              className="vos-btn vos-btn-primary"
+              style={{ minWidth: 80 }}
+              onClick={onClose}
+            >
+              好
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+/* ---- About VentoOS Dialog ---- */
+function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="vos-modal-overlay" onClick={onClose}>
+      <motion.div
+        className="vos-modal"
+        style={{ width: 340, padding: 0 }}
+        initial={{ scale: 0.93, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ padding: '28px 28px 24px', textAlign: 'center' }}>
+          <div style={{ marginBottom: 14 }}>
+            <svg width="52" height="52" viewBox="0 0 16 16" fill="var(--vos-accent-primary)" aria-hidden="true">
+              <circle cx="8" cy="4.5" r="2.5" />
+              <path d="M8 9c-3 0-5.5 1.3-5.5 3S5 15 8 15s5.5-1.3 5.5-3S11 9 8 9z" />
+            </svg>
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--vos-text-primary)', letterSpacing: '-0.01em' }}>
+            VentoOS
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>
+            版本 1.0.0
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 12, lineHeight: 1.7 }}>
+            运维与基础设施管理平台
+            <br />
+            统一管理 Kubernetes、数据库、Redis 与远程文件系统
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginTop: 12, opacity: 0.7 }}>
+            © 2025 VentoOS Project
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+            <button
+              type="button"
+              className="vos-btn vos-btn-primary"
+              style={{ minWidth: 80 }}
+              onClick={onClose}
+            >
+              好
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 /* ---- Left: Logo + Active App ---- */
-function MenuBarLeft() {
+function MenuBarLeft({ onAboutApp, onAboutVentoOS }: {
+  onAboutApp: (app: AboutAppInfo) => void
+  onAboutVentoOS: () => void
+}) {
   const toggleLaunchpad = useLaunchpadStore(s => s.toggle)
   const focusedAppId = useWindowStore(s => s.windows.find(w => w.isFocused)?.appId ?? null)
   const getApp = useAppStore(s => s.getApp)
   const activeApp = focusedAppId ? getApp(focusedAppId) : null
   const showCtxMenu = useContextMenuStore(s => s.show)
-  const [aboutApp, setAboutApp] = useState<{ name: string; version: string; author: { name: string; email?: string; url?: string }; description?: string } | null>(null)
 
   function openLogoMenu(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
     showCtxMenu(rect.left, rect.bottom + 2, [
-      { id: 'about', label: '关于 VentoOS', action: () => {} },
+      { id: 'about', label: '关于 VentoOS', action: onAboutVentoOS },
       { type: 'separator' },
       { id: 'launchpad', label: '启动台', shortcut: '⌘Space', action: toggleLaunchpad },
       { type: 'separator' },
@@ -62,7 +157,7 @@ function MenuBarLeft() {
             const rect = e.currentTarget.getBoundingClientRect()
             showCtxMenu(rect.left, rect.bottom + 2, [
               { id: 'about-app', label: `关于 ${activeApp.name}`, action: () => {
-                setAboutApp(activeApp)
+                onAboutApp(activeApp)
               }},
               { type: 'separator' },
               { id: 'hide-app', label: `隐藏 ${activeApp.name}`, disabled: true },
@@ -74,46 +169,6 @@ function MenuBarLeft() {
         >
           {activeApp.name}
         </button>
-      )}
-
-      {/* About Dialog */}
-      {aboutApp && (
-        <div className="vos-modal-overlay" onClick={() => setAboutApp(null)}>
-          <motion.div
-            className="vos-modal"
-            style={{ width: 320, padding: 0 }}
-            initial={{ scale: 0.93, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ padding: '24px 24px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>{aboutApp.icon ?? '📦'}</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
-                {aboutApp.name}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>
-                版本 {aboutApp.version}
-              </div>
-              {aboutApp.description && (
-                <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)', marginTop: 8 }}>
-                  {aboutApp.description}
-                </div>
-              )}
-              <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 12 }}>
-                作者: {aboutApp.author.name}
-                {aboutApp.author.email && ` <${aboutApp.author.email}>`}
-              </div>
-              <button
-                type="button"
-                className="vos-btn vos-btn-primary"
-                style={{ marginTop: 16, minWidth: 80 }}
-                onClick={() => setAboutApp(null)}
-              >
-                好
-              </button>
-            </div>
-          </motion.div>
-        </div>
       )}
     </div>
   )
@@ -190,14 +245,18 @@ function MenuBarRight() {
 }
 
 export default function TopBar() {
-  // Select title string (primitive) not window object — avoids unstable reference
-  const focusedWindowTitle = useWindowStore(s => s.windows.find(w => w.isFocused)?.title ?? null)
+  const [aboutApp, setAboutApp] = useState<AboutAppInfo | null>(null)
+  const [showAboutVentoOS, setShowAboutVentoOS] = useState(false)
 
   return (
-    <header className="vos-topbar" style={{ height: H }}>
-      <MenuBarLeft />
-      <div className="vos-topbar-title">{focusedWindowTitle}</div>
-      <MenuBarRight />
-    </header>
+    <>
+      <header className="vos-topbar" style={{ height: H }}>
+        <MenuBarLeft onAboutApp={setAboutApp} onAboutVentoOS={() => setShowAboutVentoOS(true)} />
+        <MenuBarRight />
+      </header>
+      {/* Dialogs rendered outside header to avoid backdrop-filter fixed-position containment */}
+      {showAboutVentoOS && <AboutVentoOSDialog onClose={() => setShowAboutVentoOS(false)} />}
+      {aboutApp && <AboutDialog app={aboutApp} onClose={() => setAboutApp(null)} />}
+    </>
   )
 }

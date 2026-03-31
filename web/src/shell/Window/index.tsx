@@ -134,9 +134,15 @@ export default function Window({ win, children }: { win: WindowInstance; childre
 
     const onMouseMove = (e: MouseEvent) => {
       if (dragRef.current) {
+        const d = dragRef.current
+        const rawX = e.clientX - d.startX
+        const rawY = e.clientY - d.startY
+        // Clamp: title bar can't go above topbar; at least TITLE_H must remain visible at bottom
+        const minDY = TOPBAR_H - d.winY
+        const maxDY = window.innerHeight - TITLE_H - d.winY
         setDragDelta({
-          x: e.clientX - dragRef.current.startX,
-          y: e.clientY - dragRef.current.startY
+          x: rawX,
+          y: Math.max(minDY, Math.min(rawY, maxDY))
         })
       }
       if (resizeRef.current) {

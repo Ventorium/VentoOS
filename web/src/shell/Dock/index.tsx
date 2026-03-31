@@ -97,7 +97,7 @@ function DockIcon({
         </div>
       </motion.button>
 
-      {/* Running indicator dot removed per design */}
+      {isRunning && <div className="vos-dock-dot" />}
     </div>
   )
 }

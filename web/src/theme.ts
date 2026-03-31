@@ -19,19 +19,19 @@ export const tokens = {
   },
   blur: {
     desktop: 12,
-    surface: 20,
-    overlay: 32,
-    contextMenu: 28,
-    dock: 24,
-    topBar: 20
+    surface: 32,
+    overlay: 48,
+    contextMenu: 40,
+    dock: 48,
+    topBar: 48
   },
   shadow: {
-    window: '0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1)',
-    windowFocused: '0 20px 60px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15)',
+    window: '0 8px 40px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)',
+    windowFocused: '0 24px 72px rgba(0,0,0,0.35), 0 6px 20px rgba(0,0,0,0.18)',
     panel: '0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)',
-    dock: '0 0 0 1px rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.2)',
-    overlay: '0 16px 48px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)',
-    contextMenu: '0 8px 32px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.12)',
+    dock: '0 0 0 0.5px rgba(255,255,255,0.12), 0 12px 40px rgba(0,0,0,0.3)',
+    overlay: '0 20px 56px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15)',
+    contextMenu: '0 12px 36px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12)',
     notification: '0 4px 20px rgba(0,0,0,0.15)'
   },
   spacing: {
@@ -77,19 +77,19 @@ export const tokens = {
 export const lightTheme = {
   bg: {
     desktop: 'transparent',
-    surface: 'rgba(255, 255, 255, 0.78)',
-    surfaceHover: 'rgba(255, 255, 255, 0.88)',
-    overlay: 'rgba(255, 255, 255, 0.92)',
-    topBar: 'rgba(235, 235, 237, 0.88)',
-    dock: 'rgba(255, 255, 255, 0.52)',
-    window: 'rgba(246, 246, 246, 0.92)',
-    windowTitle: 'rgba(232, 232, 235, 0.94)',
-    windowActive: 'rgba(255, 255, 255, 0.97)',
-    contextMenu: 'rgba(245, 245, 247, 0.94)',
+    surface: 'rgba(255, 255, 255, 0.72)',
+    surfaceHover: 'rgba(255, 255, 255, 0.85)',
+    overlay: 'rgba(255, 255, 255, 0.90)',
+    topBar: 'rgba(242, 242, 244, 0.62)',
+    dock: 'rgba(255, 255, 255, 0.58)',
+    window: 'rgba(248, 248, 250, 0.82)',
+    windowTitle: 'rgba(236, 236, 240, 0.88)',
+    windowActive: 'rgba(255, 255, 255, 0.94)',
+    contextMenu: 'rgba(248, 248, 250, 0.88)',
     input: 'rgba(0, 0, 0, 0.05)',
     selection: 'rgba(0, 122, 255, 0.15)',
     itemHover: 'rgba(0, 0, 0, 0.07)',
-    launchpad: 'rgba(0, 0, 0, 0.2)'
+    launchpad: 'rgba(0, 0, 0, 0.22)'
   },
   text: {
     primary: '#1d1d1f',
@@ -120,19 +120,19 @@ export const lightTheme = {
 export const darkTheme = {
   bg: {
     desktop: 'transparent',
-    surface: 'rgba(38, 38, 40, 0.80)',
-    surfaceHover: 'rgba(55, 55, 57, 0.88)',
-    overlay: 'rgba(28, 28, 30, 0.94)',
-    topBar: 'rgba(24, 24, 26, 0.88)',
-    dock: 'rgba(28, 28, 30, 0.58)',
-    window: 'rgba(38, 38, 40, 0.92)',
-    windowTitle: 'rgba(30, 30, 32, 0.94)',
-    windowActive: 'rgba(48, 48, 52, 0.97)',
-    contextMenu: 'rgba(34, 34, 36, 0.96)',
-    input: 'rgba(255, 255, 255, 0.06)',
+    surface: 'rgba(34, 34, 36, 0.72)',
+    surfaceHover: 'rgba(50, 50, 52, 0.82)',
+    overlay: 'rgba(24, 24, 26, 0.88)',
+    topBar: 'rgba(18, 18, 20, 0.68)',
+    dock: 'rgba(24, 24, 26, 0.62)',
+    window: 'rgba(32, 32, 34, 0.82)',
+    windowTitle: 'rgba(26, 26, 28, 0.88)',
+    windowActive: 'rgba(44, 44, 48, 0.92)',
+    contextMenu: 'rgba(30, 30, 32, 0.90)',
+    input: 'rgba(255, 255, 255, 0.07)',
     selection: 'rgba(10, 132, 255, 0.25)',
-    itemHover: 'rgba(255, 255, 255, 0.08)',
-    launchpad: 'rgba(0, 0, 0, 0.55)'
+    itemHover: 'rgba(255, 255, 255, 0.09)',
+    launchpad: 'rgba(0, 0, 0, 0.60)'
   },
   text: {
     primary: '#f5f5f7',
