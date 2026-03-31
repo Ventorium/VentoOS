@@ -4,8 +4,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::types::{
-    CreateVfsMountReq, VfsCopyReq, VfsFileContent, VfsListReq, VfsMount, VfsMoveReq, VfsNode,
-    VfsReadReq, VfsSourceKind,
+    CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq,
+    VfsMount, VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
 };
 
 /// Virtual file system manager.
@@ -184,6 +184,118 @@ impl VfsManager {
         }
     }
 
+    /// Create a directory (including parent directories).
+    pub async fn mkdir(&self, req: &VfsMkdirReq) -> Result<(), String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(&req.mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => self.mkdir_local(&mount.root, &req.path).await,
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+        }
+    }
+
+    /// Delete a file or directory.
+    pub async fn delete(&self, req: &VfsDeleteReq) -> Result<(), String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(&req.mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => self.delete_local(&mount.root, &req.path).await,
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+        }
+    }
+
+    /// Write string content to a file.
+    pub async fn write_file(&self, req: &VfsWriteReq) -> Result<(), String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(&req.mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => {
+                self.write_local(&mount.root, &req.path, req.content.as_bytes())
+                    .await
+            }
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+        }
+    }
+
+    /// Upload binary file content.
+    pub async fn upload_file(
+        &self,
+        mount_id: &str,
+        path: &str,
+        data: Vec<u8>,
+    ) -> Result<(), String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => self.write_local(&mount.root, path, &data).await,
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+        }
+    }
+
+    /// Get file/directory metadata.
+    pub async fn stat(&self, mount_id: &str, path: &str) -> Result<VfsNode, String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => self.stat_local(&mount.root, path).await,
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+        }
+    }
+
+    /// Search files by name pattern.
+    pub async fn search(&self, req: &VfsSearchReq) -> Result<Vec<VfsNode>, String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(&req.mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => {
+                self.search_local(
+                    &mount.root,
+                    &req.path,
+                    &req.query,
+                    req.max_results.unwrap_or(100),
+                )
+                .await
+            }
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+        }
+    }
+
     /// Resolve and validate a path within the mount root, returning the canonical path.
     fn resolve_local_path(
         root: &std::path::Path,
@@ -268,6 +380,149 @@ impl VfsManager {
                 .map_err(|e| format!("Copy failed: {e}"))?;
         }
         Ok(())
+    }
+
+    async fn mkdir_local(&self, root: &str, rel_path: &str) -> Result<(), String> {
+        let root_path = std::path::Path::new(root);
+        let canonical_root = root_path
+            .canonicalize()
+            .map_err(|e| format!("Root path error: {e}"))?;
+
+        let clean = rel_path.trim_start_matches('/');
+        let candidate = root_path.join(clean);
+
+        // Walk up to find the first existing ancestor and verify it's under root
+        let mut check = candidate.as_path();
+        loop {
+            if check.exists() {
+                let canonical = check
+                    .canonicalize()
+                    .map_err(|e| format!("Path error: {e}"))?;
+                if !canonical.starts_with(&canonical_root) {
+                    return Err("Path traversal denied".into());
+                }
+                break;
+            }
+            match check.parent() {
+                Some(p) => check = p,
+                None => return Err("Invalid path".into()),
+            }
+        }
+
+        tokio::fs::create_dir_all(&candidate)
+            .await
+            .map_err(|e| format!("Create directory failed: {e}"))
+    }
+
+    async fn delete_local(&self, root: &str, rel_path: &str) -> Result<(), String> {
+        let root_path = std::path::Path::new(root);
+        let full_path = Self::resolve_local_path(root_path, rel_path)?;
+
+        // Prevent deleting the root itself
+        let canonical_root = root_path
+            .canonicalize()
+            .map_err(|e| format!("Root path error: {e}"))?;
+        if full_path == canonical_root {
+            return Err("Cannot delete mount root".into());
+        }
+
+        let metadata = tokio::fs::metadata(&full_path)
+            .await
+            .map_err(|e| format!("Path not found: {e}"))?;
+
+        if metadata.is_dir() {
+            tokio::fs::remove_dir_all(&full_path)
+                .await
+                .map_err(|e| format!("Delete directory failed: {e}"))
+        } else {
+            tokio::fs::remove_file(&full_path)
+                .await
+                .map_err(|e| format!("Delete file failed: {e}"))
+        }
+    }
+
+    async fn write_local(&self, root: &str, rel_path: &str, data: &[u8]) -> Result<(), String> {
+        let root_path = std::path::Path::new(root);
+        let dest_path = Self::resolve_local_dest(root_path, rel_path)?;
+
+        tokio::fs::write(&dest_path, data)
+            .await
+            .map_err(|e| format!("Write failed: {e}"))
+    }
+
+    async fn stat_local(&self, root: &str, rel_path: &str) -> Result<VfsNode, String> {
+        let root_path = std::path::Path::new(root);
+        let full_path = Self::resolve_local_path(root_path, rel_path)?;
+
+        let metadata = tokio::fs::metadata(&full_path)
+            .await
+            .map_err(|e| format!("Metadata error: {e}"))?;
+
+        let name = full_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let is_dir = metadata.is_dir();
+        let size = if metadata.is_file() {
+            Some(metadata.len())
+        } else {
+            None
+        };
+        let modified = metadata.modified().ok().map(|t| {
+            let dt: chrono::DateTime<chrono::Utc> = t.into();
+            dt.to_rfc3339()
+        });
+
+        #[cfg(unix)]
+        let permissions = {
+            use std::os::unix::fs::PermissionsExt;
+            Some(format!("{:o}", metadata.permissions().mode()))
+        };
+        #[cfg(not(unix))]
+        let permissions: Option<String> = None;
+
+        Ok(VfsNode {
+            name,
+            path: rel_path.to_string(),
+            is_dir,
+            size,
+            modified,
+            permissions,
+        })
+    }
+
+    async fn search_local(
+        &self,
+        root: &str,
+        rel_path: &str,
+        query: &str,
+        max_results: usize,
+    ) -> Result<Vec<VfsNode>, String> {
+        let root_path = std::path::Path::new(root);
+        let start_path = if rel_path.is_empty() || rel_path == "/" {
+            root_path
+                .canonicalize()
+                .map_err(|e| format!("Root path error: {e}"))?
+        } else {
+            Self::resolve_local_path(root_path, rel_path)?
+        };
+        let canonical_root = root_path
+            .canonicalize()
+            .map_err(|e| format!("Root path error: {e}"))?;
+
+        let query_lower = query.to_lowercase();
+        let mut results = Vec::new();
+        search_dir_recursive(
+            &start_path,
+            &canonical_root,
+            &query_lower,
+            max_results,
+            0,
+            10, // max depth
+            &mut results,
+        )
+        .await;
+        Ok(results)
     }
 
     /// Read raw file bytes for download / image preview.
@@ -387,6 +642,81 @@ async fn copy_dir_recursive(src: &std::path::Path, dest: &std::path::Path) -> Re
         }
     }
     Ok(())
+}
+
+/// Recursively search a directory for files matching a query.
+async fn search_dir_recursive(
+    dir: &std::path::Path,
+    root: &std::path::Path,
+    query: &str,
+    max_results: usize,
+    depth: usize,
+    max_depth: usize,
+    results: &mut Vec<VfsNode>,
+) {
+    if depth > max_depth || results.len() >= max_results {
+        return;
+    }
+
+    let Ok(mut read_dir) = tokio::fs::read_dir(dir).await else {
+        return;
+    };
+
+    while let Ok(Some(entry)) = read_dir.next_entry().await {
+        if results.len() >= max_results {
+            return;
+        }
+
+        let name = entry.file_name().to_string_lossy().to_string();
+        // Skip hidden files
+        if name.starts_with('.') {
+            continue;
+        }
+
+        let Ok(metadata) = entry.metadata().await else {
+            continue;
+        };
+        let is_dir = metadata.is_dir();
+
+        if name.to_lowercase().contains(query) {
+            let entry_path = entry.path();
+            let rel_path = entry_path
+                .strip_prefix(root)
+                .map(|p| format!("/{}", p.to_string_lossy()))
+                .unwrap_or_default();
+            let size = if metadata.is_file() {
+                Some(metadata.len())
+            } else {
+                None
+            };
+            let modified = metadata.modified().ok().map(|t| {
+                let dt: chrono::DateTime<chrono::Utc> = t.into();
+                dt.to_rfc3339()
+            });
+
+            results.push(VfsNode {
+                name: name.clone(),
+                path: rel_path,
+                is_dir,
+                size,
+                modified,
+                permissions: None,
+            });
+        }
+
+        if is_dir {
+            Box::pin(search_dir_recursive(
+                &entry.path(),
+                root,
+                query,
+                max_results,
+                depth + 1,
+                max_depth,
+                results,
+            ))
+            .await;
+        }
+    }
 }
 
 impl Default for VfsManager {
@@ -585,5 +915,215 @@ mod tests {
             .await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("already exists"));
+    }
+
+    #[tokio::test]
+    async fn test_mkdir() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root,
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        let result = mgr
+            .mkdir(&VfsMkdirReq {
+                mount_id: mount.id.clone(),
+                path: "/sub/deep/dir".into(),
+            })
+            .await;
+        assert!(result.is_ok());
+        assert!(dir.path().join("sub/deep/dir").is_dir());
+    }
+
+    #[tokio::test]
+    async fn test_delete_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        std::fs::write(dir.path().join("to_delete.txt"), "bye").unwrap();
+        assert!(dir.path().join("to_delete.txt").exists());
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root,
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        let result = mgr
+            .delete(&VfsDeleteReq {
+                mount_id: mount.id.clone(),
+                path: "/to_delete.txt".into(),
+            })
+            .await;
+        assert!(result.is_ok());
+        assert!(!dir.path().join("to_delete.txt").exists());
+    }
+
+    #[tokio::test]
+    async fn test_delete_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        std::fs::create_dir_all(dir.path().join("subdir")).unwrap();
+        std::fs::write(dir.path().join("subdir/a.txt"), "a").unwrap();
+        std::fs::write(dir.path().join("subdir/b.txt"), "b").unwrap();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root,
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        let result = mgr
+            .delete(&VfsDeleteReq {
+                mount_id: mount.id.clone(),
+                path: "/subdir".into(),
+            })
+            .await;
+        assert!(result.is_ok());
+        assert!(!dir.path().join("subdir").exists());
+    }
+
+    #[tokio::test]
+    async fn test_delete_root_blocked() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root,
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        // Trying to delete "/" (root) should be denied
+        let result = mgr
+            .delete(&VfsDeleteReq {
+                mount_id: mount.id.clone(),
+                path: "/".into(),
+            })
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_write_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root,
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        let result = mgr
+            .write_file(&VfsWriteReq {
+                mount_id: mount.id.clone(),
+                path: "/hello.txt".into(),
+                content: "Hello, VFS!".into(),
+            })
+            .await;
+        assert!(result.is_ok());
+
+        let content = std::fs::read_to_string(dir.path().join("hello.txt")).unwrap();
+        assert_eq!(content, "Hello, VFS!");
+    }
+
+    #[tokio::test]
+    async fn test_stat() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        std::fs::write(dir.path().join("info.txt"), "some data").unwrap();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root,
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        let node = mgr.stat(&mount.id, "/info.txt").await.unwrap();
+        assert_eq!(node.name, "info.txt");
+        assert!(!node.is_dir);
+        assert_eq!(node.size, Some(9));
+        assert!(node.modified.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_search() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        std::fs::write(dir.path().join("readme.md"), "# Hello").unwrap();
+        std::fs::write(dir.path().join("notes.txt"), "notes").unwrap();
+        std::fs::create_dir_all(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("sub/readme.txt"), "sub readme").unwrap();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root,
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        let results = mgr
+            .search(&VfsSearchReq {
+                mount_id: mount.id.clone(),
+                path: "/".into(),
+                query: "readme".into(),
+                max_results: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 2);
+
+        // Test case-insensitive
+        let results = mgr
+            .search(&VfsSearchReq {
+                mount_id: mount.id.clone(),
+                path: "/".into(),
+                query: "README".into(),
+                max_results: Some(1),
+            })
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1);
     }
 }

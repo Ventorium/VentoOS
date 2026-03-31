@@ -85,3 +85,34 @@ pub struct VfsCopyReq {
     pub src: String,
     pub dest: String,
 }
+
+/// Request to create a directory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VfsMkdirReq {
+    pub mount_id: String,
+    pub path: String,
+}
+
+/// Request to delete a file or directory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VfsDeleteReq {
+    pub mount_id: String,
+    pub path: String,
+}
+
+/// Request to write file content.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VfsWriteReq {
+    pub mount_id: String,
+    pub path: String,
+    pub content: String,
+}
+
+/// Search request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VfsSearchReq {
+    pub mount_id: String,
+    pub path: String,
+    pub query: String,
+    pub max_results: Option<usize>,
+}

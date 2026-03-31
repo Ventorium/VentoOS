@@ -269,6 +269,38 @@ export const apiClient = {
     request<ApiResponse<unknown>>('POST', `/api/vfs/mounts/${id}/move`, { src, dest }),
   copyVfsFile: (id: string, src: string, dest: string) =>
     request<ApiResponse<unknown>>('POST', `/api/vfs/mounts/${id}/copy`, { src, dest }),
+  mkdirVfs: (mountId: string, path: string) =>
+    request<ApiResponse<unknown>>('POST', `/api/vfs/mounts/${mountId}/mkdir`, { path }),
+  deleteVfs: (mountId: string, path: string) =>
+    request<ApiResponse<unknown>>('POST', `/api/vfs/mounts/${mountId}/delete`, { path }),
+  writeVfsFile: (mountId: string, path: string, content: string) =>
+    request<ApiResponse<unknown>>('POST', `/api/vfs/mounts/${mountId}/write`, { path, content }),
+  uploadVfsFile: async (mountId: string, path: string, file: File): Promise<ApiResponse<unknown>> => {
+    const token = _tokenProvider()
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const formData = new FormData()
+    formData.append('path', path)
+    formData.append('file', file)
+    const res = await fetch(`/api/vfs/mounts/${mountId}/upload`, {
+      method: 'POST',
+      headers,
+      body: formData
+    })
+    if (!res.ok) {
+      if (res.status === 401) _onUnauthorized()
+      const text = await res.text().catch(() => '')
+      throw new Error(text || `HTTP ${res.status}`)
+    }
+    return res.json() as Promise<ApiResponse<unknown>>
+  },
+  statVfs: (mountId: string, path: string) =>
+    request<ApiResponse<VfsNode>>('GET', `/api/vfs/mounts/${mountId}/stat?path=${encodeURIComponent(path)}`),
+  searchVfs: (mountId: string, path: string, query: string, maxResults?: number) => {
+    const params = new URLSearchParams({ path, query })
+    if (maxResults) params.set('max_results', String(maxResults))
+    return request<ApiResponse<VfsNode[]>>('GET', `/api/vfs/mounts/${mountId}/search?${params}`)
+  },
 
   // ── AI Agent ──────────────────────────────────────────────────────────────
 

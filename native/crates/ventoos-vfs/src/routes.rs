@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
@@ -10,7 +10,10 @@ use ventoos_core::plugin::AppPlugin;
 use ventoos_core::types::ApiResponse;
 
 use crate::manager::VfsManager;
-use crate::types::{CreateVfsMountReq, VfsCopyReq, VfsListReq, VfsMount, VfsMoveReq, VfsReadReq};
+use crate::types::{
+    CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsListReq, VfsMkdirReq, VfsMount, VfsMoveReq,
+    VfsReadReq, VfsSearchReq, VfsWriteReq,
+};
 
 /// VFS (Explorer) application plugin.
 pub struct VfsPlugin {
@@ -37,6 +40,12 @@ impl AppPlugin for VfsPlugin {
             .route("/api/vfs/mounts/{id}/raw", get(read_file_raw))
             .route("/api/vfs/mounts/{id}/move", post(move_file))
             .route("/api/vfs/mounts/{id}/copy", post(copy_file))
+            .route("/api/vfs/mounts/{id}/mkdir", post(mkdir_handler))
+            .route("/api/vfs/mounts/{id}/delete", post(delete_handler))
+            .route("/api/vfs/mounts/{id}/write", post(write_handler))
+            .route("/api/vfs/mounts/{id}/upload", post(upload_handler))
+            .route("/api/vfs/mounts/{id}/stat", get(stat_handler))
+            .route("/api/vfs/mounts/{id}/search", get(search_handler))
             .with_state(self.manager.clone())
     }
 }
@@ -136,9 +145,18 @@ async fn read_file_raw(
     match mgr.read_file_raw(&id, &path).await {
         Ok(bytes) => {
             let mime = mime_guess::from_path(&path).first_or_octet_stream();
+            let filename = std::path::Path::new(&path)
+                .file_name()
+                .map_or_else(|| "download".to_string(), |n| n.to_string_lossy().to_string());
             (
                 StatusCode::OK,
-                [(axum::http::header::CONTENT_TYPE, mime.as_ref().to_owned())],
+                [
+                    (axum::http::header::CONTENT_TYPE, mime.as_ref().to_owned()),
+                    (
+                        axum::http::header::CONTENT_DISPOSITION,
+                        format!("attachment; filename=\"{filename}\""),
+                    ),
+                ],
                 bytes,
             )
                 .into_response()
@@ -181,6 +199,145 @@ async fn copy_file(
     };
     match mgr.copy_file(&req).await {
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"copied": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct MkdirBody {
+    path: String,
+}
+
+async fn mkdir_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<MkdirBody>,
+) -> impl IntoResponse {
+    let req = VfsMkdirReq {
+        mount_id: id,
+        path: body.path,
+    };
+    match mgr.mkdir(&req).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"created": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct DeleteBody {
+    path: String,
+}
+
+async fn delete_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<DeleteBody>,
+) -> impl IntoResponse {
+    let req = VfsDeleteReq {
+        mount_id: id,
+        path: body.path,
+    };
+    match mgr.delete(&req).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct WriteBody {
+    path: String,
+    content: String,
+}
+
+async fn write_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<WriteBody>,
+) -> impl IntoResponse {
+    let req = VfsWriteReq {
+        mount_id: id,
+        path: body.path,
+        content: body.content,
+    };
+    match mgr.write_file(&req).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"written": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn upload_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    let mut path: Option<String> = None;
+    let mut file_data: Option<Vec<u8>> = None;
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        match field.name() {
+            Some("path") => {
+                path = field.text().await.ok();
+            }
+            Some("file") => {
+                file_data = field.bytes().await.ok().map(|b| b.to_vec());
+            }
+            _ => {}
+        }
+    }
+
+    let Some(path) = path else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::err("Missing 'path' field")),
+        )
+            .into_response();
+    };
+    let Some(data) = file_data else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::err("Missing 'file' field")),
+        )
+            .into_response();
+    };
+
+    match mgr.upload_file(&id, &path, data).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"uploaded": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn stat_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Query(query): Query<PathQuery>,
+) -> impl IntoResponse {
+    let path = query.path.unwrap_or_else(|| "/".into());
+    match mgr.stat(&id, &path).await {
+        Ok(node) => Json(ApiResponse::ok(node)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct SearchQuery {
+    path: Option<String>,
+    query: String,
+    max_results: Option<usize>,
+}
+
+async fn search_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Query(q): Query<SearchQuery>,
+) -> impl IntoResponse {
+    let req = VfsSearchReq {
+        mount_id: id,
+        path: q.path.unwrap_or_else(|| "/".into()),
+        query: q.query,
+        max_results: q.max_results,
+    };
+    match mgr.search(&req).await {
+        Ok(nodes) => Json(ApiResponse::ok(nodes)).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }

@@ -396,6 +396,11 @@ export interface VfsFileContent {
   truncated: boolean
 }
 
+export interface VfsWriteReq {
+  path: string
+  content: string
+}
+
 // ─── Local Filesystem Browse (system capability) ────────────────────────────
 
 export interface LocalFsNode {
