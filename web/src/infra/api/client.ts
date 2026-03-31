@@ -41,6 +41,8 @@ import type {
   SchemaInfo,
   ServiceExposure,
   SshServer,
+  SshConfigHost,
+  SshKeyFile,
   TableStructure,
   VfsFileContent,
   VfsMount,
@@ -264,7 +266,8 @@ export const apiClient = {
   getAgentConfig: () => request<ApiResponse<AgentConfig>>('GET', '/api/agent/config'),
   updateAgentConfig: (body: AgentConfig) => request<ApiResponse<unknown>>('PUT', '/api/agent/config', body),
 
-  // ── SSH Config ────────────────────────────────────────────────────────────
+  // ── SSH Config & Key Files ─────────────────────────────────────────────
 
-  getSshConfigAliases: () => request<ApiResponse<string[]>>('GET', '/api/ssh/config-aliases'),
+  getSshConfigHosts: () => request<ApiResponse<SshConfigHost[]>>('GET', '/api/ssh/config-hosts'),
+  getSshKeyFiles: () => request<ApiResponse<SshKeyFile[]>>('GET', '/api/ssh/key-files'),
 }

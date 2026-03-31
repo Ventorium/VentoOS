@@ -212,8 +212,9 @@ pub fn create_router(state: AppState) -> Router {
             "/api/agent/config",
             get(get_agent_config).put(update_agent_config),
         )
-        // SSH config import
-        .route("/api/ssh/config-aliases", get(list_ssh_config_aliases))
+        // SSH config import & key file listing
+        .route("/api/ssh/config-hosts", get(list_ssh_config_hosts))
+        .route("/api/ssh/key-files", get(list_ssh_key_files))
         // WebSocket (task events)
         .route("/ws", get(websocket::ws_handler))
         // WebShell WebSocket
@@ -1349,29 +1350,124 @@ async fn update_agent_config(
     Json(ApiResponse::ok(serde_json::json!({"updated": true})))
 }
 
-// --- SSH Config Import ---
+// --- SSH Config Import & Key Files ---
 
-async fn list_ssh_config_aliases() -> impl IntoResponse {
-    // Parse ~/.ssh/config for Host aliases
+/// Parsed SSH config host entry
+#[derive(serde::Serialize)]
+struct SshConfigHost {
+    alias: String,
+    hostname: Option<String>,
+    user: Option<String>,
+    port: Option<u16>,
+    identity_file: Option<String>,
+}
+
+async fn list_ssh_config_hosts() -> impl IntoResponse {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
     let config_path = std::path::Path::new(&home).join(".ssh/config");
     match tokio::fs::read_to_string(&config_path).await {
         Ok(content) => {
-            let mut aliases = Vec::new();
+            let mut hosts: Vec<SshConfigHost> = Vec::new();
+            let mut current: Option<SshConfigHost> = None;
+
             for line in content.lines() {
                 let trimmed = line.trim();
-                if let Some(rest) = trimmed.strip_prefix("Host ") {
-                    let host = rest.trim();
-                    // Skip wildcards
-                    if !host.contains('*') && !host.is_empty() {
-                        aliases.push(host.to_string());
+                if trimmed.is_empty() || trimmed.starts_with('#') {
+                    continue;
+                }
+                // Case-insensitive keyword matching
+                let lower = trimmed.to_lowercase();
+                if let Some(rest) = lower.strip_prefix("host ") {
+                    // Save previous entry
+                    if let Some(entry) = current.take() {
+                        if !entry.alias.contains('*') {
+                            hosts.push(entry);
+                        }
+                    }
+                    let alias = trimmed[5..].trim().to_string();
+                    current = Some(SshConfigHost {
+                        alias,
+                        hostname: None,
+                        user: None,
+                        port: None,
+                        identity_file: None,
+                    });
+                } else if let Some(entry) = current.as_mut() {
+                    // Parse key-value (split at first whitespace or '=')
+                    let value = if let Some(pos) = trimmed.find(|c: char| c == ' ' || c == '=') {
+                        trimmed[pos + 1..].trim().to_string()
+                    } else {
+                        continue;
+                    };
+
+                    if lower.starts_with("hostname") {
+                        entry.hostname = Some(value);
+                    } else if lower.starts_with("user ") || lower.starts_with("user=") {
+                        entry.user = Some(value);
+                    } else if lower.starts_with("port") {
+                        entry.port = value.parse().ok();
+                    } else if lower.starts_with("identityfile") {
+                        // Expand ~ to home dir
+                        let expanded = if value.starts_with("~/") {
+                            format!("{}/{}", home, &value[2..])
+                        } else {
+                            value
+                        };
+                        entry.identity_file = Some(expanded);
                     }
                 }
             }
-            Json(ApiResponse::ok(aliases)).into_response()
+            // Don't forget the last entry
+            if let Some(entry) = current.take() {
+                if !entry.alias.contains('*') {
+                    hosts.push(entry);
+                }
+            }
+            Json(ApiResponse::ok(hosts)).into_response()
         }
-        Err(_) => Json(ApiResponse::ok(Vec::<String>::new())).into_response(),
+        Err(_) => Json(ApiResponse::ok(Vec::<SshConfigHost>::new())).into_response(),
     }
+}
+
+/// SSH key file entry
+#[derive(serde::Serialize)]
+struct SshKeyFile {
+    name: String,
+    path: String,
+    is_public: bool,
+}
+
+async fn list_ssh_key_files() -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
+    let ssh_dir = std::path::Path::new(&home).join(".ssh");
+    let mut files: Vec<SshKeyFile> = Vec::new();
+
+    if let Ok(mut entries) = tokio::fs::read_dir(&ssh_dir).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let name = entry.file_name().to_string_lossy().to_string();
+            // Skip known non-key files
+            if matches!(
+                name.as_str(),
+                "config" | "known_hosts" | "known_hosts.old" | "authorized_keys"
+            ) {
+                continue;
+            }
+            // Only include regular files
+            if let Ok(meta) = entry.metadata().await {
+                if meta.is_file() {
+                    let is_public = name.ends_with(".pub");
+                    files.push(SshKeyFile {
+                        path: entry.path().to_string_lossy().to_string(),
+                        name,
+                        is_public,
+                    });
+                }
+            }
+        }
+    }
+    // Sort: private keys first, then public
+    files.sort_by(|a, b| a.is_public.cmp(&b.is_public).then(a.name.cmp(&b.name)));
+    Json(ApiResponse::ok(files))
 }
 
 #[cfg(test)]

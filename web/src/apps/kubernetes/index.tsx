@@ -25,7 +25,7 @@ import type {
 
 const RESOURCE_GROUPS: { label: string; icon: React.ReactNode; kinds: { kind: K8sResourceKind; label: string }[] }[] = [
   {
-    label: 'Workloads', icon: <Server size={12} />, kinds: [
+    label: '工作负载', icon: <Server size={12} />, kinds: [
       { kind: 'Pod', label: 'Pods' },
       { kind: 'Deployment', label: 'Deployments' },
       { kind: 'StatefulSet', label: 'StatefulSets' },
@@ -36,25 +36,25 @@ const RESOURCE_GROUPS: { label: string; icon: React.ReactNode; kinds: { kind: K8
     ],
   },
   {
-    label: 'Network', icon: <Network size={12} />, kinds: [
+    label: '网络', icon: <Network size={12} />, kinds: [
       { kind: 'Service', label: 'Services' },
       { kind: 'Ingress', label: 'Ingresses' },
-      { kind: 'NetworkPolicy', label: 'Network Policies' },
+      { kind: 'NetworkPolicy', label: 'NetworkPolicies' },
     ],
   },
   {
-    label: 'Storage', icon: <HardDrive size={12} />, kinds: [
+    label: '存储', icon: <HardDrive size={12} />, kinds: [
       { kind: 'PersistentVolumeClaim', label: 'PVCs' },
       { kind: 'PersistentVolume', label: 'PVs' },
-      { kind: 'StorageClass', label: 'Storage Classes' },
+      { kind: 'StorageClass', label: 'StorageClasses' },
     ],
   },
   {
-    label: 'Config', icon: <Settings size={12} />, kinds: [
+    label: '配置', icon: <Settings size={12} />, kinds: [
       { kind: 'ConfigMap', label: 'ConfigMaps' },
       { kind: 'Secret', label: 'Secrets' },
       { kind: 'Namespace', label: 'Namespaces' },
-      { kind: 'ServiceAccount', label: 'Service Accounts' },
+      { kind: 'ServiceAccount', label: 'ServiceAccounts' },
     ],
   },
 ]
@@ -81,14 +81,14 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
   return (
     <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
-      <div className="rounded-lg p-4 flex flex-col gap-3" style={{ width: 380, background: 'var(--vos-bg-card)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}>
-        <div className="text-sm font-medium">Add Kubernetes Cluster</div>
-        <input className={fc} style={fs} placeholder="Cluster name" value={name} onChange={e => setName(e.target.value)} />
-        <input className={fc} style={fs} placeholder="Kubeconfig path (default: ~/.kube/config)" value={kubeconfigPath} onChange={e => setKubeconfigPath(e.target.value)} />
-        <input className={fc} style={fs} placeholder="Context (optional)" value={context} onChange={e => setContext(e.target.value)} />
+      <div className="rounded-lg p-4 flex flex-col gap-3" style={{ width: 380, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}>
+        <div className="text-sm font-medium">添加 Kubernetes 集群</div>
+        <input className={fc} style={fs} placeholder="集群名称" value={name} onChange={e => setName(e.target.value)} />
+        <input className={fc} style={fs} placeholder="Kubeconfig 路径（默认：~/.kube/config）" value={kubeconfigPath} onChange={e => setKubeconfigPath(e.target.value)} />
+        <input className={fc} style={fs} placeholder="Context（可选）" value={context} onChange={e => setContext(e.target.value)} />
         <div className="flex justify-end gap-2 mt-1">
-          <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-bg-hover)', color: 'var(--vos-text-primary)' }} onClick={onClose}>Cancel</button>
-          <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-accent-primary)', color: '#fff' }} onClick={submit} disabled={saving}>{saving ? 'Adding…' : 'Add'}</button>
+          <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }} onClick={onClose}>取消</button>
+          <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-accent-primary)', color: '#fff' }} onClick={submit} disabled={saving}>{saving ? '添加中…' : '添加'}</button>
         </div>
       </div>
     </div>
@@ -105,7 +105,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
   const [selectedNs, setSelectedNs] = useState<string>('default')
   const [selectedKind, setSelectedKind] = useState<K8sResourceKind>('Pod')
   const [resources, setResources] = useState<K8sResource[]>([])
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Workloads']))
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['工作负载']))
   const [loading, setLoading] = useState(false)
 
   const reload = useCallback(async () => {
@@ -155,20 +155,20 @@ export default function KubernetesApp(_props: AppComponentProps) {
       <div className="flex flex-col flex-shrink-0 overflow-auto" style={{ width: 200, borderRight: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}>
         {/* Clusters */}
         <div className="px-3 pt-3 pb-1 flex items-center justify-between">
-          <span className="text-xs font-medium" style={{ color: 'var(--vos-text-tertiary)' }}>CLUSTERS</span>
+          <span className="text-[10px] font-semibold tracking-wider" style={{ color: 'var(--vos-text-tertiary)' }}>集群</span>
           <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-accent-primary)' }} onClick={() => setShowForm(true)}><Plus size={14} /></button>
         </div>
         {clusters.map(c => (
-          <div key={c.id} className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs group" style={{ background: selectedCluster === c.id ? 'var(--vos-bg-hover)' : 'transparent' }}>
+          <div key={c.id} className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs group" style={{ background: selectedCluster === c.id ? 'var(--vos-bg-item-hover)' : 'transparent' }}>
             <Layers size={12} style={{ color: selectedCluster === c.id ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)' }} />
             <span className="flex-1 truncate" onClick={() => selectCluster(c.id)} onKeyDown={() => {}}>{c.name}</span>
             <button type="button" className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => deleteCluster(c.id)}><Trash2 size={10} /></button>
           </div>
         ))}
-        {clusters.length === 0 && <div className="text-xs px-3 py-2" style={{ color: 'var(--vos-text-tertiary)' }}>No clusters</div>}
+        {clusters.length === 0 && <div className="text-xs px-3 py-2" style={{ color: 'var(--vos-text-tertiary)' }}>无集群</div>}
 
         {/* Resource types */}
-        <div className="px-3 pt-4 pb-1 text-xs font-medium" style={{ color: 'var(--vos-text-tertiary)' }}>RESOURCES</div>
+        <div className="px-3 pt-4 pb-1 text-[10px] font-semibold tracking-wider" style={{ color: 'var(--vos-text-tertiary)' }}>资源</div>
         {RESOURCE_GROUPS.map(group => (
           <div key={group.label}>
             <div className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs" style={{ color: 'var(--vos-text-secondary)' }} onClick={() => toggleGroup(group.label)} onKeyDown={() => {}}>
@@ -224,7 +224,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
                         <td className="px-3 py-1.5 font-mono">{r.name}</td>
                         <td className="px-3 py-1.5">{r.namespace ?? '—'}</td>
                         <td className="px-3 py-1.5">
-                          <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: r.status === 'Running' || r.status === 'Active' ? 'rgba(34,197,94,0.15)' : 'var(--vos-bg-hover)', color: r.status === 'Running' || r.status === 'Active' ? '#22c55e' : 'var(--vos-text-secondary)' }}>
+                          <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: r.status === 'Running' || r.status === 'Active' ? 'rgba(34,197,94,0.15)' : 'var(--vos-bg-item-hover)', color: r.status === 'Running' || r.status === 'Active' ? '#22c55e' : 'var(--vos-text-secondary)' }}>
                             {r.status ?? 'Unknown'}
                           </span>
                         </td>
@@ -233,7 +233,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
                     ))}
                   </tbody>
                 </table>
-                {resources.length === 0 && <div className="flex items-center justify-center py-8" style={{ color: 'var(--vos-text-tertiary)' }}>No resources</div>}
+{resources.length === 0 && <div className="flex items-center justify-center py-8" style={{ color: 'var(--vos-text-tertiary)' }}>无资源</div>}
               </div>
             )}
           </>
@@ -241,8 +241,8 @@ export default function KubernetesApp(_props: AppComponentProps) {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <Box size={48} style={{ color: 'var(--vos-text-tertiary)', margin: '0 auto 12px' }} />
-              <div className="text-sm" style={{ color: 'var(--vos-text-secondary)' }}>Kubernetes</div>
-              <div className="text-xs mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>Select or add a cluster to get started</div>
+              <div className="text-sm" style={{ color: 'var(--vos-text-secondary)' }}>Kubernetes 管理</div>
+              <div className="text-xs mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>选择左侧集群或添加新集群</div>
             </div>
           </div>
         )}

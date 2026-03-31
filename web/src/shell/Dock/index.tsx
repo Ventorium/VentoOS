@@ -92,7 +92,7 @@ function DockIcon({
         animate={bouncing ? { y: [0, -16, 0, -8, 0] } : {}}
         transition={bouncing ? { duration: 0.5, ease: 'easeInOut' } : {}}
       >
-        <div className="vos-dock-icon-inner" style={{ width: iconSize, height: iconSize, borderRadius: iconSize * 0.28 }}>
+        <div className="vos-dock-icon-inner" style={{ width: iconSize, height: iconSize, borderRadius: iconSize * 0.22, overflow: 'hidden' }}>
           {icon}
         </div>
       </motion.button>
@@ -182,12 +182,12 @@ export default function Dock() {
     alignItems: isHorizontal ? 'flex-end' : 'center',
     flexDirection: isHorizontal ? 'row' : 'column',
     gap: gap,
-    padding: '6px 10px',
+    padding: '4px 8px',
     background: 'var(--vos-bg-dock)',
     backdropFilter: 'blur(24px) saturate(180%)',
     WebkitBackdropFilter: 'blur(24px) saturate(180%)',
     border: '0.5px solid var(--vos-border-default)',
-    borderRadius: 18,
+    borderRadius: 16,
     boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.08) inset',
     pointerEvents: 'all',
   }

@@ -51,9 +51,8 @@ export interface SshServer {
   port: number
   username: string
   auth_method:
-    | { type: 'password'; credential_id: string }
-    | { type: 'private_key'; key_path?: string }
-    | { type: 'agent' }
+    | { type: 'password'; credential_id?: string | null }
+    | { type: 'private_key'; key_path?: string | null; credential_id?: string | null; passphrase_credential_id?: string | null }
   group?: string
   tags: string[]
   status: 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -121,6 +120,21 @@ export interface CreateServiceExposureReq {
   basic_auth_enabled: boolean
   basic_auth_username?: string
   basic_auth_password?: string
+}
+
+// SSH config import & key files
+export interface SshConfigHost {
+  alias: string
+  hostname: string | null
+  user: string | null
+  port: number | null
+  identity_file: string | null
+}
+
+export interface SshKeyFile {
+  name: string
+  path: string
+  is_public: boolean
 }
 
 // ─── Database ──────────────────────────────────────────────────────────────

@@ -123,7 +123,7 @@ export default function Launchpad() {
             <Search size={16} style={{ opacity: 0.5, flexShrink: 0 }} />
             <input
               ref={searchRef}
-              type="search"
+              type="text"
               placeholder="搜索"
               value={searchQuery}
               onChange={e => setSearch(e.target.value)}

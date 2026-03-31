@@ -78,17 +78,17 @@ function ConnForm({
     >
       <div
         className="rounded-lg p-4 flex flex-col gap-3"
-        style={{ width: 380, background: 'var(--vos-bg-card)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+        style={{ width: 380, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
       >
-        <div className="text-sm font-medium">New Database Connection</div>
-        <input className={fieldClass} style={fieldStyle} placeholder="Connection name" value={name} onChange={e => setName(e.target.value)} />
+        <div className="text-sm font-medium">新建数据库连接</div>
+        <input className={fieldClass} style={fieldStyle} placeholder="连接名称" value={name} onChange={e => setName(e.target.value)} />
         <select className={fieldClass} style={fieldStyle} value={engine} onChange={e => setEngine(e.target.value as DbEngine)}>
           <option value="sqlite">SQLite</option>
           <option value="postgresql">PostgreSQL</option>
           <option value="mysql">MySQL</option>
         </select>
         {engine === 'sqlite' ? (
-          <input className={fieldClass} style={fieldStyle} placeholder="Database file path" value={sqlitePath} onChange={e => setSqlitePath(e.target.value)} />
+          <input className={fieldClass} style={fieldStyle} placeholder="数据库文件路径" value={sqlitePath} onChange={e => setSqlitePath(e.target.value)} />
         ) : (
           <>
             <div className="flex gap-2">
@@ -101,11 +101,11 @@ function ConnForm({
           </>
         )}
         <div className="flex justify-end gap-2 mt-1">
-          <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-bg-hover)', color: 'var(--vos-text-primary)' }} onClick={onClose}>
-            Cancel
+          <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }} onClick={onClose}>
+            取消
           </button>
           <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-accent-primary)', color: '#fff' }} onClick={submit} disabled={saving}>
-            {saving ? 'Creating…' : 'Create'}
+            {saving ? '创建中…' : '创建'}
           </button>
         </div>
       </div>
@@ -129,6 +129,8 @@ export default function DatabaseApp(_props: AppComponentProps) {
   const [sqlText, setSqlText] = useState('')
   const [sqlResult, setSqlResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(100)
   const sqlRef = useRef<HTMLTextAreaElement>(null)
 
   const reload = useCallback(async () => {
@@ -165,14 +167,26 @@ export default function DatabaseApp(_props: AppComponentProps) {
 
   const selectTable = async (connId: string, table: string) => {
     setSelectedTable({ connId, table })
+    setCurrentPage(1)
     setLoading(true)
     try {
       const [structRes, dataRes] = await Promise.all([
         apiClient.getDbTableStructure(connId, table),
-        apiClient.getDbTableData(connId, table, 1, 50),
+        apiClient.getDbTableData(connId, table, 1, pageSize),
       ])
       setTableStructure(structRes.data)
       setTableData(dataRes.data)
+    } catch (e) { console.error(e) }
+    setLoading(false)
+  }
+
+  const loadPage = async (page: number) => {
+    if (!selectedTable) return
+    setCurrentPage(page)
+    setLoading(true)
+    try {
+      const res = await apiClient.getDbTableData(selectedTable.connId, selectedTable.table, page, pageSize)
+      setTableData(res.data)
     } catch (e) { console.error(e) }
     setLoading(false)
   }
@@ -221,7 +235,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
         </tbody>
       </table>
       {result.rows.length === 0 && (
-        <div className="flex items-center justify-center py-8 text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>No rows</div>
+        <div className="flex items-center justify-center py-8 text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>无数据</div>
       )}
     </div>
   )
@@ -236,7 +250,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
         style={{ width: 220, borderRight: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
       >
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
-          <span className="text-xs font-medium" style={{ color: 'var(--vos-text-tertiary)' }}>CONNECTIONS</span>
+          <span className="text-[10px] font-semibold tracking-wider" style={{ color: 'var(--vos-text-tertiary)' }}>连接</span>
           <div className="flex gap-1">
             <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={reload}><RefreshCw size={12} /></button>
             <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-accent-primary)' }} onClick={() => setShowForm(true)}><Plus size={14} /></button>
@@ -253,7 +267,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
               <div
                 className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs group"
                 style={{
-                  background: selectedTable?.connId === conn.id ? 'var(--vos-bg-hover)' : 'transparent',
+                  background: selectedTable?.connId === conn.id ? 'var(--vos-bg-item-hover)' : 'transparent',
                 }}
               >
                 <button type="button" className="bg-transparent border-none p-0 cursor-pointer" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => toggleConn(conn.id)}>
@@ -304,7 +318,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
 
         {connections.length === 0 && (
           <div className="flex-1 flex items-center justify-center text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
-            No connections
+            无连接
           </div>
         )}
       </div>
@@ -326,7 +340,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                   }}
                   onClick={() => setRightTab(tab)}
                 >
-                  {tab === 'structure' ? <><Table size={10} className="inline mr-1" />Structure</> : tab === 'data' ? <><Database size={10} className="inline mr-1" />Data</> : <><FileCode size={10} className="inline mr-1" />SQL</>}
+                  {tab === 'structure' ? <><Table size={10} className="inline mr-1" />结构</> : tab === 'data' ? <><Database size={10} className="inline mr-1" />数据</> : <><FileCode size={10} className="inline mr-1" />SQL</>}
                 </button>
               ))}
               <span className="flex-1" />
@@ -360,7 +374,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 </table>
                 {tableStructure.indexes.length > 0 && (
                   <>
-                    <div className="font-medium mb-2">Indexes</div>
+                    <div className="font-medium mb-2">索引</div>
                     <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                       <thead>
                         <tr>
@@ -386,8 +400,19 @@ export default function DatabaseApp(_props: AppComponentProps) {
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between px-3 py-1" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
                   <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
-                    {tableData.rows.length} rows · {tableData.execution_time_ms}ms
+                    {tableData.rows.length} 行 · {tableData.execution_time_ms}ms
                   </span>
+                  <div className="flex items-center gap-1">
+                    <button type="button" className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer border-none"
+                      style={{ background: currentPage > 1 ? 'var(--vos-bg-item-hover)' : 'transparent', color: currentPage > 1 ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)' }}
+                      disabled={currentPage <= 1}
+                      onClick={() => loadPage(currentPage - 1)}>上一页</button>
+                    <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>第 {currentPage} 页</span>
+                    <button type="button" className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer border-none"
+                      style={{ background: tableData.rows.length >= pageSize ? 'var(--vos-bg-item-hover)' : 'transparent', color: tableData.rows.length >= pageSize ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)' }}
+                      disabled={tableData.rows.length < pageSize}
+                      onClick={() => loadPage(currentPage + 1)}>下一页</button>
+                  </div>
                 </div>
                 {renderDataTable(tableData)}
               </div>
@@ -398,7 +423,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                     ref={sqlRef}
                     className="w-full h-full p-3 text-xs font-mono resize-none border-none outline-none"
                     style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)' }}
-                    placeholder="Enter SQL query..."
+                    placeholder="输入 SQL 查询..."
                     value={sqlText}
                     onChange={e => setSqlText(e.target.value)}
                     onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') executeSql() }}
@@ -406,7 +431,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
                   <button type="button" className="flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer border-none" style={{ background: 'var(--vos-accent-primary)', color: '#fff' }} onClick={executeSql}>
-                    <Play size={10} /> Execute
+                    <Play size={10} /> 执行
                   </button>
                   <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>⌘+Enter</span>
                   {sqlResult && (
@@ -416,7 +441,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                   )}
                 </div>
                 {sqlResult ? renderDataTable(sqlResult) : (
-                  <div className="flex-1 flex items-center justify-center text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>Run a query to see results</div>
+                  <div className="flex-1 flex items-center justify-center text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>执行查询以查看结果</div>
                 )}
               </div>
             ) : null}
@@ -425,9 +450,9 @@ export default function DatabaseApp(_props: AppComponentProps) {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <Database size={48} style={{ color: 'var(--vos-text-tertiary)', margin: '0 auto 12px' }} />
-              <div className="text-sm" style={{ color: 'var(--vos-text-secondary)' }}>Connect to a database</div>
+              <div className="text-sm" style={{ color: 'var(--vos-text-secondary)' }}>数据库管理</div>
               <div className="text-xs mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>
-                Select a connection from the sidebar or create a new one
+                选择左侧连接或创建新连接
               </div>
             </div>
           </div>

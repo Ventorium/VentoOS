@@ -69,7 +69,7 @@ export const tokens = {
     minHeight: 200
   },
   launchpad: {
-    iconSize: 80,
+    iconSize: 64,
     columns: 5
   }
 } as const

@@ -42,6 +42,8 @@ export type {
   SchemaInfo,
   ServiceExposure,
   SshServer,
+  SshConfigHost,
+  SshKeyFile,
   TableInfo,
   TableStructure,
   VfsFileContent,

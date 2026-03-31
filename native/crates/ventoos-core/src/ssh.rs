@@ -39,7 +39,6 @@ pub enum SshAuthMethod {
         #[serde(default)]
         passphrase_credential_id: Option<Id>,
     },
-    Agent,
 }
 
 /// SSH server status.
@@ -199,7 +198,7 @@ mod tests {
             host: "10.0.0.1".to_string(),
             port: 22,
             username: "root".to_string(),
-            auth_method: SshAuthMethod::Agent,
+            auth_method: SshAuthMethod::Password { credential_id: None },
             group: Some("dev".to_string()),
             tags: vec!["linux".to_string()],
             status: SshServerStatus::Disconnected,

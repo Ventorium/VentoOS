@@ -34,6 +34,8 @@ import {
   type CreateSshServerReq,
   type PortMapping,
   type ServiceExposure,
+  type SshConfigHost,
+  type SshKeyFile,
   type SshServer,
   apiClient as api,
 } from '@/infra/api'
@@ -87,7 +89,7 @@ function ServersTab() {
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; msg: string } | null>(null)
   const [openShell, setOpenShell] = useState<SshServer | null>(null)
   const [importingConfig, setImportingConfig] = useState(false)
-  const [sshAliases, setSshAliases] = useState<string[] | null>(null)
+  const [sshConfigHosts, setSshConfigHosts] = useState<SshConfigHost[] | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -122,8 +124,8 @@ function ServersTab() {
   async function handleImportConfig() {
     setImportingConfig(true)
     try {
-      const res = await api.getSshConfigAliases()
-      setSshAliases(res.data)
+      const res = await api.getSshConfigHosts()
+      setSshConfigHosts(res.data)
     } catch (e) {
       console.error(e)
     } finally {
@@ -131,17 +133,20 @@ function ServersTab() {
     }
   }
 
-  async function importAlias(alias: string) {
+  async function importConfigHost(host: SshConfigHost) {
     try {
+      const authMethod: CreateSshServerReq['auth_method'] = host.identity_file
+        ? { type: 'private_key', key_path: host.identity_file }
+        : { type: 'password' }
       await api.createSshServer({
-        name: alias,
-        host: alias,
-        port: 22,
-        username: 'root',
-        auth_method: { type: 'private_key', key_path: '~/.ssh/id_rsa' },
+        name: host.alias,
+        host: host.hostname ?? host.alias,
+        port: host.port ?? 22,
+        username: host.user ?? 'root',
+        auth_method: authMethod,
       })
       load()
-      setSshAliases(null)
+      setSshConfigHosts(null)
     } catch (e) { console.error(e) }
   }
 
@@ -214,22 +219,31 @@ function ServersTab() {
         <SshServerForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
       )}
 
-      {sshAliases && (
-        <div className="vos-modal-overlay" onClick={() => setSshAliases(null)}>
-          <motion.div className="vos-modal" style={{ maxWidth: 380 }} initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+      {sshConfigHosts && (
+        <div className="vos-modal-overlay" onClick={() => setSshConfigHosts(null)}>
+          <motion.div className="vos-modal" style={{ maxWidth: 480 }} initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
             onClick={e => e.stopPropagation()}>
             <div className="vos-modal-header">
               <span>~/.ssh/config Hosts</span>
-              <button type="button" className="vos-icon-btn" onClick={() => setSshAliases(null)}><X size={16} /></button>
+              <button type="button" className="vos-icon-btn" onClick={() => setSshConfigHosts(null)}><X size={16} /></button>
             </div>
-            <div className="vos-modal-body" style={{ maxHeight: 300, overflow: 'auto' }}>
-              {sshAliases.length === 0 && <p style={{ color: 'var(--vos-text-tertiary)', fontSize: 12 }}>未发现 SSH Host 配置</p>}
-              {sshAliases.map(alias => (
-                <div key={alias} className="ssh-card" style={{ padding: '8px 12px', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 12 }}>{alias}</span>
-                  <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={() => importAlias(alias)}>
-                    <Plus size={12} /> 导入
-                  </button>
+            <div className="vos-modal-body" style={{ maxHeight: 360, overflow: 'auto' }}>
+              {sshConfigHosts.length === 0 && <p style={{ color: 'var(--vos-text-tertiary)', fontSize: 12 }}>未发现 SSH Host 配置</p>}
+              {sshConfigHosts.map(h => (
+                <div key={h.alias} className="ssh-card" style={{ padding: '10px 12px', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{h.alias}</span>
+                    <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={() => importConfigHost(h)}>
+                      <Plus size={12} /> 导入
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {h.hostname && <span>Host: {h.hostname}</span>}
+                    {h.user && <span>User: {h.user}</span>}
+                    {h.port && <span>Port: {h.port}</span>}
+                    {h.identity_file && <span>Key: {h.identity_file}</span>}
+                    {!h.hostname && !h.user && !h.port && !h.identity_file && <span>（无额外配置）</span>}
+                  </div>
                 </div>
               ))}
             </div>
@@ -256,6 +270,21 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  const [keyFiles, setKeyFiles] = useState<SshKeyFile[] | null>(null)
+  const [showKeyPicker, setShowKeyPicker] = useState(false)
+
+  async function handleBrowseKeys() {
+    try {
+      const res = await api.getSshKeyFiles()
+      setKeyFiles(res.data)
+      setShowKeyPicker(true)
+    } catch (e) { console.error(e) }
+  }
+
+  function selectKeyFile(path: string) {
+    setForm(f => ({ ...f, auth_method: { type: 'private_key', key_path: path } }))
+    setShowKeyPicker(false)
+  }
 
   async function handleSave() {
     if (!form.name || !form.host || !form.username) {
@@ -327,12 +356,42 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           {form.auth_method.type === 'private_key' && (
             <div className="vos-form-row">
               <label>私钥路径</label>
-              <input className="vos-input" placeholder="~/.ssh/id_rsa" value={
-                (form.auth_method as { type: 'private_key'; key_path?: string }).key_path ?? ''
-              }
-                onChange={e => setForm(f => ({
-                  ...f, auth_method: { type: 'private_key', key_path: e.target.value }
-                }))} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input className="vos-input" style={{ flex: 1 }} placeholder="~/.ssh/id_rsa" value={
+                  (form.auth_method as { type: 'private_key'; key_path?: string }).key_path ?? ''
+                }
+                  onChange={e => setForm(f => ({
+                    ...f, auth_method: { type: 'private_key', key_path: e.target.value }
+                  }))} />
+                <button type="button" className="vos-btn" onClick={handleBrowseKeys} title="从 ~/.ssh 选择">
+                  <Key size={14} /> 浏览
+                </button>
+              </div>
+            </div>
+          )}
+          {showKeyPicker && keyFiles && (
+            <div className="vos-form-row">
+              <label>~/.ssh/ 密钥文件</label>
+              <div style={{ maxHeight: 160, overflow: 'auto', border: '1px solid var(--vos-border)', borderRadius: 6, padding: 4 }}>
+                {keyFiles.filter(f => !f.is_public).length === 0 && (
+                  <p style={{ color: 'var(--vos-text-tertiary)', fontSize: 11, padding: '4px 8px' }}>未发现私钥文件</p>
+                )}
+                {keyFiles.filter(f => !f.is_public).map(f => (
+                  <button key={f.path} type="button"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '5px 8px',
+                      fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-text-primary)',
+                      cursor: 'pointer', borderRadius: 4, textAlign: 'left',
+                    }}
+                    onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'var(--vos-bg-item-hover)' }}
+                    onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                    onClick={() => selectKeyFile(f.path)}>
+                    <Key size={12} style={{ opacity: 0.6 }} />
+                    <span style={{ flex: 1 }}>{f.name}</span>
+                    <span style={{ fontSize: 10, opacity: 0.5 }}>{f.path}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {err && <p className="vos-form-error">{err}</p>}

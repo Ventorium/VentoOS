@@ -6,7 +6,7 @@
  * Right: Network, Battery, Tasks, Notifications, Theme, Clock
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, Loader2, Moon, Sun } from 'lucide-react'
+import { Bell, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { apiClient } from '@/infra/api'
 import { useAppStore, useWindowStore, closeAllWindows as closeAllWindowsFn } from '@/kernel'
@@ -16,6 +16,7 @@ import { useSettingsStore } from '@/services/settings'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { useNotificationStore } from '@/services/notification'
 import { useTaskStore } from '@/services/task'
+import { useAISidePanelStore } from '@/shell/AISidePanel/store'
 import { tokens } from '@/theme'
 
 const H = tokens.topBar.height
@@ -127,6 +128,8 @@ function MenuBarRight() {
   const toggleNotifPanel = useNotificationStore(s => s.togglePanel)
   const activeTaskCount = useTaskStore(s => s.tasks.filter(t => t.status === 'queued' || t.status === 'running').length)
   const toggleTaskPanel = useTaskStore(s => s.togglePanel)
+  const toggleAI = useAISidePanelStore(s => s.toggle)
+  const aiOpen = useAISidePanelStore(s => s.isOpen)
 
   // Clock tick
   const [now, setNow] = useState(new Date())
@@ -162,6 +165,10 @@ function MenuBarRight() {
             </motion.span>
           )}
         </AnimatePresence>
+      </button>
+
+      <button type="button" className="vos-topbar-btn" onClick={toggleAI} title="AI 助手" style={aiOpen ? { color: 'var(--vos-accent-primary)' } : undefined}>
+        <Sparkles size={13} />
       </button>
 
       <button type="button" className="vos-topbar-btn" onClick={cycleTheme} title={`主题: ${themeMode}`}>

@@ -74,7 +74,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
           <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-accent-primary)' }} onClick={newSession}><Plus size={14} /></button>
         </div>
         {sessions.map(s => (
-          <div key={s.id} className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group" style={{ background: currentSession === s.id ? 'var(--vos-bg-hover)' : 'transparent' }}>
+          <div key={s.id} className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group" style={{ background: currentSession === s.id ? 'var(--vos-bg-item-hover)' : 'transparent' }}>
             <MessageSquare size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
             <span className="flex-1 truncate" onClick={() => selectSession(s.id)} onKeyDown={() => {}}>{s.title}</span>
             <button type="button" className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => deleteSession(s.id)}><Trash2 size={10} /></button>

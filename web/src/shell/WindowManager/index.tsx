@@ -16,6 +16,7 @@ export default function WindowManager() {
       style={{
         position: 'absolute',
         inset: 0,
+        overflow: 'hidden',
         pointerEvents: 'none',
         zIndex: 100
       }}

@@ -8,6 +8,7 @@ import NotificationCenter from '@/shell/NotificationCenter'
 import NotificationToast from '@/shell/NotificationToast'
 import TaskCenter from '@/shell/TaskCenter'
 import TopBar from '@/shell/TopBar'
+import AISidePanel from '@/shell/AISidePanel'
 import WindowManager from '@/shell/WindowManager'
 import { useThemeSync } from '@/hooks/useTheme'
 import { authService, useAuthStore } from '@/services/auth'
@@ -49,6 +50,7 @@ function App() {
           <ContextMenu />
           <Launchpad />
           <NotificationToast />
+          <AISidePanel />
         </>
       )}
     </div>

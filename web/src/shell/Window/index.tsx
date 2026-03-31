@@ -32,13 +32,14 @@ function TrafficLights({
       style={{
         width: 14, height: 14, borderRadius: '50%',
         background: focused ? color : 'var(--vos-tl-inactive)',
-        border: 'none', cursor: 'pointer', padding: 0,
+        border: focused ? 'none' : '0.5px solid rgba(128,128,128,0.3)',
+        cursor: 'pointer', padding: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 10, fontWeight: 700, color: 'rgba(0,0,0,0.45)', lineHeight: 1,
+        fontSize: 11, fontWeight: 800, color: 'rgba(0,0,0,0.55)', lineHeight: 1,
         flexShrink: 0, transition: 'background 0.1s'
       }}
     >
-      {hovered && focused ? sym : null}
+      {hovered ? sym : null}
     </button>
   )
 

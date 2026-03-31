@@ -5,7 +5,6 @@
  * with the kernel app registry via `registerApps(builtinManifests)`.
  */
 import type { AppManifest } from '@/kernel'
-import { aiAssistantManifest } from './ai-assistant/manifest'
 import { databaseManifest } from './database/manifest'
 import { explorerManifest } from './explorer/manifest'
 import { kubernetesManifest } from './kubernetes/manifest'
@@ -19,7 +18,6 @@ export const builtinManifests: AppManifest[] = [
   redisManifest,
   explorerManifest,
   sshManifest,
-  aiAssistantManifest,
   settingsManifest,
 ]
 
@@ -29,6 +27,5 @@ export {
   redisManifest,
   explorerManifest,
   sshManifest,
-  aiAssistantManifest,
   settingsManifest,
 }
