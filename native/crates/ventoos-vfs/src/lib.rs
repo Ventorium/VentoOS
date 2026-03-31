@@ -4,6 +4,7 @@
 /// into a unified path and node model.
 pub mod manager;
 pub mod routes;
+pub(crate) mod sftp;
 pub mod types;
 
 pub use manager::VfsManager;

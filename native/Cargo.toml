@@ -63,6 +63,7 @@ base64 = "0.22"
 
 # SSH
 russh = "0.58"
+russh-sftp = "2.1"
 
 # PTY
 portable-pty = "0.9"

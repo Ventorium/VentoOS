@@ -3,21 +3,24 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
+use crate::sftp::SftpPool;
 use crate::types::{
     CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq,
     VfsMount, VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
 };
 
 /// Virtual file system manager.
-/// Currently supports local filesystem; remote sources (SFTP, S3, SMB) are stubs.
+/// Supports local filesystem and SFTP; other sources are stubs.
 pub struct VfsManager {
     mounts: Arc<RwLock<HashMap<String, VfsMount>>>,
+    sftp_pool: SftpPool,
 }
 
 impl VfsManager {
     pub fn new() -> Self {
         Self {
             mounts: Arc::new(RwLock::new(HashMap::new())),
+            sftp_pool: SftpPool::new(),
         }
     }
 
@@ -47,6 +50,7 @@ impl VfsManager {
     }
 
     pub async fn delete_mount(&self, id: &str) -> bool {
+        self.sftp_pool.remove(id).await;
         self.mounts.write().await.remove(id).is_some()
     }
 
@@ -62,6 +66,10 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => self.list_local_dir(&mount.root, &req.path).await,
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                conn.list_dir(&req.path).await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
@@ -148,6 +156,10 @@ impl VfsManager {
                 self.read_local_file(&mount.root, &req.path, req.max_bytes)
                     .await
             }
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                conn.read_file(&req.path, req.max_bytes).await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
@@ -164,6 +176,10 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => self.move_local(&mount.root, &req.src, &req.dest).await,
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                conn.move_file(&req.src, &req.dest).await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
@@ -180,6 +196,10 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => self.copy_local(&mount.root, &req.src, &req.dest).await,
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                conn.copy_file(&req.src, &req.dest).await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
@@ -196,6 +216,10 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => self.mkdir_local(&mount.root, &req.path).await,
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                conn.mkdir(&req.path).await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
@@ -212,6 +236,10 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => self.delete_local(&mount.root, &req.path).await,
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                conn.delete(&req.path).await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
@@ -230,6 +258,10 @@ impl VfsManager {
             VfsSourceKind::Local => {
                 self.write_local(&mount.root, &req.path, req.content.as_bytes())
                     .await
+            }
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                conn.write_file(&req.path, req.content.as_bytes()).await
             }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
@@ -252,6 +284,10 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => self.write_local(&mount.root, path, &data).await,
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(mount_id, &mount.root).await?;
+                conn.write_file(path, &data).await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
@@ -268,6 +304,10 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => self.stat_local(&mount.root, path).await,
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(mount_id, &mount.root).await?;
+                conn.stat(path).await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
@@ -291,6 +331,10 @@ impl VfsManager {
                     req.max_results.unwrap_or(100),
                 )
                 .await
+            }
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                conn.search(&req.path, &req.query, req.max_results.unwrap_or(100)).await
             }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
@@ -537,6 +581,10 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => self.read_local_file_raw(&mount.root, path).await,
+            VfsSourceKind::Sftp => {
+                let conn = self.sftp_pool.get_or_connect(mount_id, &mount.root).await?;
+                conn.read_file_raw(path).await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
