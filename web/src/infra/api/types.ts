@@ -413,20 +413,44 @@ export interface LocalFsNode {
 
 // ─── AI Agent ──────────────────────────────────────────────────────────────
 
-export type AgentEngine = 'claude_code' | 'codex' | 'open_code' | 'custom'
-export type ChatRole = 'user' | 'assistant' | 'system'
+export type ProviderType = 'open_ai' | 'anthropic' | 'ollama' | 'custom'
+export type MessageRole = 'system' | 'user' | 'assistant' | 'tool'
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
 
-export interface ChatMessage {
+export interface ProviderConfig {
   id: string
-  role: ChatRole
-  content: string
-  timestamp: string
+  name: string
+  provider_type: ProviderType
+  api_key: string
+  base_url: string
+  default_model: string
+  enabled: boolean
+}
+
+export interface ToolCall {
+  id: string
+  type: string
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
+export interface AgentMessage {
+  role: MessageRole
+  content?: string
+  tool_calls?: ToolCall[]
+  tool_call_id?: string
+  name?: string
 }
 
 export interface ChatSession {
   id: string
   title: string
-  messages: ChatMessage[]
+  provider_id?: string
+  model?: string
+  system_prompt?: string
+  messages: AgentMessage[]
   created_at: string
   updated_at: string
 }
@@ -434,17 +458,36 @@ export interface ChatSession {
 export interface ChatRequest {
   session_id?: string
   message: string
-  context?: string
+  provider_id?: string
+  model?: string
+  system_prompt?: string
 }
 
 export interface ChatResponse {
   session_id: string
-  message: ChatMessage
+  message: AgentMessage
 }
 
 export interface AgentConfig {
-  engine: AgentEngine
-  enabled: boolean
-  api_key?: string
-  endpoint?: string
+  default_provider_id?: string
+  default_model?: string
+  default_system_prompt: string
+  max_iterations: number
+  tools_enabled: boolean
 }
+
+export interface ToolDefinition {
+  name: string
+  description: string
+  parameters: unknown
+  risk_level: RiskLevel
+}
+
+// Stream events from SSE
+export type StreamEvent =
+  | { type: 'content_delta'; content: string }
+  | { type: 'tool_call_start'; id: string; name: string; arguments: string }
+  | { type: 'tool_result'; id: string; name: string; content: string; success: boolean }
+  | { type: 'message_complete'; message: AgentMessage }
+  | { type: 'error'; message: string }
+  | { type: 'done'; session_id: string }
