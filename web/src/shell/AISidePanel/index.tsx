@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, MessageSquare, Plus, Send, Sparkles, Trash2, User, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { apiClient } from '@/infra/api'
 import type { ChatMessage, ChatSession } from '@/infra/api'
+import { apiClient } from '@/infra/api'
 import { tokens } from '@/theme'
 import { useAISidePanelStore } from './store'
 
@@ -20,10 +20,17 @@ export default function AISidePanel() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const loadSessions = useCallback(async () => {
-    try { const r = await apiClient.getAgentSessions(); setSessions(r.data) } catch (e) { console.error(e) }
+    try {
+      const r = await apiClient.getAgentSessions()
+      setSessions(r.data)
+    } catch (e) {
+      console.error(e)
+    }
   }, [])
 
-  useEffect(() => { if (isOpen) loadSessions() }, [isOpen, loadSessions])
+  useEffect(() => {
+    if (isOpen) loadSessions()
+  }, [isOpen, loadSessions])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -35,7 +42,9 @@ export default function AISidePanel() {
     try {
       const r = await apiClient.getAgentSession(id)
       setMessages(r.data.messages)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   const newSession = () => {
@@ -46,7 +55,10 @@ export default function AISidePanel() {
 
   const deleteSession = async (id: string) => {
     await apiClient.deleteAgentSession(id)
-    if (currentSession === id) { setCurrentSession(null); setMessages([]) }
+    if (currentSession === id) {
+      setCurrentSession(null)
+      setMessages([])
+    }
     loadSessions()
   }
 
@@ -61,13 +73,19 @@ export default function AISidePanel() {
 
     try {
       const r = await apiClient.agentChat({ message: text, session_id: currentSession ?? undefined })
-      setMessages(prev => [...prev, { role: 'assistant', content: r.data.message, timestamp: new Date().toISOString() }])
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: r.data.message, timestamp: new Date().toISOString() }
+      ])
       if (!currentSession && r.data.session_id) {
         setCurrentSession(r.data.session_id)
         loadSessions()
       }
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', content: '抱歉，出了点问题。', timestamp: new Date().toISOString() }])
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: '抱歉，出了点问题。', timestamp: new Date().toISOString() }
+      ])
       console.error(e)
     }
     setSending(false)
@@ -92,25 +110,39 @@ export default function AISidePanel() {
             flexDirection: 'column',
             background: 'var(--vos-bg-primary)',
             borderLeft: '0.5px solid var(--vos-border-subtle)',
-            boxShadow: '-4px 0 24px rgba(0,0,0,0.12)',
+            boxShadow: '-4px 0 24px rgba(0,0,0,0.12)'
           }}
         >
           {/* Header */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 12px',
-            borderBottom: '0.5px solid var(--vos-border-subtle)',
-            background: 'var(--vos-bg-surface)',
-            flexShrink: 0,
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 12px',
+              borderBottom: '0.5px solid var(--vos-border-subtle)',
+              background: 'var(--vos-bg-surface)',
+              flexShrink: 0
+            }}
+          >
             <Sparkles size={14} style={{ color: 'var(--vos-accent-primary)' }} />
             <span style={{ fontSize: 13, fontWeight: 600, flex: 1, color: 'var(--vos-text-primary)' }}>AI 助手</span>
-            <button type="button" className="vos-topbar-btn" onClick={() => setShowSessions(!showSessions)} title="会话列表" style={{ padding: 4 }}>
+            <button
+              type="button"
+              className="vos-topbar-btn"
+              onClick={() => setShowSessions(!showSessions)}
+              title="会话列表"
+              style={{ padding: 4 }}
+            >
               <MessageSquare size={13} style={{ color: 'var(--vos-text-tertiary)' }} />
             </button>
-            <button type="button" className="vos-topbar-btn" onClick={newSession} title="新建会话" style={{ padding: 4 }}>
+            <button
+              type="button"
+              className="vos-topbar-btn"
+              onClick={newSession}
+              title="新建会话"
+              style={{ padding: 4 }}
+            >
               <Plus size={13} style={{ color: 'var(--vos-text-tertiary)' }} />
             </button>
             <button type="button" className="vos-topbar-btn" onClick={close} title="关闭" style={{ padding: 4 }}>
@@ -135,11 +167,15 @@ export default function AISidePanel() {
                   zIndex: 10,
                   background: 'var(--vos-bg-surface)',
                   borderBottom: '0.5px solid var(--vos-border-subtle)',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
                 }}
               >
                 {sessions.length === 0 && (
-                  <div style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: 'var(--vos-text-tertiary)' }}>暂无会话</div>
+                  <div
+                    style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: 'var(--vos-text-tertiary)' }}
+                  >
+                    暂无会话
+                  </div>
                 )}
                 {sessions.map(s => (
                   <div
@@ -151,12 +187,35 @@ export default function AISidePanel() {
                       padding: '6px 12px',
                       cursor: 'pointer',
                       fontSize: 12,
-                      background: currentSession === s.id ? 'var(--vos-bg-item-hover)' : 'transparent',
+                      background: currentSession === s.id ? 'var(--vos-bg-item-hover)' : 'transparent'
                     }}
                   >
                     <MessageSquare size={12} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--vos-text-primary)' }} onClick={() => selectSession(s.id)}>{s.title}</span>
-                    <button type="button" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--vos-text-tertiary)' }} onClick={() => deleteSession(s.id)}><Trash2 size={10} /></button>
+                    <span
+                      style={{
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        color: 'var(--vos-text-primary)'
+                      }}
+                      onClick={() => selectSession(s.id)}
+                    >
+                      {s.title}
+                    </span>
+                    <button
+                      type="button"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                        color: 'var(--vos-text-tertiary)'
+                      }}
+                      onClick={() => deleteSession(s.id)}
+                    >
+                      <Trash2 size={10} />
+                    </button>
                   </div>
                 ))}
               </motion.div>
@@ -181,38 +240,54 @@ export default function AISidePanel() {
                   display: 'flex',
                   gap: 8,
                   marginBottom: 12,
-                  flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
+                  flexDirection: msg.role === 'user' ? 'row-reverse' : 'row'
                 }}
               >
-                <div style={{
-                  flexShrink: 0,
-                  width: 24,
-                  height: 24,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: msg.role === 'assistant' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)',
-                  color: msg.role === 'assistant' ? '#fff' : 'var(--vos-text-primary)',
-                }}>
+                <div
+                  style={{
+                    flexShrink: 0,
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: msg.role === 'assistant' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)',
+                    color: msg.role === 'assistant' ? '#fff' : 'var(--vos-text-primary)'
+                  }}
+                >
                   {msg.role === 'assistant' ? <Sparkles size={12} /> : <User size={12} />}
                 </div>
-                <div style={{
-                  maxWidth: '80%',
-                  padding: '6px 10px',
-                  borderRadius: msg.role === 'user' ? '10px 10px 3px 10px' : '10px 10px 10px 3px',
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  background: msg.role === 'user' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-surface)',
-                  color: msg.role === 'user' ? '#fff' : 'var(--vos-text-primary)',
-                }}>
+                <div
+                  style={{
+                    maxWidth: '80%',
+                    padding: '6px 10px',
+                    borderRadius: msg.role === 'user' ? '10px 10px 3px 10px' : '10px 10px 10px 3px',
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                    background: msg.role === 'user' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-surface)',
+                    color: msg.role === 'user' ? '#fff' : 'var(--vos-text-primary)'
+                  }}
+                >
                   {msg.content}
                 </div>
               </div>
             ))}
             {sending && (
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <div style={{ flexShrink: 0, width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--vos-accent-primary)', color: '#fff' }}>
+                <div
+                  style={{
+                    flexShrink: 0,
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'var(--vos-accent-primary)',
+                    color: '#fff'
+                  }}
+                >
                   <Sparkles size={12} />
                 </div>
                 <div style={{ padding: '6px 10px', borderRadius: 10, background: 'var(--vos-bg-surface)' }}>
@@ -224,14 +299,16 @@ export default function AISidePanel() {
           </div>
 
           {/* Input */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '8px 12px',
-            borderTop: '0.5px solid var(--vos-border-subtle)',
-            flexShrink: 0,
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderTop: '0.5px solid var(--vos-border-subtle)',
+              flexShrink: 0
+            }}
+          >
             <input
               type="text"
               style={{
@@ -242,7 +319,7 @@ export default function AISidePanel() {
                 border: '0.5px solid var(--vos-border-subtle)',
                 borderRadius: 8,
                 padding: '6px 10px',
-                outline: 'none',
+                outline: 'none'
               }}
               placeholder="输入问题..."
               value={input}
@@ -261,7 +338,7 @@ export default function AISidePanel() {
                 border: 'none',
                 cursor: 'pointer',
                 background: 'var(--vos-accent-primary)',
-                color: '#fff',
+                color: '#fff'
               }}
               onClick={handleSend}
               disabled={sending}

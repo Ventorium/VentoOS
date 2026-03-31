@@ -43,7 +43,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   _updateTask(id, updates) {
     set(s => ({
-      tasks: s.tasks.map(t => (t.id === id ? { ...t, ...updates } : t)),
+      tasks: s.tasks.map(t => (t.id === id ? { ...t, ...updates } : t))
     }))
   },
 
@@ -53,9 +53,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   clearCompleted() {
     set(s => ({
-      tasks: s.tasks.filter(
-        t => t.status !== 'success' && t.status !== 'failed' && t.status !== 'cancelled',
-      ),
+      tasks: s.tasks.filter(t => t.status !== 'success' && t.status !== 'failed' && t.status !== 'cancelled')
     }))
   },
 
@@ -69,5 +67,5 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   getActiveTasks() {
     return get().tasks.filter(t => t.status === 'queued' || t.status === 'running')
-  },
+  }
 }))

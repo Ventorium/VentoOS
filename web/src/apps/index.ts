@@ -18,14 +18,7 @@ export const builtinManifests: AppManifest[] = [
   redisManifest,
   explorerManifest,
   sshManifest,
-  settingsManifest,
+  settingsManifest
 ]
 
-export {
-  kubernetesManifest,
-  databaseManifest,
-  redisManifest,
-  explorerManifest,
-  sshManifest,
-  settingsManifest,
-}
+export { databaseManifest, explorerManifest, kubernetesManifest, redisManifest, settingsManifest, sshManifest }

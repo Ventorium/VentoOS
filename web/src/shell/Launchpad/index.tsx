@@ -8,13 +8,23 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useAppStore } from '@/kernel'
+import { focusWindow, openWindow, useAppStore, useWindowStore } from '@/kernel'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
-import { openWindow, focusWindow, useWindowStore } from '@/kernel'
 import { tokens } from '@/theme'
 
-function AppIcon({ app, index, onLaunch }: {
-  app: { id: string; name: string; icon: React.ReactNode; description: string; multiWindow: boolean; defaultSize?: { width: number; height: number } }
+function AppIcon({
+  app,
+  index,
+  onLaunch
+}: {
+  app: {
+    id: string
+    name: string
+    icon: React.ReactNode
+    description: string
+    multiWindow: boolean
+    defaultSize?: { width: number; height: number }
+  }
   index: number
   onLaunch: () => void
 }) {
@@ -72,9 +82,10 @@ export default function Launchpad() {
   const searchRef = useRef<HTMLInputElement>(null)
 
   const filtered = searchQuery.trim()
-    ? allApps.filter(a =>
-        a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.description.toLowerCase().includes(searchQuery.toLowerCase())
+    ? allApps.filter(
+        a =>
+          a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.description.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : allApps
 

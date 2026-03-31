@@ -13,8 +13,8 @@ function RedisIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
     React.createElement(Key, { size: 22 })
   )
@@ -32,5 +32,5 @@ export const redisManifest: AppManifest = {
   minSize: { width: 700, height: 440 },
   permissions: ['network', 'connections', 'notifications'],
   hasBackendPlugin: true,
-  component: () => import('./index'),
+  component: () => import('./index')
 }

@@ -4,10 +4,10 @@
  * Create and track async tasks. Listens to WebSocket for backend task updates.
  */
 
-import { wsClient } from '@/infra/ws'
-import type { TaskUpdatePayload } from '@/infra/ws'
-import { systemChannel } from '@/kernel/channel'
 import { createLogger } from '@/infra/logger'
+import type { TaskUpdatePayload } from '@/infra/ws'
+import { wsClient } from '@/infra/ws'
+import { systemChannel } from '@/kernel/channel'
 import type { TaskItem } from './store'
 import { useTaskStore } from './store'
 
@@ -20,17 +20,14 @@ export const taskService = {
    * Create a new task and add it to the local store.
    * Returns the task ID.
    */
-  createTask(
-    t: Omit<TaskItem, 'id' | 'status' | 'createdAt'>,
-    opts?: { runImmediately?: boolean },
-  ): string {
+  createTask(t: Omit<TaskItem, 'id' | 'status' | 'createdAt'>, opts?: { runImmediately?: boolean }): string {
     const id = `task-${Date.now()}-${++_taskCounter}`
     const item: TaskItem = {
       ...t,
       id,
       status: opts?.runImmediately ? 'running' : 'queued',
       createdAt: Date.now(),
-      startedAt: opts?.runImmediately ? Date.now() : undefined,
+      startedAt: opts?.runImmediately ? Date.now() : undefined
     }
     useTaskStore.getState()._addTask(item)
     logger.debug('Task created', { id, name: t.name })
@@ -44,7 +41,7 @@ export const taskService = {
       status,
       ...(progress !== undefined ? { progress } : {}),
       ...(status === 'running' ? { startedAt: now } : {}),
-      ...(['success', 'failed', 'cancelled'].includes(status) ? { completedAt: now } : {}),
+      ...(['success', 'failed', 'cancelled'].includes(status) ? { completedAt: now } : {})
     }
     useTaskStore.getState()._updateTask(id, updates)
 
@@ -72,17 +69,15 @@ export const taskService = {
       useTaskStore.getState()._updateTask(data.id, {
         status: data.status,
         ...(data.progress !== undefined ? { progress: data.progress } : {}),
-        ...(['success', 'failed', 'cancelled'].includes(data.status)
-          ? { completedAt: Date.now() }
-          : {}),
+        ...(['success', 'failed', 'cancelled'].includes(data.status) ? { completedAt: Date.now() } : {})
       })
 
       if (data.status === 'success' || data.status === 'failed') {
         systemChannel.notify('task:completed', {
           taskId: data.id,
-          success: data.status === 'success',
+          success: data.status === 'success'
         })
       }
     })
-  },
+  }
 }

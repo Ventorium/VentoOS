@@ -45,19 +45,19 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   markAsRead(id) {
     set(s => ({
-      notifications: s.notifications.map(n => (n.id === id ? { ...n, read: true } : n)),
+      notifications: s.notifications.map(n => (n.id === id ? { ...n, read: true } : n))
     }))
   },
 
   markAllAsRead() {
     set(s => ({
-      notifications: s.notifications.map(n => ({ ...n, read: true })),
+      notifications: s.notifications.map(n => ({ ...n, read: true }))
     }))
   },
 
   removeNotification(id) {
     set(s => ({
-      notifications: s.notifications.filter(n => n.id !== id),
+      notifications: s.notifications.filter(n => n.id !== id)
     }))
   },
 
@@ -83,7 +83,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   setDoNotDisturb(val) {
     set({ doNotDisturb: val })
-  },
+  }
 }))
 
 export function generateNotifId(): string {

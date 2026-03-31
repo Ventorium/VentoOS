@@ -42,14 +42,14 @@ export type {
   RedisTestResult,
   SchemaInfo,
   ServiceExposure,
-  SshServer,
   SshConfigHost,
   SshKeyFile,
+  SshServer,
   TableInfo,
   TableStructure,
   VfsFileContent,
   VfsMount,
   VfsNode,
   VfsSourceKind,
-  VProcess,
+  VProcess
 } from './types'

@@ -52,7 +52,12 @@ export interface SshServer {
   username: string
   auth_method:
     | { type: 'password'; credential_id?: string | null }
-    | { type: 'private_key'; key_path?: string | null; credential_id?: string | null; passphrase_credential_id?: string | null }
+    | {
+        type: 'private_key'
+        key_path?: string | null
+        credential_id?: string | null
+        passphrase_credential_id?: string | null
+      }
   group?: string
   tags: string[]
   status: 'disconnected' | 'connecting' | 'connected' | 'error'

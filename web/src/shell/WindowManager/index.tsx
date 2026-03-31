@@ -30,14 +30,16 @@ export default function WindowManager() {
               {AppComponent ? (
                 <AppComponent windowId={win.id} processId={win.processId ?? 0} />
               ) : (
-                <div style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--vos-text-tertiary)',
-                  fontSize: 13
-                }}>
+                <div
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--vos-text-tertiary)',
+                    fontSize: 13
+                  }}
+                >
                   未找到应用: {win.appId}
                 </div>
               )}

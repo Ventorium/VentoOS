@@ -49,11 +49,11 @@ export default function WebShell({ target = 'local', onClose }: WebShellProps) {
         brightBlue: '#3b8eea',
         brightMagenta: '#d670d6',
         brightCyan: '#29b8db',
-        brightWhite: '#e5e5e5',
+        brightWhite: '#e5e5e5'
       },
       scrollback: 5000,
       allowTransparency: false,
-      convertEol: true,
+      convertEol: true
     })
 
     const fitAddon = new FitAddon()
@@ -83,7 +83,7 @@ export default function WebShell({ target = 'local', onClose }: WebShellProps) {
       ws.send(`\x1b[resize:${cols}x${rows}`)
     }
 
-    ws.onmessage = (ev) => {
+    ws.onmessage = ev => {
       if (typeof ev.data === 'string') {
         term.write(ev.data)
       } else {
@@ -117,7 +117,11 @@ export default function WebShell({ target = 'local', onClose }: WebShellProps) {
 
     // ResizeObserver to auto-fit
     const ro = new ResizeObserver(() => {
-      try { fitAddon.fit() } catch { /* ignore */ }
+      try {
+        fitAddon.fit()
+      } catch {
+        /* ignore */
+      }
     })
     if (containerRef.current) ro.observe(containerRef.current)
 
@@ -126,7 +130,7 @@ export default function WebShell({ target = 'local', onClose }: WebShellProps) {
       ws.close()
       term.dispose()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target])
 
   return (
@@ -137,7 +141,7 @@ export default function WebShell({ target = 'local', onClose }: WebShellProps) {
         height: '100%',
         background: '#0d0d0d',
         padding: '4px 6px',
-        overflow: 'hidden',
+        overflow: 'hidden'
       }}
     />
   )

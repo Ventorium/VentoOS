@@ -28,15 +28,27 @@ function TrafficLights({
     <button
       type="button"
       aria-label={label}
-      onClick={e => { e.stopPropagation(); handler() }}
+      onClick={e => {
+        e.stopPropagation()
+        handler()
+      }}
       style={{
-        width: 14, height: 14, borderRadius: '50%',
+        width: 14,
+        height: 14,
+        borderRadius: '50%',
         background: focused ? color : 'var(--vos-tl-inactive)',
         border: focused ? 'none' : '0.5px solid rgba(128,128,128,0.3)',
-        cursor: 'pointer', padding: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 11, fontWeight: 800, color: 'rgba(0,0,0,0.55)', lineHeight: 1,
-        flexShrink: 0, transition: 'background 0.1s'
+        cursor: 'pointer',
+        padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 11,
+        fontWeight: 800,
+        color: 'rgba(0,0,0,0.55)',
+        lineHeight: 1,
+        flexShrink: 0,
+        transition: 'background 0.1s'
       }}
     >
       {hovered ? sym : null}
@@ -65,7 +77,10 @@ function ResizeHandles({ onResizeStart }: { onResizeStart: (dir: ResizeDir, e: R
       aria-label={`resize-${dir}`}
       tabIndex={-1}
       style={{ position: 'absolute', ...style, cursor, zIndex: 10 }}
-      onMouseDown={e => { e.stopPropagation(); onResizeStart(dir, e) }}
+      onMouseDown={e => {
+        e.stopPropagation()
+        onResizeStart(dir, e)
+      }}
     />
   )
 
@@ -242,12 +257,14 @@ export default function Window({ win, children }: { win: WindowInstance; childre
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.94, y: 16 }}
-      animate={{
-        opacity: win.isMinimized ? 0 : 1,
-        scale: win.isMinimized ? 0.88 : 1,
-        y: win.isMinimized ? 40 : 0,
-        pointerEvents: win.isMinimized ? 'none' : 'auto'
-      } as Parameters<typeof motion.div>[0]['animate']}
+      animate={
+        {
+          opacity: win.isMinimized ? 0 : 1,
+          scale: win.isMinimized ? 0.88 : 1,
+          y: win.isMinimized ? 40 : 0,
+          pointerEvents: win.isMinimized ? 'none' : 'auto'
+        } as Parameters<typeof motion.div>[0]['animate']
+      }
       exit={{ opacity: 0, scale: 0.92, y: 12 }}
       transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
       style={{
@@ -267,7 +284,9 @@ export default function Window({ win, children }: { win: WindowInstance; childre
         backdropFilter: `blur(${tokens.blur.surface}px) saturate(180%)`,
         WebkitBackdropFilter: `blur(${tokens.blur.surface}px) saturate(180%)`
       }}
-      onMouseDown={() => { if (!win.isFocused) focusWindow(win.id) }}
+      onMouseDown={() => {
+        if (!win.isFocused) focusWindow(win.id)
+      }}
     >
       {/* ---- Title bar ---- */}
       <div
@@ -295,18 +314,20 @@ export default function Window({ win, children }: { win: WindowInstance; childre
           onMinimize={() => minimizeWindow(win.id)}
           onMaximize={() => toggleMaximize(win.id)}
         />
-        <div style={{
-          flex: 1,
-          textAlign: 'center',
-          fontSize: 13,
-          fontWeight: 500,
-          color: win.isFocused ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          paddingLeft: 8,
-          paddingRight: 8
-        }}>
+        <div
+          style={{
+            flex: 1,
+            textAlign: 'center',
+            fontSize: 13,
+            fontWeight: 500,
+            color: win.isFocused ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            paddingLeft: 8,
+            paddingRight: 8
+          }}
+        >
           {win.title}
         </div>
         <div style={{ width: 52, flexShrink: 0 }} />
@@ -315,21 +336,35 @@ export default function Window({ win, children }: { win: WindowInstance; childre
       {/* ---- Content with virtual rendering ---- */}
       <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {shouldRender ? (
-          <Suspense fallback={
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{
-                width: 20, height: 20,
-                border: '2px solid var(--vos-border-default)',
-                borderTopColor: 'var(--vos-accent-primary)',
-                borderRadius: '50%',
-                animation: 'vos-spin 0.7s linear infinite'
-              }} />
-            </div>
-          }>
+          <Suspense
+            fallback={
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div
+                  style={{
+                    width: 20,
+                    height: 20,
+                    border: '2px solid var(--vos-border-default)',
+                    borderTopColor: 'var(--vos-accent-primary)',
+                    borderRadius: '50%',
+                    animation: 'vos-spin 0.7s linear infinite'
+                  }}
+                />
+              </div>
+            }
+          >
             {children}
           </Suspense>
         ) : (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--vos-text-tertiary)', fontSize: 13 }}>
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--vos-text-tertiary)',
+              fontSize: 13
+            }}
+          >
             进程已暂停
           </div>
         )}

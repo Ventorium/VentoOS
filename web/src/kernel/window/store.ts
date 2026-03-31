@@ -57,7 +57,7 @@ export const useWindowStore = create<WindowStore>()(
       _addWindow(win) {
         set(state => ({
           windows: [...state.windows.map(w => ({ ...w, isFocused: false })), win],
-          nextZIndex: state.nextZIndex + 1,
+          nextZIndex: state.nextZIndex + 1
         }))
       },
 
@@ -68,7 +68,7 @@ export const useWindowStore = create<WindowStore>()(
             // Auto-focus the topmost remaining window
             const top = remaining.reduce((a, b) => (a.zIndex > b.zIndex ? a : b))
             return {
-              windows: remaining.map(w => ({ ...w, isFocused: w.id === top.id })),
+              windows: remaining.map(w => ({ ...w, isFocused: w.id === top.id }))
             }
           }
           return { windows: remaining }
@@ -78,25 +78,21 @@ export const useWindowStore = create<WindowStore>()(
       _focusWindow(id, nextZ) {
         set(state => ({
           windows: state.windows.map(w =>
-            w.id === id
-              ? { ...w, isFocused: true, zIndex: nextZ, isMinimized: false }
-              : { ...w, isFocused: false },
+            w.id === id ? { ...w, isFocused: true, zIndex: nextZ, isMinimized: false } : { ...w, isFocused: false }
           ),
-          nextZIndex: nextZ + 1,
+          nextZIndex: nextZ + 1
         }))
       },
 
       _minimizeWindow(id) {
         set(state => ({
-          windows: state.windows.map(w =>
-            w.id === id ? { ...w, isMinimized: true, isFocused: false } : w,
-          ),
+          windows: state.windows.map(w => (w.id === id ? { ...w, isMinimized: true, isFocused: false } : w))
         }))
       },
 
       _restoreWindowState(id) {
         set(state => ({
-          windows: state.windows.map(w => (w.id === id ? { ...w, isMinimized: false } : w)),
+          windows: state.windows.map(w => (w.id === id ? { ...w, isMinimized: false } : w))
         }))
       },
 
@@ -109,45 +105,45 @@ export const useWindowStore = create<WindowStore>()(
                 ...w,
                 isMaximized: false,
                 ...(w.restoreBounds ?? {}),
-                restoreBounds: undefined,
+                restoreBounds: undefined
               }
             }
             return {
               ...w,
               isMaximized: true,
-              restoreBounds: { x: w.x, y: w.y, width: w.width, height: w.height },
+              restoreBounds: { x: w.x, y: w.y, width: w.width, height: w.height }
             }
-          }),
+          })
         }))
       },
 
       _setProcessId(windowId, pid) {
         set(state => ({
-          windows: state.windows.map(w => (w.id === windowId ? { ...w, processId: pid } : w)),
+          windows: state.windows.map(w => (w.id === windowId ? { ...w, processId: pid } : w))
         }))
       },
 
       moveWindow(id, x, y) {
         set(state => ({
-          windows: state.windows.map(w => (w.id === id ? { ...w, x, y } : w)),
+          windows: state.windows.map(w => (w.id === id ? { ...w, x, y } : w))
         }))
       },
 
       resizeWindow(id, width, height) {
         set(state => ({
-          windows: state.windows.map(w => (w.id === id ? { ...w, width, height } : w)),
+          windows: state.windows.map(w => (w.id === id ? { ...w, width, height } : w))
         }))
       },
 
       updateTitle(id, title) {
         set(state => ({
-          windows: state.windows.map(w => (w.id === id ? { ...w, title } : w)),
+          windows: state.windows.map(w => (w.id === id ? { ...w, title } : w))
         }))
       },
 
       updateAppState(id, appState) {
         set(state => ({
-          windows: state.windows.map(w => (w.id === id ? { ...w, appState } : w)),
+          windows: state.windows.map(w => (w.id === id ? { ...w, appState } : w))
         }))
       },
 
@@ -161,14 +157,14 @@ export const useWindowStore = create<WindowStore>()(
 
       getFocusedWindow() {
         return get().windows.find(w => w.isFocused)
-      },
+      }
     }),
     {
       name: 'ventoos-windows',
       partialize: state => ({
         windows: state.windows,
-        nextZIndex: state.nextZIndex,
-      }),
-    },
-  ),
+        nextZIndex: state.nextZIndex
+      })
+    }
+  )
 )

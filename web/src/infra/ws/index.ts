@@ -5,5 +5,5 @@ export type {
   NotificationPayload,
   ProcessUpdatePayload,
   ServerMessage,
-  TaskUpdatePayload,
+  TaskUpdatePayload
 } from './types'

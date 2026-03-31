@@ -5,7 +5,6 @@
  * Provides HTTP client, WebSocket client, storage utilities, and logging.
  */
 
-export { apiClient, configureApiClient } from './api'
 export type {
   ApiResponse,
   AuthLoginData,
@@ -18,18 +17,17 @@ export type {
   ProcessStatus,
   ServiceExposure,
   SshServer,
-  VProcess,
+  VProcess
 } from './api'
-
-export { wsClient } from './ws'
+export { apiClient, configureApiClient } from './api'
+export { createLogger } from './logger'
+export { storageClearPrefix, storageGet, storageRemove, storageSet } from './storage'
 export type {
   ClientMessage,
   ConnectionStatusPayload,
   NotificationPayload,
   ProcessUpdatePayload,
   ServerMessage,
-  TaskUpdatePayload,
+  TaskUpdatePayload
 } from './ws'
-
-export { storageGet, storageRemove, storageSet, storageClearPrefix } from './storage'
-export { createLogger } from './logger'
+export { wsClient } from './ws'

@@ -7,9 +7,9 @@ interface AISidePanelState {
   close: () => void
 }
 
-export const useAISidePanelStore = create<AISidePanelState>((set) => ({
+export const useAISidePanelStore = create<AISidePanelState>(set => ({
   isOpen: false,
   toggle: () => set(s => ({ isOpen: !s.isOpen })),
   open: () => set({ isOpen: true }),
-  close: () => set({ isOpen: false }),
+  close: () => set({ isOpen: false })
 }))

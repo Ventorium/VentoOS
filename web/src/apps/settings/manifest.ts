@@ -13,8 +13,8 @@ function SettingsIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
     React.createElement(Settings, { size: 22 })
   )
@@ -31,5 +31,5 @@ export const settingsManifest: AppManifest = {
   defaultSize: { width: 700, height: 500 },
   minSize: { width: 600, height: 400 },
   permissions: ['storage'],
-  component: () => import('./index'),
+  component: () => import('./index')
 }

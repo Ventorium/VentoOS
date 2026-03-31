@@ -15,8 +15,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronRight, File, Folder, FolderOpen, Home, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { apiClient } from '@/infra/api'
 import type { LocalFsNode } from '@/infra/api'
+import { apiClient } from '@/infra/api'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ function FilePickerModal({
   initial,
   mode,
   onConfirm,
-  onClose,
+  onClose
 }: {
   initial: string
   mode: FilePickerMode
@@ -74,20 +74,23 @@ function FilePickerModal({
   const [error, setError] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const loadDir = useCallback(async (path: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await apiClient.browseLocalFs(path, mode === 'directory')
-      setNodes(res.data)
-      setCurrentPath(path)
-      if (listRef.current) listRef.current.scrollTop = 0
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '加载失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [mode])
+  const loadDir = useCallback(
+    async (path: string) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await apiClient.browseLocalFs(path, mode === 'directory')
+        setNodes(res.data)
+        setCurrentPath(path)
+        if (listRef.current) listRef.current.scrollTop = 0
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '加载失败')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [mode]
+  )
 
   useEffect(() => {
     loadDir(currentPath)
@@ -114,11 +117,7 @@ function FilePickerModal({
   const segs = pathSegments(currentPath)
 
   return (
-    <div
-      className="vos-modal-overlay"
-      onClick={onClose}
-      style={{ zIndex: 9000 }}
-    >
+    <div className="vos-modal-overlay" onClick={onClose} style={{ zIndex: 9000 }}>
       <motion.div
         className="vos-modal"
         style={{ width: 540, maxHeight: '70vh', display: 'flex', flexDirection: 'column', padding: 0 }}
@@ -129,14 +128,16 @@ function FilePickerModal({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '12px 14px 10px',
-          borderBottom: '0.5px solid var(--vos-border-subtle)',
-          flexShrink: 0,
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '12px 14px 10px',
+            borderBottom: '0.5px solid var(--vos-border-subtle)',
+            flexShrink: 0
+          }}
+        >
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
             {mode === 'directory' ? '选择目录' : '选择文件'}
           </span>
@@ -150,7 +151,7 @@ function FilePickerModal({
               cursor: 'pointer',
               color: 'var(--vos-text-secondary)',
               display: 'flex',
-              padding: 2,
+              padding: 2
             }}
           >
             <X size={14} />
@@ -158,20 +159,30 @@ function FilePickerModal({
         </div>
 
         {/* Breadcrumbs */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          padding: '6px 14px',
-          borderBottom: '0.5px solid var(--vos-border-subtle)',
-          flexShrink: 0,
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            padding: '6px 14px',
+            borderBottom: '0.5px solid var(--vos-border-subtle)',
+            flexShrink: 0,
+            overflowX: 'auto',
+            scrollbarWidth: 'none'
+          }}
+        >
           <button
             type="button"
             onClick={() => loadDir('~')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--vos-text-secondary)', padding: '2px 4px', display: 'flex', alignItems: 'center' }}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--vos-text-secondary)',
+              padding: '2px 4px',
+              display: 'flex',
+              alignItems: 'center'
+            }}
           >
             <Home size={12} />
           </button>
@@ -190,7 +201,7 @@ function FilePickerModal({
                   padding: '2px 4px',
                   borderRadius: 4,
                   whiteSpace: 'nowrap',
-                  fontWeight: i === segs.length - 1 ? 500 : 400,
+                  fontWeight: i === segs.length - 1 ? 500 : 400
                 }}
               >
                 {seg.label}
@@ -200,13 +211,13 @@ function FilePickerModal({
         </div>
 
         {/* File list */}
-        <div
-          ref={listRef}
-          style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '4px 0' }}
-        >
+        <div ref={listRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '4px 0' }}>
           {loading && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
-              <Loader2 size={18} style={{ color: 'var(--vos-text-secondary)', animation: 'vos-spin 0.7s linear infinite' }} />
+              <Loader2
+                size={18}
+                style={{ color: 'var(--vos-text-secondary)', animation: 'vos-spin 0.7s linear infinite' }}
+              />
             </div>
           )}
           {error && (
@@ -215,81 +226,90 @@ function FilePickerModal({
           {!loading && !error && nodes.length === 0 && (
             <div style={{ padding: '12px 16px', color: 'var(--vos-text-tertiary)', fontSize: 12 }}>目录为空</div>
           )}
-          {!loading && nodes.map(node => {
-            const isSelected = selected === node.path
-            return (
-              <div
-                key={node.path}
-                role="option"
-                aria-selected={isSelected}
-                tabIndex={0}
-                onClick={() => handleNodeClick(node)}
-                onDoubleClick={() => handleNodeDblClick(node)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleNodeDblClick(node)
-                  else if (e.key === ' ') handleNodeClick(node)
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '5px 14px',
-                  cursor: 'pointer',
-                  background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
-                  color: isSelected ? '#fff' : (node.is_dir ? 'var(--vos-text-primary)' : 'var(--vos-text-secondary)'),
-                  borderRadius: 0,
-                  fontSize: 12,
-                  userSelect: 'none',
-                  transition: 'background 0.1s',
-                }}
-                onMouseEnter={e => {
-                  if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'var(--vos-bg-item-hover)'
-                }}
-                onMouseLeave={e => {
-                  if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'transparent'
-                }}
-              >
-                {node.is_dir
-                  ? <FolderOpen size={14} style={{ flexShrink: 0, color: isSelected ? '#fff' : 'var(--vos-accent-primary)', opacity: 0.9 }} />
-                  : <File size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
-                }
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {node.name}
-                </span>
-                {node.is_dir && (
-                  <ChevronRight size={10} style={{ flexShrink: 0, opacity: 0.4 }} />
-                )}
-              </div>
-            )
-          })}
+          {!loading &&
+            nodes.map(node => {
+              const isSelected = selected === node.path
+              return (
+                <div
+                  key={node.path}
+                  role="option"
+                  aria-selected={isSelected}
+                  tabIndex={0}
+                  onClick={() => handleNodeClick(node)}
+                  onDoubleClick={() => handleNodeDblClick(node)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleNodeDblClick(node)
+                    else if (e.key === ' ') handleNodeClick(node)
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '5px 14px',
+                    cursor: 'pointer',
+                    background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
+                    color: isSelected ? '#fff' : node.is_dir ? 'var(--vos-text-primary)' : 'var(--vos-text-secondary)',
+                    borderRadius: 0,
+                    fontSize: 12,
+                    userSelect: 'none',
+                    transition: 'background 0.1s'
+                  }}
+                  onMouseEnter={e => {
+                    if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'var(--vos-bg-item-hover)'
+                  }}
+                  onMouseLeave={e => {
+                    if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'transparent'
+                  }}
+                >
+                  {node.is_dir ? (
+                    <FolderOpen
+                      size={14}
+                      style={{ flexShrink: 0, color: isSelected ? '#fff' : 'var(--vos-accent-primary)', opacity: 0.9 }}
+                    />
+                  ) : (
+                    <File size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
+                  )}
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {node.name}
+                  </span>
+                  {node.is_dir && <ChevronRight size={10} style={{ flexShrink: 0, opacity: 0.4 }} />}
+                </div>
+              )
+            })}
         </div>
 
         {/* Footer */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '10px 14px',
-          borderTop: '0.5px solid var(--vos-border-subtle)',
-          flexShrink: 0,
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 14px',
+            borderTop: '0.5px solid var(--vos-border-subtle)',
+            flexShrink: 0
+          }}
+        >
           {/* Selected path display */}
-          <div style={{
-            flex: 1,
-            fontSize: 11,
-            color: 'var(--vos-text-secondary)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            background: 'var(--vos-bg-input)',
-            border: '0.5px solid var(--vos-border-subtle)',
-            borderRadius: 5,
-            padding: '3px 8px',
-            fontFamily: 'monospace',
-          }}>
+          <div
+            style={{
+              flex: 1,
+              fontSize: 11,
+              color: 'var(--vos-text-secondary)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              background: 'var(--vos-bg-input)',
+              border: '0.5px solid var(--vos-border-subtle)',
+              borderRadius: 5,
+              padding: '3px 8px',
+              fontFamily: 'monospace'
+            }}
+          >
             {selected || (mode === 'directory' ? currentPath : '未选择')}
           </div>
-          <button type="button" className="vos-btn" onClick={onClose} style={{ flexShrink: 0 }}>取消</button>
+          <button type="button" className="vos-btn" onClick={onClose} style={{ flexShrink: 0 }}>
+            取消
+          </button>
           <button
             type="button"
             className="vos-btn vos-btn-primary"
@@ -323,7 +343,7 @@ export function PathPickerInput({
   placeholder,
   className,
   style,
-  disabled,
+  disabled
 }: PathPickerInputProps) {
   const [open, setOpen] = useState(false)
 

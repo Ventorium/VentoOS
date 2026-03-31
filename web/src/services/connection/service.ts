@@ -5,10 +5,10 @@
  */
 
 import { apiClient } from '@/infra/api'
-import { wsClient } from '@/infra/ws'
-import type { ConnectionStatusPayload } from '@/infra/ws'
-import { systemChannel } from '@/kernel/channel'
 import { createLogger } from '@/infra/logger'
+import type { ConnectionStatusPayload } from '@/infra/ws'
+import { wsClient } from '@/infra/ws'
+import { systemChannel } from '@/kernel/channel'
 import type { ConnectionItem } from './store'
 import { useConnectionStore } from './store'
 
@@ -53,8 +53,8 @@ export const connectionService = {
       useConnectionStore.getState().setStatus(data.connection_id, data.status as ConnectionItem['status'])
       systemChannel.notify('connection:status-changed', {
         connectionId: data.connection_id,
-        status: data.status,
+        status: data.status
       })
     })
-  },
+  }
 }

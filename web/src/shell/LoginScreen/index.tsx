@@ -82,41 +82,30 @@ export default function LoginScreen() {
   }
 
   return (
-    <motion.div
-      className="vos-lock-screen"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
+    <motion.div className="vos-lock-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       {/* Blurred background */}
       <div className="vos-lock-bg" />
 
       <motion.div
         className="vos-lock-card"
-        animate={shaking ? {
-          x: [-10, 10, -8, 8, -5, 5, 0],
-          transition: { duration: 0.4 }
-        } : {}}
+        animate={
+          shaking
+            ? {
+                x: [-10, 10, -8, 8, -5, 5, 0],
+                transition: { duration: 0.4 }
+              }
+            : {}
+        }
       >
         {/* Avatar / icon */}
         <div className="vos-lock-avatar">
           <div className="vos-lock-avatar-ring">
-            {mode === 'setup' ? (
-              <ShieldCheck size={32} strokeWidth={1.5} />
-            ) : (
-              <Lock size={28} strokeWidth={1.5} />
-            )}
+            {mode === 'setup' ? <ShieldCheck size={32} strokeWidth={1.5} /> : <Lock size={28} strokeWidth={1.5} />}
           </div>
         </div>
 
-        <h2 className="vos-lock-title">
-          {mode === 'setup' ? '设置访问密码' : 'VentoOS'}
-        </h2>
-        <p className="vos-lock-subtitle">
-          {mode === 'setup'
-            ? '首次使用，请设置一个访问密码'
-            : '输入密码以继续使用'}
-        </p>
+        <h2 className="vos-lock-title">{mode === 'setup' ? '设置访问密码' : 'VentoOS'}</h2>
+        <p className="vos-lock-subtitle">{mode === 'setup' ? '首次使用，请设置一个访问密码' : '输入密码以继续使用'}</p>
 
         <form onSubmit={handleSubmit} className="vos-lock-form">
           <div className="vos-lock-input-wrap">
@@ -125,17 +114,15 @@ export default function LoginScreen() {
               type={show ? 'text' : 'password'}
               placeholder={mode === 'setup' ? '输入密码（至少 6 位）' : '密码'}
               value={password}
-              onChange={e => { setPassword(e.target.value); setError('') }}
+              onChange={e => {
+                setPassword(e.target.value)
+                setError('')
+              }}
               className="vos-lock-input"
               autoComplete="current-password"
               autoFocus
             />
-            <button
-              type="button"
-              className="vos-lock-show-btn"
-              onClick={() => setShow(v => !v)}
-              tabIndex={-1}
-            >
+            <button type="button" className="vos-lock-show-btn" onClick={() => setShow(v => !v)} tabIndex={-1}>
               {show ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
@@ -146,7 +133,10 @@ export default function LoginScreen() {
                 type={show ? 'text' : 'password'}
                 placeholder="确认密码"
                 value={confirm}
-                onChange={e => { setConfirm(e.target.value); setError('') }}
+                onChange={e => {
+                  setConfirm(e.target.value)
+                  setError('')
+                }}
                 className="vos-lock-input"
                 autoComplete="new-password"
               />
@@ -166,14 +156,24 @@ export default function LoginScreen() {
             )}
           </AnimatePresence>
 
-          <button
-            type="submit"
-            className="vos-lock-btn"
-            disabled={loading}
-          >
+          <button type="submit" className="vos-lock-btn" disabled={loading}>
             {loading ? (
-              <span className="vos-spin" style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%' }} />
-            ) : mode === 'setup' ? '设置密码' : '解锁'}
+              <span
+                className="vos-spin"
+                style={{
+                  display: 'inline-block',
+                  width: 16,
+                  height: 16,
+                  border: '2px solid rgba(255,255,255,0.4)',
+                  borderTopColor: '#fff',
+                  borderRadius: '50%'
+                }}
+              />
+            ) : mode === 'setup' ? (
+              '设置密码'
+            ) : (
+              '解锁'
+            )}
           </button>
         </form>
       </motion.div>
@@ -197,7 +197,9 @@ function LockClock() {
 
   return (
     <div className="vos-lock-clock">
-      <div className="vos-lock-clock-time">{h}:{m}</div>
+      <div className="vos-lock-clock-time">
+        {h}:{m}
+      </div>
       <div className="vos-lock-clock-date">{dateStr}</div>
     </div>
   )

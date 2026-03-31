@@ -36,5 +36,5 @@ export const settingsService = {
     } catch (err) {
       logger.warn('Failed to save desktop settings', err)
     }
-  },
+  }
 }

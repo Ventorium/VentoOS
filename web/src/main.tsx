@@ -3,17 +3,17 @@ import 'virtual:uno.css'
 import '@/assets/styles/app.css'
 
 import { createRoot } from 'react-dom/client'
-import App from './App'
-import { builtinManifests } from './apps/index'
 import { bootKernel, registerApps } from '@/kernel'
 import { useAuthStore } from '@/services/auth'
 import { useKeyboardStore } from '@/services/keyboard'
 import { useSystemStore } from '@/services/system'
+import App from './App'
+import { builtinManifests } from './apps/index'
 
 // Boot kernel: configure API client with auth callbacks + connect WebSocket
 const cleanupKernel = bootKernel({
   tokenProvider: () => useAuthStore.getState().token,
-  onUnauthorized: () => useAuthStore.getState().lock(),
+  onUnauthorized: () => useAuthStore.getState().lock()
 })
 
 // Register built-in applications

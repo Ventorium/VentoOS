@@ -8,19 +8,25 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, BellOff, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { apiClient } from '@/infra/api'
-import { useAppStore, useWindowStore, closeAllWindows as closeAllWindowsFn } from '@/kernel'
+import { closeAllWindows as closeAllWindowsFn, useAppStore, useWindowStore } from '@/kernel'
 import { useAuthStore } from '@/services/auth'
-import { useContextMenuStore } from '@/shell/ContextMenu/store'
-import { useSettingsStore } from '@/services/settings'
-import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { useNotificationStore } from '@/services/notification'
+import { useSettingsStore } from '@/services/settings'
 import { useTaskStore } from '@/services/task'
 import { useAISidePanelStore } from '@/shell/AISidePanel/store'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
+import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { tokens } from '@/theme'
 
 const H = tokens.topBar.height
 
-type AboutAppInfo = { name: string; version: string; author: { name: string; email?: string; url?: string }; description?: string; icon?: string }
+type AboutAppInfo = {
+  name: string
+  version: string
+  author: { name: string; email?: string; url?: string }
+  description?: string
+  icon?: string
+}
 
 /* ---- About Dialog (shared, rendered outside header to avoid backdrop-filter fixed containment) ---- */
 function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void }) {
@@ -35,12 +41,8 @@ function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void 
       >
         <div style={{ padding: '28px 28px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 52, marginBottom: 14 }}>{app.icon ?? '📦'}</div>
-          <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
-            {app.name}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>
-            版本 {app.version}
-          </div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--vos-text-primary)' }}>{app.name}</div>
+          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>版本 {app.version}</div>
           {app.description && (
             <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 10, lineHeight: 1.6 }}>
               {app.description}
@@ -51,12 +53,7 @@ function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void 
             {app.author.email && ` <${app.author.email}>`}
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
-            <button
-              type="button"
-              className="vos-btn vos-btn-primary"
-              style={{ minWidth: 80 }}
-              onClick={onClose}
-            >
+            <button type="button" className="vos-btn vos-btn-primary" style={{ minWidth: 80 }} onClick={onClose}>
               好
             </button>
           </div>
@@ -87,9 +84,7 @@ function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--vos-text-primary)', letterSpacing: '-0.01em' }}>
             VentoOS
           </div>
-          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>
-            版本 1.0.0
-          </div>
+          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>版本 1.0.0</div>
           <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 12, lineHeight: 1.7 }}>
             运维与基础设施管理平台
             <br />
@@ -99,12 +94,7 @@ function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
             © 2025 VentoOS Project
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
-            <button
-              type="button"
-              className="vos-btn vos-btn-primary"
-              style={{ minWidth: 80 }}
-              onClick={onClose}
-            >
+            <button type="button" className="vos-btn vos-btn-primary" style={{ minWidth: 80 }} onClick={onClose}>
               好
             </button>
           </div>
@@ -115,7 +105,10 @@ function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
 }
 
 /* ---- Left: Logo + Active App ---- */
-function MenuBarLeft({ onAboutApp, onAboutVentoOS }: {
+function MenuBarLeft({
+  onAboutApp,
+  onAboutVentoOS
+}: {
   onAboutApp: (app: AboutAppInfo) => void
   onAboutVentoOS: () => void
 }) {
@@ -132,10 +125,14 @@ function MenuBarLeft({ onAboutApp, onAboutVentoOS }: {
       { type: 'separator' },
       { id: 'launchpad', label: '启动台', shortcut: '⌘Space', action: toggleLaunchpad },
       { type: 'separator' },
-      { id: 'lock', label: '锁定屏幕', action: () => {
-        apiClient.authLogout().catch(() => {})
-        useAuthStore.getState().lock()
-      }},
+      {
+        id: 'lock',
+        label: '锁定屏幕',
+        action: () => {
+          apiClient.authLogout().catch(() => {})
+          useAuthStore.getState().lock()
+        }
+      },
       { type: 'separator' },
       { id: 'close-all', label: '关闭所有窗口', action: () => closeAllWindowsFn() }
     ])
@@ -153,17 +150,25 @@ function MenuBarLeft({ onAboutApp, onAboutVentoOS }: {
         <button
           type="button"
           className="vos-topbar-btn vos-topbar-appname"
-          onClick={(e) => {
+          onClick={e => {
             const rect = e.currentTarget.getBoundingClientRect()
             showCtxMenu(rect.left, rect.bottom + 2, [
-              { id: 'about-app', label: `关于 ${activeApp.name}`, action: () => {
-                onAboutApp(activeApp)
-              }},
+              {
+                id: 'about-app',
+                label: `关于 ${activeApp.name}`,
+                action: () => {
+                  onAboutApp(activeApp)
+                }
+              },
               { type: 'separator' },
               { id: 'hide-app', label: `隐藏 ${activeApp.name}`, disabled: true },
-              { id: 'quit-app', label: `退出 ${activeApp.name}`, action: () => {
-                closeAllWindowsFn()
-              }},
+              {
+                id: 'quit-app',
+                label: `退出 ${activeApp.name}`,
+                action: () => {
+                  closeAllWindowsFn()
+                }
+              }
             ])
           }}
         >
@@ -212,7 +217,13 @@ function MenuBarRight() {
         </button>
       )}
 
-      <button type="button" className="vos-topbar-btn" onClick={toggleNotifPanel} title="通知中心" style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="vos-topbar-btn"
+        onClick={toggleNotifPanel}
+        title="通知中心"
+        style={{ position: 'relative' }}
+      >
         {doNotDisturb ? (
           <BellOff size={13} />
         ) : (
@@ -229,7 +240,13 @@ function MenuBarRight() {
         )}
       </button>
 
-      <button type="button" className="vos-topbar-btn" onClick={toggleAI} title="AI 助手" style={aiOpen ? { color: 'var(--vos-accent-primary)' } : undefined}>
+      <button
+        type="button"
+        className="vos-topbar-btn"
+        onClick={toggleAI}
+        title="AI 助手"
+        style={aiOpen ? { color: 'var(--vos-accent-primary)' } : undefined}
+      >
         <Sparkles size={13} />
       </button>
 

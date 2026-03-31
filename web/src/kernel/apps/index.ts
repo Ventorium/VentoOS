@@ -1,4 +1,4 @@
+export { useApp, useAppComponent, useAppList } from './hooks'
+export { getAllApps, getApp, getAppComponent, registerApp, registerApps } from './manager'
+export type { AppComponentProps, AppLifecycle, AppManifest, AppPermission } from './manifest'
 export { useAppStore } from './store'
-export { registerApp, registerApps, getApp, getAllApps, getAppComponent } from './manager'
-export { useApp, useAppList, useAppComponent } from './hooks'
-export type { AppManifest, AppComponentProps, AppLifecycle, AppPermission } from './manifest'

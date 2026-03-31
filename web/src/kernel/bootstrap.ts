@@ -6,8 +6,8 @@
  */
 
 import { configureApiClient } from '@/infra/api'
-import { wsClient } from '@/infra/ws'
 import { createLogger } from '@/infra/logger'
+import { wsClient } from '@/infra/ws'
 
 const logger = createLogger('kernel/bootstrap')
 
@@ -17,16 +17,13 @@ const logger = createLogger('kernel/bootstrap')
  * @param tokenProvider   Function that returns the current auth token (or null)
  * @param onUnauthorized  Called when the backend returns 401
  */
-export function bootKernel(opts: {
-  tokenProvider: () => string | null
-  onUnauthorized: () => void
-}): () => void {
+export function bootKernel(opts: { tokenProvider: () => string | null; onUnauthorized: () => void }): () => void {
   logger.info('Booting kernel...')
 
   // Configure the API client with auth callbacks
   configureApiClient({
     tokenProvider: opts.tokenProvider,
-    onUnauthorized: opts.onUnauthorized,
+    onUnauthorized: opts.onUnauthorized
   })
 
   // Connect WebSocket

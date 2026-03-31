@@ -5,8 +5,8 @@
  * These are pure, synchronous operations over the app store.
  */
 
-import { lazy } from 'react'
 import type { ComponentType } from 'react'
+import { lazy } from 'react'
 import type { AppComponentProps, AppManifest } from './manifest'
 import { useAppStore } from './store'
 

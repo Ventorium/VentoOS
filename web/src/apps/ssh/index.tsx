@@ -25,10 +25,11 @@ import {
   Terminal,
   Trash2,
   X,
-  Zap,
+  Zap
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import {
+  apiClient as api,
   type CreatePortMappingReq,
   type CreateServiceExposureReq,
   type CreateSshServerReq,
@@ -36,11 +37,10 @@ import {
   type ServiceExposure,
   type SshConfigHost,
   type SshKeyFile,
-  type SshServer,
-  apiClient as api,
+  type SshServer
 } from '@/infra/api'
-import WebShell from '@/shell/WebShell'
 import type { AppComponentProps } from '@/kernel'
+import WebShell from '@/shell/WebShell'
 
 type TabId = 'servers' | 'port-mappings' | 'exposures'
 
@@ -53,11 +53,13 @@ function StatusBadge({ status }: { status: string }) {
     starting: { color: '#f59e0b', icon: <Loader2 size={11} className="vos-spin" /> },
     disconnected: { color: '#6b7280', icon: <Circle size={11} /> },
     stopped: { color: '#6b7280', icon: <Circle size={11} /> },
-    error: { color: '#ef4444', icon: <AlertCircle size={11} /> },
+    error: { color: '#ef4444', icon: <AlertCircle size={11} /> }
   }
   const s = map[status] ?? map.disconnected
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: s.color, fontSize: 11, fontWeight: 500 }}>
+    <span
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: s.color, fontSize: 11, fontWeight: 500 }}
+    >
       {s.icon} {status}
     </span>
   )
@@ -68,8 +70,14 @@ function DelBtn({ onConfirm }: { onConfirm: () => void }) {
   const [confirm, setConfirm] = useState(false)
   if (confirm)
     return (
-      <button type="button" className="vos-btn vos-btn-danger" style={{ padding: '3px 10px', fontSize: 12 }}
-        onClick={onConfirm}>确认删除</button>
+      <button
+        type="button"
+        className="vos-btn vos-btn-danger"
+        style={{ padding: '3px 10px', fontSize: 12 }}
+        onClick={onConfirm}
+      >
+        确认删除
+      </button>
     )
   return (
     <button type="button" className="vos-icon-btn" onClick={() => setConfirm(true)} title="删除">
@@ -101,7 +109,9 @@ function ServersTab() {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   async function handleDelete(id: string) {
     await api.deleteSshServer(id)
@@ -143,11 +153,13 @@ function ServersTab() {
         host: host.hostname ?? host.alias,
         port: host.port ?? 22,
         username: host.user ?? 'root',
-        auth_method: authMethod,
+        auth_method: authMethod
       })
       load()
       setSshConfigHosts(null)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   return (
@@ -158,7 +170,13 @@ function ServersTab() {
           <button type="button" className="vos-icon-btn" onClick={load} title="刷新">
             <RefreshCw size={14} className={loading ? 'vos-spin' : ''} />
           </button>
-          <button type="button" className="vos-btn" onClick={handleImportConfig} disabled={importingConfig} title="从 ~/.ssh/config 导入">
+          <button
+            type="button"
+            className="vos-btn"
+            onClick={handleImportConfig}
+            disabled={importingConfig}
+            title="从 ~/.ssh/config 导入"
+          >
             {importingConfig ? <Loader2 size={14} className="vos-spin" /> : <Download size={14} />} 导入配置
           </button>
           <button type="button" className="vos-btn vos-btn-primary" onClick={() => setShowForm(true)}>
@@ -186,7 +204,9 @@ function ServersTab() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="ssh-card-name">{srv.name}</div>
-                <div className="ssh-card-host">{srv.username}@{srv.host}:{srv.port}</div>
+                <div className="ssh-card-host">
+                  {srv.username}@{srv.host}:{srv.port}
+                </div>
               </div>
               <StatusBadge status={srv.status} />
             </div>
@@ -199,11 +219,13 @@ function ServersTab() {
             )}
 
             <div className="ssh-card-actions">
-              <button type="button" className="vos-btn vos-btn-sm" onClick={() => handleTest(srv.id)}
-                disabled={testing === srv.id}>
-                {testing === srv.id
-                  ? <Loader2 size={13} className="vos-spin" />
-                  : <Activity size={13} />}
+              <button
+                type="button"
+                className="vos-btn vos-btn-sm"
+                onClick={() => handleTest(srv.id)}
+                disabled={testing === srv.id}
+              >
+                {testing === srv.id ? <Loader2 size={13} className="vos-spin" /> : <Activity size={13} />}
                 测试
               </button>
               <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={() => setOpenShell(srv)}>
@@ -216,28 +238,57 @@ function ServersTab() {
       </div>
 
       {showForm && (
-        <SshServerForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
+        <SshServerForm
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false)
+            load()
+          }}
+        />
       )}
 
       {sshConfigHosts && (
         <div className="vos-modal-overlay" onClick={() => setSshConfigHosts(null)}>
-          <motion.div className="vos-modal" style={{ maxWidth: 480 }} initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            onClick={e => e.stopPropagation()}>
+          <motion.div
+            className="vos-modal"
+            style={{ maxWidth: 480 }}
+            initial={{ scale: 0.93, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={e => e.stopPropagation()}
+          >
             <div className="vos-modal-header">
               <span>~/.ssh/config Hosts</span>
-              <button type="button" className="vos-icon-btn" onClick={() => setSshConfigHosts(null)}><X size={16} /></button>
+              <button type="button" className="vos-icon-btn" onClick={() => setSshConfigHosts(null)}>
+                <X size={16} />
+              </button>
             </div>
             <div className="vos-modal-body" style={{ maxHeight: 360, overflow: 'auto' }}>
-              {sshConfigHosts.length === 0 && <p style={{ color: 'var(--vos-text-tertiary)', fontSize: 12 }}>未发现 SSH Host 配置</p>}
+              {sshConfigHosts.length === 0 && (
+                <p style={{ color: 'var(--vos-text-tertiary)', fontSize: 12 }}>未发现 SSH Host 配置</p>
+              )}
               {sshConfigHosts.map(h => (
                 <div key={h.alias} className="ssh-card" style={{ padding: '10px 12px', marginBottom: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}
+                  >
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{h.alias}</span>
-                    <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={() => importConfigHost(h)}>
+                    <button
+                      type="button"
+                      className="vos-btn vos-btn-sm vos-btn-primary"
+                      onClick={() => importConfigHost(h)}
+                    >
                       <Plus size={12} /> 导入
                     </button>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--vos-text-secondary)',
+                      display: 'flex',
+                      gap: 12,
+                      flexWrap: 'wrap'
+                    }}
+                  >
                     {h.hostname && <span>Host: {h.hostname}</span>}
                     {h.user && <span>User: {h.user}</span>}
                     {h.port && <span>Port: {h.port}</span>}
@@ -251,9 +302,7 @@ function ServersTab() {
         </div>
       )}
 
-      {openShell && (
-        <ShellModal server={openShell} onClose={() => setOpenShell(null)} />
-      )}
+      {openShell && <ShellModal server={openShell} onClose={() => setOpenShell(null)} />}
     </div>
   )
 }
@@ -278,7 +327,9 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
       const res = await api.getSshKeyFiles()
       setKeyFiles(res.data)
       setShowKeyPicker(true)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   function selectKeyFile(path: string) {
@@ -305,42 +356,67 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
-      <motion.div className="vos-modal" initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        onClick={e => e.stopPropagation()}>
+      <motion.div
+        className="vos-modal"
+        initial={{ scale: 0.93, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="vos-modal-header">
           <span>添加 SSH 服务器</span>
-          <button type="button" className="vos-icon-btn" onClick={onClose}><X size={16} /></button>
+          <button type="button" className="vos-icon-btn" onClick={onClose}>
+            <X size={16} />
+          </button>
         </div>
         <div className="vos-modal-body">
           <div className="vos-form-row">
             <label>名称</label>
-            <input className="vos-input" placeholder="生产环境 Web01" value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            <input
+              className="vos-input"
+              placeholder="生产环境 Web01"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            />
           </div>
           <div className="vos-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8 }}>
             <div>
               <label>主机</label>
-              <input className="vos-input" placeholder="192.168.1.100 或 example.com" value={form.host}
-                onChange={e => setForm(f => ({ ...f, host: e.target.value }))} />
+              <input
+                className="vos-input"
+                placeholder="192.168.1.100 或 example.com"
+                value={form.host}
+                onChange={e => setForm(f => ({ ...f, host: e.target.value }))}
+              />
             </div>
             <div>
               <label>端口</label>
-              <input className="vos-input" type="number" value={form.port}
-                onChange={e => setForm(f => ({ ...f, port: Number(e.target.value) }))} />
+              <input
+                className="vos-input"
+                type="number"
+                value={form.port}
+                onChange={e => setForm(f => ({ ...f, port: Number(e.target.value) }))}
+              />
             </div>
           </div>
           <div className="vos-form-row">
             <label>用户名</label>
-            <input className="vos-input" placeholder="root" value={form.username}
-              onChange={e => setForm(f => ({ ...f, username: e.target.value }))} />
+            <input
+              className="vos-input"
+              placeholder="root"
+              value={form.username}
+              onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+            />
           </div>
           <div className="vos-form-row">
             <label>认证方式</label>
             <div className="vos-segmented">
               {(['password', 'private_key'] as const).map(t => (
-                <button key={t} type="button"
+                <button
+                  key={t}
+                  type="button"
                   className={`vos-segmented-item ${form.auth_method.type === t ? 'active' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, auth_method: { type: t } }))}>
+                  onClick={() => setForm(f => ({ ...f, auth_method: { type: t } }))}
+                >
                   {t === 'password' ? '密码' : '私钥'}
                 </button>
               ))}
@@ -349,20 +425,31 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           {form.auth_method.type === 'password' && (
             <div className="vos-form-row">
               <label>密码</label>
-              <input className="vos-input" type="password" placeholder="••••••••" value={form.password ?? ''}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+              <input
+                className="vos-input"
+                type="password"
+                placeholder="••••••••"
+                value={form.password ?? ''}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+              />
             </div>
           )}
           {form.auth_method.type === 'private_key' && (
             <div className="vos-form-row">
               <label>私钥路径</label>
               <div style={{ display: 'flex', gap: 6 }}>
-                <input className="vos-input" style={{ flex: 1 }} placeholder="~/.ssh/id_rsa" value={
-                  (form.auth_method as { type: 'private_key'; key_path?: string }).key_path ?? ''
-                }
-                  onChange={e => setForm(f => ({
-                    ...f, auth_method: { type: 'private_key', key_path: e.target.value }
-                  }))} />
+                <input
+                  className="vos-input"
+                  style={{ flex: 1 }}
+                  placeholder="~/.ssh/id_rsa"
+                  value={(form.auth_method as { type: 'private_key'; key_path?: string }).key_path ?? ''}
+                  onChange={e =>
+                    setForm(f => ({
+                      ...f,
+                      auth_method: { type: 'private_key', key_path: e.target.value }
+                    }))
+                  }
+                />
                 <button type="button" className="vos-btn" onClick={handleBrowseKeys} title="从 ~/.ssh 选择">
                   <Key size={14} /> 浏览
                 </button>
@@ -372,32 +459,60 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           {showKeyPicker && keyFiles && (
             <div className="vos-form-row">
               <label>~/.ssh/ 密钥文件</label>
-              <div style={{ maxHeight: 160, overflow: 'auto', border: '1px solid var(--vos-border)', borderRadius: 6, padding: 4 }}>
+              <div
+                style={{
+                  maxHeight: 160,
+                  overflow: 'auto',
+                  border: '1px solid var(--vos-border)',
+                  borderRadius: 6,
+                  padding: 4
+                }}
+              >
                 {keyFiles.filter(f => !f.is_public).length === 0 && (
                   <p style={{ color: 'var(--vos-text-tertiary)', fontSize: 11, padding: '4px 8px' }}>未发现私钥文件</p>
                 )}
-                {keyFiles.filter(f => !f.is_public).map(f => (
-                  <button key={f.path} type="button"
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '5px 8px',
-                      fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-text-primary)',
-                      cursor: 'pointer', borderRadius: 4, textAlign: 'left',
-                    }}
-                    onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'var(--vos-bg-item-hover)' }}
-                    onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-                    onClick={() => selectKeyFile(f.path)}>
-                    <Key size={12} style={{ opacity: 0.6 }} />
-                    <span style={{ flex: 1 }}>{f.name}</span>
-                    <span style={{ fontSize: 10, opacity: 0.5 }}>{f.path}</span>
-                  </button>
-                ))}
+                {keyFiles
+                  .filter(f => !f.is_public)
+                  .map(f => (
+                    <button
+                      key={f.path}
+                      type="button"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        width: '100%',
+                        padding: '5px 8px',
+                        fontSize: 12,
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--vos-text-primary)',
+                        cursor: 'pointer',
+                        borderRadius: 4,
+                        textAlign: 'left'
+                      }}
+                      onMouseOver={e => {
+                        ;(e.currentTarget as HTMLElement).style.background = 'var(--vos-bg-item-hover)'
+                      }}
+                      onMouseOut={e => {
+                        ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                      }}
+                      onClick={() => selectKeyFile(f.path)}
+                    >
+                      <Key size={12} style={{ opacity: 0.6 }} />
+                      <span style={{ flex: 1 }}>{f.name}</span>
+                      <span style={{ fontSize: 10, opacity: 0.5 }}>{f.path}</span>
+                    </button>
+                  ))}
               </div>
             </div>
           )}
           {err && <p className="vos-form-error">{err}</p>}
         </div>
         <div className="vos-modal-footer">
-          <button type="button" className="vos-btn" onClick={onClose}>取消</button>
+          <button type="button" className="vos-btn" onClick={onClose}>
+            取消
+          </button>
           <button type="button" className="vos-btn vos-btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 size={14} className="vos-spin" /> : null} 保存
           </button>
@@ -411,13 +526,21 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 function ShellModal({ server, onClose }: { server: SshServer; onClose: () => void }) {
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
-      <motion.div className="vos-modal" style={{ width: 800, height: 500 }}
-        initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        onClick={e => e.stopPropagation()}>
+      <motion.div
+        className="vos-modal"
+        style={{ width: 800, height: 500 }}
+        initial={{ scale: 0.93, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="vos-modal-header">
           <Terminal size={14} />
-          <span>{server.name} — {server.host}</span>
-          <button type="button" className="vos-icon-btn" onClick={onClose}><X size={16} /></button>
+          <span>
+            {server.name} — {server.host}
+          </span>
+          <button type="button" className="vos-icon-btn" onClick={onClose}>
+            <X size={16} />
+          </button>
         </div>
         <div style={{ flex: 1, background: '#0d0d0d', overflow: 'hidden', borderRadius: '0 0 10px 10px' }}>
           <WebShellEmbed target={server.id} />
@@ -451,7 +574,9 @@ function PortMappingsTab({ servers }: { servers: SshServer[] }) {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   async function toggle(m: PortMapping) {
     setActing(m.id)
@@ -490,26 +615,51 @@ function PortMappingsTab({ servers }: { servers: SshServer[] }) {
       <table className="ssh-table">
         <thead>
           <tr>
-            <th>名称</th><th>服务器</th><th>远端</th><th>本地端口</th><th>状态</th><th />
+            <th>名称</th>
+            <th>服务器</th>
+            <th>远端</th>
+            <th>本地端口</th>
+            <th>状态</th>
+            <th />
           </tr>
         </thead>
         <tbody>
           {mappings.map(m => (
             <tr key={m.id}>
-              <td><strong>{m.name}</strong></td>
+              <td>
+                <strong>{m.name}</strong>
+              </td>
               <td>{serverName(m.ssh_server_id)}</td>
-              <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{m.remote_host}:{m.remote_port}</td>
+              <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                {m.remote_host}:{m.remote_port}
+              </td>
               <td style={{ fontFamily: 'monospace', fontSize: 12 }}>:{m.local_port}</td>
-              <td><StatusBadge status={m.status} /></td>
+              <td>
+                <StatusBadge status={m.status} />
+              </td>
               <td>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                  <button type="button" className="vos-icon-btn" onClick={() => toggle(m)}
-                    disabled={acting === m.id} title={m.status === 'active' ? '停止' : '启动'}>
-                    {acting === m.id
-                      ? <Loader2 size={14} className="vos-spin" />
-                      : m.status === 'active' ? <Square size={14} /> : <Activity size={14} />}
+                  <button
+                    type="button"
+                    className="vos-icon-btn"
+                    onClick={() => toggle(m)}
+                    disabled={acting === m.id}
+                    title={m.status === 'active' ? '停止' : '启动'}
+                  >
+                    {acting === m.id ? (
+                      <Loader2 size={14} className="vos-spin" />
+                    ) : m.status === 'active' ? (
+                      <Square size={14} />
+                    ) : (
+                      <Activity size={14} />
+                    )}
                   </button>
-                  <DelBtn onConfirm={async () => { await api.deletePortMapping(m.id); load() }} />
+                  <DelBtn
+                    onConfirm={async () => {
+                      await api.deletePortMapping(m.id)
+                      load()
+                    }}
+                  />
                 </div>
               </td>
             </tr>
@@ -518,7 +668,14 @@ function PortMappingsTab({ servers }: { servers: SshServer[] }) {
       </table>
 
       {showForm && (
-        <PortMappingForm servers={servers} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
+        <PortMappingForm
+          servers={servers}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false)
+            load()
+          }}
+        />
       )}
     </div>
   )
@@ -527,20 +684,27 @@ function PortMappingsTab({ servers }: { servers: SshServer[] }) {
 function PortMappingForm({
   servers,
   onClose,
-  onSaved,
-}: { servers: SshServer[]; onClose: () => void; onSaved: () => void }) {
+  onSaved
+}: {
+  servers: SshServer[]
+  onClose: () => void
+  onSaved: () => void
+}) {
   const [form, setForm] = useState<CreatePortMappingReq>({
     name: '',
     ssh_server_id: servers[0]?.id ?? '',
     remote_host: 'localhost',
     remote_port: 3306,
-    local_port: 13306,
+    local_port: 13306
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
   async function handleSave() {
-    if (!form.name || !form.ssh_server_id) { setErr('名称和服务器为必填'); return }
+    if (!form.name || !form.ssh_server_id) {
+      setErr('名称和服务器为必填')
+      return
+    }
     setSaving(true)
     setErr('')
     try {
@@ -555,24 +719,41 @@ function PortMappingForm({
 
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
-      <motion.div className="vos-modal" initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        onClick={e => e.stopPropagation()}>
+      <motion.div
+        className="vos-modal"
+        initial={{ scale: 0.93, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="vos-modal-header">
           <span>新建端口映射</span>
-          <button type="button" className="vos-icon-btn" onClick={onClose}><X size={16} /></button>
+          <button type="button" className="vos-icon-btn" onClick={onClose}>
+            <X size={16} />
+          </button>
         </div>
         <div className="vos-modal-body">
           <div className="vos-form-row">
             <label>名称</label>
-            <input className="vos-input" placeholder="MySQL 生产" value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            <input
+              className="vos-input"
+              placeholder="MySQL 生产"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            />
           </div>
           <div className="vos-form-row">
             <label>SSH 服务器</label>
             <div className="vos-select-wrap">
-              <select className="vos-input" value={form.ssh_server_id}
-                onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}>
-                {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              <select
+                className="vos-input"
+                value={form.ssh_server_id}
+                onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}
+              >
+                {servers.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
               <ChevronDown size={14} className="vos-select-arrow" />
             </div>
@@ -580,24 +761,37 @@ function PortMappingForm({
           <div className="vos-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
             <div>
               <label>远端主机</label>
-              <input className="vos-input" value={form.remote_host}
-                onChange={e => setForm(f => ({ ...f, remote_host: e.target.value }))} />
+              <input
+                className="vos-input"
+                value={form.remote_host}
+                onChange={e => setForm(f => ({ ...f, remote_host: e.target.value }))}
+              />
             </div>
             <div>
               <label>远端端口</label>
-              <input className="vos-input" type="number" value={form.remote_port}
-                onChange={e => setForm(f => ({ ...f, remote_port: Number(e.target.value) }))} />
+              <input
+                className="vos-input"
+                type="number"
+                value={form.remote_port}
+                onChange={e => setForm(f => ({ ...f, remote_port: Number(e.target.value) }))}
+              />
             </div>
           </div>
           <div className="vos-form-row">
             <label>本地端口</label>
-            <input className="vos-input" type="number" value={form.local_port}
-              onChange={e => setForm(f => ({ ...f, local_port: Number(e.target.value) }))} />
+            <input
+              className="vos-input"
+              type="number"
+              value={form.local_port}
+              onChange={e => setForm(f => ({ ...f, local_port: Number(e.target.value) }))}
+            />
           </div>
           {err && <p className="vos-form-error">{err}</p>}
         </div>
         <div className="vos-modal-footer">
-          <button type="button" className="vos-btn" onClick={onClose}>取消</button>
+          <button type="button" className="vos-btn" onClick={onClose}>
+            取消
+          </button>
           <button type="button" className="vos-btn vos-btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 size={14} className="vos-spin" /> : null} 保存
           </button>
@@ -626,7 +820,9 @@ function ExposuresTab({ servers }: { servers: SshServer[] }) {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   async function toggle(e: ServiceExposure) {
     setActing(e.id)
@@ -663,38 +859,79 @@ function ExposuresTab({ servers }: { servers: SshServer[] }) {
       <table className="ssh-table">
         <thead>
           <tr>
-            <th>名称</th><th>来源</th><th>公开端口</th><th>鉴权</th><th>状态</th><th />
+            <th>名称</th>
+            <th>来源</th>
+            <th>公开端口</th>
+            <th>鉴权</th>
+            <th>状态</th>
+            <th />
           </tr>
         </thead>
         <tbody>
           {exposures.map(e => (
             <tr key={e.id}>
-              <td><strong>{e.name}</strong></td>
+              <td>
+                <strong>{e.name}</strong>
+              </td>
               <td style={{ fontSize: 12 }}>
-                {e.source_type === 'local' ? '本地' : `SSH: ${servers.find(s => s.id === e.ssh_server_id)?.name ?? e.ssh_server_id}`}
-                {' '}{e.source_host}:{e.source_port}
+                {e.source_type === 'local'
+                  ? '本地'
+                  : `SSH: ${servers.find(s => s.id === e.ssh_server_id)?.name ?? e.ssh_server_id}`}{' '}
+                {e.source_host}:{e.source_port}
               </td>
               <td>
-                <a href={`http://localhost:${e.public_port}`} target="_blank" rel="noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--vos-accent-primary)', fontSize: 12 }}>
+                <a
+                  href={`http://localhost:${e.public_port}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 3,
+                    color: 'var(--vos-accent-primary)',
+                    fontSize: 12
+                  }}
+                >
                   :{e.public_port} <ExternalLink size={10} />
                 </a>
               </td>
               <td>
-                {e.basic_auth_enabled
-                  ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#f59e0b', fontSize: 11 }}><Shield size={11} /> 已启用</span>
-                  : <span style={{ fontSize: 11, color: '#6b7280' }}>无</span>}
+                {e.basic_auth_enabled ? (
+                  <span
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#f59e0b', fontSize: 11 }}
+                  >
+                    <Shield size={11} /> 已启用
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>无</span>
+                )}
               </td>
-              <td><StatusBadge status={e.status} /></td>
+              <td>
+                <StatusBadge status={e.status} />
+              </td>
               <td>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                  <button type="button" className="vos-icon-btn" onClick={() => toggle(e)}
-                    disabled={acting === e.id} title={e.status === 'active' ? '停止' : '启动'}>
-                    {acting === e.id
-                      ? <Loader2 size={14} className="vos-spin" />
-                      : e.status === 'active' ? <Square size={14} /> : <Activity size={14} />}
+                  <button
+                    type="button"
+                    className="vos-icon-btn"
+                    onClick={() => toggle(e)}
+                    disabled={acting === e.id}
+                    title={e.status === 'active' ? '停止' : '启动'}
+                  >
+                    {acting === e.id ? (
+                      <Loader2 size={14} className="vos-spin" />
+                    ) : e.status === 'active' ? (
+                      <Square size={14} />
+                    ) : (
+                      <Activity size={14} />
+                    )}
                   </button>
-                  <DelBtn onConfirm={async () => { await api.deleteServiceExposure(e.id); load() }} />
+                  <DelBtn
+                    onConfirm={async () => {
+                      await api.deleteServiceExposure(e.id)
+                      load()
+                    }}
+                  />
                 </div>
               </td>
             </tr>
@@ -703,7 +940,14 @@ function ExposuresTab({ servers }: { servers: SshServer[] }) {
       </table>
 
       {showForm && (
-        <ExposureForm servers={servers} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
+        <ExposureForm
+          servers={servers}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false)
+            load()
+          }}
+        />
       )}
     </div>
   )
@@ -712,21 +956,28 @@ function ExposuresTab({ servers }: { servers: SshServer[] }) {
 function ExposureForm({
   servers,
   onClose,
-  onSaved,
-}: { servers: SshServer[]; onClose: () => void; onSaved: () => void }) {
+  onSaved
+}: {
+  servers: SshServer[]
+  onClose: () => void
+  onSaved: () => void
+}) {
   const [form, setForm] = useState<CreateServiceExposureReq>({
     name: '',
     source_type: 'local',
     source_host: 'localhost',
     source_port: 8080,
     public_port: 8080,
-    basic_auth_enabled: false,
+    basic_auth_enabled: false
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
   async function handleSave() {
-    if (!form.name) { setErr('名称为必填'); return }
+    if (!form.name) {
+      setErr('名称为必填')
+      return
+    }
     setSaving(true)
     setErr('')
     try {
@@ -741,25 +992,38 @@ function ExposureForm({
 
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
-      <motion.div className="vos-modal" initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        onClick={e => e.stopPropagation()}>
+      <motion.div
+        className="vos-modal"
+        initial={{ scale: 0.93, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="vos-modal-header">
           <span>新建服务暴露</span>
-          <button type="button" className="vos-icon-btn" onClick={onClose}><X size={16} /></button>
+          <button type="button" className="vos-icon-btn" onClick={onClose}>
+            <X size={16} />
+          </button>
         </div>
         <div className="vos-modal-body">
           <div className="vos-form-row">
             <label>名称</label>
-            <input className="vos-input" placeholder="我的服务" value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            <input
+              className="vos-input"
+              placeholder="我的服务"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            />
           </div>
           <div className="vos-form-row">
             <label>来源类型</label>
             <div className="vos-segmented">
               {(['local', 'ssh'] as const).map(t => (
-                <button key={t} type="button"
+                <button
+                  key={t}
+                  type="button"
                   className={`vos-segmented-item ${form.source_type === t ? 'active' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, source_type: t }))}>
+                  onClick={() => setForm(f => ({ ...f, source_type: t }))}
+                >
                   {t === 'local' ? '本地' : 'SSH 跳板'}
                 </button>
               ))}
@@ -769,10 +1033,17 @@ function ExposureForm({
             <div className="vos-form-row">
               <label>SSH 服务器</label>
               <div className="vos-select-wrap">
-                <select className="vos-input" value={form.ssh_server_id ?? ''}
-                  onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}>
+                <select
+                  className="vos-input"
+                  value={form.ssh_server_id ?? ''}
+                  onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}
+                >
                   <option value="">选择服务器…</option>
-                  {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {servers.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown size={14} className="vos-select-arrow" />
               </div>
@@ -781,23 +1052,37 @@ function ExposureForm({
           <div className="vos-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
             <div>
               <label>来源主机</label>
-              <input className="vos-input" value={form.source_host}
-                onChange={e => setForm(f => ({ ...f, source_host: e.target.value }))} />
+              <input
+                className="vos-input"
+                value={form.source_host}
+                onChange={e => setForm(f => ({ ...f, source_host: e.target.value }))}
+              />
             </div>
             <div>
               <label>来源端口</label>
-              <input className="vos-input" type="number" value={form.source_port}
-                onChange={e => setForm(f => ({ ...f, source_port: Number(e.target.value) }))} />
+              <input
+                className="vos-input"
+                type="number"
+                value={form.source_port}
+                onChange={e => setForm(f => ({ ...f, source_port: Number(e.target.value) }))}
+              />
             </div>
           </div>
           <div className="vos-form-row">
             <label>公开端口</label>
-            <input className="vos-input" type="number" value={form.public_port}
-              onChange={e => setForm(f => ({ ...f, public_port: Number(e.target.value) }))} />
+            <input
+              className="vos-input"
+              type="number"
+              value={form.public_port}
+              onChange={e => setForm(f => ({ ...f, public_port: Number(e.target.value) }))}
+            />
           </div>
           <div className="vos-form-row" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <button type="button" className={`vos-toggle ${form.basic_auth_enabled ? 'on' : ''}`}
-              onClick={() => setForm(f => ({ ...f, basic_auth_enabled: !f.basic_auth_enabled }))}>
+            <button
+              type="button"
+              className={`vos-toggle ${form.basic_auth_enabled ? 'on' : ''}`}
+              onClick={() => setForm(f => ({ ...f, basic_auth_enabled: !f.basic_auth_enabled }))}
+            >
               <span className="vos-toggle-thumb" />
             </button>
             <label style={{ marginBottom: 0 }}>启用 Basic Auth</label>
@@ -806,20 +1091,28 @@ function ExposureForm({
             <>
               <div className="vos-form-row">
                 <label>用户名</label>
-                <input className="vos-input" value={form.basic_auth_username ?? ''}
-                  onChange={e => setForm(f => ({ ...f, basic_auth_username: e.target.value }))} />
+                <input
+                  className="vos-input"
+                  value={form.basic_auth_username ?? ''}
+                  onChange={e => setForm(f => ({ ...f, basic_auth_username: e.target.value }))}
+                />
               </div>
               <div className="vos-form-row">
                 <label>密码</label>
-                <input className="vos-input" type="password"
-                  onChange={e => setForm(f => ({ ...f, basic_auth_password: e.target.value }))} />
+                <input
+                  className="vos-input"
+                  type="password"
+                  onChange={e => setForm(f => ({ ...f, basic_auth_password: e.target.value }))}
+                />
               </div>
             </>
           )}
           {err && <p className="vos-form-error">{err}</p>}
         </div>
         <div className="vos-modal-footer">
-          <button type="button" className="vos-btn" onClick={onClose}>取消</button>
+          <button type="button" className="vos-btn" onClick={onClose}>
+            取消
+          </button>
           <button type="button" className="vos-btn vos-btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 size={14} className="vos-spin" /> : null} 保存
           </button>
@@ -837,13 +1130,16 @@ export default function SshApp(_props: AppComponentProps) {
   const [servers, setServers] = useState<SshServer[]>([])
 
   useEffect(() => {
-    api.getSshServers().then(r => setServers(r.data)).catch(() => {})
+    api
+      .getSshServers()
+      .then(r => setServers(r.data))
+      .catch(() => {})
   }, [])
 
   const TABS = [
     { id: 'servers' as TabId, label: 'SSH 服务器', icon: <Terminal size={14} /> },
     { id: 'port-mappings' as TabId, label: '端口映射', icon: <Zap size={14} /> },
-    { id: 'exposures' as TabId, label: '服务暴露', icon: <Globe size={14} /> },
+    { id: 'exposures' as TabId, label: '服务暴露', icon: <Globe size={14} /> }
   ]
 
   return (
@@ -856,9 +1152,12 @@ export default function SshApp(_props: AppComponentProps) {
         </div>
         <nav className="ssh-nav">
           {TABS.map(t => (
-            <button key={t.id} type="button"
+            <button
+              key={t.id}
+              type="button"
               className={`ssh-nav-item ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}>
+              onClick={() => setTab(t.id)}
+            >
               {t.icon} {t.label}
             </button>
           ))}
@@ -868,8 +1167,14 @@ export default function SshApp(_props: AppComponentProps) {
       {/* Content */}
       <div className="ssh-content">
         <AnimatePresence mode="wait">
-          <motion.div key={tab} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }} style={{ height: '100%' }}>
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={{ duration: 0.15 }}
+            style={{ height: '100%' }}
+          >
             {tab === 'servers' && <ServersTab />}
             {tab === 'port-mappings' && <PortMappingsTab servers={servers} />}
             {tab === 'exposures' && <ExposuresTab servers={servers} />}

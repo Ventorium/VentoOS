@@ -4,12 +4,12 @@
  * Creates notifications and listens to backend-pushed notifications.
  */
 
-import { wsClient } from '@/infra/ws'
-import type { NotificationPayload } from '@/infra/ws'
-import { systemChannel } from '@/kernel/channel'
 import { createLogger } from '@/infra/logger'
-import { generateNotifId, useNotificationStore } from './store'
+import type { NotificationPayload } from '@/infra/ws'
+import { wsClient } from '@/infra/ws'
+import { systemChannel } from '@/kernel/channel'
 import type { NotificationItem } from './store'
+import { generateNotifId, useNotificationStore } from './store'
 
 const logger = createLogger('services/notification')
 
@@ -21,7 +21,7 @@ export const notificationService = {
       ...n,
       id,
       read: false,
-      createdAt: Date.now(),
+      createdAt: Date.now()
     }
     useNotificationStore.getState()._addNotification(item)
     systemChannel.notify('notification:added', { notificationId: id })
@@ -56,10 +56,10 @@ export const notificationService = {
         level: data.level,
         source: data.source,
         read: false,
-        createdAt: Date.now(),
+        createdAt: Date.now()
       }
       useNotificationStore.getState()._addNotification(item)
       systemChannel.notify('notification:added', { notificationId: item.id })
     })
-  },
+  }
 }
