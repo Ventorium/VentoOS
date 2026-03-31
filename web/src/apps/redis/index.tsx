@@ -16,6 +16,7 @@ import {
   Zap
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { VList } from 'virtua'
 import type { CreateRedisConnectionReq, RedisConnectionConfig, RedisKeyInfo, RedisKeyValue } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
@@ -375,45 +376,28 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'var(--vos-bg-surface)', position: 'sticky', top: 0 }}>
-              {['Field', 'Value', ''].map(h => (
-                <th
-                  key={h}
-                  className="px-3 py-1.5 text-left font-medium"
-                  style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map(([f, v]) => (
-              <tr key={f} style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-                <td className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)', width: '30%' }}>
-                  {f}
-                </td>
-                <td className="px-3 py-1.5 font-mono" style={{ wordBreak: 'break-all' }}>
-                  {v}
-                </td>
-                <td className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
-                  <button
-                    type="button"
-                    className="bg-transparent border-none cursor-pointer p-0"
-                    style={{ color: 'var(--vos-text-tertiary)' }}
-                    onClick={() => delField(f)}
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Header */}
+      <div className="flex-shrink-0 text-xs" style={{ background: 'var(--vos-bg-surface)' }}>
+        <div className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+          {['Field', 'Value', ''].map(h => (
+            <div key={h} className="px-3 py-1.5 text-left font-medium" style={{ width: h === '' ? 24 : h === 'Field' ? '30%' : undefined, flex: h === 'Value' ? 1 : undefined }}>{h}</div>
+          ))}
+        </div>
       </div>
+      {/* Virtualized body */}
+      <VList style={{ flex: 1 }} className="text-xs">
+        {entries.map(([f, v]) => (
+          <div key={f} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)', width: '30%' }}>{f}</div>
+            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>{v}</div>
+            <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
+              <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => delField(f)}>
+                <Trash2 size={11} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </VList>
       <div
         className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
         style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
@@ -479,49 +463,28 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'var(--vos-bg-surface)', position: 'sticky', top: 0 }}>
-              <th
-                className="px-3 py-1.5 text-left font-medium"
-                style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', width: 48 }}
-              >
-                #
-              </th>
-              <th
-                className="px-3 py-1.5 text-left font-medium"
-                style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
-              >
-                Value
-              </th>
-              <th style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', width: 24 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((v, i) => (
-              <tr key={`${i}-${v}`} style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-                <td className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-text-tertiary)' }}>
-                  {i}
-                </td>
-                <td className="px-3 py-1.5 font-mono" style={{ wordBreak: 'break-all' }}>
-                  {v}
-                </td>
-                <td className="px-2 py-1" style={{ textAlign: 'right' }}>
-                  <button
-                    type="button"
-                    className="bg-transparent border-none cursor-pointer p-0"
-                    style={{ color: 'var(--vos-text-tertiary)' }}
-                    onClick={() => delItem(v)}
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Header */}
+      <div className="flex-shrink-0 text-xs" style={{ background: 'var(--vos-bg-surface)' }}>
+        <div className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+          <div className="px-3 py-1.5 text-left font-medium" style={{ width: 48 }}>#</div>
+          <div className="px-3 py-1.5 text-left font-medium flex-1">Value</div>
+          <div style={{ width: 24 }} />
+        </div>
       </div>
+      {/* Virtualized body */}
+      <VList style={{ flex: 1 }} className="text-xs">
+        {items.map((v, i) => (
+          <div key={`${i}-${v}`} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-text-tertiary)', width: 48 }}>{i}</div>
+            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>{v}</div>
+            <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
+              <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => delItem(v)}>
+                <Trash2 size={11} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </VList>
       <div
         className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
         style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
@@ -681,49 +644,28 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'var(--vos-bg-surface)', position: 'sticky', top: 0 }}>
-              <th
-                className="px-3 py-1.5 text-left font-medium"
-                style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', width: 80 }}
-              >
-                Score
-              </th>
-              <th
-                className="px-3 py-1.5 text-left font-medium"
-                style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
-              >
-                Member
-              </th>
-              <th style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', width: 24 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map(e => (
-              <tr key={e.member} style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-                <td className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)' }}>
-                  {e.score}
-                </td>
-                <td className="px-3 py-1.5 font-mono" style={{ wordBreak: 'break-all' }}>
-                  {e.member}
-                </td>
-                <td className="px-2 py-1" style={{ textAlign: 'right' }}>
-                  <button
-                    type="button"
-                    className="bg-transparent border-none cursor-pointer p-0"
-                    style={{ color: 'var(--vos-text-tertiary)' }}
-                    onClick={() => delMember(e.member)}
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Header */}
+      <div className="flex-shrink-0 text-xs" style={{ background: 'var(--vos-bg-surface)' }}>
+        <div className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+          <div className="px-3 py-1.5 text-left font-medium" style={{ width: 80 }}>Score</div>
+          <div className="px-3 py-1.5 text-left font-medium flex-1">Member</div>
+          <div style={{ width: 24 }} />
+        </div>
       </div>
+      {/* Virtualized body */}
+      <VList style={{ flex: 1 }} className="text-xs">
+        {entries.map(e => (
+          <div key={e.member} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)', width: 80 }}>{e.score}</div>
+            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>{e.member}</div>
+            <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
+              <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => delMember(e.member)}>
+                <Trash2 size={11} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </VList>
       <div
         className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
         style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}

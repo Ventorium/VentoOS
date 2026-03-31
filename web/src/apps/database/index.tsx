@@ -13,6 +13,7 @@ import {
   Zap
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { VList } from 'virtua'
 import type {
   ColumnInfo,
   CreateDbConnectionReq,
@@ -294,46 +295,52 @@ export default function DatabaseApp(_props: AppComponentProps) {
   // ─── Render data table ───────────────────────────────────────────────────
 
   const renderDataTable = (result: QueryResult) => (
-    <div className="overflow-auto flex-1 text-xs">
-      <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            {result.columns.map(col => (
-              <th
-                key={col}
-                className="px-2 py-1.5 text-left font-medium sticky top-0"
-                style={{
-                  background: 'var(--vos-bg-surface)',
-                  borderBottom: '1px solid var(--vos-border-subtle)',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+    <div className="flex flex-col flex-1 overflow-hidden text-xs">
+      {/* Sticky header */}
+      <div className="flex-shrink-0 overflow-x-auto" style={{ background: 'var(--vos-bg-surface)' }}>
+        <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              {result.columns.map(col => (
+                <th
+                  key={col}
+                  className="px-2 py-1.5 text-left font-medium"
+                  style={{
+                    background: 'var(--vos-bg-surface)',
+                    borderBottom: '1px solid var(--vos-border-subtle)',
+                    whiteSpace: 'nowrap',
+                    minWidth: 80,
+                  }}
+                >
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        </table>
+      </div>
+      {/* Virtualized body */}
+      {result.rows.length > 0 ? (
+        <VList style={{ flex: 1, overflowX: 'auto' }}>
           {result.rows.map((row, i) => (
-            <tr key={i} style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+            <div key={i} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
               {row.map((cell, j) => (
-                <td
+                <div
                   key={j}
-                  className="px-2 py-1"
-                  style={{ whiteSpace: 'nowrap', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  className="px-2 py-1 flex-shrink-0"
+                  style={{ whiteSpace: 'nowrap', minWidth: 80, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}
                 >
                   {cell === null ? (
                     <span style={{ color: 'var(--vos-text-tertiary)', fontStyle: 'italic' }}>NULL</span>
                   ) : (
                     String(cell)
                   )}
-                </td>
+                </div>
               ))}
-            </tr>
+            </div>
           ))}
-        </tbody>
-      </table>
-      {result.rows.length === 0 && (
+        </VList>
+      ) : (
         <div className="flex items-center justify-center py-8 text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
           无数据
         </div>
