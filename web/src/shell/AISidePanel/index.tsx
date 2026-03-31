@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, MessageSquare, Plus, Send, Sparkles, Trash2, User, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ChatMessage, ChatSession } from '@/infra/api'
+import type { AgentMessage, ChatSession } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import { tokens } from '@/theme'
 import { useAISidePanelStore } from './store'
@@ -13,7 +13,7 @@ export default function AISidePanel() {
   const { isOpen, close } = useAISidePanelStore()
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSession, setCurrentSession] = useState<string | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messages, setMessages] = useState<AgentMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [showSessions, setShowSessions] = useState(false)
@@ -68,11 +68,9 @@ export default function AISidePanel() {
     setInput('')
     setSending(true)
 
-    const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+    const userMsg: AgentMessage = {
       role: 'user',
-      content: text,
-      timestamp: new Date().toISOString()
+      content: text
     }
     setMessages(prev => [...prev, userMsg])
 
@@ -87,10 +85,8 @@ export default function AISidePanel() {
       setMessages(prev => [
         ...prev,
         {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: '抱歉，出了点问题。',
-          timestamp: new Date().toISOString()
+          role: 'assistant' as const,
+          content: '抱歉，出了点问题。'
         }
       ])
       console.error(e)
@@ -276,7 +272,7 @@ export default function AISidePanel() {
                     color: msg.role === 'user' ? '#fff' : 'var(--vos-text-primary)'
                   }}
                 >
-                  {msg.content}
+                  {msg.content ?? ''}
                 </div>
               </div>
             ))}

@@ -32,6 +32,7 @@ import type {
   KubeconfigContext,
   LocalFsNode,
   PortMapping,
+  ProviderConfig,
   QueryResult,
   RedisCommandResult,
   RedisConnectionConfig,
@@ -44,7 +45,9 @@ import type {
   SshConfigHost,
   SshKeyFile,
   SshServer,
+  StreamEvent,
   TableStructure,
+  ToolDefinition,
   VfsFileContent,
   VfsMount,
   VfsNode,
@@ -310,6 +313,67 @@ export const apiClient = {
   agentChat: (body: ChatRequest) => request<ApiResponse<ChatResponse>>('POST', '/api/agent/chat', body),
   getAgentConfig: () => request<ApiResponse<AgentConfig>>('GET', '/api/agent/config'),
   updateAgentConfig: (body: AgentConfig) => request<ApiResponse<unknown>>('PUT', '/api/agent/config', body),
+
+  // Providers
+  getAgentProviders: () => request<ApiResponse<ProviderConfig[]>>('GET', '/api/agent/providers'),
+  getAgentProvider: (id: string) => request<ApiResponse<ProviderConfig>>('GET', `/api/agent/providers/${id}`),
+  createAgentProvider: (body: ProviderConfig) =>
+    request<ApiResponse<ProviderConfig>>('POST', '/api/agent/providers', body),
+  updateAgentProvider: (id: string, body: ProviderConfig) =>
+    request<ApiResponse<ProviderConfig>>('PUT', `/api/agent/providers/${id}`, body),
+  deleteAgentProvider: (id: string) => request<ApiResponse<null>>('DELETE', `/api/agent/providers/${id}`),
+
+  // Tools
+  getAgentTools: () => request<ApiResponse<ToolDefinition[]>>('GET', '/api/agent/tools'),
+
+  /**
+   * Start a streaming chat with the agent via SSE.
+   * Returns an async generator that yields StreamEvents.
+   */
+  agentChatStream: async function* (body: ChatRequest): AsyncGenerator<StreamEvent> {
+    const token = _tokenProvider()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    const response = await fetch('/api/agent/chat/stream', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) _onUnauthorized()
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error('No response body')
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (trimmed.startsWith('data: ')) {
+          const data = trimmed.slice(6)
+          if (data === '[DONE]') return
+          try {
+            yield JSON.parse(data) as StreamEvent
+          } catch {
+            // Skip malformed events
+          }
+        }
+      }
+    }
+  },
 
   // ── SSH Config & Key Files ─────────────────────────────────────────────
 
