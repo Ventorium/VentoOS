@@ -4,7 +4,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::types::{
-    CreateVfsMountReq, VfsFileContent, VfsListReq, VfsMount, VfsNode, VfsReadReq, VfsSourceKind,
+    CreateVfsMountReq, VfsCopyReq, VfsFileContent, VfsListReq, VfsMount, VfsMoveReq, VfsNode,
+    VfsReadReq, VfsSourceKind,
 };
 
 /// Virtual file system manager.
@@ -151,6 +152,124 @@ impl VfsManager {
         }
     }
 
+    /// Move (rename) a file or directory within the same mount.
+    pub async fn move_file(&self, req: &VfsMoveReq) -> Result<(), String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(&req.mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => self.move_local(&mount.root, &req.src, &req.dest).await,
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+        }
+    }
+
+    /// Copy a file or directory within the same mount.
+    pub async fn copy_file(&self, req: &VfsCopyReq) -> Result<(), String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(&req.mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => self.copy_local(&mount.root, &req.src, &req.dest).await,
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+        }
+    }
+
+    /// Resolve and validate a path within the mount root, returning the canonical path.
+    fn resolve_local_path(
+        root: &std::path::Path,
+        rel_path: &str,
+    ) -> Result<std::path::PathBuf, String> {
+        let clean = rel_path.trim_start_matches('/');
+        let candidate = root.join(clean);
+        let canonical_root = root
+            .canonicalize()
+            .map_err(|e| format!("Root path error: {e}"))?;
+        let canonical = candidate
+            .canonicalize()
+            .map_err(|e| format!("Path error: {e}"))?;
+        if !canonical.starts_with(&canonical_root) {
+            return Err("Path traversal denied".into());
+        }
+        Ok(canonical)
+    }
+
+    /// Resolve a destination path that may not exist yet — validate its parent is under root.
+    fn resolve_local_dest(
+        root: &std::path::Path,
+        rel_path: &str,
+    ) -> Result<std::path::PathBuf, String> {
+        let clean = rel_path.trim_start_matches('/');
+        let candidate = root.join(clean);
+        // The parent must exist and be under root
+        let parent = candidate
+            .parent()
+            .ok_or_else(|| "Invalid destination path".to_string())?;
+        let canonical_root = root
+            .canonicalize()
+            .map_err(|e| format!("Root path error: {e}"))?;
+        let canonical_parent = parent
+            .canonicalize()
+            .map_err(|e| format!("Destination parent not found: {e}"))?;
+        if !canonical_parent.starts_with(&canonical_root) {
+            return Err("Path traversal denied".into());
+        }
+        // Return parent_canonical / filename
+        let file_name = candidate
+            .file_name()
+            .ok_or_else(|| "Invalid destination filename".to_string())?;
+        Ok(canonical_parent.join(file_name))
+    }
+
+    async fn move_local(&self, root: &str, src: &str, dest: &str) -> Result<(), String> {
+        let root_path = std::path::Path::new(root);
+        let src_path = Self::resolve_local_path(root_path, src)?;
+        let dest_path = Self::resolve_local_dest(root_path, dest)?;
+
+        if src_path == dest_path {
+            return Ok(());
+        }
+        if dest_path.exists() {
+            return Err("Destination already exists".into());
+        }
+
+        tokio::fs::rename(&src_path, &dest_path)
+            .await
+            .map_err(|e| format!("Move failed: {e}"))
+    }
+
+    async fn copy_local(&self, root: &str, src: &str, dest: &str) -> Result<(), String> {
+        let root_path = std::path::Path::new(root);
+        let src_path = Self::resolve_local_path(root_path, src)?;
+        let dest_path = Self::resolve_local_dest(root_path, dest)?;
+
+        if dest_path.exists() {
+            return Err("Destination already exists".into());
+        }
+
+        let metadata = tokio::fs::metadata(&src_path)
+            .await
+            .map_err(|e| format!("Source not found: {e}"))?;
+
+        if metadata.is_dir() {
+            copy_dir_recursive(&src_path, &dest_path).await?;
+        } else {
+            tokio::fs::copy(&src_path, &dest_path)
+                .await
+                .map_err(|e| format!("Copy failed: {e}"))?;
+        }
+        Ok(())
+    }
+
     /// Read raw file bytes for download / image preview.
     pub async fn read_file_raw(&self, mount_id: &str, path: &str) -> Result<Vec<u8>, String> {
         let mount = self
@@ -241,6 +360,38 @@ impl VfsManager {
     }
 }
 
+/// Recursively copy a directory.
+async fn copy_dir_recursive(
+    src: &std::path::Path,
+    dest: &std::path::Path,
+) -> Result<(), String> {
+    tokio::fs::create_dir_all(dest)
+        .await
+        .map_err(|e| format!("Create dir failed: {e}"))?;
+
+    let mut read_dir = tokio::fs::read_dir(src)
+        .await
+        .map_err(|e| format!("Read dir failed: {e}"))?;
+
+    while let Ok(Some(entry)) = read_dir.next_entry().await {
+        let src_child = entry.path();
+        let dest_child = dest.join(entry.file_name());
+        let file_type = entry
+            .file_type()
+            .await
+            .map_err(|e| format!("File type error: {e}"))?;
+
+        if file_type.is_dir() {
+            Box::pin(copy_dir_recursive(&src_child, &dest_child)).await?;
+        } else {
+            tokio::fs::copy(&src_child, &dest_child)
+                .await
+                .map_err(|e| format!("Copy file failed: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
 impl Default for VfsManager {
     fn default() -> Self {
         Self::new()
@@ -309,5 +460,127 @@ mod tests {
             })
             .await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_move_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        // Create a test file
+        std::fs::write(dir.path().join("a.txt"), "hello").unwrap();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root: root.clone(),
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        let result = mgr
+            .move_file(&VfsMoveReq {
+                mount_id: mount.id.clone(),
+                src: "/a.txt".into(),
+                dest: "/b.txt".into(),
+            })
+            .await;
+        assert!(result.is_ok());
+        assert!(!dir.path().join("a.txt").exists());
+        assert!(dir.path().join("b.txt").exists());
+        assert_eq!(std::fs::read_to_string(dir.path().join("b.txt")).unwrap(), "hello");
+    }
+
+    #[tokio::test]
+    async fn test_copy_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        std::fs::write(dir.path().join("orig.txt"), "data").unwrap();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root: root.clone(),
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        let result = mgr
+            .copy_file(&VfsCopyReq {
+                mount_id: mount.id.clone(),
+                src: "/orig.txt".into(),
+                dest: "/copy.txt".into(),
+            })
+            .await;
+        assert!(result.is_ok());
+        assert!(dir.path().join("orig.txt").exists());
+        assert!(dir.path().join("copy.txt").exists());
+        assert_eq!(std::fs::read_to_string(dir.path().join("copy.txt")).unwrap(), "data");
+    }
+
+    #[tokio::test]
+    async fn test_move_path_traversal_blocked() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        std::fs::write(dir.path().join("file.txt"), "secret").unwrap();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root: root.clone(),
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        // Attempt to move outside root
+        let result = mgr
+            .move_file(&VfsMoveReq {
+                mount_id: mount.id,
+                src: "/file.txt".into(),
+                dest: "/../../../tmp/evil.txt".into(),
+            })
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_move_dest_exists_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        std::fs::write(dir.path().join("a.txt"), "a").unwrap();
+        std::fs::write(dir.path().join("b.txt"), "b").unwrap();
+
+        let mgr = VfsManager::new();
+        let mount = mgr
+            .create_mount(CreateVfsMountReq {
+                name: "test".into(),
+                kind: VfsSourceKind::Local,
+                root,
+                connection_id: None,
+                group: None,
+            })
+            .await;
+
+        let result = mgr
+            .move_file(&VfsMoveReq {
+                mount_id: mount.id,
+                src: "/a.txt".into(),
+                dest: "/b.txt".into(),
+            })
+            .await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
     }
 }

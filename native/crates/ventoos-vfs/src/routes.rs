@@ -3,14 +3,14 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 
 use ventoos_core::plugin::AppPlugin;
 use ventoos_core::types::ApiResponse;
 
 use crate::manager::VfsManager;
-use crate::types::{CreateVfsMountReq, VfsListReq, VfsMount, VfsReadReq};
+use crate::types::{CreateVfsMountReq, VfsCopyReq, VfsListReq, VfsMount, VfsMoveReq, VfsReadReq};
 
 /// VFS (Explorer) application plugin.
 pub struct VfsPlugin {
@@ -35,6 +35,8 @@ impl AppPlugin for VfsPlugin {
             .route("/api/vfs/mounts/{id}/ls", get(list_dir))
             .route("/api/vfs/mounts/{id}/read", get(read_file))
             .route("/api/vfs/mounts/{id}/raw", get(read_file_raw))
+            .route("/api/vfs/mounts/{id}/move", post(move_file))
+            .route("/api/vfs/mounts/{id}/copy", post(copy_file))
             .with_state(self.manager.clone())
     }
 }
@@ -141,6 +143,44 @@ async fn read_file_raw(
             )
                 .into_response()
         }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct MoveBody {
+    src: String,
+    dest: String,
+}
+
+async fn move_file(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<MoveBody>,
+) -> impl IntoResponse {
+    let req = VfsMoveReq {
+        mount_id: id,
+        src: body.src,
+        dest: body.dest,
+    };
+    match mgr.move_file(&req).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"moved": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn copy_file(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<MoveBody>,
+) -> impl IntoResponse {
+    let req = VfsCopyReq {
+        mount_id: id,
+        src: body.src,
+        dest: body.dest,
+    };
+    match mgr.copy_file(&req).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"copied": true}))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }

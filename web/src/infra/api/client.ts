@@ -265,6 +265,10 @@ export const apiClient = {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return res.blob()
   },
+  moveVfsFile: (id: string, src: string, dest: string) =>
+    request<ApiResponse<unknown>>('POST', `/api/vfs/mounts/${id}/move`, { src, dest }),
+  copyVfsFile: (id: string, src: string, dest: string) =>
+    request<ApiResponse<unknown>>('POST', `/api/vfs/mounts/${id}/copy`, { src, dest }),
 
   // ── AI Agent ──────────────────────────────────────────────────────────────
 

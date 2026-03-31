@@ -69,3 +69,19 @@ pub struct VfsFileContent {
     pub is_binary: bool,
     pub truncated: bool,
 }
+
+/// Request to move or copy a file/directory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VfsMoveReq {
+    pub mount_id: String,
+    pub src: String,
+    pub dest: String,
+}
+
+/// Request to copy a file/directory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VfsCopyReq {
+    pub mount_id: String,
+    pub src: String,
+    pub dest: String,
+}

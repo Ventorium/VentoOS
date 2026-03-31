@@ -231,16 +231,20 @@ interface ColumnData {
 // ─── Column View Component ─────────────────────────────────────────────────
 
 function ColumnView({
+  mountId,
   columns,
   onNavigate,
-  onSelectFile
+  onSelectFile,
+  onMoveFile
 }: {
   mountId: string
   columns: ColumnData[]
   onNavigate: (colIndex: number, entry: VfsNode) => void
   onSelectFile: (path: string) => void
+  onMoveFile: (srcPath: string, destDir: string) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
 
   // Auto scroll to the right when new columns are added
   useEffect(() => {
@@ -249,6 +253,46 @@ function ColumnView({
     }
   }, [columns.length])
 
+  const handleDragStart = (e: React.DragEvent, entry: VfsNode) => {
+    e.dataTransfer.setData('application/x-vfs-path', entry.path)
+    e.dataTransfer.setData('text/plain', entry.path)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, entry: VfsNode) => {
+    if (!entry.is_dir) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDropTarget(entry.path)
+  }
+
+  const handleDragLeave = () => {
+    setDropTarget(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetDir: VfsNode) => {
+    e.preventDefault()
+    setDropTarget(null)
+    if (!targetDir.is_dir) return
+    const srcPath = e.dataTransfer.getData('application/x-vfs-path')
+    if (!srcPath || srcPath === targetDir.path) return
+    // Don't allow dropping into self or parent
+    if (targetDir.path.startsWith(srcPath + '/')) return
+    onMoveFile(srcPath, targetDir.path)
+  }
+
+  // Allow dropping on column background (= its directory path)
+  const handleColumnDrop = (e: React.DragEvent, colPath: string) => {
+    e.preventDefault()
+    setDropTarget(null)
+    const srcPath = e.dataTransfer.getData('application/x-vfs-path')
+    if (!srcPath) return
+    // Don't move to same parent
+    const srcParent = srcPath.substring(0, srcPath.lastIndexOf('/')) || '/'
+    if (srcParent === colPath) return
+    onMoveFile(srcPath, colPath)
+  }
+
   return (
     <div ref={scrollRef} className="flex-1 flex overflow-x-auto overflow-y-hidden" style={{ scrollBehavior: 'smooth' }}>
       {columns.map((col, colIdx) => (
@@ -256,6 +300,8 @@ function ColumnView({
           key={col.path}
           className="flex flex-col flex-shrink-0 overflow-hidden"
           style={{ width: 220, borderRight: '0.5px solid var(--vos-border-subtle)' }}
+          onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+          onDrop={e => handleColumnDrop(e, col.path)}
         >
           {col.loading ? (
             <div className="flex-1 flex items-center justify-center">
@@ -272,15 +318,24 @@ function ColumnView({
             <div className="flex-1 overflow-auto">
               {col.entries.map(entry => {
                 const isSelected = col.selected === entry.name
+                const isDragTarget = entry.is_dir && dropTarget === entry.path
                 return (
                   <div
                     key={entry.name}
+                    draggable
+                    onDragStart={e => handleDragStart(e, entry)}
+                    onDragOver={e => handleDragOver(e, entry)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={e => handleDrop(e, entry)}
                     className="flex items-center gap-1.5 px-2 py-[3px] text-xs cursor-pointer"
                     style={{
-                      background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
+                      background: isDragTarget
+                        ? 'var(--vos-accent-primary-hover, rgba(59,130,246,0.2))'
+                        : isSelected ? 'var(--vos-accent-primary)' : 'transparent',
                       color: isSelected ? '#fff' : 'var(--vos-text-primary)',
                       borderRadius: 3,
-                      margin: '1px 4px'
+                      margin: '1px 4px',
+                      outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
                     }}
                     onClick={() => {
                       if (entry.is_dir) {
@@ -525,6 +580,40 @@ export default function ExplorerApp(_props: AppComponentProps) {
     setColumns([{ path: '/', entries, loading: false }])
   }
 
+  const handleMoveFile = async (srcPath: string, destDir: string) => {
+    if (!selectedMount) return
+    const fileName = srcPath.split('/').pop() || ''
+    const dest = destDir === '/' ? `/${fileName}` : `${destDir}/${fileName}`
+    try {
+      await apiClient.moveVfsFile(selectedMount, srcPath, dest)
+      // Refresh affected columns
+      setColumns(prev =>
+        prev.map(col => {
+          const srcParent = srcPath.substring(0, srcPath.lastIndexOf('/')) || '/'
+          if (col.path === srcParent || col.path === destDir) {
+            // Mark for reload
+            return { ...col, loading: true }
+          }
+          return col
+        }),
+      )
+      // Reload entries for affected columns
+      const updated = await Promise.all(
+        columns.map(async col => {
+          const srcParent = srcPath.substring(0, srcPath.lastIndexOf('/')) || '/'
+          if (col.path === srcParent || col.path === destDir) {
+            const entries = await loadColumn(selectedMount, col.path)
+            return { ...col, entries, loading: false }
+          }
+          return col
+        }),
+      )
+      setColumns(updated)
+    } catch (e) {
+      console.error('Move failed:', e)
+    }
+  }
+
   const handleNavigate = async (colIndex: number, entry: VfsNode) => {
     if (!selectedMount) return
 
@@ -736,6 +825,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 columns={columns}
                 onNavigate={handleNavigate}
                 onSelectFile={() => setShowInfo(true)}
+                onMoveFile={handleMoveFile}
               />
 
               {/* Info / preview panel */}
