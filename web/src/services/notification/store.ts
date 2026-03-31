@@ -17,6 +17,7 @@ export interface NotificationItem {
 interface NotificationStore {
   notifications: NotificationItem[]
   panelOpen: boolean
+  doNotDisturb: boolean
 
   _addNotification: (item: NotificationItem) => void
 
@@ -27,6 +28,8 @@ interface NotificationStore {
   togglePanel: () => void
   setPanel: (open: boolean) => void
   getUnreadCount: () => number
+  toggleDoNotDisturb: () => void
+  setDoNotDisturb: (val: boolean) => void
 }
 
 let _notifCounter = 0
@@ -34,6 +37,7 @@ let _notifCounter = 0
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
   notifications: [],
   panelOpen: false,
+  doNotDisturb: false,
 
   _addNotification(item) {
     set(s => ({ notifications: [item, ...s.notifications] }))
@@ -71,6 +75,14 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   getUnreadCount() {
     return get().notifications.filter(n => !n.read).length
+  },
+
+  toggleDoNotDisturb() {
+    set(s => ({ doNotDisturb: !s.doNotDisturb }))
+  },
+
+  setDoNotDisturb(val) {
+    set({ doNotDisturb: val })
   },
 }))
 

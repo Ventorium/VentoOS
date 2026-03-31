@@ -6,6 +6,7 @@
  */
 import { Bell, Info, Layout, Monitor, Palette } from 'lucide-react'
 import { useState } from 'react'
+import { useNotificationStore } from '@/services/notification'
 import { useSettingsStore, type ThemeMode, type DockPosition } from '@/services/settings'
 
 type Category = 'appearance' | 'desktop' | 'notifications' | 'general'
@@ -150,14 +151,14 @@ function DesktopPanel() {
       <div className="vos-settings-group">
         <label className="vos-settings-label">Dock位置</label>
         <div style={{ display: 'flex', gap: 8 }}>
-          {(['bottom', 'left', 'right'] as const).map(pos => (
+          {(['bottom', 'left'] as const).map(pos => (
             <button
               key={pos}
               type="button"
               className={`vos-settings-chip ${dockPosition === pos ? 'active' : ''}`}
               onClick={() => setDockPosition(pos)}
             >
-              {pos === 'bottom' ? '底部' : pos === 'left' ? '左侧' : '右侧'}
+              {pos === 'bottom' ? '底部' : '左侧'}
             </button>
           ))}
         </div>
@@ -202,7 +203,8 @@ function DesktopPanel() {
 
 /* ---- Notifications Settings ---- */
 function NotificationsPanel() {
-  const [doNotDisturb, setDoNotDisturb] = useState(false)
+  const doNotDisturb = useNotificationStore(s => s.doNotDisturb)
+  const toggleDoNotDisturb = useNotificationStore(s => s.toggleDoNotDisturb)
 
   return (
     <div className="vos-settings-content">
@@ -217,7 +219,7 @@ function NotificationsPanel() {
           <button
             type="button"
             className={`vos-toggle ${doNotDisturb ? 'on' : ''}`}
-            onClick={() => setDoNotDisturb(!doNotDisturb)}
+            onClick={toggleDoNotDisturb}
             aria-label="勿扰模式"
           >
             <div className="vos-toggle-thumb" />

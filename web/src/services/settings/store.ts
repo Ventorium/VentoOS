@@ -8,7 +8,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export type ThemeMode = 'auto' | 'light' | 'dark'
-export type DockPosition = 'bottom' | 'left' | 'right'
+export type DockPosition = 'bottom' | 'left'
 
 interface SettingsStore {
   wallpaper: string
@@ -33,7 +33,7 @@ interface SettingsStore {
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     set => ({
-      wallpaper: '/wallpapers/dark-aurora.jpg',
+      wallpaper: '/wallpapers/dark-mountain.jpg',
       themeMode: 'dark',
       resolvedTheme: 'dark',
 

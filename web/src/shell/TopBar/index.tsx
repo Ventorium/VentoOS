@@ -6,7 +6,7 @@
  * Right: Network, Battery, Tasks, Notifications, Theme, Clock
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
+import { Bell, BellOff, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { apiClient } from '@/infra/api'
 import { useAppStore, useWindowStore, closeAllWindows as closeAllWindowsFn } from '@/kernel'
@@ -126,6 +126,7 @@ function MenuBarRight() {
   const resolvedTheme = useSettingsStore(s => s.resolvedTheme)
   const unreadCount = useNotificationStore(s => s.notifications.filter(n => !n.read).length)
   const toggleNotifPanel = useNotificationStore(s => s.togglePanel)
+  const doNotDisturb = useNotificationStore(s => s.doNotDisturb)
   const activeTaskCount = useTaskStore(s => s.tasks.filter(t => t.status === 'queued' || t.status === 'running').length)
   const toggleTaskPanel = useTaskStore(s => s.togglePanel)
   const toggleAI = useAISidePanelStore(s => s.toggle)
@@ -157,14 +158,20 @@ function MenuBarRight() {
       )}
 
       <button type="button" className="vos-topbar-btn" onClick={toggleNotifPanel} title="通知中心" style={{ position: 'relative' }}>
-        <Bell size={13} />
-        <AnimatePresence>
-          {unreadCount > 0 && (
-            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="vos-badge">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </motion.span>
-          )}
-        </AnimatePresence>
+        {doNotDisturb ? (
+          <BellOff size={13} />
+        ) : (
+          <>
+            <Bell size={13} />
+            <AnimatePresence>
+              {unreadCount > 0 && (
+                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="vos-badge">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </button>
 
       <button type="button" className="vos-topbar-btn" onClick={toggleAI} title="AI 助手" style={aiOpen ? { color: 'var(--vos-accent-primary)' } : undefined}>

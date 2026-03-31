@@ -18,7 +18,7 @@ import { tokens } from '@/theme'
 
 const { gap } = tokens.dock
 const HOVER_SCALE = 1.45
-const NEIGHBOR_SCALE = 1.22
+const NEIGHBOR_SCALE = 1.0
 
 /* ---- Dock Icon ---- */
 function DockIcon({
@@ -50,12 +50,12 @@ function DockIcon({
   })
 
   const scale = useSpring(
-    useTransform(distance, [0, 80, 160], magnification ? [HOVER_SCALE, NEIGHBOR_SCALE, 1] : [1, 1, 1]),
+    useTransform(distance, [0, 40, 80], magnification ? [HOVER_SCALE, NEIGHBOR_SCALE, 1] : [1, 1, 1]),
     { stiffness: 350, damping: 30, mass: 0.5 }
   )
 
   const y = useSpring(
-    useTransform(distance, [0, 80, 160], magnification ? [-14, -6, 0] : [0, 0, 0]),
+    useTransform(distance, [0, 40, 80], magnification ? [-14, -4, 0] : [0, 0, 0]),
     { stiffness: 350, damping: 30 }
   )
 
@@ -97,10 +97,7 @@ function DockIcon({
         </div>
       </motion.button>
 
-      {/* Running indicator */}
-      {isRunning && (
-        <div className="vos-dock-dot" />
-      )}
+      {/* Running indicator dot removed per design */}
     </div>
   )
 }
