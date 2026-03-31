@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react-swc'
 import UnoCSS from 'unocss/vite'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import svgr from 'vite-plugin-svgr'
 
 export default defineConfig({
@@ -10,6 +10,12 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './src')
     }
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    globals: true,
+    css: false,
   },
   server: {
     proxy: {
