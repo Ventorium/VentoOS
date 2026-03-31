@@ -1,32 +1,85 @@
+//! Top-level `AgentManager` — coordinates providers, tools, guards, sessions, and the agent runner.
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
 use tracing::info;
 
-use crate::types::{
-    AgentConfig, AgentEngine, ChatMessage, ChatRequest, ChatResponse, ChatRole, ChatSession,
-};
+use crate::agent::AgentRunner;
+use crate::guard::GuardChain;
+use crate::provider::OpenAiProvider;
+use crate::session::SessionStore;
+use crate::tool::{StubToolExecutor, ToolExecutor, ToolRegistry};
+use crate::types::{AgentConfig, AgentError, ProviderConfig};
 
-/// AI Agent manager.
-/// Manages chat sessions, delegates to configured agent engines.
+/// Central coordinator for the AI agent subsystem.
 pub struct AgentManager {
-    sessions: Arc<RwLock<HashMap<String, ChatSession>>>,
-    config: Arc<RwLock<AgentConfig>>,
+    pub(crate) sessions: Arc<SessionStore>,
+    pub(crate) providers: Arc<RwLock<HashMap<String, ProviderConfig>>>,
+    pub(crate) tool_registry: Arc<RwLock<ToolRegistry>>,
+    pub(crate) guards: Arc<GuardChain>,
+    pub(crate) config: Arc<RwLock<AgentConfig>>,
+    pub(crate) executor: Arc<dyn ToolExecutor>,
 }
 
 impl AgentManager {
     pub fn new() -> Self {
         Self {
-            sessions: Arc::new(RwLock::new(HashMap::new())),
-            config: Arc::new(RwLock::new(AgentConfig {
-                engine: AgentEngine::ClaudeCode,
-                enabled: true,
-                api_key: None,
-                endpoint: None,
-            })),
+            sessions: Arc::new(SessionStore::new()),
+            providers: Arc::new(RwLock::new(HashMap::new())),
+            tool_registry: Arc::new(RwLock::new(ToolRegistry::with_builtins())),
+            guards: Arc::new(GuardChain::with_defaults()),
+            config: Arc::new(RwLock::new(AgentConfig::default())),
+            executor: Arc::new(StubToolExecutor),
         }
     }
+
+    /// Create a manager with a custom tool executor.
+    pub fn with_executor(executor: Arc<dyn ToolExecutor>) -> Self {
+        Self {
+            sessions: Arc::new(SessionStore::new()),
+            providers: Arc::new(RwLock::new(HashMap::new())),
+            tool_registry: Arc::new(RwLock::new(ToolRegistry::with_builtins())),
+            guards: Arc::new(GuardChain::with_defaults()),
+            config: Arc::new(RwLock::new(AgentConfig::default())),
+            executor,
+        }
+    }
+
+    // ── Provider Management ────────────────────────────────────────────────
+
+    pub async fn add_provider(&self, config: ProviderConfig) {
+        info!("Adding provider: {} ({})", config.name, config.id);
+        self.providers
+            .write()
+            .await
+            .insert(config.id.clone(), config);
+    }
+
+    pub async fn get_provider(&self, id: &str) -> Option<ProviderConfig> {
+        self.providers.read().await.get(id).cloned()
+    }
+
+    pub async fn list_providers(&self) -> Vec<ProviderConfig> {
+        self.providers.read().await.values().cloned().collect()
+    }
+
+    pub async fn update_provider(&self, config: ProviderConfig) -> bool {
+        let mut providers = self.providers.write().await;
+        if providers.contains_key(&config.id) {
+            providers.insert(config.id.clone(), config);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub async fn delete_provider(&self, id: &str) -> bool {
+        self.providers.write().await.remove(id).is_some()
+    }
+
+    // ── Configuration ──────────────────────────────────────────────────────
 
     pub async fn get_config(&self) -> AgentConfig {
         self.config.read().await.clone()
@@ -36,93 +89,37 @@ impl AgentManager {
         *self.config.write().await = new_config;
     }
 
-    /// List all chat sessions.
-    pub async fn list_sessions(&self) -> Vec<ChatSession> {
-        let sessions = self.sessions.read().await;
-        let mut list: Vec<_> = sessions.values().cloned().collect();
-        list.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-        list
-    }
+    // ── Provider Resolution ────────────────────────────────────────────────
 
-    pub async fn get_session(&self, id: &str) -> Option<ChatSession> {
-        self.sessions.read().await.get(id).cloned()
-    }
+    /// Resolve the provider to use, given optional overrides in the request.
+    pub(crate) async fn resolve_provider(
+        &self,
+        provider_id: Option<&str>,
+    ) -> Result<OpenAiProvider, AgentError> {
+        let config = self.config.read().await;
+        let effective_id = provider_id
+            .or(config.default_provider_id.as_deref())
+            .ok_or(AgentError::NoProvider)?;
 
-    pub async fn delete_session(&self, id: &str) -> bool {
-        self.sessions.write().await.remove(id).is_some()
-    }
+        let providers = self.providers.read().await;
+        let provider_config = providers
+            .get(effective_id)
+            .ok_or_else(|| AgentError::ProviderNotFound(effective_id.to_string()))?;
 
-    /// Send a message and get a response.
-    /// Current implementation returns a stub response; real implementation would
-    /// call Claude Code SDK or configured agent engine.
-    pub async fn chat(&self, req: ChatRequest) -> Result<ChatResponse, String> {
-        let now = chrono::Utc::now().to_rfc3339();
-        let session_id = req
-            .session_id
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-
-        let user_msg = ChatMessage {
-            id: uuid::Uuid::new_v4().to_string(),
-            role: ChatRole::User,
-            content: req.message.clone(),
-            timestamp: now.clone(),
-        };
-
-        // Generate stub response (real impl would invoke agent engine)
-        let assistant_content = Self::generate_response(&req.message);
-
-        let assistant_msg = ChatMessage {
-            id: uuid::Uuid::new_v4().to_string(),
-            role: ChatRole::Assistant,
-            content: assistant_content,
-            timestamp: chrono::Utc::now().to_rfc3339(),
-        };
-
-        // Update or create session
-        let mut sessions = self.sessions.write().await;
-        let session = sessions
-            .entry(session_id.clone())
-            .or_insert_with(|| ChatSession {
-                id: session_id.clone(),
-                title: truncate_title(&req.message),
-                messages: Vec::new(),
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            });
-        session.messages.push(user_msg);
-        session.messages.push(assistant_msg.clone());
-        session.updated_at = chrono::Utc::now().to_rfc3339();
-
-        info!(
-            "Chat session {session_id}: {} messages",
-            session.messages.len()
-        );
-
-        Ok(ChatResponse {
-            session_id,
-            message: assistant_msg,
-        })
-    }
-
-    /// Stub response generator. Will be replaced with real agent integration.
-    fn generate_response(message: &str) -> String {
-        let lower = message.to_lowercase();
-        if lower.contains("help") || lower.contains("帮助") {
-            "I can help with Kubernetes, database, Redis, and file operations. What would you like to do?".into()
-        } else if lower.contains("k8s") || lower.contains("kubernetes") || lower.contains("pod") {
-            "I can help with Kubernetes operations. Try asking about pods, deployments, services, or cluster status.".into()
-        } else if lower.contains("sql") || lower.contains("database") || lower.contains("数据库")
-        {
-            "I can help with database queries. Describe the table or data you're looking for."
-                .into()
-        } else if lower.contains("redis") {
-            "I can help with Redis operations. What key or command would you like to work with?"
-                .into()
-        } else {
-            format!(
-                "Received: \"{message}\". AI agent integration is being set up. This will connect to your configured agent engine for intelligent responses."
-            )
+        if !provider_config.enabled {
+            return Err(AgentError::Provider(format!(
+                "Provider '{}' is disabled",
+                provider_config.name
+            )));
         }
+
+        Ok(OpenAiProvider::new(provider_config.clone()))
+    }
+
+    /// Create an `AgentRunner` with the current configuration.
+    pub(crate) async fn create_runner(&self) -> AgentRunner {
+        let config = self.config.read().await.clone();
+        AgentRunner::new(Arc::clone(&self.sessions), config)
     }
 }
 
@@ -132,77 +129,110 @@ impl Default for AgentManager {
     }
 }
 
-fn truncate_title(s: &str) -> String {
-    let chars: Vec<char> = s.chars().take(50).collect();
-    let result: String = chars.into_iter().collect();
-    if s.chars().count() > 50 {
-        format!("{result}...")
-    } else {
-        result
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::ProviderType;
 
-    #[tokio::test]
-    async fn test_chat_creates_session() {
-        let mgr = AgentManager::new();
-        let resp = mgr
-            .chat(ChatRequest {
-                session_id: None,
-                message: "Hello".into(),
-                context: None,
-            })
-            .await
-            .unwrap();
-
-        assert!(!resp.session_id.is_empty());
-        assert_eq!(resp.message.role, ChatRole::Assistant);
-
-        let sessions = mgr.list_sessions().await;
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].messages.len(), 2); // user + assistant
+    fn test_provider() -> ProviderConfig {
+        ProviderConfig {
+            id: "p1".into(),
+            name: "Test Provider".into(),
+            provider_type: ProviderType::OpenAi,
+            api_key: "sk-test".into(),
+            base_url: "https://api.openai.com/v1".into(),
+            default_model: "gpt-4o".into(),
+            enabled: true,
+        }
     }
 
     #[tokio::test]
-    async fn test_chat_continues_session() {
+    async fn test_add_and_list_providers() {
         let mgr = AgentManager::new();
-        let r1 = mgr
-            .chat(ChatRequest {
-                session_id: None,
-                message: "First".into(),
-                context: None,
-            })
-            .await
-            .unwrap();
+        mgr.add_provider(test_provider()).await;
 
-        let _r2 = mgr
-            .chat(ChatRequest {
-                session_id: Some(r1.session_id.clone()),
-                message: "Second".into(),
-                context: None,
-            })
-            .await
-            .unwrap();
-
-        let session = mgr.get_session(&r1.session_id).await.unwrap();
-        assert_eq!(session.messages.len(), 4); // 2 pairs
+        let providers = mgr.list_providers().await;
+        assert_eq!(providers.len(), 1);
+        assert_eq!(providers[0].name, "Test Provider");
     }
 
     #[tokio::test]
-    async fn test_delete_session() {
+    async fn test_get_provider() {
         let mgr = AgentManager::new();
-        let resp = mgr
-            .chat(ChatRequest {
-                session_id: None,
-                message: "temp".into(),
-                context: None,
-            })
-            .await
-            .unwrap();
-        assert!(mgr.delete_session(&resp.session_id).await);
-        assert!(mgr.get_session(&resp.session_id).await.is_none());
+        mgr.add_provider(test_provider()).await;
+
+        assert!(mgr.get_provider("p1").await.is_some());
+        assert!(mgr.get_provider("nonexistent").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_provider() {
+        let mgr = AgentManager::new();
+        mgr.add_provider(test_provider()).await;
+
+        let mut updated = test_provider();
+        updated.name = "Updated Provider".into();
+        assert!(mgr.update_provider(updated).await);
+
+        let p = mgr.get_provider("p1").await.unwrap();
+        assert_eq!(p.name, "Updated Provider");
+    }
+
+    #[tokio::test]
+    async fn test_delete_provider() {
+        let mgr = AgentManager::new();
+        mgr.add_provider(test_provider()).await;
+
+        assert!(mgr.delete_provider("p1").await);
+        assert!(!mgr.delete_provider("p1").await);
+    }
+
+    #[tokio::test]
+    async fn test_config_management() {
+        let mgr = AgentManager::new();
+        let cfg = mgr.get_config().await;
+        assert_eq!(cfg.max_iterations, 10);
+
+        let mut new_cfg = cfg;
+        new_cfg.max_iterations = 20;
+        mgr.update_config(new_cfg).await;
+
+        assert_eq!(mgr.get_config().await.max_iterations, 20);
+    }
+
+    #[tokio::test]
+    async fn test_resolve_provider_no_provider() {
+        let mgr = AgentManager::new();
+        let result = mgr.resolve_provider(None).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_resolve_provider_with_default() {
+        let mgr = AgentManager::new();
+        mgr.add_provider(test_provider()).await;
+
+        let mut cfg = mgr.get_config().await;
+        cfg.default_provider_id = Some("p1".into());
+        mgr.update_config(cfg).await;
+
+        let result = mgr.resolve_provider(None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_resolve_provider_with_explicit_id() {
+        let mgr = AgentManager::new();
+        mgr.add_provider(test_provider()).await;
+
+        let result = mgr.resolve_provider(Some("p1")).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_resolve_provider_not_found() {
+        let mgr = AgentManager::new();
+        let result = mgr.resolve_provider(Some("nonexistent")).await;
+        assert!(result.is_err());
     }
 }
