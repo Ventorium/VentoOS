@@ -95,19 +95,19 @@ fn pg_row_value(row: &tokio_postgres::Row, i: usize, ty: &tokio_postgres::types:
 }
 
 /// Convert a `mysql_async::Value` to `serde_json::Value`.
+#[allow(clippy::many_single_char_names)]
 fn mysql_value_to_json(val: mysql_async::Value) -> Value {
     match val {
         mysql_async::Value::NULL => Value::Null,
         mysql_async::Value::Int(n) => Value::from(n),
         mysql_async::Value::UInt(n) => Value::from(n),
-        mysql_async::Value::Float(f) => serde_json::Number::from_f64(f64::from(f))
-            .map(Value::Number)
-            .unwrap_or(Value::Null),
-        mysql_async::Value::Double(d) => serde_json::Number::from_f64(d)
-            .map(Value::Number)
-            .unwrap_or(Value::Null),
+        mysql_async::Value::Float(f) => {
+            serde_json::Number::from_f64(f64::from(f)).map_or(Value::Null, Value::Number)
+        }
+        mysql_async::Value::Double(d) => {
+            serde_json::Number::from_f64(d).map_or(Value::Null, Value::Number)
+        }
         mysql_async::Value::Bytes(b) => Value::String(String::from_utf8_lossy(&b).into_owned()),
-        #[allow(clippy::many_single_char_names)]
         mysql_async::Value::Date(y, m, d, h, min, s, us) => {
             if h == 0 && min == 0 && s == 0 && us == 0 {
                 Value::String(format!("{y:04}-{m:02}-{d:02}"))
@@ -184,7 +184,7 @@ enum DbPool {
     Sqlite(Arc<std::sync::Mutex<rusqlite::Connection>>),
     Postgres {
         client: tokio_postgres::Client,
-        _driver: tokio::task::JoinHandle<()>,
+        driver: tokio::task::JoinHandle<()>,
     },
     Mysql(Arc<tokio::sync::Mutex<mysql_async::Conn>>),
 }
@@ -244,6 +244,7 @@ impl DbManager {
         self.configs.write().await.remove(id).is_some()
     }
 
+    #[allow(clippy::too_many_lines)]
     pub async fn test_connection(&self, id: &str) -> Option<DbTestResult> {
         let config = self.configs.read().await.get(id)?.clone();
         let start = Instant::now();
@@ -374,10 +375,7 @@ impl DbManager {
                         error!("PostgreSQL connection driver error: {e}");
                     }
                 });
-                DbPool::Postgres {
-                    client,
-                    _driver: driver,
-                }
+                DbPool::Postgres { client, driver }
             }
             DbEngine::MySql => {
                 let opts = build_mysql_opts(&config);
@@ -396,8 +394,8 @@ impl DbManager {
     pub async fn disconnect(&self, id: &str) {
         if let Some(pool) = self.pools.write().await.remove(id) {
             match pool {
-                DbPool::Postgres { _driver, .. } => {
-                    _driver.abort();
+                DbPool::Postgres { driver, .. } => {
+                    driver.abort();
                 }
                 DbPool::Mysql(conn) => {
                     if let Ok(mutex) = Arc::try_unwrap(conn) {
@@ -411,6 +409,7 @@ impl DbManager {
     }
 
     /// List schemas for a connected database.
+    #[allow(clippy::too_many_lines)]
     pub async fn list_schemas(&self, id: &str) -> Result<Vec<SchemaInfo>, String> {
         let pools = self.pools.read().await;
         let pool = pools.get(id).ok_or("Not connected")?;
@@ -545,6 +544,7 @@ impl DbManager {
     }
 
     /// Get table structure (columns + indexes).
+    #[allow(clippy::too_many_lines, clippy::type_complexity)]
     pub async fn table_structure(
         &self,
         conn_id: &str,
@@ -706,15 +706,14 @@ impl DbManager {
                 let mut conn = conn.lock().await;
 
                 // Resolve schema — fall back to connected database
-                let schema_name = match schema {
-                    Some(s) => s.to_string(),
-                    None => {
-                        let configs = self.configs.read().await;
-                        configs
-                            .get(conn_id)
-                            .and_then(|c| c.database.clone())
-                            .unwrap_or_default()
-                    }
+                let schema_name = if let Some(s) = schema {
+                    s.to_string()
+                } else {
+                    let configs = self.configs.read().await;
+                    configs
+                        .get(conn_id)
+                        .and_then(|c| c.database.clone())
+                        .unwrap_or_default()
                 };
 
                 // Columns
@@ -794,6 +793,7 @@ impl DbManager {
     }
 
     /// Get paginated table data.
+    #[allow(clippy::too_many_lines)]
     pub async fn table_data(
         &self,
         conn_id: &str,
@@ -975,6 +975,7 @@ impl DbManager {
     }
 
     /// Execute arbitrary SQL.
+    #[allow(clippy::too_many_lines)]
     pub async fn execute_sql(&self, conn_id: &str, sql: &str) -> Result<QueryResult, String> {
         let pools = self.pools.read().await;
         let pool = pools.get(conn_id).ok_or("Not connected")?;

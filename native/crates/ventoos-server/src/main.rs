@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     info!("Database initialized at {}", db_path.display());
 
     // Build router
-    let app = routes::create_router(state)
+    let app = routes::create_router(&state)
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive());
 

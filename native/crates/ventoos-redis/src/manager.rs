@@ -248,8 +248,8 @@ impl RedisManager {
                     result = resp::parse_resp(&mut sub_reader) => {
                         match result {
                             Ok(msg) => {
-                                if let Some(arr) = msg.into_array() {
-                                    if arr.len() >= 3 {
+                                if let Some(arr) = msg.into_array()
+                                    && arr.len() >= 3 {
                                         let kind = arr[0].as_str().unwrap_or("");
                                         if kind == "message" {
                                             let channel =
@@ -261,7 +261,6 @@ impl RedisManager {
                                             });
                                         }
                                     }
-                                }
                             }
                             Err(e) => {
                                 warn!("Pub/Sub reader error: {e}");

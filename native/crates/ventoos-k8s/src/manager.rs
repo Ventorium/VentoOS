@@ -309,7 +309,7 @@ impl K8sManager {
         }
     }
 
-    /// Build a K8sClient for a registered cluster.
+    /// Build a [`K8sClient`] for a registered cluster.
     async fn build_client(&self, cluster_id: &str) -> Result<K8sClient, String> {
         let cluster = self
             .clusters

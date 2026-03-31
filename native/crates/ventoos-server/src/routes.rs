@@ -25,7 +25,7 @@ use ventoos_core::types::{ApiResponse, Id};
 struct FrontendAssets;
 
 /// Create the application router.
-pub fn create_router(state: AppState) -> Router {
+pub fn create_router(state: &AppState) -> Router {
     // Public routes (no auth required)
     let public_routes = Router::new()
         .route("/api/health", get(health_check))
@@ -607,10 +607,10 @@ async fn list_ssh_config_hosts() -> impl IntoResponse {
                 let lower = trimmed.to_lowercase();
                 if lower.starts_with("host ") {
                     // Save previous entry
-                    if let Some(entry) = current.take() {
-                        if !entry.alias.contains('*') {
-                            hosts.push(entry);
-                        }
+                    if let Some(entry) = current.take()
+                        && !entry.alias.contains('*')
+                    {
+                        hosts.push(entry);
                     }
                     let alias = trimmed[5..].trim().to_string();
                     current = Some(SshConfigHost {
@@ -622,7 +622,7 @@ async fn list_ssh_config_hosts() -> impl IntoResponse {
                     });
                 } else if let Some(entry) = current.as_mut() {
                     // Parse key-value (split at first whitespace or '=')
-                    let value = if let Some(pos) = trimmed.find(|c: char| c == ' ' || c == '=') {
+                    let value = if let Some(pos) = trimmed.find([' ', '=']) {
                         trimmed[pos + 1..].trim().to_string()
                     } else {
                         continue;
@@ -636,8 +636,8 @@ async fn list_ssh_config_hosts() -> impl IntoResponse {
                         entry.port = value.parse().ok();
                     } else if lower.starts_with("identityfile") {
                         // Expand ~ to home dir
-                        let expanded = if value.starts_with("~/") {
-                            format!("{}/{}", home, &value[2..])
+                        let expanded = if let Some(rest) = value.strip_prefix("~/") {
+                            format!("{home}/{rest}")
                         } else {
                             value
                         };
@@ -646,10 +646,10 @@ async fn list_ssh_config_hosts() -> impl IntoResponse {
                 }
             }
             // Don't forget the last entry
-            if let Some(entry) = current.take() {
-                if !entry.alias.contains('*') {
-                    hosts.push(entry);
-                }
+            if let Some(entry) = current.take()
+                && !entry.alias.contains('*')
+            {
+                hosts.push(entry);
             }
             Json(ApiResponse::ok(hosts)).into_response()
         }
@@ -681,15 +681,17 @@ async fn list_ssh_key_files() -> impl IntoResponse {
                 continue;
             }
             // Only include regular files
-            if let Ok(meta) = entry.metadata().await {
-                if meta.is_file() {
-                    let is_public = name.ends_with(".pub");
-                    files.push(SshKeyFile {
-                        path: entry.path().to_string_lossy().to_string(),
-                        name,
-                        is_public,
-                    });
-                }
+            if let Ok(meta) = entry.metadata().await
+                && meta.is_file()
+            {
+                let is_public = std::path::Path::new(&name)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("pub"));
+                files.push(SshKeyFile {
+                    path: entry.path().to_string_lossy().to_string(),
+                    name,
+                    is_public,
+                });
             }
         }
     }
@@ -755,7 +757,7 @@ async fn browse_local_fs(Query(query): Query<FsBrowseQuery>) -> impl IntoRespons
                     if dirs_only && !is_dir {
                         continue;
                     }
-                    let size = if !is_dir { Some(meta.len()) } else { None };
+                    let size = if is_dir { None } else { Some(meta.len()) };
                     let modified = meta.modified().ok().map(|t| {
                         let dt: chrono::DateTime<chrono::Utc> = t.into();
                         dt.format("%Y-%m-%dT%H:%M:%SZ").to_string()
@@ -773,7 +775,7 @@ async fn browse_local_fs(Query(query): Query<FsBrowseQuery>) -> impl IntoRespons
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::<Vec<LocalFsNode>>::err(&e.to_string())),
+                Json(ApiResponse::<Vec<LocalFsNode>>::err(e.to_string())),
             )
                 .into_response();
         }
@@ -798,7 +800,7 @@ mod tests {
 
     fn test_app() -> Router {
         let state = AppState::new_test().unwrap();
-        create_router(state)
+        create_router(&state)
     }
 
     #[tokio::test]

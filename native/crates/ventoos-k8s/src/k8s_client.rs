@@ -64,6 +64,7 @@ pub struct Kubeconfig {
 impl Kubeconfig {
     /// Parse a kubeconfig YAML string. Handles the specific structure used by
     /// Kubernetes without pulling in a full YAML library.
+    #[allow(clippy::too_many_lines, clippy::items_after_statements)]
     pub fn parse(yaml_str: &str) -> Result<Self, String> {
         let mut clusters = Vec::new();
         let mut users = Vec::new();
@@ -420,11 +421,7 @@ impl K8sClient {
         };
 
         // Auth header
-        let auth_header = if let Some(ref token) = user.token {
-            Some(format!("Bearer {token}"))
-        } else {
-            None
-        };
+        let auth_header = user.token.as_ref().map(|token| format!("Bearer {token}"));
 
         Ok(Self {
             server_url: cluster.server.clone(),
@@ -510,7 +507,7 @@ impl std::fmt::Debug for K8sClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("K8sClient")
             .field("server_url", &self.server_url)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -563,7 +560,7 @@ fn add_pem_certs_to_store(
 ) -> Result<(), String> {
     let mut reader = BufReader::new(pem_bytes);
     let certs: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut reader)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .collect();
     if certs.is_empty() {
         return Err("No valid certificates found in PEM data".into());
@@ -615,7 +612,7 @@ async fn resolve_client_cert(
         (Some(cert_bytes), Some(key_bytes)) => {
             let certs: Vec<CertificateDer<'static>> =
                 rustls_pemfile::certs(&mut BufReader::new(cert_bytes.as_slice()))
-                    .filter_map(|r| r.ok())
+                    .filter_map(Result::ok)
                     .collect();
             if certs.is_empty() {
                 return Err("No client certificates found in PEM".into());
@@ -668,7 +665,7 @@ fn parse_http_response(raw: &[u8]) -> Result<String, String> {
         .read_to_string(&mut body)
         .map_err(|e| format!("Read body: {e}"))?;
 
-    if status_code >= 200 && status_code < 300 {
+    if (200u16..300).contains(&status_code) {
         Ok(body)
     } else {
         Err(format!(
@@ -682,7 +679,7 @@ fn parse_http_response(raw: &[u8]) -> Result<String, String> {
 // URL parsing
 // ---------------------------------------------------------------------------
 
-/// Parse a K8s server URL into (use_tls, host, port).
+/// Parse a K8s server URL into (`use_tls`, `host`, `port`).
 fn parse_server_url(url: &str) -> Result<(bool, String, u16), String> {
     let (scheme, rest) = if let Some(r) = url.strip_prefix("https://") {
         (true, r)
@@ -780,22 +777,20 @@ impl K8sResourceKind {
     /// Build the API path to list resources of this kind.
     pub fn list_url(&self, namespace: Option<&str>) -> String {
         let (base, plural) = self.api_info();
-        if self.is_cluster_scoped() || namespace.is_none() {
-            format!("{base}/{plural}")
-        } else {
-            let ns = namespace.unwrap();
+        if let Some(ns) = namespace.filter(|_| !self.is_cluster_scoped()) {
             format!("{base}/namespaces/{ns}/{plural}")
+        } else {
+            format!("{base}/{plural}")
         }
     }
 
     /// Build the API path to get a single resource by name.
     pub fn get_url(&self, namespace: Option<&str>, name: &str) -> String {
         let (base, plural) = self.api_info();
-        if self.is_cluster_scoped() || namespace.is_none() {
-            format!("{base}/{plural}/{name}")
-        } else {
-            let ns = namespace.unwrap();
+        if let Some(ns) = namespace.filter(|_| !self.is_cluster_scoped()) {
             format!("{base}/namespaces/{ns}/{plural}/{name}")
+        } else {
+            format!("{base}/{plural}/{name}")
         }
     }
 }
@@ -808,7 +803,7 @@ impl K8sResourceKind {
 pub fn compute_age(creation_timestamp: Option<&str>) -> Option<String> {
     // Return the raw timestamp as age if present; a full time parser would
     // require the chrono crate. Callers can enhance this later.
-    creation_timestamp.map(|ts| ts.to_string())
+    creation_timestamp.map(ToString::to_string)
 }
 
 /// Extract status from a pod-like resource's `.status.phase`.
@@ -818,10 +813,10 @@ pub fn extract_status(raw: &Value) -> Option<String> {
         .map(String::from)
         .or_else(|| {
             // Deployments: availableReplicas / replicas
-            let replicas = raw.pointer("/status/replicas").and_then(|v| v.as_u64());
+            let replicas = raw.pointer("/status/replicas").and_then(Value::as_u64);
             let available = raw
                 .pointer("/status/availableReplicas")
-                .and_then(|v| v.as_u64());
+                .and_then(Value::as_u64);
             match (replicas, available) {
                 (Some(r), Some(a)) => Some(format!("{a}/{r}")),
                 (Some(r), None) => Some(format!("0/{r}")),
@@ -832,9 +827,8 @@ pub fn extract_status(raw: &Value) -> Option<String> {
 
 /// Parse a K8s list response (items array) into `K8sResource` vec.
 pub fn parse_resource_list(json: &Value, kind_str: &str) -> Vec<crate::types::K8sResource> {
-    let items = match json.get("items").and_then(|v| v.as_array()) {
-        Some(arr) => arr,
-        None => return Vec::new(),
+    let Some(items) = json.get("items").and_then(|v| v.as_array()) else {
+        return Vec::new();
     };
 
     items
@@ -912,6 +906,7 @@ pub fn parse_single_resource(
 mod tests {
     use super::*;
 
+    #[allow(clippy::needless_raw_string_hashes)]
     const SAMPLE_KUBECONFIG: &str = r#"
 apiVersion: v1
 kind: Config
@@ -1271,6 +1266,7 @@ users:
     }
 
     // Test kubeconfig with user-provided file paths for certs
+    #[allow(clippy::needless_raw_string_hashes)]
     #[test]
     fn test_parse_kubeconfig_file_paths() {
         let yaml = r#"

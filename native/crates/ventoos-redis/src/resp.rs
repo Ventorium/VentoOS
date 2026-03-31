@@ -274,7 +274,7 @@ async fn parse_array<R: AsyncBufRead + Unpin + Send>(
     if count > MAX_COLLECTION_LEN {
         return Err(format!("Array too large: {count} elements"));
     }
-    let mut elements = Vec::with_capacity(count as usize);
+    let mut elements = Vec::with_capacity(usize::try_from(count).unwrap_or(0));
     for _ in 0..count {
         elements.push(parse_resp(reader).await?);
     }
@@ -294,7 +294,7 @@ async fn parse_verbatim_string<R: AsyncBufRead + Unpin>(
     if len > MAX_BULK_SIZE {
         return Err(format!("Verbatim string too large: {len} bytes"));
     }
-    let len = len as usize;
+    let len = usize::try_from(len).unwrap_or(0);
     let mut buf = vec![0u8; len];
     reader
         .read_exact(&mut buf)
@@ -335,7 +335,7 @@ async fn parse_map<R: AsyncBufRead + Unpin + Send>(
     if count > MAX_COLLECTION_LEN {
         return Err(format!("Map too large: {count} entries"));
     }
-    let mut pairs = Vec::with_capacity(count as usize);
+    let mut pairs = Vec::with_capacity(usize::try_from(count).unwrap_or(0));
     for _ in 0..count {
         let key = parse_resp(reader).await?;
         let value = parse_resp(reader).await?;
@@ -363,7 +363,7 @@ async fn parse_collection<R: AsyncBufRead + Unpin + Send>(
     if count > MAX_COLLECTION_LEN {
         return Err(format!("Collection too large: {count} elements"));
     }
-    let mut elements = Vec::with_capacity(count as usize);
+    let mut elements = Vec::with_capacity(usize::try_from(count).unwrap_or(0));
     for _ in 0..count {
         elements.push(parse_resp(reader).await?);
     }
@@ -555,7 +555,7 @@ mod tests {
 
     #[tokio::test]
     async fn resp3_double() {
-        assert_eq!(parse(b",3.14\r\n").await.unwrap(), RespValue::Double(3.14));
+        assert_eq!(parse(b",3.5\r\n").await.unwrap(), RespValue::Double(3.5));
     }
 
     #[tokio::test]
@@ -766,8 +766,8 @@ mod tests {
 
     #[tokio::test]
     async fn to_json_double() {
-        let v = RespValue::Double(3.14);
-        assert_eq!(v.to_json(), serde_json::json!(3.14));
+        let v = RespValue::Double(3.5);
+        assert_eq!(v.to_json(), serde_json::json!(3.5));
     }
 
     #[tokio::test]
