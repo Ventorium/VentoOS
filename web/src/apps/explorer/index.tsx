@@ -23,6 +23,7 @@ import type {
   VfsFileContent,
   VfsSourceKind,
 } from '@/infra/api'
+import { PathPickerInput } from '@/shell/FilePicker'
 
 // ─── Mount form ────────────────────────────────────────────────────────────
 
@@ -56,7 +57,10 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
           <option value="smb">SMB 共享</option>
           <option value="s3">S3 对象存储</option>
         </select>
-        <input className={fc} style={fs} placeholder={kind === 'local' ? '目录路径 (如 /home/user)' : '连接地址'} value={source} onChange={e => setSource(e.target.value)} />
+        {kind === 'local'
+          ? <PathPickerInput mode="directory" value={source} onChange={setSource} placeholder="选择目录" className={fc} style={fs} />
+          : <input className={fc} style={fs} placeholder="连接地址" value={source} onChange={e => setSource(e.target.value)} />
+        }
         <div className="flex justify-end gap-2 mt-1">
           <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }} onClick={onClose}>取消</button>
           <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-accent-primary)', color: '#fff' }} onClick={submit} disabled={saving}>{saving ? '添加中…' : '添加'}</button>

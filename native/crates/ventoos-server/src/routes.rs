@@ -215,6 +215,8 @@ pub fn create_router(state: AppState) -> Router {
         // SSH config import & key file listing
         .route("/api/ssh/config-hosts", get(list_ssh_config_hosts))
         .route("/api/ssh/key-files", get(list_ssh_key_files))
+        // Local filesystem browser (system capability for path picker)
+        .route("/api/fs/browse", get(browse_local_fs))
         // WebSocket (task events)
         .route("/ws", get(websocket::ws_handler))
         // WebShell WebSocket
@@ -1468,6 +1470,91 @@ async fn list_ssh_key_files() -> impl IntoResponse {
     // Sort: private keys first, then public
     files.sort_by(|a, b| a.is_public.cmp(&b.is_public).then(a.name.cmp(&b.name)));
     Json(ApiResponse::ok(files))
+}
+
+// ─── Local filesystem browse (system capability) ────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct FsBrowseQuery {
+    path: Option<String>,
+    /// If true, only return directories
+    dirs_only: Option<bool>,
+}
+
+#[derive(serde::Serialize)]
+struct LocalFsNode {
+    name: String,
+    path: String,
+    is_dir: bool,
+    size: Option<u64>,
+    modified: Option<String>,
+}
+
+async fn browse_local_fs(Query(query): Query<FsBrowseQuery>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
+    let raw_path = query.path.unwrap_or_else(|| home.clone());
+    let dirs_only = query.dirs_only.unwrap_or(false);
+
+    // Expand ~ to home directory
+    let expanded = if raw_path == "~" || raw_path.starts_with("~/") {
+        raw_path.replacen('~', &home, 1)
+    } else {
+        raw_path.clone()
+    };
+
+    let target = std::path::Path::new(&expanded);
+
+    if !target.exists() || !target.is_dir() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<Vec<LocalFsNode>>::err("Path does not exist or is not a directory")),
+        ).into_response();
+    }
+
+    let mut nodes: Vec<LocalFsNode> = Vec::new();
+
+    match tokio::fs::read_dir(target).await {
+        Ok(mut entries) => {
+            while let Ok(Some(entry)) = entries.next_entry().await {
+                let name = entry.file_name().to_string_lossy().to_string();
+                // Skip hidden files/dirs
+                if name.starts_with('.') {
+                    continue;
+                }
+                if let Ok(meta) = entry.metadata().await {
+                    let is_dir = meta.is_dir();
+                    if dirs_only && !is_dir {
+                        continue;
+                    }
+                    let size = if !is_dir { Some(meta.len()) } else { None };
+                    let modified = meta.modified().ok().map(|t| {
+                        let dt: chrono::DateTime<chrono::Utc> = t.into();
+                        dt.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                    });
+                    nodes.push(LocalFsNode {
+                        name,
+                        path: entry.path().to_string_lossy().to_string(),
+                        is_dir,
+                        size,
+                        modified,
+                    });
+                }
+            }
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<Vec<LocalFsNode>>::err(&e.to_string())),
+            ).into_response();
+        }
+    }
+
+    // Sort: directories first, then files, both alphabetically
+    nodes.sort_by(|a, b| {
+        b.is_dir.cmp(&a.is_dir).then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+
+    Json(ApiResponse::ok(nodes)).into_response()
 }
 
 #[cfg(test)]

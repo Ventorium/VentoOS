@@ -29,6 +29,7 @@ export type {
   K8sResourceKind,
   K8sTestResult,
   KubeconfigContext,
+  LocalFsNode,
   PortMapping,
   ProcessStatus,
   QueryResult,

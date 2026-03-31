@@ -382,6 +382,16 @@ export interface VfsFileContent {
   truncated: boolean
 }
 
+// ─── Local Filesystem Browse (system capability) ────────────────────────────
+
+export interface LocalFsNode {
+  name: string
+  path: string
+  is_dir: boolean
+  size?: number
+  modified?: string
+}
+
 // ─── AI Agent ──────────────────────────────────────────────────────────────
 
 export type AgentEngine = 'claude_code' | 'codex' | 'open_code' | 'custom'

@@ -22,6 +22,7 @@ import type {
   K8sResource,
   K8sResourceKind,
 } from '@/infra/api'
+import { PathPickerInput } from '@/shell/FilePicker'
 
 const RESOURCE_GROUPS: { label: string; icon: React.ReactNode; kinds: { kind: K8sResourceKind; label: string }[] }[] = [
   {
@@ -84,7 +85,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
       <div className="rounded-lg p-4 flex flex-col gap-3" style={{ width: 380, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}>
         <div className="text-sm font-medium">添加 Kubernetes 集群</div>
         <input className={fc} style={fs} placeholder="集群名称" value={name} onChange={e => setName(e.target.value)} />
-        <input className={fc} style={fs} placeholder="Kubeconfig 路径（默认：~/.kube/config）" value={kubeconfigPath} onChange={e => setKubeconfigPath(e.target.value)} />
+        <PathPickerInput mode="file" value={kubeconfigPath} onChange={setKubeconfigPath} placeholder="~/.kube/config（留空使用默认）" className={fc} style={fs} />
         <input className={fc} style={fs} placeholder="Context（可选）" value={context} onChange={e => setContext(e.target.value)} />
         <div className="flex justify-end gap-2 mt-1">
           <button type="button" className="text-xs px-3 py-1.5 rounded cursor-pointer border-none" style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }} onClick={onClose}>取消</button>

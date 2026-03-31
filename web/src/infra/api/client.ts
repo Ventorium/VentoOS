@@ -30,6 +30,7 @@ import type {
   K8sResourceKind,
   K8sTestResult,
   KubeconfigContext,
+  LocalFsNode,
   PortMapping,
   QueryResult,
   RedisCommandResult,
@@ -270,4 +271,13 @@ export const apiClient = {
 
   getSshConfigHosts: () => request<ApiResponse<SshConfigHost[]>>('GET', '/api/ssh/config-hosts'),
   getSshKeyFiles: () => request<ApiResponse<SshKeyFile[]>>('GET', '/api/ssh/key-files'),
+
+  // ── Local Filesystem Browse (system capability) ───────────────────────────
+
+  browseLocalFs: (path?: string, dirsOnly?: boolean) => {
+    const params = new URLSearchParams()
+    if (path) params.set('path', path)
+    if (dirsOnly) params.set('dirs_only', 'true')
+    return request<ApiResponse<LocalFsNode[]>>('GET', `/api/fs/browse?${params}`)
+  },
 }
