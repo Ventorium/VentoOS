@@ -213,13 +213,10 @@ async fn handle_ssh_shell(
 
 /// Parse resize message: "\x1b[resize:COLSxROWS"
 fn parse_resize(text: &str) -> Option<(u16, u16)> {
-    if let Some(rest) = text.strip_prefix("\x1b[resize:") {
-        let parts: Vec<&str> = rest.trim_end_matches(']').split('x').collect();
-        if parts.len() == 2 {
-            if let (Ok(cols), Ok(rows)) = (parts[0].parse::<u16>(), parts[1].parse::<u16>()) {
-                return Some((cols, rows));
-            }
-        }
-    }
-    None
+    let rest = text.strip_prefix("\x1b[resize:")?;
+    let inner = rest.trim_end_matches(']');
+    let mut parts = inner.splitn(2, 'x');
+    let cols = parts.next()?.parse::<u16>().ok()?;
+    let rows = parts.next()?.parse::<u16>().ok()?;
+    Some((cols, rows))
 }
