@@ -87,9 +87,6 @@ importers:
       '@doremijs/biome-config':
         specifier: ^0.2.1
         version: 0.2.1(@biomejs/biome@2.4.9)
-      '@doremijs/igit-cli':
-        specifier: 0.0.10-fix1
-        version: 0.0.10-fix1
       '@types/node':
         specifier: ^25.5.0
         version: 25.5.0
@@ -332,67 +329,6 @@ packages:
     resolution: {integrity: sha512-nqSw0dbOGGZk/zM4W9puQPCtblUjszgSTntuEaA1pqjaiR/8Yu2Dktjatnxn2iGN6qUue9Nq4hQi8LDfyiRAGw==}
     peerDependencies:
       '@biomejs/biome': ^2.0.0
-
-  '@doremijs/igit-cli@0.0.10-fix1':
-    resolution: {integrity: sha512-OArD7OjtTq13CF0iPYD3wkRGfAtzW4KQzZnGKA9gArpb4WoWalRzSWdhv6VJHXHi7qL3eKmobZv1XMJSW6k77A==}
-    engines: {node: '>=10.0.0'}
-    hasBin: true
-
-  '@doremijs/igit-core-darwin-arm64@0.0.10':
-    resolution: {integrity: sha512-ROF0U3teXlX1BOBO5Td2Z1GkV6iW/GTlAiscy9xhUVNPbeZql7edVLiM+Yoh77VdnEUQNM7ayhlBK8AfrVS31g==}
-    engines: {node: '>= 10'}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@doremijs/igit-core-darwin-x64@0.0.10':
-    resolution: {integrity: sha512-HfME7fbjvho/JxtQ4+9sf13l7uLfX06/2JHBNFkrTQptQHsC9Qms6jCKZqrokVQSMSRFOJxkjyzI8GmY+wlGMg==}
-    engines: {node: '>= 10'}
-    cpu: [x64]
-    os: [darwin]
-
-  '@doremijs/igit-core-linux-arm64-gnu@0.0.10':
-    resolution: {integrity: sha512-ogUdkDpenq4w1vV+gdjOzcLuj+iw2HpKo22eOFdAdMEnmhms8x6MO9+hH2oprWZwkgszrThHhPHh1FPKK8EKbw==}
-    engines: {node: '>= 10'}
-    cpu: [arm64]
-    os: [linux]
-    libc: [glibc]
-
-  '@doremijs/igit-core-linux-arm64-musl@0.0.10':
-    resolution: {integrity: sha512-7zPsJfAFN0+cfZzbdP8Kjfz4y5UlvN2pw0dtbreiznN96CfCvNUNpFIjX9PgVR0nN1y93cbbmJNed/kjWHLVOA==}
-    engines: {node: '>= 10'}
-    cpu: [arm64]
-    os: [linux]
-    libc: [musl]
-
-  '@doremijs/igit-core-linux-x64-gnu@0.0.10':
-    resolution: {integrity: sha512-gFlWiA+AK0QRWZ//3OtkR+pUtfhgDToYSFbXrTWbroWoKszbg8tDGyn85Y5C8vP8eGfOfPgr/ybzw7EfXedA5g==}
-    engines: {node: '>= 10'}
-    cpu: [x64]
-    os: [linux]
-    libc: [glibc]
-
-  '@doremijs/igit-core-linux-x64-musl@0.0.10':
-    resolution: {integrity: sha512-FaPVci/oemxi4ToEA7oSzW6qhS3xrwuc5Y8LvJX43E2ZecLT1oMa/MZg6moCkS4HEDQmLRJQic9kLUHKLxZ0lw==}
-    engines: {node: '>= 10'}
-    cpu: [x64]
-    os: [linux]
-    libc: [musl]
-
-  '@doremijs/igit-core-win32-arm64-msvc@0.0.10':
-    resolution: {integrity: sha512-ivVeMJPcxZR2r20JPVk+zOeEf7eN41iI0tlqwQbTi4pYsk11pnQ8VCIjXOGeVTknjUF+aegZyVL173gNl35dkA==}
-    engines: {node: '>= 10'}
-    cpu: [arm64]
-    os: [win32]
-
-  '@doremijs/igit-core-win32-x64-msvc@0.0.10':
-    resolution: {integrity: sha512-q6628HqOTjDl6gSP81qVbVkYtMfRBUHwLqXPgzdnDNx6f4kcjuCVW6ME7CCNOJ3a9tUWNlOtFfOEqMK7h8gyTg==}
-    engines: {node: '>= 10'}
-    cpu: [x64]
-    os: [win32]
-
-  '@doremijs/igit-core@0.0.10':
-    resolution: {integrity: sha512-IOMZlITfxjiLZeyeYoEZbB+Gzdtaq7pa981wWB+n4mulJlVtRcqD7aWl+Jw+stVyeF0701o6EOyoqwH8Qkinqg==}
-    engines: {node: '>= 10'}
 
   '@doremijs/o2t@0.1.10':
     resolution: {integrity: sha512-3l39FXYKxxaCh/ikeABHGOIulpcKT7objQ1eM/OXYChK3VSkamHBypjmaSrDFaqmwdK51J7E8yCV2sC9yTYr7Q==}
@@ -2920,45 +2856,6 @@ snapshots:
   '@doremijs/biome-config@0.2.1(@biomejs/biome@2.4.9)':
     dependencies:
       '@biomejs/biome': 2.4.9
-
-  '@doremijs/igit-cli@0.0.10-fix1':
-    dependencies:
-      '@doremijs/igit-core': 0.0.10
-
-  '@doremijs/igit-core-darwin-arm64@0.0.10':
-    optional: true
-
-  '@doremijs/igit-core-darwin-x64@0.0.10':
-    optional: true
-
-  '@doremijs/igit-core-linux-arm64-gnu@0.0.10':
-    optional: true
-
-  '@doremijs/igit-core-linux-arm64-musl@0.0.10':
-    optional: true
-
-  '@doremijs/igit-core-linux-x64-gnu@0.0.10':
-    optional: true
-
-  '@doremijs/igit-core-linux-x64-musl@0.0.10':
-    optional: true
-
-  '@doremijs/igit-core-win32-arm64-msvc@0.0.10':
-    optional: true
-
-  '@doremijs/igit-core-win32-x64-msvc@0.0.10':
-    optional: true
-
-  '@doremijs/igit-core@0.0.10':
-    optionalDependencies:
-      '@doremijs/igit-core-darwin-arm64': 0.0.10
-      '@doremijs/igit-core-darwin-x64': 0.0.10
-      '@doremijs/igit-core-linux-arm64-gnu': 0.0.10
-      '@doremijs/igit-core-linux-arm64-musl': 0.0.10
-      '@doremijs/igit-core-linux-x64-gnu': 0.0.10
-      '@doremijs/igit-core-linux-x64-musl': 0.0.10
-      '@doremijs/igit-core-win32-arm64-msvc': 0.0.10
-      '@doremijs/igit-core-win32-x64-msvc': 0.0.10
 
   '@doremijs/o2t@0.1.10':
     dependencies:

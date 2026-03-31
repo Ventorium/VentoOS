@@ -12,7 +12,7 @@ const statusIcon: Record<TaskItem['status'], React.ReactNode> = {
 }
 
 function TaskRow({ task }: { task: TaskItem }) {
-  const removeTask = useTaskStore(s => s.removeTask)
+  const removeTask = useTaskStore(s => s._removeTask)
 
   return (
     <div

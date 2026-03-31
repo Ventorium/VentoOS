@@ -279,6 +279,7 @@ export const apiClient = {
 
   getSshConfigHosts: () => request<ApiResponse<SshConfigHost[]>>('GET', '/api/ssh/config-hosts'),
   getSshKeyFiles: () => request<ApiResponse<SshKeyFile[]>>('GET', '/api/ssh/key-files'),
+  getSshConfigAliases: () => request<ApiResponse<string[]>>('GET', '/api/ssh/config-aliases'),
 
   // ── Local Filesystem Browse (system capability) ───────────────────────────
 

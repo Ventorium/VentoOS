@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use crate::types::Id;
 
 /// Task status following the state machine:
-/// queued -> running -> waiting_confirmation -> running -> success
-/// queued -> running -> failed / cancelled / partial_success
+/// queued -> running -> `waiting_confirmation` -> running -> success
+/// queued -> running -> failed / cancelled / `partial_success`
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {

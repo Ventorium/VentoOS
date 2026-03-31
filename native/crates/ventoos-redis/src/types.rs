@@ -83,3 +83,10 @@ pub struct RedisScanResult {
     pub keys: Vec<RedisKeyInfo>,
     pub finished: bool,
 }
+
+/// Pub/Sub message received from a Redis subscription.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PubSubMessage {
+    pub channel: String,
+    pub message: String,
+}

@@ -168,7 +168,7 @@ pub struct CreateServiceExposureRequest {
     pub basic_auth_password: Option<String>,
 }
 
-/// WebShell session request.
+/// `WebShell` session request.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WebShellRequest {
     /// "local" for local PTY, or SSH server ID for remote.
@@ -177,7 +177,7 @@ pub struct WebShellRequest {
     pub rows: Option<u16>,
 }
 
-/// WebShell target.
+/// `WebShell` target.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum WebShellTarget {
@@ -198,7 +198,9 @@ mod tests {
             host: "10.0.0.1".to_string(),
             port: 22,
             username: "root".to_string(),
-            auth_method: SshAuthMethod::Password { credential_id: None },
+            auth_method: SshAuthMethod::Password {
+                credential_id: None,
+            },
             group: Some("dev".to_string()),
             tags: vec!["linux".to_string()],
             status: SshServerStatus::Disconnected,

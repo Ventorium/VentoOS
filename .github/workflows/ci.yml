@@ -58,6 +58,9 @@ jobs:
         with:
           workspaces: native
 
+      - name: Create placeholder web dist (required for rust-embed compilation)
+        run: mkdir -p ../web/dist && echo '<html><body>VentoOS</body></html>' > ../web/dist/index.html
+
       - name: Format check
         run: cargo fmt --all -- --check
 

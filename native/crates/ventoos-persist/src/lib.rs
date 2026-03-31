@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 use tracing::info;
 
-/// The database manager handles SQLite persistence.
+/// The database manager handles `SQLite` persistence.
 pub struct Database {
     conn: Mutex<Connection>,
 }

@@ -58,6 +58,7 @@ export interface SshServer {
         credential_id?: string | null
         passphrase_credential_id?: string | null
       }
+    | { type: 'agent' }
   group?: string
   tags: string[]
   status: 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -329,6 +330,9 @@ export type K8sResourceKind =
   | 'serviceaccount'
   | 'networkpolicy'
   | 'node'
+  | 'replicaset'
+  | 'networkpolicy'
+  | 'serviceaccount'
 
 export interface K8sResource {
   name: string

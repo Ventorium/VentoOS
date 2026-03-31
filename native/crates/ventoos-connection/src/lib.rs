@@ -7,7 +7,7 @@ use ventoos_core::connection::{
     Connection, ConnectionStatus, ConnectionTestResult, CreateConnectionRequest, TunnelType,
     UpdateConnectionRequest,
 };
-use ventoos_core::types::{new_id, Id};
+use ventoos_core::types::{Id, new_id};
 
 /// Connection manager stores and manages connection definitions.
 pub struct ConnectionManager {

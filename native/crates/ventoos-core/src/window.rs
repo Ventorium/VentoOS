@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::Id;
 
-/// Window state in the WebOS shell.
+/// Window state in the `WebOS` shell.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum WindowStatus {

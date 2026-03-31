@@ -2,7 +2,7 @@
  * Desktop — Background layer with right-click context menu
  */
 
-import { useWindowStore } from '@/kernel'
+import { openWindow as openWindowFn, useWindowStore } from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
 import { useContextMenu } from '@/shell/ContextMenu/store'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
@@ -32,7 +32,7 @@ export default function Desktop() {
       label: '更换桌面背景',
       action: () => {
         // Open settings app to wallpaper section
-        useWindowStore.getState().openWindow('settings', '系统设置')
+        openWindowFn('settings')
       }
     },
     { type: 'separator' },

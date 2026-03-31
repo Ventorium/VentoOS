@@ -2,25 +2,48 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+use tokio::io::{AsyncWriteExt, BufReader};
+use tokio::net::TcpStream;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
-use crate::types::*;
+use crate::resp::{self, RespValue};
+use crate::types::{
+    CreateRedisConnectionReq, PubSubMessage, RedisCommandResult, RedisConnectionConfig,
+    RedisKeyInfo, RedisKeyValue, RedisScanReq, RedisScanResult, RedisServerInfo, RedisTestResult,
+};
 
-/// Redis connection manager.
-/// Manages multiple Redis connections and provides key browsing, value editing, etc.
-pub struct RedisManager {
-    configs: Arc<RwLock<HashMap<String, RedisConnectionConfig>>>,
-    /// Active connections keyed by config id.
-    connections: Arc<RwLock<HashMap<String, RedisConn>>>,
+// ── Internal types ──────────────────────────────────────────
+
+/// Data connection: BufReader-wrapped TCP stream for RESP parsing.
+struct RedisConn {
+    stream: Arc<tokio::sync::Mutex<BufReader<TcpStream>>>,
 }
 
-/// Internal Redis connection wrapper.
-/// Uses tokio TcpStream with RESP protocol for communication.
-struct RedisConn {
-    config: RedisConnectionConfig,
-    /// Simple RESP client using raw TCP.
-    stream: Arc<tokio::sync::Mutex<tokio::net::TcpStream>>,
+/// Pub/Sub background state for one connection id.
+struct PubSubState {
+    writer: Arc<tokio::sync::Mutex<tokio::net::tcp::OwnedWriteHalf>>,
+    tx: tokio::sync::broadcast::Sender<PubSubMessage>,
+    shutdown: tokio::sync::watch::Sender<bool>,
+    _handle: tokio::task::JoinHandle<()>,
+}
+
+/// MONITOR background state for one connection id.
+struct MonitorState {
+    tx: tokio::sync::broadcast::Sender<String>,
+    shutdown: tokio::sync::watch::Sender<bool>,
+    _handle: tokio::task::JoinHandle<()>,
+}
+
+/// Redis connection manager.
+///
+/// Manages multiple Redis connections and provides key browsing, value editing,
+/// command execution, Pub/Sub subscriptions, and MONITOR streaming.
+pub struct RedisManager {
+    configs: Arc<RwLock<HashMap<String, RedisConnectionConfig>>>,
+    connections: Arc<RwLock<HashMap<String, RedisConn>>>,
+    pub_sub_states: Arc<RwLock<HashMap<String, PubSubState>>>,
+    monitor_states: Arc<RwLock<HashMap<String, MonitorState>>>,
 }
 
 impl RedisManager {
@@ -28,6 +51,8 @@ impl RedisManager {
         Self {
             configs: Arc::new(RwLock::new(HashMap::new())),
             connections: Arc::new(RwLock::new(HashMap::new())),
+            pub_sub_states: Arc::new(RwLock::new(HashMap::new())),
+            monitor_states: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -60,7 +85,7 @@ impl RedisManager {
     }
 
     pub async fn delete_connection(&self, id: &str) -> bool {
-        self.connections.write().await.remove(id);
+        self.disconnect(id).await;
         self.configs.write().await.remove(id).is_some()
     }
 
@@ -69,29 +94,28 @@ impl RedisManager {
         let start = Instant::now();
 
         let addr = format!("{}:{}", config.host, config.port);
-        match tokio::net::TcpStream::connect(&addr).await {
+        match TcpStream::connect(&addr).await {
             Ok(mut stream) => {
-                // Send PING via raw RESP
-                use tokio::io::{AsyncReadExt, AsyncWriteExt};
-                let ping_cmd = "*1\r\n$4\r\nPING\r\n";
-                if stream.write_all(ping_cmd.as_bytes()).await.is_ok() {
-                    let mut buf = [0u8; 128];
-                    if let Ok(n) = stream.read(&mut buf).await {
-                        let response = String::from_utf8_lossy(&buf[..n]);
-                        if response.contains("PONG") || response.contains("+PONG") {
+                let cmd = resp::build_command(&["PING"]);
+                if stream.write_all(&cmd).await.is_ok() {
+                    let mut reader = BufReader::new(&mut stream);
+                    if let Ok(val) = resp::parse_resp(&mut reader).await {
+                        if val.is_ok() || val.as_str().is_some_and(|s| s.contains("PONG")) {
                             return Some(RedisTestResult {
                                 success: true,
                                 message: "PONG — Connected successfully".into(),
-                                latency_ms: Some(start.elapsed().as_millis() as u64),
+                                latency_ms: Some(elapsed_ms(&start)),
                                 server_info: None,
                             });
                         }
-                        // May need AUTH first
-                        if response.contains("NOAUTH") || response.contains("AUTH") {
+                        if val
+                            .as_str()
+                            .is_some_and(|s| s.contains("NOAUTH") || s.contains("AUTH"))
+                        {
                             return Some(RedisTestResult {
                                 success: true,
                                 message: "Server reachable (requires authentication)".into(),
-                                latency_ms: Some(start.elapsed().as_millis() as u64),
+                                latency_ms: Some(elapsed_ms(&start)),
                                 server_info: None,
                             });
                         }
@@ -100,20 +124,20 @@ impl RedisManager {
                 Some(RedisTestResult {
                     success: true,
                     message: "TCP connection established".into(),
-                    latency_ms: Some(start.elapsed().as_millis() as u64),
+                    latency_ms: Some(elapsed_ms(&start)),
                     server_info: None,
                 })
             }
             Err(e) => Some(RedisTestResult {
                 success: false,
                 message: format!("Cannot reach {addr}: {e}"),
-                latency_ms: Some(start.elapsed().as_millis() as u64),
+                latency_ms: Some(elapsed_ms(&start)),
                 server_info: None,
             }),
         }
     }
 
-    /// Connect to Redis (creates a session).
+    /// Connect to Redis (creates a data session). Attempts RESP3 upgrade.
     pub async fn connect(&self, id: &str) -> Result<(), String> {
         let config = self
             .configs
@@ -123,104 +147,251 @@ impl RedisManager {
             .cloned()
             .ok_or_else(|| "Connection not found".to_string())?;
 
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
-        let addr = format!("{}:{}", config.host, config.port);
-        let mut stream = tokio::net::TcpStream::connect(&addr)
-            .await
-            .map_err(|e| format!("Connection failed: {e}"))?;
+        let mut reader = Self::create_authenticated_stream(&config).await?;
 
-        // AUTH if password is set
-        if let Some(ref password) = config.password {
-            let auth_cmd = if let Some(ref username) = config.username {
-                format!(
-                    "*3\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n${}\r\n{}\r\n",
-                    username.len(), username, password.len(), password
-                )
-            } else {
-                format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", password.len(), password)
-            };
-            stream.write_all(auth_cmd.as_bytes()).await.map_err(|e| e.to_string())?;
-            let mut buf = [0u8; 256];
-            let n = stream.read(&mut buf).await.map_err(|e| e.to_string())?;
-            let resp = String::from_utf8_lossy(&buf[..n]);
-            if resp.contains("-ERR") {
-                return Err(format!("Auth failed: {resp}"));
+        // Try RESP3 upgrade (graceful fallback)
+        let hello_cmd = resp::build_command(&["HELLO", "3"]);
+        if reader.get_mut().write_all(&hello_cmd).await.is_ok() {
+            match resp::parse_resp(&mut reader).await {
+                Ok(val) if !val.is_error() => debug!("RESP3 upgrade succeeded for {id}"),
+                _ => debug!("RESP3 not supported for {id}, using RESP2"),
             }
         }
 
-        // SELECT db
-        if config.db > 0 {
-            let select_cmd = format!(
-                "*2\r\n$6\r\nSELECT\r\n${}\r\n{}\r\n",
-                config.db.to_string().len(),
-                config.db
-            );
-            stream.write_all(select_cmd.as_bytes()).await.map_err(|e| e.to_string())?;
-            let mut buf = [0u8; 128];
-            stream.read(&mut buf).await.map_err(|e| e.to_string())?;
-        }
-
         let conn = RedisConn {
-            config,
-            stream: Arc::new(tokio::sync::Mutex::new(stream)),
+            stream: Arc::new(tokio::sync::Mutex::new(reader)),
         };
         self.connections.write().await.insert(id.to_string(), conn);
         info!("Connected to Redis {id}");
         Ok(())
     }
 
+    /// Disconnect all sessions (data + pub/sub + monitor) for a connection.
     pub async fn disconnect(&self, id: &str) {
+        // Shutdown pub/sub
+        if let Some(state) = self.pub_sub_states.write().await.remove(id) {
+            let _ = state.shutdown.send(true);
+        }
+        // Shutdown monitor
+        if let Some(state) = self.monitor_states.write().await.remove(id) {
+            let _ = state.shutdown.send(true);
+        }
+        // Remove data connection
         self.connections.write().await.remove(id);
     }
 
-    /// Send raw RESP command and get response.
-    async fn send_command(conn: &RedisConn, args: &[&str]) -> Result<String, String> {
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    // ── Pub/Sub ─────────────────────────────────────────────
 
-        let mut cmd = format!("*{}\r\n", args.len());
-        for arg in args {
-            cmd.push_str(&format!("${}\r\n{}\r\n", arg.len(), arg));
+    /// Subscribe to Redis channels. Returns a broadcast receiver for messages.
+    ///
+    /// Creates a dedicated connection for subscriptions (separate from data).
+    pub async fn subscribe(
+        &self,
+        conn_id: &str,
+        channels: Vec<String>,
+    ) -> Result<tokio::sync::broadcast::Receiver<PubSubMessage>, String> {
+        if channels.is_empty() {
+            return Err("No channels specified".into());
         }
 
-        let mut stream = conn.stream.lock().await;
-        stream.write_all(cmd.as_bytes()).await.map_err(|e| e.to_string())?;
-
-        let mut buf = vec![0u8; 65536];
-        let n = stream.read(&mut buf).await.map_err(|e| e.to_string())?;
-        Ok(String::from_utf8_lossy(&buf[..n]).into_owned())
-    }
-
-    /// Parse a simple RESP response (handles +, -, :, $, * prefixes).
-    fn parse_resp_value(resp: &str) -> serde_json::Value {
-        let trimmed = resp.trim();
-        if trimmed.starts_with('+') {
-            serde_json::Value::String(trimmed[1..].trim().to_string())
-        } else if trimmed.starts_with('-') {
-            serde_json::Value::String(trimmed.to_string())
-        } else if trimmed.starts_with(':') {
-            if let Ok(n) = trimmed[1..].trim().parse::<i64>() {
-                serde_json::Value::Number(n.into())
-            } else {
-                serde_json::Value::String(trimmed.to_string())
-            }
-        } else if trimmed.starts_with("$-1") {
-            serde_json::Value::Null
-        } else if trimmed.starts_with('$') {
-            // Bulk string — extract value after \r\n
-            if let Some(pos) = trimmed.find("\r\n") {
-                let rest = &trimmed[pos + 2..];
-                if let Some(end) = rest.find("\r\n") {
-                    serde_json::Value::String(rest[..end].to_string())
-                } else {
-                    serde_json::Value::String(rest.trim().to_string())
+        // If already subscribed, add channels to existing connection
+        {
+            let states = self.pub_sub_states.read().await;
+            if let Some(state) = states.get(conn_id) {
+                let mut writer = state.writer.lock().await;
+                let mut args: Vec<&str> = vec!["SUBSCRIBE"];
+                for ch in &channels {
+                    args.push(ch);
                 }
-            } else {
-                serde_json::Value::String(trimmed.to_string())
+                let cmd = resp::build_command(&args);
+                writer.write_all(&cmd).await.map_err(|e| e.to_string())?;
+                return Ok(state.tx.subscribe());
             }
-        } else {
-            serde_json::Value::String(trimmed.to_string())
+        }
+
+        let config = self
+            .configs
+            .read()
+            .await
+            .get(conn_id)
+            .cloned()
+            .ok_or_else(|| "Connection not found".to_string())?;
+
+        let stream = Self::create_authenticated_tcp(&config).await?;
+        let (read_half, write_half) = stream.into_split();
+        let writer = Arc::new(tokio::sync::Mutex::new(write_half));
+
+        // Send SUBSCRIBE command
+        {
+            let mut w = writer.lock().await;
+            let mut args: Vec<&str> = vec!["SUBSCRIBE"];
+            for ch in &channels {
+                args.push(ch);
+            }
+            let cmd = resp::build_command(&args);
+            w.write_all(&cmd).await.map_err(|e| e.to_string())?;
+        }
+
+        // Read subscription confirmations
+        let mut sub_reader = BufReader::new(read_half);
+        for _ in 0..channels.len() {
+            let _ = resp::parse_resp(&mut sub_reader).await?;
+        }
+
+        let (tx, rx) = tokio::sync::broadcast::channel(256);
+        let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
+        let tx_clone = tx.clone();
+
+        let handle = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    result = resp::parse_resp(&mut sub_reader) => {
+                        match result {
+                            Ok(msg) => {
+                                if let Some(arr) = msg.into_array() {
+                                    if arr.len() >= 3 {
+                                        let kind = arr[0].as_str().unwrap_or("");
+                                        if kind == "message" {
+                                            let channel =
+                                                arr[1].as_str().unwrap_or("").to_string();
+                                            let message = arr[2].to_string_lossy();
+                                            let _ = tx_clone.send(PubSubMessage {
+                                                channel,
+                                                message,
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Pub/Sub reader error: {e}");
+                                break;
+                            }
+                        }
+                    }
+                    _ = shutdown_rx.changed() => break,
+                }
+            }
+        });
+
+        self.pub_sub_states.write().await.insert(
+            conn_id.to_string(),
+            PubSubState {
+                writer,
+                tx: tx.clone(),
+                shutdown: shutdown_tx,
+                _handle: handle,
+            },
+        );
+
+        Ok(rx)
+    }
+
+    /// Unsubscribe from channels (or all if `channels` is empty).
+    pub async fn unsubscribe(&self, conn_id: &str, channels: Vec<String>) -> Result<(), String> {
+        let states = self.pub_sub_states.read().await;
+        let state = states.get(conn_id).ok_or("No active subscription")?;
+        let mut writer = state.writer.lock().await;
+
+        let mut args: Vec<&str> = vec!["UNSUBSCRIBE"];
+        for ch in &channels {
+            args.push(ch);
+        }
+        let cmd = resp::build_command(&args);
+        writer.write_all(&cmd).await.map_err(|e| e.to_string())?;
+
+        if channels.is_empty() {
+            drop(writer);
+            drop(states);
+            if let Some(state) = self.pub_sub_states.write().await.remove(conn_id) {
+                let _ = state.shutdown.send(true);
+            }
+        }
+
+        Ok(())
+    }
+
+    // ── MONITOR ─────────────────────────────────────────────
+
+    /// Start MONITOR mode. Returns a broadcast receiver for command traces.
+    ///
+    /// Uses a dedicated connection.
+    pub async fn monitor(
+        &self,
+        conn_id: &str,
+    ) -> Result<tokio::sync::broadcast::Receiver<String>, String> {
+        {
+            let states = self.monitor_states.read().await;
+            if let Some(state) = states.get(conn_id) {
+                return Ok(state.tx.subscribe());
+            }
+        }
+
+        let config = self
+            .configs
+            .read()
+            .await
+            .get(conn_id)
+            .cloned()
+            .ok_or_else(|| "Connection not found".to_string())?;
+
+        let mut reader = Self::create_authenticated_stream(&config).await?;
+
+        let cmd = resp::build_command(&["MONITOR"]);
+        reader
+            .get_mut()
+            .write_all(&cmd)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let confirm = resp::parse_resp(&mut reader).await?;
+        if confirm.is_error() {
+            return Err(format!("MONITOR failed: {}", confirm.to_string_lossy()));
+        }
+
+        let (tx, rx) = tokio::sync::broadcast::channel(1024);
+        let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
+        let tx_clone = tx.clone();
+
+        let handle = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    result = resp::parse_resp(&mut reader) => {
+                        match result {
+                            Ok(val) => {
+                                let _ = tx_clone.send(val.to_string_lossy());
+                            }
+                            Err(e) => {
+                                warn!("MONITOR reader error: {e}");
+                                break;
+                            }
+                        }
+                    }
+                    _ = shutdown_rx.changed() => break,
+                }
+            }
+        });
+
+        self.monitor_states.write().await.insert(
+            conn_id.to_string(),
+            MonitorState {
+                tx: tx.clone(),
+                shutdown: shutdown_tx,
+                _handle: handle,
+            },
+        );
+
+        Ok(rx)
+    }
+
+    /// Stop MONITOR mode.
+    pub async fn stop_monitor(&self, conn_id: &str) {
+        if let Some(state) = self.monitor_states.write().await.remove(conn_id) {
+            let _ = state.shutdown.send(true);
         }
     }
+
+    // ── Key operations ──────────────────────────────────────
 
     /// Scan keys with cursor-based pagination.
     pub async fn scan_keys(
@@ -242,28 +413,27 @@ impl RedisManager {
 
         let resp = Self::send_command(conn, &args).await?;
 
-        // Parse SCAN response: *2\r\n$cursor_len\r\ncursor\r\n*count\r\n...
-        let lines: Vec<&str> = resp.split("\r\n").collect();
-        let mut cursor = "0".to_string();
-        let mut keys = Vec::new();
-
-        // Simple parsing — find cursor and keys
-        if lines.len() >= 4 {
-            // lines[0] = *2, lines[1] = $len, lines[2] = cursor value
-            cursor = lines[2].to_string();
-            // Parse keys array
-            for i in 4..lines.len() {
-                let line = lines[i];
-                if !line.is_empty() && !line.starts_with('*') && !line.starts_with('$') {
-                    keys.push(RedisKeyInfo {
-                        key: line.to_string(),
-                        key_type: "unknown".into(),
-                        ttl: -1,
-                        size: None,
-                    });
-                }
-            }
+        // SCAN returns: Array([BulkString(cursor), Array([key1, key2, ...])])
+        let arr = resp
+            .into_array()
+            .ok_or("Invalid SCAN response: expected array")?;
+        if arr.len() < 2 {
+            return Err("Invalid SCAN response: expected 2-element array".into());
         }
+
+        let cursor = arr[0].as_str().unwrap_or("0").to_string();
+        let keys = arr[1]
+            .clone()
+            .into_array()
+            .unwrap_or_default()
+            .iter()
+            .map(|k| RedisKeyInfo {
+                key: k.as_str().unwrap_or("").to_string(),
+                key_type: "unknown".into(),
+                ttl: -1,
+                size: None,
+            })
+            .collect();
 
         let finished = cursor == "0";
         Ok(RedisScanResult {
@@ -278,38 +448,33 @@ impl RedisManager {
         let connections = self.connections.read().await;
         let conn = connections.get(conn_id).ok_or("Not connected")?;
 
-        // Get type
         let type_resp = Self::send_command(conn, &["TYPE", key]).await?;
-        let key_type = Self::parse_resp_value(&type_resp);
-        let key_type_str = key_type.as_str().unwrap_or("string").to_string();
+        let key_type_str = type_resp.as_str().unwrap_or("string").to_string();
 
-        // Get TTL
         let ttl_resp = Self::send_command(conn, &["TTL", key]).await?;
-        let ttl = Self::parse_resp_value(&ttl_resp)
-            .as_i64()
-            .unwrap_or(-1);
+        let ttl = ttl_resp.as_i64().unwrap_or(-1);
 
-        // Get value based on type
         let value = match key_type_str.as_str() {
             "string" => {
-                let resp = Self::send_command(conn, &["GET", key]).await?;
-                Self::parse_resp_value(&resp)
+                let r = Self::send_command(conn, &["GET", key]).await?;
+                r.to_json()
             }
             "list" => {
-                let resp = Self::send_command(conn, &["LRANGE", key, "0", "999"]).await?;
-                Self::parse_resp_value(&resp)
+                let r = Self::send_command(conn, &["LRANGE", key, "0", "999"]).await?;
+                r.to_json()
             }
             "set" => {
-                let resp = Self::send_command(conn, &["SMEMBERS", key]).await?;
-                Self::parse_resp_value(&resp)
+                let r = Self::send_command(conn, &["SMEMBERS", key]).await?;
+                r.to_json()
             }
             "hash" => {
-                let resp = Self::send_command(conn, &["HGETALL", key]).await?;
-                Self::parse_resp_value(&resp)
+                let r = Self::send_command(conn, &["HGETALL", key]).await?;
+                r.to_json()
             }
             "zset" => {
-                let resp = Self::send_command(conn, &["ZRANGE", key, "0", "999", "WITHSCORES"]).await?;
-                Self::parse_resp_value(&resp)
+                let r =
+                    Self::send_command(conn, &["ZRANGE", key, "0", "999", "WITHSCORES"]).await?;
+                r.to_json()
             }
             _ => serde_json::Value::Null,
         };
@@ -333,23 +498,26 @@ impl RedisManager {
         let conn = connections.get(conn_id).ok_or("Not connected")?;
         let start = Instant::now();
 
-        // Parse command string into args
         let args: Vec<&str> = command.split_whitespace().collect();
         if args.is_empty() {
             return Err("Empty command".into());
         }
 
         let resp = Self::send_command(conn, &args).await?;
-        let value = Self::parse_resp_value(&resp);
-
         Ok(RedisCommandResult {
-            result: value,
-            execution_time_ms: start.elapsed().as_millis() as u64,
+            result: resp.to_json(),
+            execution_time_ms: elapsed_ms(&start),
         })
     }
 
     /// Set a key value.
-    pub async fn set_key(&self, conn_id: &str, key: &str, value: &str, ttl: Option<i64>) -> Result<(), String> {
+    pub async fn set_key(
+        &self,
+        conn_id: &str,
+        key: &str,
+        value: &str,
+        ttl: Option<i64>,
+    ) -> Result<(), String> {
         let connections = self.connections.read().await;
         let conn = connections.get(conn_id).ok_or("Not connected")?;
 
@@ -373,8 +541,7 @@ impl RedisManager {
         let conn = connections.get(conn_id).ok_or("Not connected")?;
 
         let resp = Self::send_command(conn, &["DEL", key]).await?;
-        let val = Self::parse_resp_value(&resp);
-        Ok(val.as_i64().unwrap_or(0) > 0)
+        Ok(resp.as_i64().unwrap_or(0) > 0)
     }
 
     /// Get server info.
@@ -383,32 +550,98 @@ impl RedisManager {
         let conn = connections.get(conn_id).ok_or("Not connected")?;
 
         let resp = Self::send_command(conn, &["INFO", "server"]).await?;
-        let info_str = resp.lines()
-            .filter(|l| !l.starts_with('$') && !l.starts_with('+') && !l.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        fn extract_field(info: &str, field: &str) -> String {
-            info.lines()
-                .find(|l| l.starts_with(field))
-                .and_then(|l| l.split(':').nth(1))
-                .unwrap_or("")
-                .trim()
-                .to_string()
-        }
+        let info_str = resp.to_string_lossy();
 
         Ok(RedisServerInfo {
-            version: extract_field(&info_str, "redis_version"),
-            connected_clients: extract_field(&info_str, "connected_clients")
+            version: extract_redis_field(&info_str, "redis_version"),
+            connected_clients: extract_redis_field(&info_str, "connected_clients")
                 .parse()
                 .unwrap_or(0),
-            used_memory_human: extract_field(&info_str, "used_memory_human"),
-            total_keys: 0, // Would need INFO keyspace
-            uptime_days: extract_field(&info_str, "uptime_in_days")
+            used_memory_human: extract_redis_field(&info_str, "used_memory_human"),
+            total_keys: 0,
+            uptime_days: extract_redis_field(&info_str, "uptime_in_days")
                 .parse()
                 .unwrap_or(0),
         })
     }
+
+    // ── Internal helpers ────────────────────────────────────
+
+    /// Send a RESP command on a data connection and parse the response.
+    async fn send_command(conn: &RedisConn, args: &[&str]) -> Result<RespValue, String> {
+        let cmd = resp::build_command(args);
+        let mut stream = conn.stream.lock().await;
+        stream
+            .get_mut()
+            .write_all(&cmd)
+            .await
+            .map_err(|e| format!("Write error: {e}"))?;
+        resp::parse_resp(&mut *stream).await
+    }
+
+    /// Create a raw `TcpStream` with AUTH + SELECT already performed.
+    async fn create_authenticated_tcp(config: &RedisConnectionConfig) -> Result<TcpStream, String> {
+        let reader = Self::create_authenticated_stream(config).await?;
+        Ok(reader.into_inner())
+    }
+
+    /// Create a `BufReader<TcpStream>` with AUTH + SELECT already performed.
+    async fn create_authenticated_stream(
+        config: &RedisConnectionConfig,
+    ) -> Result<BufReader<TcpStream>, String> {
+        let addr = format!("{}:{}", config.host, config.port);
+        let stream = TcpStream::connect(&addr)
+            .await
+            .map_err(|e| format!("Connection failed: {e}"))?;
+        let mut reader = BufReader::new(stream);
+
+        if let Some(ref password) = config.password {
+            let args: Vec<&str> = if let Some(ref username) = config.username {
+                vec!["AUTH", username, password]
+            } else {
+                vec!["AUTH", password]
+            };
+            let cmd = resp::build_command(&args);
+            reader
+                .get_mut()
+                .write_all(&cmd)
+                .await
+                .map_err(|e| e.to_string())?;
+            let r = resp::parse_resp(&mut reader).await?;
+            if r.is_error() {
+                return Err(format!("Auth failed: {}", r.to_string_lossy()));
+            }
+        }
+
+        if config.db > 0 {
+            let db_str = config.db.to_string();
+            let cmd = resp::build_command(&["SELECT", &db_str]);
+            reader
+                .get_mut()
+                .write_all(&cmd)
+                .await
+                .map_err(|e| e.to_string())?;
+            let r = resp::parse_resp(&mut reader).await?;
+            if r.is_error() {
+                return Err(format!("SELECT failed: {}", r.to_string_lossy()));
+            }
+        }
+
+        Ok(reader)
+    }
+}
+
+fn extract_redis_field(info: &str, field: &str) -> String {
+    info.lines()
+        .find(|l| l.starts_with(field))
+        .and_then(|l| l.split(':').nth(1))
+        .unwrap_or("")
+        .trim()
+        .to_string()
+}
+
+fn elapsed_ms(start: &Instant) -> u64 {
+    u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 impl Default for RedisManager {
@@ -459,5 +692,55 @@ mod tests {
             .await;
         assert!(mgr.delete_connection(&conn.id).await);
         assert!(mgr.get_connection(&conn.id).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_default_connection_values() {
+        let mgr = RedisManager::new();
+        let conn = mgr
+            .create_connection(CreateRedisConnectionReq {
+                name: "defaults".into(),
+                host: "10.0.0.1".into(),
+                port: None,
+                password: None,
+                username: None,
+                db: None,
+                group: None,
+                ssl_enabled: None,
+            })
+            .await;
+        assert_eq!(conn.port, 6379);
+        assert_eq!(conn.db, 0);
+        assert!(!conn.ssl_enabled);
+        assert!(conn.password.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_extract_redis_field() {
+        let info = "redis_version:7.0.5\r\nredis_mode:standalone\r\nuptime_in_days:42\r\n";
+        assert_eq!(extract_redis_field(info, "redis_version"), "7.0.5");
+        assert_eq!(extract_redis_field(info, "uptime_in_days"), "42");
+        assert_eq!(extract_redis_field(info, "missing_field"), "");
+    }
+
+    #[tokio::test]
+    async fn test_list_connections_sorted() {
+        let mgr = RedisManager::new();
+        for name in ["charlie", "alice", "bob"] {
+            mgr.create_connection(CreateRedisConnectionReq {
+                name: name.into(),
+                host: "localhost".into(),
+                port: None,
+                password: None,
+                username: None,
+                db: None,
+                group: None,
+                ssl_enabled: None,
+            })
+            .await;
+        }
+        let list = mgr.list_connections().await;
+        let names: Vec<&str> = list.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["alice", "bob", "charlie"]);
     }
 }

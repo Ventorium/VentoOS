@@ -1,17 +1,13 @@
-use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::response::IntoResponse;
-use tokio::sync::broadcast;
 use tracing::{info, warn};
+use ventoos_core::ws::{ClientMessage, ServerMessage};
 
 use crate::state::AppState;
-use ventoos_task::TaskEvent;
 
 /// WebSocket upgrade handler.
-pub async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
@@ -24,16 +20,16 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
         tokio::select! {
             // Forward task events to the WebSocket client
             Ok(event) = task_rx.recv() => {
-                let msg = serde_json::json!({
-                    "type": "task_event",
-                    "data": {
-                        "task_id": event.task_id.to_string(),
-                        "status": event.status,
-                        "progress": event.progress,
-                        "message": event.message,
-                    }
-                });
-                if socket.send(Message::Text(msg.to_string().into())).await.is_err() {
+                let msg = ServerMessage::TaskUpdate {
+                    task_id: event.task_id.to_string(),
+                    status: serde_json::to_value(&event.status)
+                        .ok()
+                        .and_then(|v| v.as_str().map(String::from))
+                        .unwrap_or_else(|| format!("{:?}", event.status)),
+                    progress: event.progress,
+                    message: event.message,
+                };
+                if socket.send(Message::Text(msg.to_json().into())).await.is_err() {
                     break;
                 }
             }
@@ -41,11 +37,27 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
             Some(msg) = recv_msg(&mut socket) => {
                 match msg {
                     Ok(Message::Text(text)) => {
-                        info!("Received message: {text}");
-                        // Handle client messages (ping, subscribe, etc.)
-                        if text.as_str() == "ping" {
-                            if socket.send(Message::Text("pong".into())).await.is_err() {
-                                break;
+                        match serde_json::from_str::<ClientMessage>(&text) {
+                            Ok(ClientMessage::Ping) => {
+                                let pong = ServerMessage::Pong;
+                                if socket.send(Message::Text(pong.to_json().into())).await.is_err() {
+                                    break;
+                                }
+                            }
+                            Ok(ClientMessage::Subscribe { channel }) => {
+                                info!("Client subscribed to channel: {channel}");
+                                // TODO: manage subscription channels
+                            }
+                            Ok(ClientMessage::Unsubscribe { channel }) => {
+                                info!("Client unsubscribed from channel: {channel}");
+                                // TODO: manage subscription channels
+                            }
+                            Ok(ClientMessage::AppMessage { app_id, payload }) => {
+                                info!("App message for {app_id}: {payload}");
+                                // TODO: forward to appropriate plugin
+                            }
+                            Err(e) => {
+                                warn!("Failed to parse client message: {e}");
                             }
                         }
                     }
@@ -67,13 +79,4 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
 
 async fn recv_msg(socket: &mut WebSocket) -> Option<Result<Message, axum::Error>> {
     socket.recv().await
-}
-
-fn _format_event(event: &TaskEvent) -> String {
-    serde_json::json!({
-        "type": "task_event",
-        "task_id": event.task_id.to_string(),
-        "status": event.status,
-    })
-    .to_string()
 }

@@ -14,6 +14,7 @@ import { useNotificationStore } from '@/services/notification'
 import { useSettingsStore } from '@/services/settings'
 import { useTaskStore } from '@/services/task'
 import { useAISidePanelStore } from '@/shell/AISidePanel/store'
+
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { tokens } from '@/theme'
@@ -53,7 +54,12 @@ function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void 
             {app.author.email && ` <${app.author.email}>`}
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
-            <button type="button" className="vos-btn vos-btn-primary" style={{ minWidth: 80, textAlign: 'center' }} onClick={onClose}>
+            <button
+              type="button"
+              className="vos-btn vos-btn-primary"
+              style={{ minWidth: 80, textAlign: 'center' }}
+              onClick={onClose}
+            >
               好
             </button>
           </div>

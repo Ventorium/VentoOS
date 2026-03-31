@@ -73,7 +73,11 @@ fn dirs_next() -> Option<PathBuf> {
         std::env::var("XDG_DATA_HOME")
             .ok()
             .map(PathBuf::from)
-            .or_else(|| std::env::var("HOME").ok().map(|h| PathBuf::from(h).join(".local").join("share")))
+            .or_else(|| {
+                std::env::var("HOME")
+                    .ok()
+                    .map(|h| PathBuf::from(h).join(".local").join("share"))
+            })
     }
     #[cfg(target_os = "windows")]
     {

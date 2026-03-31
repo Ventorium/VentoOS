@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Universal identifier type used across VentoOS.
+/// Universal identifier type used across `VentoOS`.
 pub type Id = Uuid;
 
 /// Generate a new unique ID.

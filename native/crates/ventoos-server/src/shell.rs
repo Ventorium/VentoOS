@@ -1,11 +1,11 @@
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
 use axum::response::IntoResponse;
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use serde::Deserialize;
 use std::io::{Read, Write};
 use tokio::sync::mpsc;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::state::AppState;
 
@@ -17,7 +17,7 @@ pub struct ShellQuery {
     pub rows: Option<u16>,
 }
 
-/// WebSocket upgrade handler for WebShell.
+/// WebSocket upgrade handler for `WebShell`.
 pub async fn ws_shell_handler(
     ws: WebSocketUpgrade,
     Query(query): Query<ShellQuery>,
@@ -35,7 +35,7 @@ async fn handle_shell(
     target: String,
     cols: u16,
     rows: u16,
-    _state: AppState,
+    state: AppState,
 ) {
     if target == "local" {
         handle_local_shell(&mut socket, cols, rows).await;
@@ -43,12 +43,12 @@ async fn handle_shell(
         // SSH shell target — parse server_id
         match uuid::Uuid::parse_str(&target) {
             Ok(server_id) => {
-                handle_ssh_shell(&mut socket, server_id, cols, rows, _state).await;
+                handle_ssh_shell(&mut socket, server_id, cols, rows, state).await;
             }
             Err(_) => {
                 let _ = socket
                     .send(Message::Text(
-                        format!("\r\nError: Invalid target '{}'\r\n", target).into(),
+                        format!("\r\nError: Invalid target '{target}'\r\n").into(),
                     ))
                     .await;
             }
@@ -110,13 +110,12 @@ async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16) {
         let mut buf = [0u8; 4096];
         loop {
             match reader.read(&mut buf) {
-                Ok(0) => break,
+                Ok(0) | Err(_) => break,
                 Ok(n) => {
                     if tx.blocking_send(buf[..n].to_vec()).is_err() {
                         break;
                     }
                 }
-                Err(_) => break,
             }
         }
     });
@@ -175,23 +174,20 @@ async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16) {
 async fn handle_ssh_shell(
     socket: &mut WebSocket,
     server_id: uuid::Uuid,
-    cols: u16,
-    rows: u16,
+    _cols: u16,
+    _rows: u16,
     state: AppState,
 ) {
     info!("Starting SSH shell session for server {server_id}");
 
     // Look up server from SSH manager
-    let server = match state.ssh.get_server(server_id).await {
-        Some(s) => s,
-        None => {
-            let _ = socket
-                .send(Message::Text(
-                    "\r\nError: SSH server not found\r\n".to_string().into(),
-                ))
-                .await;
-            return;
-        }
+    let Some(server) = state.ssh.get_server(server_id).await else {
+        let _ = socket
+            .send(Message::Text(
+                "\r\nError: SSH server not found\r\n".to_string().into(),
+            ))
+            .await;
+        return;
     };
 
     let _ = socket
@@ -217,13 +213,10 @@ async fn handle_ssh_shell(
 
 /// Parse resize message: "\x1b[resize:COLSxROWS"
 fn parse_resize(text: &str) -> Option<(u16, u16)> {
-    if let Some(rest) = text.strip_prefix("\x1b[resize:") {
-        let parts: Vec<&str> = rest.trim_end_matches(']').split('x').collect();
-        if parts.len() == 2 {
-            if let (Ok(cols), Ok(rows)) = (parts[0].parse::<u16>(), parts[1].parse::<u16>()) {
-                return Some((cols, rows));
-            }
-        }
-    }
-    None
+    let rest = text.strip_prefix("\x1b[resize:")?;
+    let inner = rest.trim_end_matches(']');
+    let mut parts = inner.splitn(2, 'x');
+    let cols = parts.next()?.parse::<u16>().ok()?;
+    let rows = parts.next()?.parse::<u16>().ok()?;
+    Some((cols, rows))
 }

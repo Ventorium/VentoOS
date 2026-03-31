@@ -6,11 +6,14 @@ edition.workspace = true
 [dependencies]
 ventoos-core = { workspace = true }
 tokio = { workspace = true }
+axum = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 rusqlite = { workspace = true }
+tokio-postgres = { workspace = true }
+mysql_async = { workspace = true }
 
 [lints]
 workspace = true

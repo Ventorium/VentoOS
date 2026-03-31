@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Top-level error type for VentoOS.
+/// Top-level error type for `VentoOS`.
 #[derive(Debug, Error)]
 pub enum VentoError {
     #[error("Connection error: {0}")]

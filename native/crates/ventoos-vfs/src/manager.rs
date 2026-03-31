@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
-use tracing::info;
 
-use crate::types::*;
+use crate::types::{
+    CreateVfsMountReq, VfsFileContent, VfsListReq, VfsMount, VfsNode, VfsReadReq, VfsSourceKind,
+};
 
 /// Virtual file system manager.
 /// Currently supports local filesystem; remote sources (SFTP, S3, SMB) are stubs.
@@ -85,8 +86,9 @@ impl VfsManager {
         };
 
         let mut entries = Vec::new();
-        let mut read_dir =
-            tokio::fs::read_dir(&full).await.map_err(|e| format!("Read dir failed: {e}"))?;
+        let mut read_dir = tokio::fs::read_dir(&full)
+            .await
+            .map_err(|e| format!("Read dir failed: {e}"))?;
 
         while let Ok(Some(entry)) = read_dir.next_entry().await {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -95,15 +97,14 @@ impl VfsManager {
                 continue;
             }
             let metadata = entry.metadata().await.ok();
-            let is_dir = metadata.as_ref().is_some_and(|m| m.is_dir());
-            let size = metadata.as_ref().and_then(|m| if m.is_file() { Some(m.len()) } else { None });
-            let modified = metadata
+            let is_dir = metadata.as_ref().is_some_and(std::fs::Metadata::is_dir);
+            let size = metadata
                 .as_ref()
-                .and_then(|m| m.modified().ok())
-                .map(|t| {
-                    let dt: chrono::DateTime<chrono::Utc> = t.into();
-                    dt.to_rfc3339()
-                });
+                .and_then(|m| if m.is_file() { Some(m.len()) } else { None });
+            let modified = metadata.as_ref().and_then(|m| m.modified().ok()).map(|t| {
+                let dt: chrono::DateTime<chrono::Utc> = t.into();
+                dt.to_rfc3339()
+            });
 
             let entry_path = if rel_path.is_empty() || rel_path == "/" {
                 format!("/{name}")
@@ -142,7 +143,10 @@ impl VfsManager {
             .ok_or("Mount not found")?;
 
         match mount.kind {
-            VfsSourceKind::Local => self.read_local_file(&mount.root, &req.path, req.max_bytes).await,
+            VfsSourceKind::Local => {
+                self.read_local_file(&mount.root, &req.path, req.max_bytes)
+                    .await
+            }
             _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
@@ -212,7 +216,7 @@ impl VfsManager {
 
         let truncated = bytes.len() as u64 > limit;
         let slice = if truncated {
-            &bytes[..limit as usize]
+            &bytes[..usize::try_from(limit).unwrap_or(usize::MAX)]
         } else {
             &bytes
         };
@@ -222,7 +226,7 @@ impl VfsManager {
         let is_binary = slice[..check_len].contains(&0);
 
         let content = if is_binary {
-            format!("[Binary file, {} bytes]", file_size)
+            format!("[Binary file, {file_size} bytes]")
         } else {
             String::from_utf8_lossy(slice).into_owned()
         };

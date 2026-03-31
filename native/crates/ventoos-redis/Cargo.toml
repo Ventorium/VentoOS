@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 ventoos-core = { workspace = true }
 tokio = { workspace = true }
+axum = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

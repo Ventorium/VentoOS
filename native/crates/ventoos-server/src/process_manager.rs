@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use tokio::sync::RwLock;
 use ventoos_core::process::{CreateProcessRequest, ProcessStatus, VProcess};
@@ -50,6 +50,7 @@ impl ProcessManager {
     }
 
     /// Get a single process by PID.
+    #[allow(dead_code)]
     pub async fn get(&self, pid: u32) -> Option<VProcess> {
         self.processes.read().await.get(&pid).cloned()
     }
@@ -57,11 +58,12 @@ impl ProcessManager {
     /// Suspend a running process (e.g., when window is minimized).
     pub async fn suspend(&self, pid: u32) -> bool {
         let mut map = self.processes.write().await;
-        if let Some(proc) = map.get_mut(&pid) {
-            if proc.status == ProcessStatus::Running {
-                proc.status = ProcessStatus::Suspended;
-                return true;
-            }
+        let Some(proc) = map.get_mut(&pid) else {
+            return false;
+        };
+        if proc.status == ProcessStatus::Running {
+            proc.status = ProcessStatus::Suspended;
+            return true;
         }
         false
     }
@@ -69,11 +71,12 @@ impl ProcessManager {
     /// Resume a suspended process.
     pub async fn resume(&self, pid: u32) -> bool {
         let mut map = self.processes.write().await;
-        if let Some(proc) = map.get_mut(&pid) {
-            if proc.status == ProcessStatus::Suspended {
-                proc.status = ProcessStatus::Running;
-                return true;
-            }
+        let Some(proc) = map.get_mut(&pid) else {
+            return false;
+        };
+        if proc.status == ProcessStatus::Suspended {
+            proc.status = ProcessStatus::Running;
+            return true;
         }
         false
     }
@@ -81,11 +84,12 @@ impl ProcessManager {
     /// Terminate a process (mark as terminated — not removed from map for audit trail).
     pub async fn terminate(&self, pid: u32) -> bool {
         let mut map = self.processes.write().await;
-        if let Some(proc) = map.get_mut(&pid) {
-            if proc.status != ProcessStatus::Terminated {
-                proc.status = ProcessStatus::Terminated;
-                return true;
-            }
+        let Some(proc) = map.get_mut(&pid) else {
+            return false;
+        };
+        if proc.status != ProcessStatus::Terminated {
+            proc.status = ProcessStatus::Terminated;
+            return true;
         }
         false
     }

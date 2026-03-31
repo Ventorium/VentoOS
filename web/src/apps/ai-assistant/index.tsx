@@ -60,14 +60,24 @@ export default function AIAssistantApp(_props: AppComponentProps) {
     setSending(true)
 
     // Optimistic user message
-    const userMsg: ChatMessage = { role: 'user', content: text, timestamp: new Date().toISOString() }
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: text,
+      timestamp: new Date().toISOString()
+    }
     setMessages(prev => [...prev, userMsg])
 
     try {
       const r = await apiClient.agentChat({ message: text, session_id: currentSession ?? undefined })
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: r.data.message, timestamp: new Date().toISOString() }
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: r.data.message.content,
+          timestamp: new Date().toISOString()
+        }
       ])
       if (!currentSession && r.data.session_id) {
         setCurrentSession(r.data.session_id)
@@ -76,7 +86,12 @@ export default function AIAssistantApp(_props: AppComponentProps) {
     } catch (e) {
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Sorry, something went wrong.', timestamp: new Date().toISOString() }
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: 'Sorry, something went wrong.',
+          timestamp: new Date().toISOString()
+        }
       ])
       console.error(e)
     }

@@ -4,11 +4,11 @@ use std::sync::Arc;
 use chrono::Utc;
 use tokio::sync::RwLock;
 use ventoos_core::ssh::{
-    CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest,
-    PortMapping, PortMappingStatus, ServiceExposure, ServiceExposureStatus, ServiceSourceType,
-    SshServer, SshServerStatus, UpdateSshServerRequest,
+    CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest, PortMapping,
+    PortMappingStatus, ServiceExposure, ServiceExposureStatus, SshServer, SshServerStatus,
+    UpdateSshServerRequest,
 };
-use ventoos_core::types::{new_id, Id};
+use ventoos_core::types::{Id, new_id};
 
 /// SSH server manager — CRUD + port mapping + service exposure management.
 pub struct SshManager {
@@ -244,7 +244,7 @@ pub struct SshServerTestResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ventoos_core::ssh::SshAuthMethod;
+    use ventoos_core::ssh::{ServiceSourceType, SshAuthMethod};
 
     #[tokio::test]
     async fn test_create_and_list_servers() {
@@ -255,7 +255,9 @@ mod tests {
                 host: "10.0.0.1".to_string(),
                 port: None,
                 username: "root".to_string(),
-                auth_method: SshAuthMethod::Password { credential_id: None },
+                auth_method: SshAuthMethod::Password {
+                    credential_id: None,
+                },
                 group: Some("dev".to_string()),
                 tags: None,
                 password: None,
@@ -279,7 +281,9 @@ mod tests {
                 host: "10.0.0.1".to_string(),
                 port: Some(22),
                 username: "root".to_string(),
-                auth_method: SshAuthMethod::Password { credential_id: None },
+                auth_method: SshAuthMethod::Password {
+                    credential_id: None,
+                },
                 group: None,
                 tags: None,
                 password: None,
@@ -318,7 +322,9 @@ mod tests {
                 host: "10.0.0.1".to_string(),
                 port: None,
                 username: "root".to_string(),
-                auth_method: SshAuthMethod::Password { credential_id: None },
+                auth_method: SshAuthMethod::Password {
+                    credential_id: None,
+                },
                 group: None,
                 tags: None,
                 password: None,
@@ -339,7 +345,9 @@ mod tests {
                 host: "10.0.0.1".to_string(),
                 port: None,
                 username: "root".to_string(),
-                auth_method: SshAuthMethod::Password { credential_id: None },
+                auth_method: SshAuthMethod::Password {
+                    credential_id: None,
+                },
                 group: None,
                 tags: None,
                 password: None,

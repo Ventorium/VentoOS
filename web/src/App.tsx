@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useThemeSync } from '@/hooks/useTheme'
 import { authService, useAuthStore } from '@/services/auth'
 import AISidePanel from '@/shell/AISidePanel'
+
 import CommandPalette from '@/shell/CommandPalette'
 import ContextMenu from '@/shell/ContextMenu'
 import Desktop from '@/shell/Desktop'
@@ -16,7 +17,7 @@ import WindowManager from '@/shell/WindowManager'
 
 function App() {
   useThemeSync()
-  const { token, initialized, locked, setInitialized } = useAuthStore()
+  const { token, locked, setInitialized } = useAuthStore()
 
   // On mount: check auth status from backend, auto-unlock if token is valid
   useEffect(() => {
