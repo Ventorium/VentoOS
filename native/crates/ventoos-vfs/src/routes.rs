@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 
 use ventoos_core::plugin::AppPlugin;
@@ -12,7 +12,7 @@ use ventoos_core::types::ApiResponse;
 use crate::manager::VfsManager;
 use crate::types::{
     CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsListReq, VfsMkdirReq, VfsMount, VfsMoveReq,
-    VfsReadReq, VfsSearchReq, VfsWriteReq,
+    VfsReadReq, VfsSearchReq, VfsWriteReq, WebDavServerSettings,
 };
 
 /// VFS (Explorer) application plugin.
@@ -32,6 +32,10 @@ impl AppPlugin for VfsPlugin {
     }
 
     fn routes(&self) -> Router {
+        let mgr = self.manager.clone();
+        // Build the WebDAV server sub-router (handles /webdav/* paths)
+        let webdav_sub = crate::webdav_server::webdav_router();
+
         Router::new()
             .route("/api/vfs/mounts", get(list_mounts).post(create_mount))
             .route("/api/vfs/mounts/test-connection", post(test_connection_handler))
@@ -47,6 +51,13 @@ impl AppPlugin for VfsPlugin {
             .route("/api/vfs/mounts/{id}/upload", post(upload_handler))
             .route("/api/vfs/mounts/{id}/stat", get(stat_handler))
             .route("/api/vfs/mounts/{id}/search", get(search_handler))
+            // WebDAV server settings
+            .route(
+                "/api/vfs/webdav-server/settings",
+                get(get_webdav_settings).put(put_webdav_settings),
+            )
+            // Merge WebDAV server routes (handles /webdav/*)
+            .merge(webdav_sub)
             .with_state(self.manager.clone())
     }
 }
@@ -371,4 +382,20 @@ async fn search_handler(
         Ok(nodes) => Json(ApiResponse::ok(nodes)).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
+}
+
+// ─── WebDAV server settings handlers ─────────────────────────────────────────
+
+async fn get_webdav_settings(
+    State(mgr): State<Arc<VfsManager>>,
+) -> Json<ApiResponse<WebDavServerSettings>> {
+    Json(ApiResponse::ok(mgr.webdav_server_settings().await))
+}
+
+async fn put_webdav_settings(
+    State(mgr): State<Arc<VfsManager>>,
+    Json(settings): Json<WebDavServerSettings>,
+) -> Json<ApiResponse<WebDavServerSettings>> {
+    mgr.update_webdav_server_settings(settings).await;
+    Json(ApiResponse::ok(mgr.webdav_server_settings().await))
 }

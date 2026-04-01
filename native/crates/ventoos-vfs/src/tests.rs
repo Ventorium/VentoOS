@@ -327,3 +327,101 @@ async fn test_delete_mount() {
     let fetched = manager.get_mount(&mount.id).await;
     assert!(fetched.is_none());
 }
+
+// ─── WebDAV Unit Tests ────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_webdav_config_parse() {
+    use crate::webdav::WebDavConfig;
+    let cfg = WebDavConfig::parse("webdav://user:pass@example.com/dav").unwrap();
+    assert_eq!(cfg.base_url, "http://example.com/dav/");
+    assert_eq!(cfg.username.as_deref(), Some("user"));
+}
+
+#[tokio::test]
+async fn test_webdav_config_parse_https() {
+    use crate::webdav::WebDavConfig;
+    let cfg = WebDavConfig::parse("webdavs://example.com:443/dav/").unwrap();
+    assert_eq!(cfg.base_url, "https://example.com:443/dav/");
+    assert!(cfg.username.is_none());
+}
+
+#[tokio::test]
+async fn test_validate_mount_name() {
+    use crate::types::validate_mount_name;
+    assert!(validate_mount_name("My Documents").is_none(), "valid name");
+    assert!(validate_mount_name("").is_some(), "empty should fail");
+    assert!(validate_mount_name("a/b").is_some(), "slash should fail");
+    assert!(validate_mount_name("a\\b").is_some(), "backslash should fail");
+    assert!(validate_mount_name(" leading").is_some(), "leading space should fail");
+    assert!(validate_mount_name("trailing ").is_some(), "trailing space should fail");
+    let long = "a".repeat(101);
+    assert!(validate_mount_name(&long).is_some(), "too long should fail");
+}
+
+#[tokio::test]
+async fn test_webdav_server_settings_default() {
+    let manager = VfsManager::new();
+    let settings = manager.webdav_server_settings().await;
+    assert!(!settings.enabled);
+    assert!(settings.exposed_mounts.is_empty());
+}
+
+#[tokio::test]
+async fn test_webdav_server_settings_update() {
+    use crate::types::WebDavServerSettings;
+    let manager = VfsManager::new();
+    manager
+        .update_webdav_server_settings(WebDavServerSettings {
+            enabled: true,
+            username: "testuser".to_string(),
+            password: "testpass".to_string(),
+            exposed_mounts: vec!["mount-1".to_string()],
+        })
+        .await;
+    let settings = manager.webdav_server_settings().await;
+    assert!(settings.enabled);
+    assert_eq!(settings.username, "testuser");
+    assert_eq!(settings.exposed_mounts, vec!["mount-1"]);
+}
+
+// These tests require a real WebDAV server; run with `--ignored`
+fn webdav_host() -> String {
+    std::env::var("WEBDAV_URL")
+        .unwrap_or_else(|_| "webdav://demo.sabre.io/".to_string())
+}
+
+#[tokio::test]
+#[ignore = "requires public WebDAV server access"]
+async fn test_webdav_list_root() {
+    let manager = VfsManager::new();
+    let mount = manager
+        .create_mount(CreateVfsMountReq {
+            name: "test-webdav".to_string(),
+            kind: VfsSourceKind::WebDav,
+            root: webdav_host(),
+            connection_id: None,
+            group: None,
+        })
+        .await;
+
+    let result = manager
+        .list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/".to_string() })
+        .await;
+    assert!(result.is_ok(), "WebDAV list_dir failed: {:?}", result.err());
+}
+
+#[tokio::test]
+#[ignore = "requires public WebDAV server access"]
+async fn test_webdav_test_connection() {
+    let manager = VfsManager::new();
+    let req = CreateVfsMountReq {
+        name: "test-webdav-conn".to_string(),
+        kind: VfsSourceKind::WebDav,
+        root: webdav_host(),
+        connection_id: None,
+        group: None,
+    };
+    let result = manager.test_connection(&req).await;
+    assert!(result.is_ok(), "WebDAV test_connection failed: {:?}", result.err());
+}
