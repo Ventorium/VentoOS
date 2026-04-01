@@ -18,6 +18,9 @@ mime_guess = { workspace = true }
 rustls = { workspace = true }
 tokio-rustls = { workspace = true }
 webpki-roots = { workspace = true }
+reqwest = { workspace = true }
+base64 = { workspace = true }
+quick-xml = { version = "0.37", features = ["serialize"] }
 ring = "0.17"
 
 [lints]

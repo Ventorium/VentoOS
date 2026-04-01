@@ -360,7 +360,7 @@ export interface KubeconfigContext {
 
 // ─── VFS ───────────────────────────────────────────────────────────────────
 
-export type VfsSourceKind = 'local' | 'sftp' | 'ftp' | 'smb' | 's3'
+export type VfsSourceKind = 'local' | 'sftp' | 'ftp' | 'smb' | 's3' | 'webdav'
 
 export interface VfsMount {
   id: string
@@ -399,6 +399,13 @@ export interface VfsFileContent {
 export interface VfsWriteReq {
   path: string
   content: string
+}
+
+export interface WebDavServerSettings {
+  enabled: boolean
+  username: string
+  password: string
+  exposed_mounts: string[]
 }
 
 // ─── Local Filesystem Browse (system capability) ────────────────────────────

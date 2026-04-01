@@ -9,6 +9,50 @@ pub enum VfsSourceKind {
     Ftp,
     Smb,
     S3,
+    WebDav,
+}
+
+/// Settings for the built-in WebDAV server that exposes mounts to external clients.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebDavServerSettings {
+    /// Whether the WebDAV server is enabled.
+    pub enabled: bool,
+    /// HTTP Basic Auth username for the WebDAV server.
+    pub username: String,
+    /// HTTP Basic Auth password for the WebDAV server.
+    pub password: String,
+    /// List of mount IDs to expose through the WebDAV server.
+    pub exposed_mounts: Vec<String>,
+}
+
+impl Default for WebDavServerSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            username: "webdav".to_string(),
+            password: String::new(),
+            exposed_mounts: Vec::new(),
+        }
+    }
+}
+
+/// Validates that a mount name is safe to use as a WebDAV directory path segment.
+/// Returns `None` if valid, or an error message if invalid.
+pub fn validate_mount_name(name: &str) -> Option<String> {
+    if name.is_empty() {
+        return Some("名称不能为空".to_string());
+    }
+    if name.len() > 100 {
+        return Some("名称不能超过 100 个字符".to_string());
+    }
+    if name != name.trim() {
+        return Some("名称不能以空格开头或结尾".to_string());
+    }
+    let forbidden: &[char] = &['/', '\\', ':', '*', '?', '"', '<', '>', '|', '\0'];
+    if let Some(c) = name.chars().find(|c| forbidden.contains(c)) {
+        return Some(format!("名称不能包含字符 '{c}'"));
+    }
+    None
 }
 
 /// A mount source configuration.

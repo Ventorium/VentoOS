@@ -12,6 +12,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  Globe,
   HardDrive,
   Key,
   Loader2,
@@ -27,7 +28,7 @@ import {
   X
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CreateVfsMountReq, SshConfigHost, SshKeyFile, VfsFileContent, VfsMount, VfsNode, VfsSourceKind } from '@/infra/api'
+import type { CreateVfsMountReq, SshConfigHost, SshKeyFile, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow } from '@/kernel'
@@ -79,6 +80,15 @@ function parseMountFields(mount: { kind: VfsSourceKind; root: string }) {
       result.secretKey = decodeURIComponent(url.password)
       result.region = url.searchParams.get('region') ?? ''
       result.endpoint = url.searchParams.get('endpoint') ?? ''
+    } else if (mount.kind === 'webdav') {
+      // webdav://user:pass@host:port/basePath  or  webdavs://...
+      const normalized = mount.root.replace(/^webdavs:\/\//, 'https://').replace(/^webdav:\/\//, 'http://')
+      const url = new URL(normalized)
+      result.host = url.hostname
+      result.port = url.port
+      result.username = decodeURIComponent(url.username)
+      result.password = decodeURIComponent(url.password)
+      result.basePath = url.pathname || '/'
     }
   } catch { /* ignore parse errors */ }
   return result
@@ -99,15 +109,21 @@ function MountForm({
   const initial = mountToEdit ? parseMountFields(mountToEdit) : null
 
   const [name, setName] = useState(mountToEdit?.name ?? '')
+  const [nameError, setNameError] = useState<string | null>(null)
   const [kind, setKind] = useState<VfsSourceKind>(mountToEdit?.kind ?? 'local')
   // local
   const [localPath, setLocalPath] = useState(initial?.localPath ?? '')
-  // sftp / ftp
+  // sftp / ftp / webdav
   const [host, setHost] = useState(initial?.host ?? '')
   const [port, setPort] = useState(initial?.port ?? '')
   const [username, setUsername] = useState(initial?.username ?? '')
   const [password, setPassword] = useState(initial?.password ?? '')
   const [basePath, setBasePath] = useState(initial?.basePath ?? '/')
+  // webdav
+  const [useHttps, setUseHttps] = useState(() => {
+    if (mountToEdit?.kind === 'webdav') return mountToEdit.root.startsWith('webdavs://')
+    return false
+  })
   const [authMethod, setAuthMethod] = useState<'password' | 'private_key'>('password')
   const [privateKeyPath, setPrivateKeyPath] = useState('')
   const [privateKeyPassphrase, setPrivateKeyPassphrase] = useState('')
@@ -135,6 +151,19 @@ function MountForm({
     background: 'var(--vos-bg-input)',
     color: 'var(--vos-text-primary)',
     border: '0.5px solid var(--vos-border-subtle)'
+  }
+
+  const validateName = (v: string): string | null => {
+    if (!v) return '名称不能为空'
+    if (v.length > 100) return '名称不能超过 100 个字符'
+    if (v !== v.trim()) return '名称不能以空格开头或结尾'
+    if (/[/\\:*?"<>|]/.test(v)) return '名称不能包含 / \\ : * ? " < > | 等字符'
+    return null
+  }
+
+  const handleNameChange = (v: string) => {
+    setName(v)
+    setNameError(validateName(v))
   }
 
   const buildRoot = (): string => {
@@ -169,13 +198,19 @@ function MountForm({
         const auth = accessKey ? `${encodeURIComponent(accessKey)}:${encodeURIComponent(secretKey)}@` : ''
         return `s3://${auth}${bucket}${qs}`
       }
+      case 'webdav': {
+        const scheme = useHttps ? 'webdavs' : 'webdav'
+        const p = port || (useHttps ? '443' : '80')
+        const auth = username ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
+        return `${scheme}://${auth}${host}:${p}${basePath || '/'}`
+      }
       default:
         return ''
     }
   }
 
   const isValid = (): boolean => {
-    if (!name) return false
+    if (!name || nameError) return false
     switch (kind) {
       case 'local':
         return !!localPath
@@ -186,6 +221,8 @@ function MountForm({
         return !!host
       case 's3':
         return !!bucket
+      case 'webdav':
+        return !!host
       default:
         return false
     }
@@ -264,13 +301,17 @@ function MountForm({
         style={{ width: 400, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
       >
         <div className="text-sm font-medium">{isEditing ? '编辑数据源' : '添加数据源'}</div>
-        <input className={fc} style={fs} placeholder="名称" value={name} onChange={e => setName(e.target.value)} />
+        <div>
+          <input className={fc} style={fs} placeholder="名称" value={name} onChange={e => handleNameChange(e.target.value)} />
+          {nameError && <div className="text-xs mt-0.5" style={{ color: 'var(--vos-accent-danger)' }}>{nameError}</div>}
+        </div>
         <select className={fc} style={fs} value={kind} onChange={e => setKind(e.target.value as VfsSourceKind)}>
           <option value="local">本地磁盘</option>
           <option value="sftp">SFTP</option>
           <option value="ftp">FTP</option>
           <option value="smb">SMB 共享</option>
           <option value="s3">S3 对象存储</option>
+          <option value="webdav">WebDAV</option>
         </select>
 
         {/* ── Local disk ── */}
@@ -525,6 +566,55 @@ function MountForm({
           </>
         )}
 
+        {/* ── WebDAV ── */}
+        {kind === 'webdav' && (
+          <>
+            <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+              <input type="checkbox" checked={useHttps} onChange={e => setUseHttps(e.target.checked)} />
+              使用 HTTPS（webdavs://）
+            </label>
+            <div className="flex gap-2">
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="主机地址"
+                value={host}
+                onChange={e => setHost(e.target.value)}
+              />
+              <input
+                className={fc}
+                style={{ ...fs, width: 72 }}
+                placeholder={useHttps ? '443' : '80'}
+                value={port}
+                onChange={e => setPort(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="用户名（可选）"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+              />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                type="password"
+                placeholder="密码（可选）"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
+            </div>
+            <input
+              className={fc}
+              style={fs}
+              placeholder="基础路径（如 /remote.php/dav/files/admin/）"
+              value={basePath}
+              onChange={e => setBasePath(e.target.value)}
+            />
+          </>
+        )}
         <div className="flex flex-col gap-2 mt-1">
           {testResult && (
             <div
@@ -615,6 +705,164 @@ function MountForm({
   )
 }
 
+// ─── WebDAV Server Settings Panel ──────────────────────────────────────────
+
+function WebDavServerPanel({
+  mounts,
+  onClose
+}: {
+  mounts: { id: string; name: string }[]
+  onClose: () => void
+}) {
+  const [settings, setSettings] = useState<WebDavServerSettings>({
+    enabled: false,
+    username: '',
+    password: '',
+    exposed_mounts: []
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
+  const fs = {
+    background: 'var(--vos-bg-input)',
+    color: 'var(--vos-text-primary)',
+    border: '0.5px solid var(--vos-border-subtle)'
+  }
+
+  useEffect(() => {
+    apiClient.getWebDavServerSettings().then(r => {
+      setSettings(r.data)
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+
+  const toggleMount = (id: string) => {
+    setSettings(prev => ({
+      ...prev,
+      exposed_mounts: prev.exposed_mounts.includes(id)
+        ? prev.exposed_mounts.filter(m => m !== id)
+        : [...prev.exposed_mounts, id]
+    }))
+  }
+
+  const save = async () => {
+    setSaving(true)
+    setSaved(false)
+    try {
+      const r = await apiClient.updateWebDavServerSettings(settings)
+      setSettings(r.data)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
+      <div
+        className="rounded-lg p-4 flex flex-col gap-3"
+        style={{ width: 420, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-medium">WebDAV 服务器设置</div>
+          <button
+            type="button"
+            className="bg-transparent border-none cursor-pointer p-0"
+            style={{ color: 'var(--vos-text-tertiary)' }}
+            onClick={onClose}
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 size={16} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+          </div>
+        ) : (
+          <>
+            <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+              <input
+                type="checkbox"
+                checked={settings.enabled}
+                onChange={e => setSettings(s => ({ ...s, enabled: e.target.checked }))}
+              />
+              启用 WebDAV 服务器（通过 /webdav 路径访问）
+            </label>
+
+            {settings.enabled && (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    className={fc}
+                    style={{ ...fs, flex: 1 }}
+                    placeholder="访问用户名（留空则无需认证）"
+                    value={settings.username}
+                    onChange={e => setSettings(s => ({ ...s, username: e.target.value }))}
+                  />
+                  <input
+                    className={fc}
+                    style={{ ...fs, flex: 1 }}
+                    type="password"
+                    placeholder="访问密码"
+                    value={settings.password}
+                    onChange={e => setSettings(s => ({ ...s, password: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <div className="text-xs mb-1.5" style={{ color: 'var(--vos-text-secondary)' }}>
+                    暴露的存储源（勾选后可通过 WebDAV 访问）：
+                  </div>
+                  <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
+                    {mounts.length === 0 && (
+                      <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>暂无存储源</div>
+                    )}
+                    {mounts.map(m => (
+                      <label key={m.id} className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+                        <input
+                          type="checkbox"
+                          checked={settings.exposed_mounts.includes(m.id)}
+                          onChange={() => toggleMount(m.id)}
+                        />
+                        {m.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="flex justify-end gap-2 mt-1">
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                onClick={onClose}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+                style={{ background: 'var(--vos-accent-primary)', color: '#fff', opacity: saving ? 0.6 : 1 }}
+                onClick={save}
+                disabled={saving}
+              >
+                {saving ? '保存中…' : saved ? '已保存 ✓' : '保存'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Confirm Dialog ────────────────────────────────────────────────────────
 
 function ConfirmDialog({
@@ -683,7 +931,8 @@ const kindMeta: Record<VfsSourceKind, { icon: typeof Monitor; label: string }> =
   sftp: { icon: HardDrive, label: 'SFTP' },
   ftp: { icon: HardDrive, label: 'FTP' },
   smb: { icon: HardDrive, label: 'SMB' },
-  s3: { icon: HardDrive, label: 'S3' }
+  s3: { icon: HardDrive, label: 'S3' },
+  webdav: { icon: Globe, label: 'WebDAV' }
 }
 
 // ─── Column item ───────────────────────────────────────────────────────────
@@ -1438,6 +1687,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
   const [mounts, setMounts] = useState<VfsMount[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingMount, setEditingMount] = useState<VfsMount | null>(null)
+  const [showWebDavSettings, setShowWebDavSettings] = useState(false)
   const [selectedMount, setSelectedMount] = useState<string | null>(null)
   const [columns, setColumns] = useState<ColumnData[]>([])
   const [preview, setPreview] = useState<VfsFileContent | null>(null)
@@ -2295,6 +2545,13 @@ export default function ExplorerApp(_props: AppComponentProps) {
         />
       )}
 
+      {showWebDavSettings && (
+        <WebDavServerPanel
+          mounts={mounts.map(m => ({ id: m.id, name: m.name }))}
+          onClose={() => setShowWebDavSettings(false)}
+        />
+      )}
+
       {/* New folder overlay */}
       {newFolderState.visible && (
         <div
@@ -2442,6 +2699,15 @@ export default function ExplorerApp(_props: AppComponentProps) {
               title="刷新"
             >
               <RefreshCw size={11} />
+            </button>
+            <button
+              type="button"
+              className="bg-transparent border-none cursor-pointer p-0"
+              title="WebDAV 服务器设置"
+              style={{ color: 'var(--vos-text-tertiary)' }}
+              onClick={() => setShowWebDavSettings(true)}
+            >
+              <Globe size={11} />
             </button>
             <button
               type="button"

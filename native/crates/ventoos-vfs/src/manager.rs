@@ -9,16 +9,18 @@ use crate::smb::SmbMountManager;
 use crate::types::{
     CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq,
     VfsMount, VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
+    WebDavServerSettings,
 };
 
 /// Virtual file system manager.
-/// Supports local, SFTP, FTP, S3, and SMB (OS-native mount) file systems.
+/// Supports local, SFTP, FTP, S3, SMB (OS-native mount), and WebDAV file systems.
 pub struct VfsManager {
     mounts: Arc<RwLock<HashMap<String, VfsMount>>>,
     sftp_pool: SftpPool,
     ssh_provider: Option<Arc<dyn SshInfoProvider>>,
     ftp_pool: FtpPool,
     smb_manager: SmbMountManager,
+    webdav_server_settings: Arc<RwLock<WebDavServerSettings>>,
 }
 
 impl VfsManager {
@@ -29,6 +31,7 @@ impl VfsManager {
             ssh_provider: None,
             ftp_pool: FtpPool::new(),
             smb_manager: SmbMountManager::new(),
+            webdav_server_settings: Arc::new(RwLock::new(WebDavServerSettings::default())),
         }
     }
 
@@ -40,9 +43,20 @@ impl VfsManager {
             ssh_provider: Some(provider),
             ftp_pool: FtpPool::new(),
             smb_manager: SmbMountManager::new(),
+            webdav_server_settings: Arc::new(RwLock::new(WebDavServerSettings::default())),
         }
     }
 
+    // ─── WebDAV server settings ──────────────────────────────────────────────
+
+    pub async fn webdav_server_settings(&self) -> WebDavServerSettings {
+        self.webdav_server_settings.read().await.clone()
+    }
+
+    pub async fn update_webdav_server_settings(&self, settings: WebDavServerSettings) {
+        *self.webdav_server_settings.write().await = settings;
+    }
+  
     /// Expand `~` to the user's home directory in a path string.
     /// Only applies to paths starting with `~` or `~/`.
     fn expand_tilde(path: &str) -> String {
@@ -229,6 +243,12 @@ impl VfsManager {
                 let root_str = local_root.to_string_lossy().to_string();
                 self.list_local_dir(&root_str, &req.path, req.show_hidden).await
             }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                client.list_dir(&req.path).await
+            }
         }
     }
 
@@ -341,6 +361,13 @@ impl VfsManager {
                 let root_str = local_root.to_string_lossy().to_string();
                 self.read_local_file(&root_str, &req.path, req.max_bytes).await
             }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                let raw = client.read_file(&req.path, req.max_bytes).await?;
+                Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
+            }
         }
     }
 
@@ -382,6 +409,12 @@ impl VfsManager {
                     self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
                 let root_str = local_root.to_string_lossy().to_string();
                 self.move_local(&root_str, &req.src, &req.dest).await
+            }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                client.move_file(&req.src, &req.dest).await
             }
         }
     }
@@ -426,6 +459,12 @@ impl VfsManager {
                 let root_str = local_root.to_string_lossy().to_string();
                 self.copy_local(&root_str, &req.src, &req.dest).await
             }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                client.copy_file(&req.src, &req.dest).await
+            }
         }
     }
 
@@ -461,6 +500,12 @@ impl VfsManager {
                     self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
                 let root_str = local_root.to_string_lossy().to_string();
                 self.mkdir_local(&root_str, &req.path).await
+            }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                client.mkdir(&req.path).await
             }
         }
     }
@@ -499,6 +544,12 @@ impl VfsManager {
                     self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
                 let root_str = local_root.to_string_lossy().to_string();
                 self.delete_local(&root_str, &req.path).await
+            }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                client.delete(&req.path).await
             }
         }
     }
@@ -539,6 +590,12 @@ impl VfsManager {
                 let root_str = local_root.to_string_lossy().to_string();
                 self.write_local_file(&root_str, &req.path, &req.content).await
             }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                client.write_file(&req.path, req.content.as_bytes().to_vec()).await
+            }
         }
     }
 
@@ -578,6 +635,12 @@ impl VfsManager {
                 let root_str = local_root.to_string_lossy().to_string();
                 self.upload_local_file(&root_str, path, &data).await
             }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                client.write_file(path, data).await
+            }
         }
     }
 
@@ -611,6 +674,12 @@ impl VfsManager {
                     self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
                 let root_str = local_root.to_string_lossy().to_string();
                 self.stat_local(&root_str, path).await
+            }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                client.stat(path).await
             }
         }
     }
@@ -658,6 +727,20 @@ impl VfsManager {
                 let root_str = local_root.to_string_lossy().to_string();
                 self.search_local(&root_str, &req.path, &req.query, req.max_results)
                     .await
+            }
+            VfsSourceKind::WebDav => {
+                // WebDAV has no native search; enumerate and filter by name
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                let all = client.list_dir(&req.path).await?;
+                let query_lower = req.query.to_lowercase();
+                let max = req.max_results.unwrap_or(100);
+                Ok(all
+                    .into_iter()
+                    .filter(|n| n.name.to_lowercase().contains(&query_lower))
+                    .take(max)
+                    .collect())
             }
         }
     }
@@ -778,6 +861,12 @@ impl VfsManager {
                     self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
                 let root_str = local_root.to_string_lossy().to_string();
                 self.read_local_file_raw(&root_str, path).await
+            }
+            VfsSourceKind::WebDav => {
+                let client = crate::webdav::WebDavClient::new(
+                    crate::webdav::WebDavConfig::parse(&mount.root)?,
+                );
+                client.read_file(path, None).await
             }
         }
     }

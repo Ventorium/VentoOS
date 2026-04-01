@@ -55,7 +55,8 @@ import type {
   VfsFileContent,
   VfsMount,
   VfsNode,
-  VProcess
+  VProcess,
+  WebDavServerSettings
 } from './types'
 
 // ─── Token provider (set by services/auth at boot) ─────────────────────────
@@ -315,6 +316,12 @@ export const apiClient = {
     if (maxResults) params.set('max_results', String(maxResults))
     return request<ApiResponse<VfsNode[]>>('GET', `/api/vfs/mounts/${mountId}/search?${params}`)
   },
+
+  // WebDAV server settings
+  getWebDavServerSettings: () =>
+    request<ApiResponse<WebDavServerSettings>>('GET', '/api/vfs/webdav-server/settings'),
+  updateWebDavServerSettings: (body: WebDavServerSettings) =>
+    request<ApiResponse<WebDavServerSettings>>('PUT', '/api/vfs/webdav-server/settings', body),
 
   // ── AI Agent ──────────────────────────────────────────────────────────────
 
