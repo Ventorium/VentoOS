@@ -27,6 +27,7 @@ impl SessionStore {
         provider_id: Option<String>,
         model: Option<String>,
         system_prompt: Option<String>,
+        agent_profile_id: Option<String>,
     ) -> ChatSession {
         let now = chrono::Utc::now().to_rfc3339();
         let session = ChatSession {
@@ -35,6 +36,7 @@ impl SessionStore {
             provider_id,
             model,
             system_prompt,
+            agent_profile_id,
             messages: Vec::new(),
             created_at: now.clone(),
             updated_at: now,
@@ -84,6 +86,7 @@ impl SessionStore {
         provider_id: Option<String>,
         model: Option<String>,
         system_prompt: Option<String>,
+        agent_profile_id: Option<String>,
     ) -> (ChatSession, bool) {
         if let Some(id) = session_id
             && let Some(session) = self.get(id).await {
@@ -93,7 +96,14 @@ impl SessionStore {
         let id = session_id.map_or_else(|| uuid::Uuid::new_v4().to_string(), String::from);
 
         let session = self
-            .create(id, title.to_string(), provider_id, model, system_prompt)
+            .create(
+                id,
+                title.to_string(),
+                provider_id,
+                model,
+                system_prompt,
+                agent_profile_id,
+            )
             .await;
         (session, true)
     }
@@ -131,6 +141,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .await;
         assert_eq!(session.id, "s1");
@@ -142,7 +153,7 @@ mod tests {
     async fn test_get_session() {
         let store = SessionStore::new();
         store
-            .create("s1".into(), "Test".into(), None, None, None)
+            .create("s1".into(), "Test".into(), None, None, None, None)
             .await;
         let session = store.get("s1").await;
         assert!(session.is_some());
@@ -153,10 +164,10 @@ mod tests {
     async fn test_list_sessions() {
         let store = SessionStore::new();
         store
-            .create("s1".into(), "First".into(), None, None, None)
+            .create("s1".into(), "First".into(), None, None, None, None)
             .await;
         store
-            .create("s2".into(), "Second".into(), None, None, None)
+            .create("s2".into(), "Second".into(), None, None, None, None)
             .await;
         let list = store.list().await;
         assert_eq!(list.len(), 2);
@@ -166,7 +177,7 @@ mod tests {
     async fn test_delete_session() {
         let store = SessionStore::new();
         store
-            .create("s1".into(), "Test".into(), None, None, None)
+            .create("s1".into(), "Test".into(), None, None, None, None)
             .await;
         assert!(store.delete("s1").await);
         assert!(!store.delete("s1").await);
@@ -177,7 +188,7 @@ mod tests {
     async fn test_push_message() {
         let store = SessionStore::new();
         store
-            .create("s1".into(), "Test".into(), None, None, None)
+            .create("s1".into(), "Test".into(), None, None, None, None)
             .await;
 
         let msg = AgentMessage::user("Hello");
@@ -193,7 +204,7 @@ mod tests {
     async fn test_get_or_create_new() {
         let store = SessionStore::new();
         let (session, created) = store
-            .get_or_create(None, "New Session", None, None, None)
+            .get_or_create(None, "New Session", None, None, None, None)
             .await;
         assert!(created);
         assert!(!session.id.is_empty());
@@ -203,10 +214,10 @@ mod tests {
     async fn test_get_or_create_existing() {
         let store = SessionStore::new();
         store
-            .create("s1".into(), "Existing".into(), None, None, None)
+            .create("s1".into(), "Existing".into(), None, None, None, None)
             .await;
         let (session, created) = store
-            .get_or_create(Some("s1"), "Ignored", None, None, None)
+            .get_or_create(Some("s1"), "Ignored", None, None, None, None)
             .await;
         assert!(!created);
         assert_eq!(session.title, "Existing");

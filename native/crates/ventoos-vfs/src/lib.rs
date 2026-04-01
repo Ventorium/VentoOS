@@ -6,10 +6,11 @@ pub(crate) mod ftp;
 pub mod manager;
 pub mod routes;
 pub(crate) mod s3;
+pub(crate) mod smb;
 pub mod sftp;
 pub mod types;
 
 pub use manager::VfsManager;
 pub use routes::VfsPlugin;
-pub use sftp::{SshAuth, SshConnInfo, SshInfoProvider};
+pub use sftp::{InlineSftpProvider, SshAuth, SshConnInfo, SshInfoProvider};
 pub use types::*;

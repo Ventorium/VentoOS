@@ -1,19 +1,208 @@
 use serde::{Deserialize, Serialize};
 
+// ─── Shared defaults ───────────────────────────────────────────────────────
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_false() -> bool {
+    false
+}
+
+fn default_max_iterations() -> usize {
+    10
+}
+
+fn default_temperature() -> f32 {
+    0.2
+}
+
+fn default_probe_timeout_ms() -> u64 {
+    15_000
+}
+
+fn default_probe_prompt() -> String {
+    "1+1=?".to_string()
+}
+
+fn default_probe_max_tokens() -> u32 {
+    1
+}
+
+fn default_reasoning_mode() -> ReasoningMode {
+    ReasoningMode::Off
+}
+
 // ─── Provider Types ────────────────────────────────────────────────────────
 
-/// Supported LLM provider type.
+/// High-level provider architecture category.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderType {
-    /// OpenAI-compatible APIs (`OpenAI`, Azure, local proxies, etc.)
+    Native,
+    OpenAiCompatible,
+}
+
+/// Provider vendor / preset template.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderVendor {
     OpenAi,
-    /// Anthropic Claude API
+    AzureOpenAi,
     Anthropic,
-    /// Local Ollama server
+    Gemini,
+    OpenRouter,
     Ollama,
-    /// Custom endpoint with OpenAI-compatible protocol
+    DeepSeek,
+    SiliconFlow,
+    Groq,
     Custom,
+}
+
+impl ProviderVendor {
+    #[must_use]
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::OpenAi => "OpenAI",
+            Self::AzureOpenAi => "Azure OpenAI",
+            Self::Anthropic => "Anthropic",
+            Self::Gemini => "Gemini",
+            Self::OpenRouter => "OpenRouter",
+            Self::Ollama => "Ollama",
+            Self::DeepSeek => "DeepSeek",
+            Self::SiliconFlow => "SiliconFlow",
+            Self::Groq => "Groq",
+            Self::Custom => "Custom Compatible",
+        }
+    }
+
+    #[must_use]
+    pub fn provider_type(self) -> ProviderType {
+        match self {
+            Self::OpenAi | Self::AzureOpenAi | Self::Anthropic | Self::Gemini => {
+                ProviderType::Native
+            }
+            Self::OpenRouter
+            | Self::Ollama
+            | Self::DeepSeek
+            | Self::SiliconFlow
+            | Self::Groq
+            | Self::Custom => ProviderType::OpenAiCompatible,
+        }
+    }
+
+    #[must_use]
+    pub fn default_base_url(self) -> &'static str {
+        match self {
+            Self::OpenAi => "https://api.openai.com/v1",
+            Self::AzureOpenAi => "https://{resource-name}.openai.azure.com/openai/v1/",
+            Self::Anthropic => "https://api.anthropic.com",
+            Self::Gemini => "https://generativelanguage.googleapis.com/v1beta",
+            Self::OpenRouter => "https://openrouter.ai/api/v1",
+            Self::Ollama => "http://localhost:11434/v1/",
+            Self::DeepSeek => "https://api.deepseek.com/v1",
+            Self::SiliconFlow => "https://api.siliconflow.com/v1",
+            Self::Groq => "https://api.groq.com/openai/v1",
+            Self::Custom => "https://your-openai-compatible-endpoint/v1",
+        }
+    }
+
+    #[must_use]
+    pub fn default_model(self) -> &'static str {
+        match self {
+            Self::OpenAi => "gpt-4o-mini",
+            Self::AzureOpenAi => "gpt-4o-mini",
+            Self::Anthropic => "claude-3-5-sonnet-latest",
+            Self::Gemini => "gemini-2.5-flash",
+            Self::OpenRouter => "openai/gpt-4o-mini",
+            Self::Ollama => "qwen3:latest",
+            Self::DeepSeek => "deepseek-chat",
+            Self::SiliconFlow => "Qwen/Qwen3-8B",
+            Self::Groq => "llama-3.1-8b-instant",
+            Self::Custom => "gpt-4o-mini",
+        }
+    }
+}
+
+/// Provider feature flags used by the UI/runtime to gate functionality.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProviderCapabilities {
+    pub supports_streaming: bool,
+    pub supports_tools: bool,
+    pub supports_reasoning_control: bool,
+    pub supports_connection_test: bool,
+    pub supports_model_fetch: bool,
+}
+
+impl ProviderCapabilities {
+    #[must_use]
+    pub fn for_vendor(vendor: ProviderVendor) -> Self {
+        match vendor {
+            ProviderVendor::OpenAi
+            | ProviderVendor::AzureOpenAi
+            | ProviderVendor::OpenRouter
+            | ProviderVendor::Ollama
+            | ProviderVendor::DeepSeek
+            | ProviderVendor::SiliconFlow
+            | ProviderVendor::Groq
+            | ProviderVendor::Custom => Self {
+                supports_streaming: true,
+                supports_tools: true,
+                supports_reasoning_control: true,
+                supports_connection_test: true,
+                supports_model_fetch: false,
+            },
+            ProviderVendor::Anthropic | ProviderVendor::Gemini => Self {
+                supports_streaming: true,
+                supports_tools: false,
+                supports_reasoning_control: true,
+                supports_connection_test: true,
+                supports_model_fetch: false,
+            },
+        }
+    }
+}
+
+/// Catalog entry for built-in provider templates shown in the UI.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProviderTemplate {
+    pub vendor: ProviderVendor,
+    pub provider_type: ProviderType,
+    pub name: String,
+    pub base_url: String,
+    pub default_model: String,
+    pub requires_api_key: bool,
+    pub capabilities: ProviderCapabilities,
+}
+
+#[must_use]
+pub fn builtin_provider_templates() -> Vec<ProviderTemplate> {
+    let vendors = [
+        ProviderVendor::OpenAi,
+        ProviderVendor::AzureOpenAi,
+        ProviderVendor::Anthropic,
+        ProviderVendor::Gemini,
+        ProviderVendor::OpenRouter,
+        ProviderVendor::Ollama,
+        ProviderVendor::DeepSeek,
+        ProviderVendor::SiliconFlow,
+        ProviderVendor::Groq,
+        ProviderVendor::Custom,
+    ];
+
+    vendors
+        .into_iter()
+        .map(|vendor| ProviderTemplate {
+            vendor,
+            provider_type: vendor.provider_type(),
+            name: vendor.display_name().to_string(),
+            base_url: vendor.default_base_url().to_string(),
+            default_model: vendor.default_model().to_string(),
+            requires_api_key: vendor != ProviderVendor::Ollama,
+            capabilities: ProviderCapabilities::for_vendor(vendor),
+        })
+        .collect()
 }
 
 /// LLM provider configuration.
@@ -22,19 +211,18 @@ pub struct ProviderConfig {
     pub id: String,
     pub name: String,
     pub provider_type: ProviderType,
+    pub vendor: ProviderVendor,
     /// API key or token. Masked when returned to frontend.
     #[serde(default)]
     pub api_key: String,
-    /// Base URL of the API (e.g. `https://api.openai.com/v1`).
+    /// Base URL of the API.
     pub base_url: String,
-    /// Default model to use (e.g. `gpt-4o`).
+    /// Default model to use.
     pub default_model: String,
     #[serde(default = "default_true")]
     pub enabled: bool,
-}
-
-fn default_true() -> bool {
-    true
+    #[serde(default)]
+    pub capabilities: Option<ProviderCapabilities>,
 }
 
 /// Mask an API key for safe display, preserving first/last 4 characters.
@@ -47,19 +235,255 @@ pub fn mask_api_key(key: &str) -> String {
 }
 
 impl ProviderConfig {
+    /// Return a copy with vendor defaults applied when fields are empty.
+    #[must_use]
+    pub fn normalized(mut self) -> Self {
+        self.provider_type = self.vendor.provider_type();
+        if self.name.trim().is_empty() {
+            self.name = self.vendor.display_name().to_string();
+        }
+        if self.base_url.trim().is_empty() {
+            self.base_url = self.vendor.default_base_url().to_string();
+        }
+        if self.default_model.trim().is_empty() {
+            self.default_model = self.vendor.default_model().to_string();
+        }
+        if self.capabilities.is_none() {
+            self.capabilities = Some(ProviderCapabilities::for_vendor(self.vendor));
+        }
+        self
+    }
+
     /// Return a copy with the API key masked for frontend display.
     #[must_use]
     pub fn masked(&self) -> Self {
+        let mut cfg = self.clone();
+        cfg.api_key = mask_api_key(&cfg.api_key);
+        cfg
+    }
+
+    #[must_use]
+    pub fn capabilities(&self) -> ProviderCapabilities {
+        self.capabilities
+            .clone()
+            .unwrap_or_else(|| ProviderCapabilities::for_vendor(self.vendor))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReasoningMode {
+    Off,
+    Low,
+    Medium,
+    High,
+}
+
+/// Probe request for testing a provider connection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderProbeRequest {
+    pub provider: ProviderConfig,
+    #[serde(default = "default_probe_prompt")]
+    pub prompt: String,
+    #[serde(default = "default_probe_max_tokens")]
+    pub max_tokens: u32,
+    #[serde(default = "default_probe_timeout_ms")]
+    pub timeout_ms: u64,
+    #[serde(default = "default_reasoning_mode")]
+    pub reasoning_mode: ReasoningMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderProbeResult {
+    pub success: bool,
+    pub provider_name: String,
+    pub provider_vendor: ProviderVendor,
+    pub model: String,
+    pub latency_ms: u128,
+    pub status_code: Option<u16>,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_preview: Option<String>,
+}
+
+// ─── Agent Profile Types ───────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentPresetKind {
+    GeneralAssistant,
+    CodingAssistant,
+    OpsAssistant,
+    NetworkAssistant,
+    Custom,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentToolPolicyMode {
+    All,
+    AllowList,
+    Disabled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AgentBehaviorConfig {
+    #[serde(default = "default_true")]
+    pub require_impact_for_destructive: bool,
+    #[serde(default)]
+    pub read_only_mode: bool,
+    #[serde(default)]
+    pub concise_output: bool,
+    #[serde(default)]
+    pub extra_rules: Vec<String>,
+}
+
+impl Default for AgentBehaviorConfig {
+    fn default() -> Self {
         Self {
-            api_key: mask_api_key(&self.api_key),
-            ..self.clone()
+            require_impact_for_destructive: true,
+            read_only_mode: false,
+            concise_output: true,
+            extra_rules: Vec::new(),
         }
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AgentToolConfig {
+    pub mode: AgentToolPolicyMode,
+    #[serde(default)]
+    pub enabled_tools: Vec<String>,
+    #[serde(default = "default_true")]
+    pub allow_bash: bool,
+}
+
+impl Default for AgentToolConfig {
+    fn default() -> Self {
+        Self {
+            mode: AgentToolPolicyMode::All,
+            enabled_tools: vec!["read".into(), "write".into(), "edit".into(), "bash".into()],
+            allow_bash: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AgentProfile {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub preset_kind: AgentPresetKind,
+    #[serde(default)]
+    pub is_builtin: bool,
+    pub system_prompt: String,
+    #[serde(default)]
+    pub behavior: AgentBehaviorConfig,
+    #[serde(default)]
+    pub tool_config: AgentToolConfig,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_provider_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_model: Option<String>,
+    #[serde(default = "default_temperature")]
+    pub temperature: f32,
+    #[serde(default = "default_probe_max_tokens")]
+    pub max_tokens: u32,
+    #[serde(default = "default_reasoning_mode")]
+    pub reasoning_mode: ReasoningMode,
+}
+
+impl AgentProfile {
+    #[must_use]
+    pub fn effective_system_prompt(&self) -> String {
+        let mut lines = vec![self.system_prompt.clone()];
+        if self.behavior.require_impact_for_destructive {
+            lines.push("For destructive actions, explain impact before proceeding.".into());
+        }
+        if self.behavior.read_only_mode {
+            lines.push("Operate in read-only mode unless the user explicitly authorizes writes.".into());
+        }
+        if self.behavior.concise_output {
+            lines.push("Keep responses concise and action-oriented.".into());
+        }
+        if !self.tool_config.allow_bash {
+            lines.push("Do not use bash under this profile.".into());
+        }
+        if !self.behavior.extra_rules.is_empty() {
+            lines.extend(self.behavior.extra_rules.iter().cloned());
+        }
+        lines.join("\n")
+    }
+}
+
+#[must_use]
+pub fn builtin_agent_profiles() -> Vec<AgentProfile> {
+    vec![
+        AgentProfile {
+            id: "general-assistant".into(),
+            name: "通用助手".into(),
+            description: "适合通用问答、系统导航和轻量操作建议。".into(),
+            preset_kind: AgentPresetKind::GeneralAssistant,
+            is_builtin: true,
+            system_prompt: "You are VentoOS General Assistant. Help the user navigate the system, answer questions clearly, and only use tools when necessary.".into(),
+            behavior: AgentBehaviorConfig::default(),
+            tool_config: AgentToolConfig::default(),
+            default_provider_id: None,
+            default_model: None,
+            temperature: 0.2,
+            max_tokens: 2048,
+            reasoning_mode: ReasoningMode::Off,
+        },
+        AgentProfile {
+            id: "coding-assistant".into(),
+            name: "编码助手".into(),
+            description: "适合代码分析、改动建议、文件编辑与开发协作。".into(),
+            preset_kind: AgentPresetKind::CodingAssistant,
+            is_builtin: true,
+            system_prompt: "You are VentoOS Coding Assistant. Prefer minimal, safe code changes, explain impact clearly, and keep technical output precise.".into(),
+            behavior: AgentBehaviorConfig::default(),
+            tool_config: AgentToolConfig::default(),
+            default_provider_id: None,
+            default_model: None,
+            temperature: 0.1,
+            max_tokens: 4096,
+            reasoning_mode: ReasoningMode::Low,
+        },
+        AgentProfile {
+            id: "ops-assistant".into(),
+            name: "运维助手".into(),
+            description: "适合 K8s、数据库、Redis、日志、部署与排障场景。".into(),
+            preset_kind: AgentPresetKind::OpsAssistant,
+            is_builtin: true,
+            system_prompt: "You are VentoOS Ops Assistant. Focus on infrastructure operations, explain risks before writes, and prioritize safe operational guidance.".into(),
+            behavior: AgentBehaviorConfig::default(),
+            tool_config: AgentToolConfig::default(),
+            default_provider_id: None,
+            default_model: None,
+            temperature: 0.1,
+            max_tokens: 4096,
+            reasoning_mode: ReasoningMode::Low,
+        },
+        AgentProfile {
+            id: "network-assistant".into(),
+            name: "网络助手".into(),
+            description: "适合网络诊断、DNS、连通性、端口与链路分析。".into(),
+            preset_kind: AgentPresetKind::NetworkAssistant,
+            is_builtin: true,
+            system_prompt: "You are VentoOS Network Assistant. Specialize in connectivity, DNS, routing, ports, ingress, egress, and network diagnostics.".into(),
+            behavior: AgentBehaviorConfig::default(),
+            tool_config: AgentToolConfig::default(),
+            default_provider_id: None,
+            default_model: None,
+            temperature: 0.1,
+            max_tokens: 3072,
+            reasoning_mode: ReasoningMode::Low,
+        },
+    ]
+}
+
 // ─── Message Types ─────────────────────────────────────────────────────────
 
-/// Message role in a conversation.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
@@ -69,7 +493,6 @@ pub enum MessageRole {
     Tool,
 }
 
-/// A tool call made by the assistant.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
     pub id: String,
@@ -82,15 +505,12 @@ fn default_function_type() -> String {
     "function".to_string()
 }
 
-/// Function call details within a tool call.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionCall {
     pub name: String,
-    /// JSON-encoded arguments string.
     pub arguments: String,
 }
 
-/// A message in the agent conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentMessage {
     pub role: MessageRole,
@@ -98,10 +518,8 @@ pub struct AgentMessage {
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ToolCall>>,
-    /// For tool-role messages: the ID of the tool call this responds to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<String>,
-    /// For tool-role messages: the tool name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 }
@@ -154,47 +572,36 @@ impl AgentMessage {
 
 // ─── Tool Types ────────────────────────────────────────────────────────────
 
-/// Risk level of a tool operation.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {
-    /// Read-only operations.
     Low,
-    /// Write operations with safeguards.
     Medium,
-    /// Destructive operations requiring confirmation.
     High,
-    /// System-critical operations.
     Critical,
 }
 
-/// Definition of a tool available to the agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
     pub name: String,
     pub description: String,
-    /// JSON Schema for tool parameters.
     pub parameters: serde_json::Value,
     pub risk_level: RiskLevel,
 }
 
 // ─── Stream Event Types ────────────────────────────────────────────────────
 
-/// Events streamed from backend to frontend during agent execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum StreamEvent {
-    /// Incremental text content from the assistant.
     #[serde(rename = "content_delta")]
     ContentDelta { content: String },
-    /// A tool call has been initiated.
     #[serde(rename = "tool_call_start")]
     ToolCallStart {
         id: String,
         name: String,
         arguments: String,
     },
-    /// Tool execution result.
     #[serde(rename = "tool_result")]
     ToolResult {
         id: String,
@@ -202,20 +609,16 @@ pub enum StreamEvent {
         content: String,
         success: bool,
     },
-    /// The full assistant message is complete.
     #[serde(rename = "message_complete")]
     MessageComplete { message: AgentMessage },
-    /// An error occurred during agent execution.
     #[serde(rename = "error")]
     Error { message: String },
-    /// Stream is finished.
     #[serde(rename = "done")]
     Done { session_id: String },
 }
 
-// ─── Session Types ─────────────────────────────────────────────────────────
+// ─── Session / Request Types ───────────────────────────────────────────────
 
-/// A chat session with the agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatSession {
     pub id: String,
@@ -226,32 +629,27 @@ pub struct ChatSession {
     pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system_prompt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_profile_id: Option<String>,
     pub messages: Vec<AgentMessage>,
     pub created_at: String,
     pub updated_at: String,
 }
 
-// ─── Request / Response Types ──────────────────────────────────────────────
-
-/// Request to start or continue a chat.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatRequest {
-    /// Existing session ID, or `None` to create a new session.
     pub session_id: Option<String>,
-    /// User's message text.
     pub message: String,
-    /// Override provider for this request.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_id: Option<String>,
-    /// Override model for this request.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
-    /// Override system prompt for this request.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system_prompt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_profile_id: Option<String>,
 }
 
-/// Non-streaming chat response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatResponse {
     pub session_id: String,
@@ -260,28 +658,18 @@ pub struct ChatResponse {
 
 // ─── Agent Configuration ───────────────────────────────────────────────────
 
-/// Global agent configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
-    /// Default provider ID to use.
     pub default_provider_id: Option<String>,
-    /// Default model to use.
     pub default_model: Option<String>,
-    /// Default system prompt.
+    pub default_agent_profile_id: Option<String>,
     pub default_system_prompt: String,
-    /// Maximum agent loop iterations.
     #[serde(default = "default_max_iterations")]
     pub max_iterations: usize,
-    /// Whether tools are enabled.
     #[serde(default = "default_true")]
     pub tools_enabled: bool,
 }
 
-fn default_max_iterations() -> usize {
-    10
-}
-
-/// Default system prompt for the `VentoOS` SRE Assistant.
 pub const DEFAULT_SYSTEM_PROMPT: &str = "\
 You are VentoOS SRE Assistant, an AI assistant integrated into VentoOS — \
 a browser-based operating system for infrastructure management.
@@ -306,6 +694,7 @@ impl Default for AgentConfig {
         Self {
             default_provider_id: None,
             default_model: None,
+            default_agent_profile_id: Some("general-assistant".into()),
             default_system_prompt: DEFAULT_SYSTEM_PROMPT.to_string(),
             max_iterations: default_max_iterations(),
             tools_enabled: true,
@@ -315,7 +704,6 @@ impl Default for AgentConfig {
 
 // ─── Internal OpenAI API Types ─────────────────────────────────────────────
 
-/// OpenAI-compatible chat completion request body.
 #[derive(Debug, Serialize)]
 pub(crate) struct OpenAiRequest {
     pub model: String,
@@ -326,6 +714,8 @@ pub(crate) struct OpenAiRequest {
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<OpenAiReasoningConfig>,
     pub stream: bool,
 }
 
@@ -356,7 +746,11 @@ pub(crate) struct OpenAiFunction {
     pub parameters: serde_json::Value,
 }
 
-/// Non-streaming response.
+#[derive(Debug, Serialize)]
+pub(crate) struct OpenAiReasoningConfig {
+    pub effort: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub(crate) struct OpenAiResponse {
     pub choices: Vec<OpenAiChoice>,
@@ -369,7 +763,6 @@ pub(crate) struct OpenAiChoice {
     pub finish_reason: Option<String>,
 }
 
-/// Streaming chunk.
 #[derive(Debug, Deserialize)]
 pub(crate) struct OpenAiStreamChunk {
     pub choices: Vec<OpenAiStreamChoice>,
@@ -406,7 +799,6 @@ pub(crate) struct StreamFunctionDelta {
     pub arguments: Option<String>,
 }
 
-/// API error response from `OpenAI`.
 #[derive(Debug, Deserialize)]
 pub(crate) struct OpenAiErrorResponse {
     pub error: OpenAiErrorDetail,
@@ -419,7 +811,6 @@ pub(crate) struct OpenAiErrorDetail {
 
 // ─── Error Type ────────────────────────────────────────────────────────────
 
-/// Agent system errors.
 #[derive(Debug, thiserror::Error)]
 pub enum AgentError {
     #[error("Provider error: {0}")]
@@ -436,6 +827,8 @@ pub enum AgentError {
     SessionNotFound(String),
     #[error("Provider not found: {0}")]
     ProviderNotFound(String),
+    #[error("Agent profile not found: {0}")]
+    AgentProfileNotFound(String),
     #[error("No provider configured")]
     NoProvider,
     #[error("Max iterations ({0}) reached")]
@@ -447,7 +840,6 @@ pub enum AgentError {
 // ─── Conversion helpers ────────────────────────────────────────────────────
 
 impl AgentMessage {
-    /// Convert to `OpenAI` API message format.
     pub(crate) fn to_openai(&self) -> OpenAiMessage {
         OpenAiMessage {
             role: match self.role {
@@ -465,13 +857,11 @@ impl AgentMessage {
 }
 
 impl OpenAiMessage {
-    /// Convert from `OpenAI` API message to `AgentMessage`.
     pub(crate) fn to_agent_message(&self) -> AgentMessage {
         let role = match self.role.as_str() {
             "system" => MessageRole::System,
             "user" => MessageRole::User,
             "tool" => MessageRole::Tool,
-            // "assistant" and any unknown role default to Assistant
             _ => MessageRole::Assistant,
         };
         AgentMessage {
@@ -485,7 +875,6 @@ impl OpenAiMessage {
 }
 
 impl ToolDefinition {
-    /// Convert to `OpenAI` function-calling tool format.
     pub(crate) fn to_openai_tool(&self) -> OpenAiTool {
         OpenAiTool {
             tool_type: "function".to_string(),
@@ -517,19 +906,92 @@ mod tests {
     }
 
     #[test]
+    fn test_provider_config_normalized_uses_vendor_defaults() {
+        let cfg = ProviderConfig {
+            id: "p1".into(),
+            name: "".into(),
+            provider_type: ProviderType::Native,
+            vendor: ProviderVendor::Groq,
+            api_key: "".into(),
+            base_url: "".into(),
+            default_model: "".into(),
+            enabled: true,
+            capabilities: None,
+        }
+        .normalized();
+
+        assert_eq!(cfg.provider_type, ProviderType::OpenAiCompatible);
+        assert_eq!(cfg.name, "Groq");
+        assert_eq!(cfg.base_url, "https://api.groq.com/openai/v1");
+        assert!(cfg.capabilities.is_some());
+    }
+
+    #[test]
+    fn test_builtin_provider_templates_count() {
+        let templates = builtin_provider_templates();
+        assert_eq!(templates.len(), 10);
+        assert!(templates.iter().any(|t| t.vendor == ProviderVendor::Gemini));
+        assert!(templates.iter().any(|t| t.vendor == ProviderVendor::Custom));
+    }
+
+    #[test]
     fn test_provider_config_masked() {
         let cfg = ProviderConfig {
             id: "p1".into(),
             name: "Test".into(),
-            provider_type: ProviderType::OpenAi,
+            provider_type: ProviderType::Native,
+            vendor: ProviderVendor::OpenAi,
             api_key: "sk-1234567890abcdef".into(),
             base_url: "https://api.openai.com/v1".into(),
             default_model: "gpt-4o".into(),
             enabled: true,
+            capabilities: None,
         };
         let masked = cfg.masked();
         assert_ne!(masked.api_key, cfg.api_key);
         assert!(masked.api_key.contains("..."));
+    }
+
+    #[test]
+    fn test_builtin_agent_profiles() {
+        let profiles = builtin_agent_profiles();
+        assert_eq!(profiles.len(), 4);
+        assert!(profiles.iter().all(|p| p.is_builtin));
+        assert!(profiles.iter().any(|p| p.preset_kind == AgentPresetKind::CodingAssistant));
+    }
+
+    #[test]
+    fn test_agent_profile_effective_prompt_includes_constraints() {
+        let profile = AgentProfile {
+            id: "custom".into(),
+            name: "Custom".into(),
+            description: "desc".into(),
+            preset_kind: AgentPresetKind::Custom,
+            is_builtin: false,
+            system_prompt: "Base prompt".into(),
+            behavior: AgentBehaviorConfig {
+                require_impact_for_destructive: true,
+                read_only_mode: true,
+                concise_output: true,
+                extra_rules: vec!["Always cite assumptions.".into()],
+            },
+            tool_config: AgentToolConfig {
+                mode: AgentToolPolicyMode::AllowList,
+                enabled_tools: vec!["read".into()],
+                allow_bash: false,
+            },
+            default_provider_id: None,
+            default_model: None,
+            temperature: 0.2,
+            max_tokens: 512,
+            reasoning_mode: ReasoningMode::Off,
+        };
+
+        let prompt = profile.effective_system_prompt();
+        assert!(prompt.contains("Base prompt"));
+        assert!(prompt.contains("read-only mode"));
+        assert!(prompt.contains("Do not use bash"));
+        assert!(prompt.contains("Always cite assumptions."));
     }
 
     #[test]
@@ -565,7 +1027,7 @@ mod tests {
     #[test]
     fn test_default_agent_config() {
         let cfg = AgentConfig::default();
-        assert!(cfg.default_provider_id.is_none());
+        assert_eq!(cfg.default_agent_profile_id.as_deref(), Some("general-assistant"));
         assert_eq!(cfg.max_iterations, 10);
         assert!(cfg.tools_enabled);
         assert!(!cfg.default_system_prompt.is_empty());
@@ -576,7 +1038,7 @@ mod tests {
         let event = StreamEvent::ContentDelta {
             content: "hello".into(),
         };
-        let json = serde_json::to_string(&event).unwrap();
+        let json = serde_json::to_string(&event).expect("stream event should serialize");
         assert!(json.contains("content_delta"));
         assert!(json.contains("hello"));
     }

@@ -3,18 +3,22 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use crate::sftp::{SftpPool, SshInfoProvider};
+use crate::ftp::FtpPool;
+use crate::sftp::{InlineSftpProvider, SftpPool, SshInfoProvider};
+use crate::smb::SmbMountManager;
 use crate::types::{
     CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq,
     VfsMount, VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
 };
 
 /// Virtual file system manager.
-/// Supports local filesystem and remote SFTP; other sources (FTP, SMB, S3) are stubs.
+/// Supports local, SFTP, FTP, S3, and SMB (OS-native mount) file systems.
 pub struct VfsManager {
     mounts: Arc<RwLock<HashMap<String, VfsMount>>>,
     sftp_pool: SftpPool,
     ssh_provider: Option<Arc<dyn SshInfoProvider>>,
+    ftp_pool: FtpPool,
+    smb_manager: SmbMountManager,
 }
 
 impl VfsManager {
@@ -23,6 +27,8 @@ impl VfsManager {
             mounts: Arc::new(RwLock::new(HashMap::new())),
             sftp_pool: SftpPool::new(),
             ssh_provider: None,
+            ftp_pool: FtpPool::new(),
+            smb_manager: SmbMountManager::new(),
         }
     }
 
@@ -32,25 +38,41 @@ impl VfsManager {
             mounts: Arc::new(RwLock::new(HashMap::new())),
             sftp_pool: SftpPool::new(),
             ssh_provider: Some(provider),
+            ftp_pool: FtpPool::new(),
+            smb_manager: SmbMountManager::new(),
         }
     }
 
-    /// Get a reference to the SSH provider, or return an error if not set.
-    fn require_ssh_provider(&self) -> Result<&dyn SshInfoProvider, String> {
-        self.ssh_provider
-            .as_deref()
-            .ok_or_else(|| "SSH provider not configured".into())
+    /// Get or create an SFTP session for a mount.
+    /// Prefers `connection_id` if Some; falls back to parsing credentials from `root` URI.
+    async fn get_sftp_for_mount(
+        &self,
+        mount: &VfsMount,
+    ) -> Result<Arc<russh_sftp::client::SftpSession>, String> {
+        if let Some(conn_id) = mount.connection_id.as_deref() {
+            // Use the external SSH provider
+            let provider = self
+                .ssh_provider
+                .as_deref()
+                .ok_or_else(|| "SSH provider not configured".to_string())?;
+            return self.sftp_pool.get_or_connect(conn_id, provider).await;
+        }
+        // Fall back to URL-based credentials stored in mount.root
+        let (conn_info, _root) = crate::sftp::SshConnInfo::parse_sftp_url(&mount.root)?;
+        let provider = InlineSftpProvider(conn_info);
+        self.sftp_pool
+            .get_or_connect(&mount.id, &provider)
+            .await
     }
 
-    /// Get or create an SFTP session for a mount's connection.
-    async fn get_sftp(
-        &self,
-        connection_id: &str,
-    ) -> Result<Arc<russh_sftp::client::SftpSession>, String> {
-        let provider = self.require_ssh_provider()?;
-        self.sftp_pool
-            .get_or_connect(connection_id, provider)
-            .await
+    /// Determine the SFTP remote root: if connection_id is set the root is in mount.root;
+    /// if URL-based, the root path is embedded in the URL.
+    fn sftp_root(mount: &VfsMount) -> Result<String, String> {
+        if mount.connection_id.is_some() {
+            return Ok(mount.root.clone());
+        }
+        let (_conn, path) = crate::sftp::SshConnInfo::parse_sftp_url(&mount.root)?;
+        Ok(path)
     }
 
     pub async fn create_mount(&self, req: CreateVfsMountReq) -> VfsMount {
@@ -95,14 +117,24 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.list_local_dir(&mount.root, &req.path).await,
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::list_dir(&sftp, &mount.root, &req.path).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::list_dir(&sftp, &root, &req.path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_list_dir(&self.ftp_pool, &mount.id, &mount.root, &req.path).await
+            }
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                client.list_dir(&req.path).await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.list_local_dir(&root_str, &req.path).await
+            }
         }
     }
 
@@ -189,14 +221,32 @@ impl VfsManager {
                     .await
             }
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::read_file(&sftp, &mount.root, &req.path, req.max_bytes).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::read_file(&sftp, &root, &req.path, req.max_bytes).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                let raw = crate::ftp::ftp_read_raw(
+                    &self.ftp_pool,
+                    &mount.id,
+                    &mount.root,
+                    &req.path,
+                )
+                .await?;
+                Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
+            }
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let raw = client.get_object(&req.path).await?;
+                Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.read_local_file(&root_str, &req.path, req.max_bytes).await
+            }
         }
     }
 
@@ -213,14 +263,32 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.move_local(&mount.root, &req.src, &req.dest).await,
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::move_file(&sftp, &mount.root, &req.src, &req.dest).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::move_file(&sftp, &root, &req.src, &req.dest).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_rename(
+                    &self.ftp_pool,
+                    &mount.id,
+                    &mount.root,
+                    &req.src,
+                    &req.dest,
+                )
+                .await
+            }
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                client.copy_object(&req.src, &req.dest).await?;
+                client.delete_object(&req.src).await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.move_local(&root_str, &req.src, &req.dest).await
+            }
         }
     }
 
@@ -237,14 +305,33 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.copy_local(&mount.root, &req.src, &req.dest).await,
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::copy_file(&sftp, &mount.root, &req.src, &req.dest).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::copy_file(&sftp, &root, &req.src, &req.dest).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                // FTP has no native copy; read then write
+                let data = crate::ftp::ftp_read_raw(
+                    &self.ftp_pool,
+                    &mount.id,
+                    &mount.root,
+                    &req.src,
+                )
+                .await?;
+                crate::ftp::ftp_write(&self.ftp_pool, &mount.id, &mount.root, &req.dest, data)
+                    .await
+            }
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                client.copy_object(&req.src, &req.dest).await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.copy_local(&root_str, &req.src, &req.dest).await
+            }
         }
     }
 
@@ -261,14 +348,26 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.mkdir_local(&mount.root, &req.path).await,
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::mkdir(&sftp, &mount.root, &req.path).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::mkdir(&sftp, &root, &req.path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_mkdir(&self.ftp_pool, &mount.id, &mount.root, &req.path).await
+            }
+            VfsSourceKind::S3 => {
+                // S3 has no real directories; create a placeholder key
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let dir_key = format!("{}/", req.path.trim_end_matches('/'));
+                client.put_object(&dir_key, &[]).await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.mkdir_local(&root_str, &req.path).await
+            }
         }
     }
 
@@ -285,14 +384,28 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.delete_local(&mount.root, &req.path).await,
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::delete(&sftp, &mount.root, &req.path).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::delete(&sftp, &root, &req.path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => crate::ftp::ftp_delete_auto(
+                &self.ftp_pool,
+                &mount.id,
+                &mount.root,
+                &req.path,
+            )
+            .await,
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                client.delete_object(&req.path).await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.delete_local(&root_str, &req.path).await
+            }
         }
     }
 
@@ -312,14 +425,26 @@ impl VfsManager {
                     .await
             }
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::write_file(&sftp, &mount.root, &req.path, &req.content).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::write_file(&sftp, &root, &req.path, &req.content).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                let data = req.content.as_bytes().to_vec();
+                crate::ftp::ftp_write(&self.ftp_pool, &mount.id, &mount.root, &req.path, data)
+                    .await
+            }
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                client.put_object(&req.path, req.content.as_bytes()).await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.write_local_file(&root_str, &req.path, &req.content).await
+            }
         }
     }
 
@@ -341,14 +466,24 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.upload_local_file(&mount.root, path, &data).await,
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::upload_file(&sftp, &mount.root, path, &data).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::upload_file(&sftp, &root, path, &data).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_write(&self.ftp_pool, &mount.id, &mount.root, path, data).await
+            }
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                client.put_object(path, &data).await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.upload_local_file(&root_str, path, &data).await
+            }
         }
     }
 
@@ -365,14 +500,24 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.stat_local(&mount.root, path).await,
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::stat(&sftp, &mount.root, path).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::stat(&sftp, &root, path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_stat(&self.ftp_pool, &mount.id, &mount.root, path).await
+            }
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                client.stat(path).await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.stat_local(&root_str, path).await
+            }
         }
     }
 
@@ -392,15 +537,34 @@ impl VfsManager {
                     .await
             }
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::search(&sftp, &mount.root, &req.path, &req.query, req.max_results)
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::search(&sftp, &root, &req.path, &req.query, req.max_results)
                     .await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => crate::ftp::ftp_search(
+                &self.ftp_pool,
+                &mount.id,
+                &mount.root,
+                &req.path,
+                &req.query,
+                req.max_results.unwrap_or(100),
+            )
+            .await,
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                client
+                    .search(&req.path, &req.query, req.max_results.unwrap_or(100))
+                    .await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.search_local(&root_str, &req.path, &req.query, req.max_results)
+                    .await
+            }
         }
     }
 
@@ -503,14 +667,24 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.read_local_file_raw(&mount.root, path).await,
             VfsSourceKind::Sftp => {
-                let conn_id = mount
-                    .connection_id
-                    .as_deref()
-                    .ok_or("SFTP mount missing connection_id")?;
-                let sftp = self.get_sftp(conn_id).await?;
-                crate::sftp::read_file_raw(&sftp, &mount.root, path).await
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::sftp::read_file_raw(&sftp, &root, path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_read_raw(&self.ftp_pool, &mount.id, &mount.root, path).await
+            }
+            VfsSourceKind::S3 => {
+                let client =
+                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                client.get_object(path).await
+            }
+            VfsSourceKind::Smb => {
+                let local_root =
+                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
+                let root_str = local_root.to_string_lossy().to_string();
+                self.read_local_file_raw(&root_str, path).await
+            }
         }
     }
 
@@ -795,6 +969,33 @@ async fn search_local_recursive(
 impl Default for VfsManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Convert raw bytes into a `VfsFileContent` response, applying the same
+/// binary-detection and max-bytes truncation logic as the local file reader.
+fn bytes_to_file_content(path: &str, raw: Vec<u8>, max_bytes: Option<u64>) -> VfsFileContent {
+    let file_size = raw.len() as u64;
+    let limit = max_bytes.unwrap_or(1_048_576);
+    let truncated = file_size > limit;
+    let slice = if truncated {
+        &raw[..usize::try_from(limit).unwrap_or(usize::MAX)]
+    } else {
+        &raw
+    };
+    let check_len = slice.len().min(8192);
+    let is_binary = slice[..check_len].contains(&0);
+    let content = if is_binary {
+        format!("[Binary file, {file_size} bytes]")
+    } else {
+        String::from_utf8_lossy(slice).into_owned()
+    };
+    VfsFileContent {
+        path: path.to_string(),
+        size: file_size,
+        content,
+        is_binary,
+        truncated,
     }
 }
 

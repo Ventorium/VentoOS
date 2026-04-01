@@ -8,6 +8,7 @@ import type { AppManifest } from '@/kernel'
 import { aiAssistantManifest } from './ai-assistant/manifest'
 import { databaseManifest } from './database/manifest'
 import { explorerManifest } from './explorer/manifest'
+import { fileViewerManifest } from './file-viewer/manifest'
 import { kubernetesManifest } from './kubernetes/manifest'
 import { redisManifest } from './redis/manifest'
 import { settingsManifest } from './settings/manifest'
@@ -20,13 +21,15 @@ export const builtinManifests: AppManifest[] = [
   explorerManifest,
   sshManifest,
   aiAssistantManifest,
-  settingsManifest
+  settingsManifest,
+  fileViewerManifest
 ]
 
 export {
   aiAssistantManifest,
   databaseManifest,
   explorerManifest,
+  fileViewerManifest,
   kubernetesManifest,
   redisManifest,
   settingsManifest,

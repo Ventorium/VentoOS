@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useThemeSync } from '@/hooks/useTheme'
+import { wsClient } from '@/infra/ws'
 import { authService, useAuthStore } from '@/services/auth'
 import AISidePanel from '@/shell/AISidePanel'
 
@@ -26,8 +27,13 @@ function App() {
       .then(res => {
         setInitialized(res.initialized)
         if (res.initialized && token) {
-          // Re-validate stored token
-          authService.revalidateToken().catch(() => useAuthStore.getState().lock())
+          // Re-validate stored token, then connect WS
+          authService
+            .revalidateToken()
+            .then(valid => {
+              if (valid) wsClient.connect()
+            })
+            .catch(() => useAuthStore.getState().lock())
         }
       })
       .catch(() => {

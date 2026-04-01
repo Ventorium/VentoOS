@@ -1046,10 +1046,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
   const [showInfo, setShowInfo] = useState(false)
 
-  // File viewer
-  const [viewerNode, setViewerNode] = useState<VfsNode | null>(null)
-  const [viewerMountId, setViewerMountId] = useState<string | null>(null)
-
   // Multi-select: colIdx -> Set of item names
   const [multiSelect, setMultiSelect] = useState<Map<number, Set<string>>>(new Map())
   const [activeColumn, setActiveColumn] = useState(0)
@@ -1445,8 +1441,10 @@ export default function ExplorerApp(_props: AppComponentProps) {
   }
 
   const handleOpenViewer = (mountId: string, node: VfsNode) => {
-    setViewerMountId(mountId)
-    setViewerNode(node)
+    openWindow('file-viewer', {
+      title: node.name,
+      appState: { mountId, node }
+    })
   }
 
   const handleOpenInShell = (entry: VfsNode) => {
@@ -2026,18 +2024,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 onRenameConfirm={handleRenameConfirm}
                 onRenameCancel={() => setRenamingPath(null)}
               />
-
-              {/* File viewer modal */}
-              {viewerNode && viewerMountId && (
-                <FileViewerModal
-                  mountId={viewerMountId}
-                  node={viewerNode}
-                  onClose={() => {
-                    setViewerNode(null)
-                    setViewerMountId(null)
-                  }}
-                />
-              )}
 
               {/* Info / preview panel */}
               {showInfo && (

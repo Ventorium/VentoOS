@@ -26,8 +26,8 @@ export function bootKernel(opts: { tokenProvider: () => string | null; onUnautho
     onUnauthorized: opts.onUnauthorized
   })
 
-  // Connect WebSocket
-  wsClient.connect()
+  // Configure WebSocket with token provider (actual connection deferred until auth validated)
+  wsClient.setTokenProvider(opts.tokenProvider)
 
   logger.info('Kernel booted')
 

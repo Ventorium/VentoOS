@@ -8,23 +8,37 @@ import type { ClientMessage, ServerMessage } from './types'
 
 type MessageHandler<T = unknown> = (data: T) => void
 
+/** Function that returns the current auth token (or null if not authenticated). */
+type TokenProvider = () => string | null
+
 class WsClient {
   private ws: WebSocket | null = null
   private handlers = new Map<string, Set<MessageHandler>>()
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  private url: string
+  private baseUrl: string
   private pingInterval: ReturnType<typeof setInterval> | null = null
+  private tokenProvider: TokenProvider = () => null
 
   constructor() {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    this.url = `${proto}//${window.location.host}/ws`
+    this.baseUrl = `${proto}//${window.location.host}/ws`
+  }
+
+  /** Set the token provider (called during kernel bootstrap). */
+  setTokenProvider(provider: TokenProvider): void {
+    this.tokenProvider = provider
   }
 
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) return
 
+    const token = this.tokenProvider()
+    // Don't connect without a valid token
+    if (!token) return
+
     try {
-      this.ws = new WebSocket(this.url)
+      const url = `${this.baseUrl}?token=${encodeURIComponent(token)}`
+      this.ws = new WebSocket(url)
 
       this.ws.onopen = () => {
         // Start heartbeat

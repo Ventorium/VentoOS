@@ -1,4 +1,4 @@
-//! Top-level `AgentManager` — coordinates providers, tools, guards, sessions, and the agent runner.
+//! Top-level `AgentManager` — coordinates providers, tools, guards, sessions, profiles, and probes.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -8,15 +8,19 @@ use tracing::info;
 
 use crate::agent::AgentRunner;
 use crate::guard::GuardChain;
-use crate::provider::OpenAiProvider;
+use crate::provider::ProviderClient;
 use crate::session::SessionStore;
 use crate::tool::{StubToolExecutor, ToolExecutor, ToolRegistry};
-use crate::types::{AgentConfig, AgentError, ProviderConfig};
+use crate::types::{
+    AgentConfig, AgentError, AgentProfile, ChatRequest, ProviderConfig, ProviderProbeRequest,
+    ProviderProbeResult, ProviderTemplate, builtin_agent_profiles, builtin_provider_templates,
+};
 
 /// Central coordinator for the AI agent subsystem.
 pub struct AgentManager {
     pub(crate) sessions: Arc<SessionStore>,
     pub(crate) providers: Arc<RwLock<HashMap<String, ProviderConfig>>>,
+    pub(crate) profiles: Arc<RwLock<HashMap<String, AgentProfile>>>,
     pub(crate) tool_registry: Arc<RwLock<ToolRegistry>>,
     pub(crate) guards: Arc<GuardChain>,
     pub(crate) config: Arc<RwLock<AgentConfig>>,
@@ -25,21 +29,20 @@ pub struct AgentManager {
 
 impl AgentManager {
     pub fn new() -> Self {
-        Self {
-            sessions: Arc::new(SessionStore::new()),
-            providers: Arc::new(RwLock::new(HashMap::new())),
-            tool_registry: Arc::new(RwLock::new(ToolRegistry::with_builtins())),
-            guards: Arc::new(GuardChain::with_defaults()),
-            config: Arc::new(RwLock::new(AgentConfig::default())),
-            executor: Arc::new(StubToolExecutor),
-        }
+        Self::with_executor(Arc::new(StubToolExecutor))
     }
 
     /// Create a manager with a custom tool executor.
     pub fn with_executor(executor: Arc<dyn ToolExecutor>) -> Self {
+        let profiles = builtin_agent_profiles()
+            .into_iter()
+            .map(|profile| (profile.id.clone(), profile))
+            .collect();
+
         Self {
             sessions: Arc::new(SessionStore::new()),
             providers: Arc::new(RwLock::new(HashMap::new())),
+            profiles: Arc::new(RwLock::new(profiles)),
             tool_registry: Arc::new(RwLock::new(ToolRegistry::with_builtins())),
             guards: Arc::new(GuardChain::with_defaults()),
             config: Arc::new(RwLock::new(AgentConfig::default())),
@@ -50,11 +53,12 @@ impl AgentManager {
     // ── Provider Management ────────────────────────────────────────────────
 
     pub async fn add_provider(&self, config: ProviderConfig) {
-        info!("Adding provider: {} ({})", config.name, config.id);
+        let normalized = config.normalized();
+        info!("Adding provider: {} ({})", normalized.name, normalized.id);
         self.providers
             .write()
             .await
-            .insert(config.id.clone(), config);
+            .insert(normalized.id.clone(), normalized);
     }
 
     pub async fn get_provider(&self, id: &str) -> Option<ProviderConfig> {
@@ -62,13 +66,16 @@ impl AgentManager {
     }
 
     pub async fn list_providers(&self) -> Vec<ProviderConfig> {
-        self.providers.read().await.values().cloned().collect()
+        let mut providers: Vec<_> = self.providers.read().await.values().cloned().collect();
+        providers.sort_by(|a, b| a.name.cmp(&b.name));
+        providers
     }
 
     pub async fn update_provider(&self, config: ProviderConfig) -> bool {
         let mut providers = self.providers.write().await;
         if providers.contains_key(&config.id) {
-            providers.insert(config.id.clone(), config);
+            let normalized = config.normalized();
+            providers.insert(normalized.id.clone(), normalized);
             true
         } else {
             false
@@ -77,6 +84,56 @@ impl AgentManager {
 
     pub async fn delete_provider(&self, id: &str) -> bool {
         self.providers.write().await.remove(id).is_some()
+    }
+
+    #[must_use]
+    pub fn provider_templates(&self) -> Vec<ProviderTemplate> {
+        builtin_provider_templates()
+    }
+
+    pub async fn probe_provider(
+        &self,
+        request: ProviderProbeRequest,
+    ) -> Result<ProviderProbeResult, AgentError> {
+        ProviderClient::new(request.provider.normalized()).probe(&request).await
+    }
+
+    // ── Agent Profile Management ───────────────────────────────────────────
+
+    pub async fn add_profile(&self, profile: AgentProfile) {
+        self.profiles
+            .write()
+            .await
+            .insert(profile.id.clone(), profile);
+    }
+
+    pub async fn get_profile(&self, id: &str) -> Option<AgentProfile> {
+        self.profiles.read().await.get(id).cloned()
+    }
+
+    pub async fn list_profiles(&self) -> Vec<AgentProfile> {
+        let mut profiles: Vec<_> = self.profiles.read().await.values().cloned().collect();
+        profiles.sort_by(|a, b| a.name.cmp(&b.name));
+        profiles
+    }
+
+    pub async fn update_profile(&self, profile: AgentProfile) -> bool {
+        let mut profiles = self.profiles.write().await;
+        if profiles.contains_key(&profile.id) {
+            profiles.insert(profile.id.clone(), profile);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub async fn delete_profile(&self, id: &str) -> bool {
+        let mut profiles = self.profiles.write().await;
+        if let Some(existing) = profiles.get(id)
+            && existing.is_builtin {
+                return false;
+            }
+        profiles.remove(id).is_some()
     }
 
     // ── Configuration ──────────────────────────────────────────────────────
@@ -89,21 +146,73 @@ impl AgentManager {
         *self.config.write().await = new_config;
     }
 
-    // ── Provider Resolution ────────────────────────────────────────────────
+    // ── Request Preparation / Provider Resolution ──────────────────────────
+
+    pub async fn prepare_chat_request(
+        &self,
+        req: &ChatRequest,
+    ) -> Result<ChatRequest, AgentError> {
+        if let Some(session_id) = req.session_id.as_deref()
+            && let Some(session) = self.sessions.get(session_id).await {
+                return Ok(ChatRequest {
+                    session_id: req.session_id.clone(),
+                    message: req.message.clone(),
+                    provider_id: req.provider_id.clone().or(session.provider_id),
+                    model: req.model.clone().or(session.model),
+                    system_prompt: req.system_prompt.clone().or(session.system_prompt),
+                    agent_profile_id: req.agent_profile_id.clone().or(session.agent_profile_id),
+                });
+            }
+
+        let config = self.config.read().await.clone();
+        let effective_profile_id = req
+            .agent_profile_id
+            .clone()
+            .or(config.default_agent_profile_id.clone());
+
+        let profile = if let Some(profile_id) = effective_profile_id.as_deref() {
+            Some(
+                self.get_profile(profile_id)
+                    .await
+                    .ok_or_else(|| AgentError::AgentProfileNotFound(profile_id.to_string()))?,
+            )
+        } else {
+            None
+        };
+
+        Ok(ChatRequest {
+            session_id: req.session_id.clone(),
+            message: req.message.clone(),
+            provider_id: req
+                .provider_id
+                .clone()
+                .or_else(|| profile.as_ref().and_then(|p| p.default_provider_id.clone()))
+                .or(config.default_provider_id),
+            model: req
+                .model
+                .clone()
+                .or_else(|| profile.as_ref().and_then(|p| p.default_model.clone()))
+                .or(config.default_model),
+            system_prompt: req
+                .system_prompt
+                .clone()
+                .or_else(|| profile.as_ref().map(AgentProfile::effective_system_prompt))
+                .or(Some(config.default_system_prompt)),
+            agent_profile_id: effective_profile_id,
+        })
+    }
 
     /// Resolve the provider to use, given optional overrides in the request.
-    pub(crate) async fn resolve_provider(
+    pub(crate) async fn resolve_provider_for_request(
         &self,
-        provider_id: Option<&str>,
-    ) -> Result<OpenAiProvider, AgentError> {
-        let config = self.config.read().await;
-        let effective_id = provider_id
-            .or(config.default_provider_id.as_deref())
-            .ok_or(AgentError::NoProvider)?;
+        req: &ChatRequest,
+    ) -> Result<ProviderClient, AgentError> {
+        let prepared = self.prepare_chat_request(req).await?;
+        let effective_id = prepared.provider_id.ok_or(AgentError::NoProvider)?;
 
         let providers = self.providers.read().await;
         let provider_config = providers
-            .get(effective_id)
+            .get(&effective_id)
             .ok_or_else(|| AgentError::ProviderNotFound(effective_id.to_string()))?;
 
         if !provider_config.enabled {
@@ -113,7 +222,7 @@ impl AgentManager {
             )));
         }
 
-        Ok(OpenAiProvider::new(provider_config.clone()))
+        Ok(ProviderClient::new(provider_config.clone()))
     }
 
     /// Create an `AgentRunner` with the current configuration.
@@ -132,17 +241,39 @@ impl Default for AgentManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::ProviderType;
+    use crate::types::{
+        AgentPresetKind, ProviderType, ProviderVendor,
+    };
 
     fn test_provider() -> ProviderConfig {
         ProviderConfig {
             id: "p1".into(),
             name: "Test Provider".into(),
-            provider_type: ProviderType::OpenAi,
+            provider_type: ProviderType::Native,
+            vendor: ProviderVendor::OpenAi,
             api_key: "sk-test".into(),
             base_url: "https://api.openai.com/v1".into(),
             default_model: "gpt-4o".into(),
             enabled: true,
+            capabilities: None,
+        }
+    }
+
+    fn custom_profile() -> AgentProfile {
+        AgentProfile {
+            id: "custom-profile".into(),
+            name: "Custom Profile".into(),
+            description: "desc".into(),
+            preset_kind: AgentPresetKind::Custom,
+            is_builtin: false,
+            system_prompt: "You are custom".into(),
+            behavior: Default::default(),
+            tool_config: Default::default(),
+            default_provider_id: Some("p1".into()),
+            default_model: Some("gpt-4o-mini".into()),
+            temperature: 0.2,
+            max_tokens: 512,
+            reasoning_mode: crate::types::ReasoningMode::Off,
         }
     }
 
@@ -157,34 +288,69 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_provider() {
+    async fn test_provider_templates() {
         let mgr = AgentManager::new();
-        mgr.add_provider(test_provider()).await;
-
-        assert!(mgr.get_provider("p1").await.is_some());
-        assert!(mgr.get_provider("nonexistent").await.is_none());
+        let templates = mgr.provider_templates();
+        assert_eq!(templates.len(), 10);
     }
 
     #[tokio::test]
-    async fn test_update_provider() {
+    async fn test_builtin_profiles_loaded() {
         let mgr = AgentManager::new();
-        mgr.add_provider(test_provider()).await;
-
-        let mut updated = test_provider();
-        updated.name = "Updated Provider".into();
-        assert!(mgr.update_provider(updated).await);
-
-        let p = mgr.get_provider("p1").await.unwrap();
-        assert_eq!(p.name, "Updated Provider");
+        let profiles = mgr.list_profiles().await;
+        assert!(profiles.len() >= 4);
+        assert!(profiles.iter().any(|profile| profile.is_builtin));
     }
 
     #[tokio::test]
-    async fn test_delete_provider() {
+    async fn test_add_update_delete_custom_profile() {
+        let mgr = AgentManager::new();
+        mgr.add_profile(custom_profile()).await;
+        let profile = mgr.get_profile("custom-profile").await;
+        assert!(profile.is_some());
+
+        let mut updated = custom_profile();
+        updated.name = "Updated".into();
+        assert!(mgr.update_profile(updated).await);
+        assert_eq!(
+            mgr.get_profile("custom-profile")
+                .await
+                .expect("profile exists")
+                .name,
+            "Updated"
+        );
+
+        assert!(mgr.delete_profile("custom-profile").await);
+    }
+
+    #[tokio::test]
+    async fn test_delete_builtin_profile_is_blocked() {
+        let mgr = AgentManager::new();
+        assert!(!mgr.delete_profile("general-assistant").await);
+    }
+
+    #[tokio::test]
+    async fn test_prepare_chat_request_uses_profile_defaults() {
         let mgr = AgentManager::new();
         mgr.add_provider(test_provider()).await;
+        mgr.add_profile(custom_profile()).await;
 
-        assert!(mgr.delete_provider("p1").await);
-        assert!(!mgr.delete_provider("p1").await);
+        let prepared = mgr
+            .prepare_chat_request(&ChatRequest {
+                session_id: None,
+                message: "hello".into(),
+                provider_id: None,
+                model: None,
+                system_prompt: None,
+                agent_profile_id: Some("custom-profile".into()),
+            })
+            .await
+            .expect("request should prepare");
+
+        assert_eq!(prepared.provider_id.as_deref(), Some("p1"));
+        assert_eq!(prepared.model.as_deref(), Some("gpt-4o-mini"));
+        assert_eq!(prepared.agent_profile_id.as_deref(), Some("custom-profile"));
+        assert!(prepared.system_prompt.is_some());
     }
 
     #[tokio::test]
@@ -203,7 +369,16 @@ mod tests {
     #[tokio::test]
     async fn test_resolve_provider_no_provider() {
         let mgr = AgentManager::new();
-        let result = mgr.resolve_provider(None).await;
+        let result = mgr
+            .resolve_provider_for_request(&ChatRequest {
+                session_id: None,
+                message: "hello".into(),
+                provider_id: None,
+                model: None,
+                system_prompt: None,
+                agent_profile_id: None,
+            })
+            .await;
         assert!(result.is_err());
     }
 
@@ -216,23 +391,32 @@ mod tests {
         cfg.default_provider_id = Some("p1".into());
         mgr.update_config(cfg).await;
 
-        let result = mgr.resolve_provider(None).await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_resolve_provider_with_explicit_id() {
-        let mgr = AgentManager::new();
-        mgr.add_provider(test_provider()).await;
-
-        let result = mgr.resolve_provider(Some("p1")).await;
+        let result = mgr
+            .resolve_provider_for_request(&ChatRequest {
+                session_id: None,
+                message: "hello".into(),
+                provider_id: None,
+                model: None,
+                system_prompt: None,
+                agent_profile_id: None,
+            })
+            .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_resolve_provider_not_found() {
         let mgr = AgentManager::new();
-        let result = mgr.resolve_provider(Some("nonexistent")).await;
+        let result = mgr
+            .resolve_provider_for_request(&ChatRequest {
+                session_id: None,
+                message: "hello".into(),
+                provider_id: Some("nonexistent".into()),
+                model: None,
+                system_prompt: None,
+                agent_profile_id: None,
+            })
+            .await;
         assert!(result.is_err());
     }
 }

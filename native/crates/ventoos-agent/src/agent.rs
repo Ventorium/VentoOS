@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use crate::guard::GuardChain;
-use crate::provider::OpenAiProvider;
+use crate::provider::ProviderClient;
 use crate::session::{truncate_title, SessionStore};
 use crate::tool::{ToolExecutor, ToolRegistry};
 use crate::types::{
@@ -35,7 +35,7 @@ impl AgentRunner {
     pub async fn run(
         &self,
         req: &ChatRequest,
-        provider: &OpenAiProvider,
+        provider: &ProviderClient,
         tool_registry: &ToolRegistry,
         guards: &GuardChain,
         executor: &dyn ToolExecutor,
@@ -50,6 +50,7 @@ impl AgentRunner {
                 req.provider_id.clone(),
                 req.model.clone(),
                 req.system_prompt.clone(),
+                req.agent_profile_id.clone(),
             )
             .await;
 
@@ -243,7 +244,7 @@ impl AgentRunner {
     pub async fn chat(
         &self,
         req: &ChatRequest,
-        provider: &OpenAiProvider,
+        provider: &ProviderClient,
         tool_registry: &ToolRegistry,
         _guards: &GuardChain,
         _executor: &dyn ToolExecutor,
@@ -269,6 +270,7 @@ impl AgentRunner {
                 req_clone.provider_id.clone(),
                 req_clone.model.clone(),
                 req_clone.system_prompt.clone(),
+                req_clone.agent_profile_id.clone(),
             )
             .await;
 
@@ -341,14 +343,11 @@ impl AgentRunner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tool::StubToolExecutor;
-    use crate::types::ChatSession;
 
     #[tokio::test]
     async fn test_agent_runner_creates_session() {
         let sessions = Arc::new(SessionStore::new());
-        let config = AgentConfig::default();
-        let runner = AgentRunner::new(Arc::clone(&sessions), config);
+        let _runner = AgentRunner::new(Arc::clone(&sessions), AgentConfig::default());
 
         let req = ChatRequest {
             session_id: None,
@@ -356,12 +355,14 @@ mod tests {
             provider_id: None,
             model: None,
             system_prompt: None,
+            agent_profile_id: None,
         };
 
         let (session, created) = sessions
             .get_or_create(
                 req.session_id.as_deref(),
                 &truncate_title(&req.message),
+                None,
                 None,
                 None,
                 None,

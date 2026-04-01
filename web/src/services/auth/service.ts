@@ -7,6 +7,7 @@
 
 import { apiClient } from '@/infra/api'
 import { createLogger } from '@/infra/logger'
+import { wsClient } from '@/infra/ws'
 import { useAuthStore } from './store'
 
 const logger = createLogger('services/auth')
@@ -30,6 +31,7 @@ export const authService = {
     const res = await apiClient.authLogin(password)
     const { token } = res.data
     useAuthStore.getState().unlock(token)
+    wsClient.connect()
     logger.info('Logged in')
     return token
   },
@@ -42,6 +44,7 @@ export const authService = {
       // Ignore backend errors on logout
     }
     useAuthStore.getState().lock()
+    wsClient.disconnect()
     logger.info('Logged out')
   },
 

@@ -253,11 +253,26 @@ pub async fn auth_middleware(
 }
 
 fn extract_token(req: &Request<Body>) -> Option<String> {
-    req.headers()
+    // 1. Try Authorization header first
+    if let Some(token) = req
+        .headers()
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(ToString::to_string)
+    {
+        return Some(token);
+    }
+
+    // 2. Fallback to query parameter (needed for WebSocket which cannot set headers)
+    req.uri()
+        .query()
+        .and_then(|q| {
+            q.split('&').find_map(|pair| {
+                let (k, v) = pair.split_once('=')?;
+                (k == "token").then(|| v.to_string())
+            })
+        })
 }
 
 #[cfg(test)]

@@ -28,6 +28,70 @@ pub enum SshAuth {
     },
 }
 
+impl SshConnInfo {
+    /// Parse an SFTP URI of the form `sftp://[user[:pass]@]host[:port][/path]`.
+    /// The `/path` part (remote root) is returned separately.
+    pub fn parse_sftp_url(uri: &str) -> Result<(Self, String), String> {
+        let stripped = uri
+            .strip_prefix("sftp://")
+            .ok_or_else(|| format!("Not an sftp:// URI: {uri}"))?;
+
+        // Split authority and path
+        let (authority, path) = match stripped.find('/') {
+            Some(idx) => (&stripped[..idx], format!("/{}", &stripped[idx + 1..])),
+            None => (stripped, "/".to_string()),
+        };
+
+        // Split userinfo@host:port
+        let (userinfo, hostport) = match authority.rfind('@') {
+            Some(idx) => (Some(&authority[..idx]), &authority[idx + 1..]),
+            None => (None, authority),
+        };
+
+        let (host, port) = match hostport.rfind(':') {
+            Some(idx) => {
+                let p = hostport[idx + 1..]
+                    .parse::<u16>()
+                    .map_err(|_| "Invalid port".to_string())?;
+                (&hostport[..idx], p)
+            }
+            None => (hostport, 22u16),
+        };
+
+        let (username, password) = match userinfo {
+            None => ("anonymous".to_string(), String::new()),
+            Some(ui) => match ui.find(':') {
+                Some(idx) => (ui[..idx].to_string(), ui[idx + 1..].to_string()),
+                None => (ui.to_string(), String::new()),
+            },
+        };
+
+        let conn = SshConnInfo {
+            host: host.to_string(),
+            port,
+            username,
+            auth: SshAuth::Password(password),
+        };
+        Ok((conn, path))
+    }
+}
+
+/// An `SshInfoProvider` that always returns a pre-built `SshConnInfo`,
+/// used for URL-based SFTP mounts that don't reference a connection-id.
+pub struct InlineSftpProvider(pub SshConnInfo);
+
+impl SshInfoProvider for InlineSftpProvider {
+    fn resolve(
+        &self,
+        _connection_id: &str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<SshConnInfo, String>> + Send + '_>,
+    > {
+        let info = self.0.clone();
+        Box::pin(async move { Ok(info) })
+    }
+}
+
 /// Trait for resolving SSH connection info from a connection ID.
 /// Implemented by the server layer to provide SSH server details to the VFS.
 pub trait SshInfoProvider: Send + Sync {
