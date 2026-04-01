@@ -20,6 +20,13 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:5454',
+      // Proxy WebSocket shell endpoint first (more specific path first)
+      '/ws/shell': {
+        target: 'http://localhost:5454',
+        ws: true,
+        changeOrigin: true
+      },
+      // Proxy general WebSocket event stream
       '/ws': {
         target: 'http://localhost:5454',
         ws: true,

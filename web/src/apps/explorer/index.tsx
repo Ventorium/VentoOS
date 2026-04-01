@@ -1898,9 +1898,11 @@ export default function ExplorerApp(_props: AppComponentProps) {
           const KindIcon = kindMeta[m.kind]?.icon ?? HardDrive
           const isActive = selectedMount === m.id
           return (
-            <button
+            // Use div+role="button" instead of <button> to avoid nesting
+            // a <button> (delete) inside another <button> (select)
+            <div
               key={m.id}
-              type="button"
+              role="button"
               tabIndex={0}
               className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group"
               style={{
@@ -1926,7 +1928,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
               >
                 <Trash2 size={10} />
               </button>
-            </button>
+            </div>
           )
         })}
         {mounts.length === 0 && (
