@@ -966,6 +966,10 @@ pub enum AgentError {
     AgentProfileNotFound(String),
     #[error("No provider configured")]
     NoProvider,
+    #[error("Channel error ({channel}): {detail}")]
+    ChannelError { channel: String, detail: String },
+    #[error("Config error: {0}")]
+    ConfigError(String),
     #[error("Max iterations ({0}) reached")]
     MaxIterations(usize),
     #[error("{0}")]
