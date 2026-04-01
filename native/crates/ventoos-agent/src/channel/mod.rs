@@ -7,6 +7,7 @@
 
 pub mod dingtalk;
 pub mod feishu;
+pub mod qq;
 pub mod telegram;
 pub mod wecom;
 

@@ -25,8 +25,8 @@ impl QqAdapter {
     pub fn new(channel_id: String, client_id: String, client_secret: String) -> Self {
         Self {
             channel_id,
-            app_id,
-            app_secret,
+            app_id: client_id,
+            app_secret: client_secret,
         }
     }
 
@@ -52,7 +52,7 @@ impl ChannelAdapter for QqAdapter {
         // Basic structural validation
         let cb = self.parse_callback(&request.raw_body)?;
 
-        if cb.conversation_id.is_empty() {
+        if cb.channel_id.is_empty() {
             return Err(AgentError::ChannelError {
                 channel: "qq".into(),
                 detail: "missing conversation_id".into(),
@@ -77,8 +77,8 @@ impl ChannelAdapter for QqAdapter {
             });
         }
 
-        let sender_id = cb.sender_id.clone().unwrap_or_default();
-        let conversation_id = cb.conversation_id.clone();
+        let sender_id = cb.sender_nick.clone().unwrap_or_default();
+        let conversation_id = cb.channel_id.clone();
         let message_id = cb
             .message_id
             .clone()
@@ -102,47 +102,49 @@ impl ChannelAdapter for QqAdapter {
         })
     }
 
-    async fn send(
-        &self,
+    fn send<'a>(
+        &'a self,
         outbound: crate::channel::ChannelOutboundMessage,
-    ) -> Result<ChannelSendResult, AgentError> {
-        // First get an access token
-        let token = self.get_access_token().await?;
+    ) -> crate::channel::BoxFuture<'a, Result<ChannelSendResult, AgentError>> {
+        Box::pin(async move {
+            // First get an access token
+            let token = self.get_access_token().await?;
 
-        let url = "https://api.qq.com/v1.0/robot/oToMessages/batchSend";
-        let body = serde_json::json!({
-            "robotCode": self.app_id,
-            "userIds": [outbound.external_conversation_id],
-            "msgKey": "sampleText",
-            "msgParam": serde_json::json!({
-                "content": outbound.content
-            }).to_string(),
-        });
-
-        let client = reqwest::Client::new();
-        let resp = client
-            .post(url)
-            .header("x-acs-qq-access-token", &token)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| AgentError::ChannelError {
-                channel: "qq".into(),
-                detail: format!("send request failed: {e}"),
-            })?;
-
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
-            return Err(AgentError::ChannelError {
-                channel: "qq".into(),
-                detail: format!("send API returned {status}: {text}"),
+            let url = "https://api.qq.com/v1.0/robot/oToMessages/batchSend";
+            let body = serde_json::json!({
+                "robotCode": self.app_id,
+                "userIds": [outbound.external_conversation_id],
+                "msgKey": "sampleText",
+                "msgParam": serde_json::json!({
+                    "content": outbound.content
+                }).to_string(),
             });
-        }
 
-        Ok(ChannelSendResult {
-            accepted: true,
-            external_message_id: None,
+            let client = reqwest::Client::new();
+            let resp = client
+                .post(url)
+                .header("x-acs-qq-access-token", &token)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AgentError::ChannelError {
+                    channel: "qq".into(),
+                    detail: format!("send request failed: {e}"),
+                })?;
+
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                return Err(AgentError::ChannelError {
+                    channel: "qq".into(),
+                    detail: format!("send API returned {status}: {text}"),
+                });
+            }
+
+            Ok(ChannelSendResult {
+                accepted: true,
+                external_message_id: None,
+            })
         })
     }
 }
