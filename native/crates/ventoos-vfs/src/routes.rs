@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{get, post, put};
+use axum::routing::{get, post};
 use axum::{Json, Router};
 
 use ventoos_core::plugin::AppPlugin;
@@ -32,7 +32,6 @@ impl AppPlugin for VfsPlugin {
     }
 
     fn routes(&self) -> Router {
-        let mgr = self.manager.clone();
         // Build the WebDAV server sub-router (handles /webdav/* paths)
         let webdav_sub = crate::webdav_server::webdav_router();
 

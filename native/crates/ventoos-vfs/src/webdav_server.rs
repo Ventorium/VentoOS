@@ -18,8 +18,8 @@ use axum::Router;
 
 use crate::manager::VfsManager;
 use crate::types::{
-    VfsCopyReq, VfsDeleteReq, VfsMkdirReq, VfsMoveReq, VfsReadReq, VfsSearchReq, VfsSourceKind,
-    VfsWriteReq, WebDavServerSettings,
+    VfsCopyReq, VfsDeleteReq, VfsMkdirReq, VfsMoveReq, VfsWriteReq,
+    WebDavServerSettings,
 };
 
 /// Build the WebDAV sub-router.  All requests to `/webdav/*path` pass through

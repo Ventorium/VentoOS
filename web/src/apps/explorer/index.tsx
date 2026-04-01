@@ -22,7 +22,7 @@ import {
   X
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CreateVfsMountReq, VfsFileContent, VfsMount, VfsNode, VfsSourceKind } from '@/infra/api'
+import type { CreateVfsMountReq, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow } from '@/kernel'
@@ -74,6 +74,15 @@ function parseMountFields(mount: { kind: VfsSourceKind; root: string }) {
       result.secretKey = decodeURIComponent(url.password)
       result.region = url.searchParams.get('region') ?? ''
       result.endpoint = url.searchParams.get('endpoint') ?? ''
+    } else if (mount.kind === 'webdav') {
+      // webdav://user:pass@host:port/basePath  or  webdavs://...
+      const normalized = mount.root.replace(/^webdavs:\/\//, 'https://').replace(/^webdav:\/\//, 'http://')
+      const url = new URL(normalized)
+      result.host = url.hostname
+      result.port = url.port
+      result.username = decodeURIComponent(url.username)
+      result.password = decodeURIComponent(url.password)
+      result.basePath = url.pathname || '/'
     }
   } catch { /* ignore parse errors */ }
   return result
@@ -94,15 +103,21 @@ function MountForm({
   const initial = mountToEdit ? parseMountFields(mountToEdit) : null
 
   const [name, setName] = useState(mountToEdit?.name ?? '')
+  const [nameError, setNameError] = useState<string | null>(null)
   const [kind, setKind] = useState<VfsSourceKind>(mountToEdit?.kind ?? 'local')
   // local
   const [localPath, setLocalPath] = useState(initial?.localPath ?? '')
-  // sftp / ftp
+  // sftp / ftp / webdav
   const [host, setHost] = useState(initial?.host ?? '')
   const [port, setPort] = useState(initial?.port ?? '')
   const [username, setUsername] = useState(initial?.username ?? '')
   const [password, setPassword] = useState(initial?.password ?? '')
   const [basePath, setBasePath] = useState(initial?.basePath ?? '/')
+  // webdav
+  const [useHttps, setUseHttps] = useState(() => {
+    if (mountToEdit?.kind === 'webdav') return mountToEdit.root.startsWith('webdavs://')
+    return false
+  })
   // smb
   const [share, setShare] = useState(initial?.share ?? '')
   // s3
@@ -121,6 +136,19 @@ function MountForm({
     background: 'var(--vos-bg-input)',
     color: 'var(--vos-text-primary)',
     border: '0.5px solid var(--vos-border-subtle)'
+  }
+
+  const validateName = (v: string): string | null => {
+    if (!v) return '名称不能为空'
+    if (v.length > 100) return '名称不能超过 100 个字符'
+    if (v !== v.trim()) return '名称不能以空格开头或结尾'
+    if (/[/\\:*?"<>|]/.test(v)) return '名称不能包含 / \\ : * ? " < > | 等字符'
+    return null
+  }
+
+  const handleNameChange = (v: string) => {
+    setName(v)
+    setNameError(validateName(v))
   }
 
   const buildRoot = (): string => {
@@ -149,13 +177,19 @@ function MountForm({
         const auth = accessKey ? `${encodeURIComponent(accessKey)}:${encodeURIComponent(secretKey)}@` : ''
         return `s3://${auth}${bucket}${qs}`
       }
+      case 'webdav': {
+        const scheme = useHttps ? 'webdavs' : 'webdav'
+        const p = port || (useHttps ? '443' : '80')
+        const auth = username ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
+        return `${scheme}://${auth}${host}:${p}${basePath || '/'}`
+      }
       default:
         return ''
     }
   }
 
   const isValid = (): boolean => {
-    if (!name) return false
+    if (!name || nameError) return false
     switch (kind) {
       case 'local':
         return !!localPath
@@ -166,6 +200,8 @@ function MountForm({
         return !!host
       case 's3':
         return !!bucket
+      case 'webdav':
+        return !!host
       default:
         return false
     }
@@ -211,13 +247,17 @@ function MountForm({
         style={{ width: 400, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
       >
         <div className="text-sm font-medium">{isEditing ? '编辑数据源' : '添加数据源'}</div>
-        <input className={fc} style={fs} placeholder="名称" value={name} onChange={e => setName(e.target.value)} />
+        <div>
+          <input className={fc} style={fs} placeholder="名称" value={name} onChange={e => handleNameChange(e.target.value)} />
+          {nameError && <div className="text-xs mt-0.5" style={{ color: 'var(--vos-accent-danger)' }}>{nameError}</div>}
+        </div>
         <select className={fc} style={fs} value={kind} onChange={e => setKind(e.target.value as VfsSourceKind)}>
           <option value="local">本地磁盘</option>
           <option value="sftp">SFTP</option>
           <option value="ftp">FTP</option>
           <option value="smb">SMB 共享</option>
           <option value="s3">S3 对象存储</option>
+          <option value="webdav">WebDAV</option>
         </select>
 
         {/* ── Local disk ── */}
@@ -357,6 +397,56 @@ function MountForm({
               placeholder="自定义 Endpoint（可选，兼容 MinIO 等）"
               value={endpoint}
               onChange={e => setEndpoint(e.target.value)}
+            />
+          </>
+        )}
+
+        {/* ── WebDAV ── */}
+        {kind === 'webdav' && (
+          <>
+            <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+              <input type="checkbox" checked={useHttps} onChange={e => setUseHttps(e.target.checked)} />
+              使用 HTTPS（webdavs://）
+            </label>
+            <div className="flex gap-2">
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="主机地址"
+                value={host}
+                onChange={e => setHost(e.target.value)}
+              />
+              <input
+                className={fc}
+                style={{ ...fs, width: 72 }}
+                placeholder={useHttps ? '443' : '80'}
+                value={port}
+                onChange={e => setPort(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="用户名（可选）"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+              />
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                type="password"
+                placeholder="密码（可选）"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
+            </div>
+            <input
+              className={fc}
+              style={fs}
+              placeholder="基础路径（如 /remote.php/dav/files/admin/）"
+              value={basePath}
+              onChange={e => setBasePath(e.target.value)}
             />
           </>
         )}
