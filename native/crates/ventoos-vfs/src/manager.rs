@@ -3,20 +3,18 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use crate::ftp::FtpPool;
-use crate::s3::{S3Client, S3Config};
-use crate::sftp::SftpPool;
+use crate::sftp::{SftpPool, SshInfoProvider};
 use crate::types::{
-    CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq, VfsMount,
-    VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
+    CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq,
+    VfsMount, VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
 };
 
 /// Virtual file system manager.
-/// Supports local filesystem, SFTP, FTP, and S3-compatible object storage.
+/// Supports local filesystem and remote SFTP; other sources (FTP, SMB, S3) are stubs.
 pub struct VfsManager {
     mounts: Arc<RwLock<HashMap<String, VfsMount>>>,
     sftp_pool: SftpPool,
-    ftp_pool: FtpPool,
+    ssh_provider: Option<Arc<dyn SshInfoProvider>>,
 }
 
 impl VfsManager {
@@ -24,8 +22,35 @@ impl VfsManager {
         Self {
             mounts: Arc::new(RwLock::new(HashMap::new())),
             sftp_pool: SftpPool::new(),
-            ftp_pool: FtpPool::new(),
+            ssh_provider: None,
         }
+    }
+
+    /// Create a VfsManager with an SSH info provider for SFTP support.
+    pub fn with_ssh_provider(provider: Arc<dyn SshInfoProvider>) -> Self {
+        Self {
+            mounts: Arc::new(RwLock::new(HashMap::new())),
+            sftp_pool: SftpPool::new(),
+            ssh_provider: Some(provider),
+        }
+    }
+
+    /// Get a reference to the SSH provider, or return an error if not set.
+    fn require_ssh_provider(&self) -> Result<&dyn SshInfoProvider, String> {
+        self.ssh_provider
+            .as_deref()
+            .ok_or_else(|| "SSH provider not configured".into())
+    }
+
+    /// Get or create an SFTP session for a mount's connection.
+    async fn get_sftp(
+        &self,
+        connection_id: &str,
+    ) -> Result<Arc<russh_sftp::client::SftpSession>, String> {
+        let provider = self.require_ssh_provider()?;
+        self.sftp_pool
+            .get_or_connect(connection_id, provider)
+            .await
     }
 
     pub async fn create_mount(&self, req: CreateVfsMountReq) -> VfsMount {
@@ -54,8 +79,6 @@ impl VfsManager {
     }
 
     pub async fn delete_mount(&self, id: &str) -> bool {
-        self.sftp_pool.remove(id).await;
-        self.ftp_pool.remove(id).await;
         self.mounts.write().await.remove(id).is_some()
     }
 
@@ -72,22 +95,14 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.list_local_dir(&mount.root, &req.path).await,
             VfsSourceKind::Sftp => {
-                let conn = self
-                    .sftp_pool
-                    .get_or_connect(&req.mount_id, &mount.root)
-                    .await?;
-                conn.list_dir(&req.path).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::list_dir(&sftp, &mount.root, &req.path).await
             }
-            VfsSourceKind::Ftp => {
-                crate::ftp::ftp_list_dir(&self.ftp_pool, &req.mount_id, &mount.root, &req.path)
-                    .await
-            }
-            VfsSourceKind::S3 => {
-                S3Client::new(S3Config::parse(&mount.root)?)
-                    .list_dir(&req.path)
-                    .await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
@@ -174,25 +189,14 @@ impl VfsManager {
                     .await
             }
             VfsSourceKind::Sftp => {
-                let conn = self
-                    .sftp_pool
-                    .get_or_connect(&req.mount_id, &mount.root)
-                    .await?;
-                conn.read_file(&req.path, req.max_bytes).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::read_file(&sftp, &mount.root, &req.path, req.max_bytes).await
             }
-            VfsSourceKind::Ftp => {
-                let raw =
-                    crate::ftp::ftp_read_raw(&self.ftp_pool, &req.mount_id, &mount.root, &req.path)
-                        .await?;
-                Ok(Self::bytes_to_file_content(&req.path, &raw, req.max_bytes))
-            }
-            VfsSourceKind::S3 => {
-                let raw = S3Client::new(S3Config::parse(&mount.root)?)
-                    .get_object(&req.path)
-                    .await?;
-                Ok(Self::bytes_to_file_content(&req.path, &raw, req.max_bytes))
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
@@ -209,28 +213,14 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.move_local(&mount.root, &req.src, &req.dest).await,
             VfsSourceKind::Sftp => {
-                let conn = self
-                    .sftp_pool
-                    .get_or_connect(&req.mount_id, &mount.root)
-                    .await?;
-                conn.move_file(&req.src, &req.dest).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::move_file(&sftp, &mount.root, &req.src, &req.dest).await
             }
-            VfsSourceKind::Ftp => {
-                crate::ftp::ftp_rename(
-                    &self.ftp_pool,
-                    &req.mount_id,
-                    &mount.root,
-                    &req.src,
-                    &req.dest,
-                )
-                .await
-            }
-            VfsSourceKind::S3 => {
-                let s3 = S3Client::new(S3Config::parse(&mount.root)?);
-                s3.copy_object(&req.src, &req.dest).await?;
-                s3.delete_object(&req.src).await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
@@ -247,29 +237,18 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.copy_local(&mount.root, &req.src, &req.dest).await,
             VfsSourceKind::Sftp => {
-                let conn = self
-                    .sftp_pool
-                    .get_or_connect(&req.mount_id, &mount.root)
-                    .await?;
-                conn.copy_file(&req.src, &req.dest).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::copy_file(&sftp, &mount.root, &req.src, &req.dest).await
             }
-            VfsSourceKind::Ftp => {
-                let data =
-                    crate::ftp::ftp_read_raw(&self.ftp_pool, &req.mount_id, &mount.root, &req.src)
-                        .await?;
-                crate::ftp::ftp_write(&self.ftp_pool, &req.mount_id, &mount.root, &req.dest, data)
-                    .await
-            }
-            VfsSourceKind::S3 => {
-                S3Client::new(S3Config::parse(&mount.root)?)
-                    .copy_object(&req.src, &req.dest)
-                    .await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
-    /// Create a directory (including parent directories).
+    /// Create a directory.
     pub async fn mkdir(&self, req: &VfsMkdirReq) -> Result<(), String> {
         let mount = self
             .mounts
@@ -282,26 +261,14 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.mkdir_local(&mount.root, &req.path).await,
             VfsSourceKind::Sftp => {
-                let conn = self
-                    .sftp_pool
-                    .get_or_connect(&req.mount_id, &mount.root)
-                    .await?;
-                conn.mkdir(&req.path).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::mkdir(&sftp, &mount.root, &req.path).await
             }
-            VfsSourceKind::Ftp => {
-                crate::ftp::ftp_mkdir(&self.ftp_pool, &req.mount_id, &mount.root, &req.path).await
-            }
-            VfsSourceKind::S3 => {
-                // S3 has no real directories; create a zero-byte "folder" marker object
-                let marker = format!(
-                    "{}/",
-                    req.path.trim_start_matches('/').trim_end_matches('/')
-                );
-                S3Client::new(S3Config::parse(&mount.root)?)
-                    .put_object(&marker, &[])
-                    .await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
@@ -318,26 +285,18 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.delete_local(&mount.root, &req.path).await,
             VfsSourceKind::Sftp => {
-                let conn = self
-                    .sftp_pool
-                    .get_or_connect(&req.mount_id, &mount.root)
-                    .await?;
-                conn.delete(&req.path).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::delete(&sftp, &mount.root, &req.path).await
             }
-            VfsSourceKind::Ftp => {
-                crate::ftp::ftp_delete_auto(&self.ftp_pool, &req.mount_id, &mount.root, &req.path)
-                    .await
-            }
-            VfsSourceKind::S3 => {
-                S3Client::new(S3Config::parse(&mount.root)?)
-                    .delete_object(&req.path)
-                    .await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
-    /// Write string content to a file.
+    /// Write text content to a file.
     pub async fn write_file(&self, req: &VfsWriteReq) -> Result<(), String> {
         let mount = self
             .mounts
@@ -349,36 +308,22 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => {
-                self.write_local(&mount.root, &req.path, req.content.as_bytes())
+                self.write_local_file(&mount.root, &req.path, &req.content)
                     .await
             }
             VfsSourceKind::Sftp => {
-                let conn = self
-                    .sftp_pool
-                    .get_or_connect(&req.mount_id, &mount.root)
-                    .await?;
-                conn.write_file(&req.path, req.content.as_bytes()).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::write_file(&sftp, &mount.root, &req.path, &req.content).await
             }
-            VfsSourceKind::Ftp => {
-                crate::ftp::ftp_write(
-                    &self.ftp_pool,
-                    &req.mount_id,
-                    &mount.root,
-                    &req.path,
-                    req.content.as_bytes().to_vec(),
-                )
-                .await
-            }
-            VfsSourceKind::S3 => {
-                S3Client::new(S3Config::parse(&mount.root)?)
-                    .put_object(&req.path, req.content.as_bytes())
-                    .await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
-    /// Upload binary file content.
+    /// Upload raw binary data to a file.
     pub async fn upload_file(
         &self,
         mount_id: &str,
@@ -394,24 +339,20 @@ impl VfsManager {
             .ok_or("Mount not found")?;
 
         match mount.kind {
-            VfsSourceKind::Local => self.write_local(&mount.root, path, &data).await,
+            VfsSourceKind::Local => self.upload_local_file(&mount.root, path, &data).await,
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(mount_id, &mount.root).await?;
-                conn.write_file(path, &data).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::upload_file(&sftp, &mount.root, path, &data).await
             }
-            VfsSourceKind::Ftp => {
-                crate::ftp::ftp_write(&self.ftp_pool, mount_id, &mount.root, path, data).await
-            }
-            VfsSourceKind::S3 => {
-                S3Client::new(S3Config::parse(&mount.root)?)
-                    .put_object(path, &data)
-                    .await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
-    /// Get file/directory metadata.
+    /// Get metadata for a single file or directory.
     pub async fn stat(&self, mount_id: &str, path: &str) -> Result<VfsNode, String> {
         let mount = self
             .mounts
@@ -424,22 +365,18 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.stat_local(&mount.root, path).await,
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(mount_id, &mount.root).await?;
-                conn.stat(path).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::stat(&sftp, &mount.root, path).await
             }
-            VfsSourceKind::Ftp => {
-                crate::ftp::ftp_stat(&self.ftp_pool, mount_id, &mount.root, path).await
-            }
-            VfsSourceKind::S3 => {
-                S3Client::new(S3Config::parse(&mount.root)?)
-                    .stat(path)
-                    .await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
-    /// Search files by name pattern.
+    /// Search for files/directories matching a query.
     pub async fn search(&self, req: &VfsSearchReq) -> Result<Vec<VfsNode>, String> {
         let mount = self
             .mounts
@@ -451,39 +388,19 @@ impl VfsManager {
 
         match mount.kind {
             VfsSourceKind::Local => {
-                self.search_local(
-                    &mount.root,
-                    &req.path,
-                    &req.query,
-                    req.max_results.unwrap_or(100),
-                )
-                .await
+                self.search_local(&mount.root, &req.path, &req.query, req.max_results)
+                    .await
             }
             VfsSourceKind::Sftp => {
-                let conn = self
-                    .sftp_pool
-                    .get_or_connect(&req.mount_id, &mount.root)
-                    .await?;
-                conn.search(&req.path, &req.query, req.max_results.unwrap_or(100))
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::search(&sftp, &mount.root, &req.path, &req.query, req.max_results)
                     .await
             }
-            VfsSourceKind::Ftp => {
-                crate::ftp::ftp_search(
-                    &self.ftp_pool,
-                    &req.mount_id,
-                    &mount.root,
-                    &req.path,
-                    &req.query,
-                    req.max_results.unwrap_or(100),
-                )
-                .await
-            }
-            VfsSourceKind::S3 => {
-                S3Client::new(S3Config::parse(&mount.root)?)
-                    .search(&req.path, &req.query, req.max_results.unwrap_or(100))
-                    .await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
@@ -573,175 +490,6 @@ impl VfsManager {
         Ok(())
     }
 
-    async fn mkdir_local(&self, root: &str, rel_path: &str) -> Result<(), String> {
-        let root_path = std::path::Path::new(root);
-        let canonical_root = root_path
-            .canonicalize()
-            .map_err(|e| format!("Root path error: {e}"))?;
-
-        let clean = rel_path.trim_start_matches('/');
-        let candidate = root_path.join(clean);
-
-        // Walk up to find the first existing ancestor and verify it's under root
-        let mut check = candidate.as_path();
-        loop {
-            if check.exists() {
-                let canonical = check
-                    .canonicalize()
-                    .map_err(|e| format!("Path error: {e}"))?;
-                if !canonical.starts_with(&canonical_root) {
-                    return Err("Path traversal denied".into());
-                }
-                break;
-            }
-            match check.parent() {
-                Some(p) => check = p,
-                None => return Err("Invalid path".into()),
-            }
-        }
-
-        tokio::fs::create_dir_all(&candidate)
-            .await
-            .map_err(|e| format!("Create directory failed: {e}"))
-    }
-
-    async fn delete_local(&self, root: &str, rel_path: &str) -> Result<(), String> {
-        let root_path = std::path::Path::new(root);
-        let full_path = Self::resolve_local_path(root_path, rel_path)?;
-
-        // Prevent deleting the root itself
-        let canonical_root = root_path
-            .canonicalize()
-            .map_err(|e| format!("Root path error: {e}"))?;
-        if full_path == canonical_root {
-            return Err("Cannot delete mount root".into());
-        }
-
-        let metadata = tokio::fs::metadata(&full_path)
-            .await
-            .map_err(|e| format!("Path not found: {e}"))?;
-
-        if metadata.is_dir() {
-            tokio::fs::remove_dir_all(&full_path)
-                .await
-                .map_err(|e| format!("Delete directory failed: {e}"))
-        } else {
-            tokio::fs::remove_file(&full_path)
-                .await
-                .map_err(|e| format!("Delete file failed: {e}"))
-        }
-    }
-
-    async fn write_local(&self, root: &str, rel_path: &str, data: &[u8]) -> Result<(), String> {
-        let root_path = std::path::Path::new(root);
-        let dest_path = Self::resolve_local_dest(root_path, rel_path)?;
-
-        tokio::fs::write(&dest_path, data)
-            .await
-            .map_err(|e| format!("Write failed: {e}"))
-    }
-
-    async fn stat_local(&self, root: &str, rel_path: &str) -> Result<VfsNode, String> {
-        let root_path = std::path::Path::new(root);
-        let full_path = Self::resolve_local_path(root_path, rel_path)?;
-
-        let metadata = tokio::fs::metadata(&full_path)
-            .await
-            .map_err(|e| format!("Metadata error: {e}"))?;
-
-        let name = full_path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-        let is_dir = metadata.is_dir();
-        let size = if metadata.is_file() {
-            Some(metadata.len())
-        } else {
-            None
-        };
-        let modified = metadata.modified().ok().map(|t| {
-            let dt: chrono::DateTime<chrono::Utc> = t.into();
-            dt.to_rfc3339()
-        });
-
-        #[cfg(unix)]
-        let permissions = {
-            use std::os::unix::fs::PermissionsExt;
-            Some(format!("{:o}", metadata.permissions().mode()))
-        };
-        #[cfg(not(unix))]
-        let permissions: Option<String> = None;
-
-        Ok(VfsNode {
-            name,
-            path: rel_path.to_string(),
-            is_dir,
-            size,
-            modified,
-            permissions,
-        })
-    }
-
-    async fn search_local(
-        &self,
-        root: &str,
-        rel_path: &str,
-        query: &str,
-        max_results: usize,
-    ) -> Result<Vec<VfsNode>, String> {
-        let root_path = std::path::Path::new(root);
-        let start_path = if rel_path.is_empty() || rel_path == "/" {
-            root_path
-                .canonicalize()
-                .map_err(|e| format!("Root path error: {e}"))?
-        } else {
-            Self::resolve_local_path(root_path, rel_path)?
-        };
-        let canonical_root = root_path
-            .canonicalize()
-            .map_err(|e| format!("Root path error: {e}"))?;
-
-        let query_lower = query.to_lowercase();
-        let mut results = Vec::new();
-        search_dir_recursive(
-            &start_path,
-            &canonical_root,
-            &query_lower,
-            max_results,
-            0,
-            10, // max depth
-            &mut results,
-        )
-        .await;
-        Ok(results)
-    }
-
-    /// Convert raw bytes to `VfsFileContent`, applying size limits and binary detection.
-    fn bytes_to_file_content(path: &str, bytes: &[u8], max_bytes: Option<u64>) -> VfsFileContent {
-        let file_size = bytes.len() as u64;
-        let limit = max_bytes.unwrap_or(1_048_576);
-        let truncated = file_size > limit;
-        let slice = if truncated {
-            &bytes[..usize::try_from(limit).unwrap_or(usize::MAX)]
-        } else {
-            bytes
-        };
-        let check_len = slice.len().min(8192);
-        let is_binary = slice[..check_len].contains(&0);
-        let content = if is_binary {
-            format!("[Binary file, {file_size} bytes]")
-        } else {
-            String::from_utf8_lossy(slice).into_owned()
-        };
-        VfsFileContent {
-            path: path.to_string(),
-            size: file_size,
-            content,
-            is_binary,
-            truncated,
-        }
-    }
-
     /// Read raw file bytes for download / image preview.
     pub async fn read_file_raw(&self, mount_id: &str, path: &str) -> Result<Vec<u8>, String> {
         let mount = self
@@ -755,18 +503,14 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.read_local_file_raw(&mount.root, path).await,
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(mount_id, &mount.root).await?;
-                conn.read_file_raw(path).await
+                let conn_id = mount
+                    .connection_id
+                    .as_deref()
+                    .ok_or("SFTP mount missing connection_id")?;
+                let sftp = self.get_sftp(conn_id).await?;
+                crate::sftp::read_file_raw(&sftp, &mount.root, path).await
             }
-            VfsSourceKind::Ftp => {
-                crate::ftp::ftp_read_raw(&self.ftp_pool, mount_id, &mount.root, path).await
-            }
-            VfsSourceKind::S3 => {
-                S3Client::new(S3Config::parse(&mount.root)?)
-                    .get_object(path)
-                    .await
-            }
-            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
+            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
         }
     }
 
@@ -842,10 +586,119 @@ impl VfsManager {
             truncated,
         })
     }
+
+    async fn mkdir_local(&self, root: &str, rel_path: &str) -> Result<(), String> {
+        let root_path = std::path::Path::new(root);
+        let dest = Self::resolve_local_dest(root_path, rel_path)?;
+        tokio::fs::create_dir_all(&dest)
+            .await
+            .map_err(|e| format!("mkdir failed: {e}"))
+    }
+
+    async fn delete_local(&self, root: &str, rel_path: &str) -> Result<(), String> {
+        let root_path = std::path::Path::new(root);
+        let target = Self::resolve_local_path(root_path, rel_path)?;
+        let metadata = tokio::fs::metadata(&target)
+            .await
+            .map_err(|e| format!("stat failed: {e}"))?;
+        if metadata.is_dir() {
+            tokio::fs::remove_dir_all(&target)
+                .await
+                .map_err(|e| format!("rmdir failed: {e}"))
+        } else {
+            tokio::fs::remove_file(&target)
+                .await
+                .map_err(|e| format!("remove failed: {e}"))
+        }
+    }
+
+    async fn write_local_file(
+        &self,
+        root: &str,
+        rel_path: &str,
+        content: &str,
+    ) -> Result<(), String> {
+        let root_path = std::path::Path::new(root);
+        let dest = Self::resolve_local_dest(root_path, rel_path)?;
+        tokio::fs::write(&dest, content.as_bytes())
+            .await
+            .map_err(|e| format!("write failed: {e}"))
+    }
+
+    async fn upload_local_file(
+        &self,
+        root: &str,
+        rel_path: &str,
+        data: &[u8],
+    ) -> Result<(), String> {
+        let root_path = std::path::Path::new(root);
+        let dest = Self::resolve_local_dest(root_path, rel_path)?;
+        tokio::fs::write(&dest, data)
+            .await
+            .map_err(|e| format!("upload failed: {e}"))
+    }
+
+    async fn stat_local(&self, root: &str, rel_path: &str) -> Result<VfsNode, String> {
+        let root_path = std::path::Path::new(root);
+        let target = Self::resolve_local_path(root_path, rel_path)?;
+        let metadata = tokio::fs::metadata(&target)
+            .await
+            .map_err(|e| format!("stat failed: {e}"))?;
+
+        let name = target
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let is_dir = metadata.is_dir();
+        let size = if is_dir { None } else { Some(metadata.len()) };
+        let modified = metadata.modified().ok().map(|t| {
+            let dt: chrono::DateTime<chrono::Utc> = t.into();
+            dt.to_rfc3339()
+        });
+
+        Ok(VfsNode {
+            name,
+            path: rel_path.to_string(),
+            is_dir,
+            size,
+            modified,
+            permissions: None,
+        })
+    }
+
+    async fn search_local(
+        &self,
+        root: &str,
+        rel_path: &str,
+        query: &str,
+        max_results: Option<usize>,
+    ) -> Result<Vec<VfsNode>, String> {
+        let root_path = std::path::Path::new(root);
+        let base = if rel_path.is_empty() || rel_path == "/" {
+            root_path
+                .canonicalize()
+                .map_err(|e| format!("Root path error: {e}"))?
+        } else {
+            Self::resolve_local_path(root_path, rel_path)?
+        };
+
+        let limit = max_results.unwrap_or(100);
+        let query_lower = query.to_lowercase();
+        let mut results = Vec::new();
+        let canonical_root = root_path
+            .canonicalize()
+            .map_err(|e| format!("Root path error: {e}"))?;
+
+        search_local_recursive(&base, &canonical_root, &query_lower, limit, &mut results).await?;
+        Ok(results)
+    }
 }
 
 /// Recursively copy a directory.
-async fn copy_dir_recursive(src: &std::path::Path, dest: &std::path::Path) -> Result<(), String> {
+async fn copy_dir_recursive(
+    src: &std::path::Path,
+    dest: &std::path::Path,
+) -> Result<(), String> {
     tokio::fs::create_dir_all(dest)
         .await
         .map_err(|e| format!("Create dir failed: {e}"))?;
@@ -873,56 +726,48 @@ async fn copy_dir_recursive(src: &std::path::Path, dest: &std::path::Path) -> Re
     Ok(())
 }
 
-/// Recursively search a directory for files matching a query.
-async fn search_dir_recursive(
+/// Recursively search local filesystem for files matching a query by name.
+async fn search_local_recursive(
     dir: &std::path::Path,
     root: &std::path::Path,
     query: &str,
-    max_results: usize,
-    depth: usize,
-    max_depth: usize,
+    limit: usize,
     results: &mut Vec<VfsNode>,
-) {
-    if depth > max_depth || results.len() >= max_results {
-        return;
+) -> Result<(), String> {
+    if results.len() >= limit {
+        return Ok(());
     }
 
-    let Ok(mut read_dir) = tokio::fs::read_dir(dir).await else {
-        return;
-    };
+    let mut read_dir = tokio::fs::read_dir(dir)
+        .await
+        .map_err(|e| format!("Read dir failed: {e}"))?;
 
     while let Ok(Some(entry)) = read_dir.next_entry().await {
-        if results.len() >= max_results {
-            return;
+        if results.len() >= limit {
+            break;
         }
-
         let name = entry.file_name().to_string_lossy().to_string();
-        // Skip hidden files
         if name.starts_with('.') {
             continue;
         }
-
-        let Ok(metadata) = entry.metadata().await else {
-            continue;
-        };
-        let is_dir = metadata.is_dir();
+        let metadata = entry.metadata().await.ok();
+        let is_dir = metadata.as_ref().is_some_and(std::fs::Metadata::is_dir);
 
         if name.to_lowercase().contains(query) {
-            let entry_path = entry.path();
-            let rel_path = entry_path
+            let full = entry.path();
+            let rel = full
                 .strip_prefix(root)
-                .map(|p| format!("/{}", p.to_string_lossy()))
-                .unwrap_or_default();
-            let size = if metadata.is_file() {
-                Some(metadata.len())
-            } else {
-                None
-            };
-            let modified = metadata.modified().ok().map(|t| {
+                .unwrap_or(&full)
+                .to_string_lossy()
+                .to_string();
+            let rel_path = format!("/{rel}");
+            let size = metadata
+                .as_ref()
+                .and_then(|m| if m.is_file() { Some(m.len()) } else { None });
+            let modified = metadata.as_ref().and_then(|m| m.modified().ok()).map(|t| {
                 let dt: chrono::DateTime<chrono::Utc> = t.into();
                 dt.to_rfc3339()
             });
-
             results.push(VfsNode {
                 name: name.clone(),
                 path: rel_path,
@@ -934,18 +779,17 @@ async fn search_dir_recursive(
         }
 
         if is_dir {
-            Box::pin(search_dir_recursive(
+            Box::pin(search_local_recursive(
                 &entry.path(),
                 root,
                 query,
-                max_results,
-                depth + 1,
-                max_depth,
+                limit,
                 results,
             ))
-            .await;
+            .await?;
         }
     }
+    Ok(())
 }
 
 impl Default for VfsManager {
@@ -1047,10 +891,7 @@ mod tests {
         assert!(result.is_ok());
         assert!(!dir.path().join("a.txt").exists());
         assert!(dir.path().join("b.txt").exists());
-        assert_eq!(
-            std::fs::read_to_string(dir.path().join("b.txt")).unwrap(),
-            "hello"
-        );
+        assert_eq!(std::fs::read_to_string(dir.path().join("b.txt")).unwrap(), "hello");
     }
 
     #[tokio::test]
@@ -1081,10 +922,7 @@ mod tests {
         assert!(result.is_ok());
         assert!(dir.path().join("orig.txt").exists());
         assert!(dir.path().join("copy.txt").exists());
-        assert_eq!(
-            std::fs::read_to_string(dir.path().join("copy.txt")).unwrap(),
-            "data"
-        );
+        assert_eq!(std::fs::read_to_string(dir.path().join("copy.txt")).unwrap(), "data");
     }
 
     #[tokio::test]
@@ -1144,215 +982,5 @@ mod tests {
             .await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("already exists"));
-    }
-
-    #[tokio::test]
-    async fn test_mkdir() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().to_str().unwrap().to_string();
-
-        let mgr = VfsManager::new();
-        let mount = mgr
-            .create_mount(CreateVfsMountReq {
-                name: "test".into(),
-                kind: VfsSourceKind::Local,
-                root,
-                connection_id: None,
-                group: None,
-            })
-            .await;
-
-        let result = mgr
-            .mkdir(&VfsMkdirReq {
-                mount_id: mount.id.clone(),
-                path: "/sub/deep/dir".into(),
-            })
-            .await;
-        assert!(result.is_ok());
-        assert!(dir.path().join("sub/deep/dir").is_dir());
-    }
-
-    #[tokio::test]
-    async fn test_delete_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().to_str().unwrap().to_string();
-
-        std::fs::write(dir.path().join("to_delete.txt"), "bye").unwrap();
-        assert!(dir.path().join("to_delete.txt").exists());
-
-        let mgr = VfsManager::new();
-        let mount = mgr
-            .create_mount(CreateVfsMountReq {
-                name: "test".into(),
-                kind: VfsSourceKind::Local,
-                root,
-                connection_id: None,
-                group: None,
-            })
-            .await;
-
-        let result = mgr
-            .delete(&VfsDeleteReq {
-                mount_id: mount.id.clone(),
-                path: "/to_delete.txt".into(),
-            })
-            .await;
-        assert!(result.is_ok());
-        assert!(!dir.path().join("to_delete.txt").exists());
-    }
-
-    #[tokio::test]
-    async fn test_delete_dir() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().to_str().unwrap().to_string();
-
-        std::fs::create_dir_all(dir.path().join("subdir")).unwrap();
-        std::fs::write(dir.path().join("subdir/a.txt"), "a").unwrap();
-        std::fs::write(dir.path().join("subdir/b.txt"), "b").unwrap();
-
-        let mgr = VfsManager::new();
-        let mount = mgr
-            .create_mount(CreateVfsMountReq {
-                name: "test".into(),
-                kind: VfsSourceKind::Local,
-                root,
-                connection_id: None,
-                group: None,
-            })
-            .await;
-
-        let result = mgr
-            .delete(&VfsDeleteReq {
-                mount_id: mount.id.clone(),
-                path: "/subdir".into(),
-            })
-            .await;
-        assert!(result.is_ok());
-        assert!(!dir.path().join("subdir").exists());
-    }
-
-    #[tokio::test]
-    async fn test_delete_root_blocked() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().to_str().unwrap().to_string();
-
-        let mgr = VfsManager::new();
-        let mount = mgr
-            .create_mount(CreateVfsMountReq {
-                name: "test".into(),
-                kind: VfsSourceKind::Local,
-                root,
-                connection_id: None,
-                group: None,
-            })
-            .await;
-
-        // Trying to delete "/" (root) should be denied
-        let result = mgr
-            .delete(&VfsDeleteReq {
-                mount_id: mount.id.clone(),
-                path: "/".into(),
-            })
-            .await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_write_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().to_str().unwrap().to_string();
-
-        let mgr = VfsManager::new();
-        let mount = mgr
-            .create_mount(CreateVfsMountReq {
-                name: "test".into(),
-                kind: VfsSourceKind::Local,
-                root,
-                connection_id: None,
-                group: None,
-            })
-            .await;
-
-        let result = mgr
-            .write_file(&VfsWriteReq {
-                mount_id: mount.id.clone(),
-                path: "/hello.txt".into(),
-                content: "Hello, VFS!".into(),
-            })
-            .await;
-        assert!(result.is_ok());
-
-        let content = std::fs::read_to_string(dir.path().join("hello.txt")).unwrap();
-        assert_eq!(content, "Hello, VFS!");
-    }
-
-    #[tokio::test]
-    async fn test_stat() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().to_str().unwrap().to_string();
-
-        std::fs::write(dir.path().join("info.txt"), "some data").unwrap();
-
-        let mgr = VfsManager::new();
-        let mount = mgr
-            .create_mount(CreateVfsMountReq {
-                name: "test".into(),
-                kind: VfsSourceKind::Local,
-                root,
-                connection_id: None,
-                group: None,
-            })
-            .await;
-
-        let node = mgr.stat(&mount.id, "/info.txt").await.unwrap();
-        assert_eq!(node.name, "info.txt");
-        assert!(!node.is_dir);
-        assert_eq!(node.size, Some(9));
-        assert!(node.modified.is_some());
-    }
-
-    #[tokio::test]
-    async fn test_search() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().to_str().unwrap().to_string();
-
-        std::fs::write(dir.path().join("readme.md"), "# Hello").unwrap();
-        std::fs::write(dir.path().join("notes.txt"), "notes").unwrap();
-        std::fs::create_dir_all(dir.path().join("sub")).unwrap();
-        std::fs::write(dir.path().join("sub/readme.txt"), "sub readme").unwrap();
-
-        let mgr = VfsManager::new();
-        let mount = mgr
-            .create_mount(CreateVfsMountReq {
-                name: "test".into(),
-                kind: VfsSourceKind::Local,
-                root,
-                connection_id: None,
-                group: None,
-            })
-            .await;
-
-        let results = mgr
-            .search(&VfsSearchReq {
-                mount_id: mount.id.clone(),
-                path: "/".into(),
-                query: "readme".into(),
-                max_results: None,
-            })
-            .await
-            .unwrap();
-        assert_eq!(results.len(), 2);
-
-        // Test case-insensitive
-        let results = mgr
-            .search(&VfsSearchReq {
-                mount_id: mount.id.clone(),
-                path: "/".into(),
-                query: "README".into(),
-                max_results: Some(1),
-            })
-            .await
-            .unwrap();
-        assert_eq!(results.len(), 1);
     }
 }

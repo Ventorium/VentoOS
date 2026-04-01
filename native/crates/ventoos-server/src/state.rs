@@ -33,10 +33,11 @@ impl AppState {
     pub fn new(db_path: &Path) -> Result<Self, anyhow::Error> {
         let db = Arc::new(Database::open(db_path)?);
 
+        let ssh = Arc::new(SshManager::new());
         let db_manager = Arc::new(DbManager::new());
         let redis_manager = Arc::new(RedisManager::new());
         let k8s_manager = Arc::new(K8sManager::new());
-        let vfs_manager = Arc::new(VfsManager::new());
+        let vfs_manager = Arc::new(VfsManager::with_ssh_provider(Arc::clone(&ssh) as _));
         let agent_manager = Arc::new(AgentManager::new());
 
         let plugins: Vec<Box<dyn AppPlugin>> = vec![
@@ -52,7 +53,7 @@ impl AppState {
             db,
             connections: Arc::new(ConnectionManager::new()),
             tasks: Arc::new(TaskEngine::new()),
-            ssh: Arc::new(SshManager::new()),
+            ssh,
             processes: Arc::new(ProcessManager::new()),
             plugins: Arc::new(plugins),
         })
@@ -63,10 +64,11 @@ impl AppState {
     pub fn new_test() -> Result<Self, anyhow::Error> {
         let db = Arc::new(Database::open_in_memory()?);
 
+        let ssh = Arc::new(SshManager::new());
         let db_manager = Arc::new(DbManager::new());
         let redis_manager = Arc::new(RedisManager::new());
         let k8s_manager = Arc::new(K8sManager::new());
-        let vfs_manager = Arc::new(VfsManager::new());
+        let vfs_manager = Arc::new(VfsManager::with_ssh_provider(Arc::clone(&ssh) as _));
         let agent_manager = Arc::new(AgentManager::new());
 
         let plugins: Vec<Box<dyn AppPlugin>> = vec![
@@ -82,7 +84,7 @@ impl AppState {
             db,
             connections: Arc::new(ConnectionManager::new()),
             tasks: Arc::new(TaskEngine::new()),
-            ssh: Arc::new(SshManager::new()),
+            ssh,
             processes: Arc::new(ProcessManager::new()),
             plugins: Arc::new(plugins),
         })

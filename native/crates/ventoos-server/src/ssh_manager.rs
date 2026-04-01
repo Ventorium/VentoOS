@@ -5,14 +5,27 @@ use chrono::Utc;
 use tokio::sync::RwLock;
 use ventoos_core::ssh::{
     CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest, PortMapping,
-    PortMappingStatus, ServiceExposure, ServiceExposureStatus, SshServer, SshServerStatus,
-    UpdateSshServerRequest,
+    PortMappingStatus, ServiceExposure, ServiceExposureStatus, SshAuthMethod, SshServer,
+    SshServerStatus, UpdateSshServerRequest,
 };
 use ventoos_core::types::{Id, new_id};
+use ventoos_vfs::sftp::{SshAuth, SshConnInfo, SshInfoProvider};
+
+/// Stored credential for an SSH server.
+#[derive(Debug, Clone)]
+enum StoredCredential {
+    Password(String),
+    PrivateKey {
+        key_pem: String,
+        passphrase: Option<String>,
+    },
+}
 
 /// SSH server manager — CRUD + port mapping + service exposure management.
 pub struct SshManager {
     servers: Arc<RwLock<HashMap<Id, SshServer>>>,
+    /// Credentials indexed by server ID.
+    credentials: Arc<RwLock<HashMap<Id, StoredCredential>>>,
     port_mappings: Arc<RwLock<HashMap<Id, PortMapping>>>,
     service_exposures: Arc<RwLock<HashMap<Id, ServiceExposure>>>,
 }
@@ -21,6 +34,7 @@ impl SshManager {
     pub fn new() -> Self {
         Self {
             servers: Arc::new(RwLock::new(HashMap::new())),
+            credentials: Arc::new(RwLock::new(HashMap::new())),
             port_mappings: Arc::new(RwLock::new(HashMap::new())),
             service_exposures: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -30,8 +44,9 @@ impl SshManager {
 
     pub async fn create_server(&self, req: CreateSshServerRequest) -> SshServer {
         let now = Utc::now();
+        let id = new_id();
         let server = SshServer {
-            id: new_id(),
+            id,
             name: req.name,
             host: req.host,
             port: req.port.unwrap_or(22),
@@ -44,8 +59,24 @@ impl SshManager {
             updated_at: now,
             last_connected_at: None,
         };
-        let mut servers = self.servers.write().await;
-        servers.insert(server.id, server.clone());
+
+        // Store credential if provided
+        if let Some(pw) = req.password {
+            self.credentials
+                .write()
+                .await
+                .insert(id, StoredCredential::Password(pw));
+        } else if let Some(key) = req.private_key {
+            self.credentials.write().await.insert(
+                id,
+                StoredCredential::PrivateKey {
+                    key_pem: key,
+                    passphrase: None,
+                },
+            );
+        }
+
+        self.servers.write().await.insert(id, server.clone());
         server
     }
 
@@ -86,6 +117,23 @@ impl SshManager {
                 server.tags = tags;
             }
             server.updated_at = Utc::now();
+
+            // Update credentials if provided
+            if let Some(pw) = req.password {
+                self.credentials
+                    .write()
+                    .await
+                    .insert(id, StoredCredential::Password(pw));
+            } else if let Some(key) = req.private_key {
+                self.credentials.write().await.insert(
+                    id,
+                    StoredCredential::PrivateKey {
+                        key_pem: key,
+                        passphrase: None,
+                    },
+                );
+            }
+
             Some(server.clone())
         } else {
             None
@@ -93,8 +141,8 @@ impl SshManager {
     }
 
     pub async fn delete_server(&self, id: Id) -> bool {
-        let mut servers = self.servers.write().await;
-        servers.remove(&id).is_some()
+        self.credentials.write().await.remove(&id);
+        self.servers.write().await.remove(&id).is_some()
     }
 
     pub async fn test_server(&self, id: Id) -> Option<SshServerTestResult> {
@@ -231,6 +279,60 @@ impl SshManager {
 impl Default for SshManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl SshInfoProvider for SshManager {
+    fn resolve(
+        &self,
+        connection_id: &str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<SshConnInfo, String>> + Send + '_>,
+    > {
+        let connection_id = connection_id.to_string();
+        Box::pin(async move {
+            let id: Id = connection_id
+                .parse()
+                .map_err(|_| format!("Invalid SSH server ID: {connection_id}"))?;
+
+            let servers = self.servers.read().await;
+            let server = servers
+                .get(&id)
+                .ok_or_else(|| format!("SSH server {connection_id} not found"))?;
+
+            let credentials = self.credentials.read().await;
+            let auth = match credentials.get(&id) {
+                Some(StoredCredential::Password(pw)) => SshAuth::Password(pw.clone()),
+                Some(StoredCredential::PrivateKey { key_pem, passphrase }) => {
+                    SshAuth::PrivateKey {
+                        key_pem: key_pem.clone(),
+                        passphrase: passphrase.clone(),
+                    }
+                }
+                None => {
+                    // Try to infer from auth method — key_path might be a local file
+                    match &server.auth_method {
+                        SshAuthMethod::PrivateKey { key_path: Some(path), .. } => {
+                            let key_pem = tokio::fs::read_to_string(path)
+                                .await
+                                .map_err(|e| format!("Failed to read key file {path}: {e}"))?;
+                            SshAuth::PrivateKey {
+                                key_pem,
+                                passphrase: None,
+                            }
+                        }
+                        _ => return Err("No credentials stored for this SSH server".into()),
+                    }
+                }
+            };
+
+            Ok(SshConnInfo {
+                host: server.host.clone(),
+                port: server.port,
+                username: server.username.clone(),
+                auth,
+            })
+        })
     }
 }
 
