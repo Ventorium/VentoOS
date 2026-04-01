@@ -29,17 +29,43 @@ pub enum SshAuth {
 }
 
 impl SshConnInfo {
-    /// Parse an SFTP URI of the form `sftp://[user[:pass]@]host[:port][/path]`.
+    /// Parse an SFTP URI of the form
+    /// `sftp://[user[:pass]@]host[:port][/path][?key_path=...&key_pass=...]`.
     /// The `/path` part (remote root) is returned separately.
+    /// Supports private key auth via `key_path` and `key_pass` query params.
     pub fn parse_sftp_url(uri: &str) -> Result<(Self, String), String> {
         let stripped = uri
             .strip_prefix("sftp://")
             .ok_or_else(|| format!("Not an sftp:// URI: {uri}"))?;
 
+        // Split authority+path and query params
+        let (without_query, query) = match stripped.find('?') {
+            Some(idx) => (&stripped[..idx], &stripped[idx + 1..]),
+            None => (stripped, ""),
+        };
+
+        // Parse query params
+        let mut key_path: Option<String> = None;
+        let mut key_pass: Option<String> = None;
+        for pair in query.split('&') {
+            if let Some(eq_idx) = pair.find('=') {
+                let k = &pair[..eq_idx];
+                let v = urldecode(&pair[eq_idx + 1..]);
+                match k {
+                    "key_path" => key_path = Some(v),
+                    "key_pass" => key_pass = Some(v),
+                    _ => {}
+                }
+            }
+        }
+
         // Split authority and path
-        let (authority, path) = match stripped.find('/') {
-            Some(idx) => (&stripped[..idx], format!("/{}", &stripped[idx + 1..])),
-            None => (stripped, "/".to_string()),
+        let (authority, path) = match without_query.find('/') {
+            Some(idx) => (
+                &without_query[..idx],
+                format!("/{}", &without_query[idx + 1..]),
+            ),
+            None => (without_query, "/".to_string()),
         };
 
         // Split userinfo@host:port
@@ -66,14 +92,45 @@ impl SshConnInfo {
             },
         };
 
+        let auth = if let Some(kp) = key_path {
+            SshAuth::PrivateKey {
+                key_pem: kp,
+                passphrase: key_pass,
+            }
+        } else {
+            SshAuth::Password(password)
+        };
+
         let conn = SshConnInfo {
             host: host.to_string(),
             port,
             username,
-            auth: SshAuth::Password(password),
+            auth,
         };
         Ok((conn, path))
     }
+}
+
+/// Simple URL percent-decode.
+fn urldecode(s: &str) -> String {
+    let mut result = String::new();
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(byte) = u8::from_str_radix(
+                &String::from_utf8_lossy(&bytes[i + 1..i + 3]),
+                16,
+            ) {
+                result.push(byte as char);
+                i += 3;
+                continue;
+            }
+        }
+        result.push(bytes[i] as char);
+        i += 1;
+    }
+    result
 }
 
 /// An `SshInfoProvider` that always returns a pre-built `SshConnInfo`,
@@ -218,6 +275,7 @@ pub async fn list_dir(
     sftp: &SftpSession,
     root: &str,
     rel_path: &str,
+    show_hidden: bool,
 ) -> Result<Vec<VfsNode>, String> {
     let full_path = resolve_remote_path(root, rel_path);
 
@@ -230,8 +288,8 @@ pub async fn list_dir(
 
     for entry in entries {
         let name = entry.file_name();
-        // Skip hidden files
-        if name.starts_with('.') {
+        // Skip hidden files unless explicitly requested
+        if !show_hidden && name.starts_with('.') {
             continue;
         }
 

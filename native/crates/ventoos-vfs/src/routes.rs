@@ -127,6 +127,7 @@ async fn test_connection_handler(
 #[derive(serde::Deserialize)]
 struct PathQuery {
     path: Option<String>,
+    show_hidden: Option<bool>,
 }
 
 async fn list_dir(
@@ -137,6 +138,7 @@ async fn list_dir(
     let req = VfsListReq {
         mount_id: id,
         path: query.path.unwrap_or_else(|| "/".into()),
+        show_hidden: query.show_hidden.unwrap_or(false),
     };
     match mgr.list_dir(&req).await {
         Ok(nodes) => Json(ApiResponse::ok(nodes)).into_response(),

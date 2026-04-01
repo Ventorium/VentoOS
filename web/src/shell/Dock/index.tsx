@@ -129,7 +129,7 @@ function DockSeparator({ iconSize }: { iconSize: number }) {
 /* ---- Dock Root ---- */
 export default function Dock() {
   const appsMap = useAppStore(s => s.apps)
-  const apps = useMemo(() => Array.from(appsMap.values()), [appsMap])
+  const apps = useMemo(() => Array.from(appsMap.values()).filter(a => !a.hidden), [appsMap])
   const windows = useWindowStore(s => s.windows)
   const openWindowFn = openWindow
   const focusWindowFn = focusWindow

@@ -49,6 +49,8 @@ pub struct VfsNode {
 pub struct VfsListReq {
     pub mount_id: String,
     pub path: String,
+    #[serde(default)]
+    pub show_hidden: bool,
 }
 
 /// Request to read file contents.

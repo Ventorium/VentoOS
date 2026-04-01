@@ -284,8 +284,8 @@ export default function Window({ win, children }: { win: WindowInstance; childre
         boxShadow: win.isFocused ? tokens.shadow.windowFocused : tokens.shadow.window,
         border: '0.5px solid var(--vos-border-subtle)',
         background: win.isFocused ? 'var(--vos-bg-window-active)' : 'var(--vos-bg-window)',
-        backdropFilter: `blur(${tokens.blur.surface}px) saturate(180%)`,
-        WebkitBackdropFilter: `blur(${tokens.blur.surface}px) saturate(180%)`
+        backdropFilter: `blur(48px) saturate(200%)`,
+        WebkitBackdropFilter: `blur(48px) saturate(200%)`
       }}
       onMouseDown={() => {
         if (!win.isFocused) focusWindow(win.id)
@@ -303,8 +303,8 @@ export default function Window({ win, children }: { win: WindowInstance; childre
           paddingRight: 12,
           flexShrink: 0,
           background: 'var(--vos-bg-window-title)',
-          backdropFilter: `blur(${tokens.blur.surface}px)`,
-          WebkitBackdropFilter: `blur(${tokens.blur.surface}px)`,
+          backdropFilter: 'blur(48px)',
+          WebkitBackdropFilter: 'blur(48px)',
           borderBottom: '0.5px solid var(--vos-border-subtle)',
           cursor: isMax ? 'default' : 'grab',
           userSelect: 'none'
