@@ -145,9 +145,10 @@ async fn read_file_raw(
     match mgr.read_file_raw(&id, &path).await {
         Ok(bytes) => {
             let mime = mime_guess::from_path(&path).first_or_octet_stream();
-            let filename = std::path::Path::new(&path)
-                .file_name()
-                .map_or_else(|| "download".to_string(), |n| n.to_string_lossy().to_string());
+            let filename = std::path::Path::new(&path).file_name().map_or_else(
+                || "download".to_string(),
+                |n| n.to_string_lossy().to_string(),
+            );
             (
                 StatusCode::OK,
                 [

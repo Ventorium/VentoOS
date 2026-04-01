@@ -15,6 +15,10 @@ chrono = { workspace = true }
 russh = { workspace = true }
 russh-sftp = { workspace = true }
 mime_guess = { workspace = true }
+rustls = { workspace = true }
+tokio-rustls = { workspace = true }
+webpki-roots = { workspace = true }
+ring = "0.17"
 
 [lints]
 workspace = true

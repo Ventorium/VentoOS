@@ -16,7 +16,8 @@ import { useCallback, useEffect, useState } from 'react'
 import type { CreateK8sClusterReq, K8sCluster, K8sNamespace, K8sResource, K8sResourceKind } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
-import { PathPickerInput } from '@/shell/FilePicker'
+import type { VfsPickerResult } from '@/shell/FilePicker'
+import { VfsPathPickerInput } from '@/shell/FilePicker'
 
 const RESOURCE_GROUPS: { label: string; icon: React.ReactNode; kinds: { kind: K8sResourceKind; label: string }[] }[] = [
   {
@@ -67,6 +68,7 @@ const RESOURCE_GROUPS: { label: string; icon: React.ReactNode; kinds: { kind: K8
 function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: K8sCluster) => void }) {
   const [name, setName] = useState('')
   const [kubeconfigPath, setKubeconfigPath] = useState('')
+  const [kubeconfigInline, setKubeconfigInline] = useState<string | undefined>(undefined)
   const [context, setContext] = useState('')
   const [saving, setSaving] = useState(false)
   const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
@@ -76,13 +78,25 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
     border: '0.5px solid var(--vos-border-subtle)'
   }
 
+  const handleKubeconfigChange = async (path: string, result?: VfsPickerResult) => {
+    setKubeconfigPath(path)
+    if (result?.isRemote && result.content) {
+      // Read remote file content as text for kubeconfig_inline
+      const text = await result.content.text()
+      setKubeconfigInline(text)
+    } else {
+      setKubeconfigInline(undefined)
+    }
+  }
+
   const submit = async () => {
     if (!name) return
     setSaving(true)
     try {
       const body: CreateK8sClusterReq = {
         name,
-        kubeconfig_path: kubeconfigPath || undefined,
+        kubeconfig_path: kubeconfigInline ? undefined : kubeconfigPath || undefined,
+        kubeconfig_inline: kubeconfigInline || undefined,
         context_name: context || undefined
       }
       const res = await apiClient.createK8sCluster(body)
@@ -102,11 +116,11 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
       >
         <div className="text-sm font-medium">添加 Kubernetes 集群</div>
         <input className={fc} style={fs} placeholder="集群名称" value={name} onChange={e => setName(e.target.value)} />
-        <PathPickerInput
+        <VfsPathPickerInput
           mode="file"
           value={kubeconfigPath}
-          onChange={setKubeconfigPath}
-          placeholder="~/.kube/config（留空使用默认）"
+          onChange={handleKubeconfigChange}
+          placeholder="~/.kube/config（留空使用默认，支持 VFS 远程路径）"
           className={fc}
           style={fs}
         />

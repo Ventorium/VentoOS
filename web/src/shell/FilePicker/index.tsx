@@ -13,9 +13,9 @@
  *   />
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronRight, File, Folder, FolderOpen, Home, Loader2, X } from 'lucide-react'
+import { ChevronRight, File, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { LocalFsNode } from '@/infra/api'
+import type { LocalFsNode, VfsMount, VfsNode } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -389,3 +389,412 @@ export function PathPickerInput({
 }
 
 export default PathPickerInput
+
+// ─── VFS File Picker ────────────────────────────────────────────────────────
+
+/**
+ * Result from VfsPathPickerInput.
+ * For local mounts: path is the actual OS path.
+ * For remote mounts: path is "vfs://mountId/...path", content is the file bytes (for inline use).
+ */
+export interface VfsPickerResult {
+  path: string
+  mountId: string
+  mountKind: string
+  isRemote: boolean
+  /** For remote files, the binary content fetched at selection time */
+  content?: Blob
+}
+
+export interface VfsPathPickerInputProps {
+  value: string
+  onChange: (path: string, result?: VfsPickerResult) => void
+  mode?: FilePickerMode
+  placeholder?: string
+  className?: string
+  style?: React.CSSProperties
+  disabled?: boolean
+}
+
+// ── Kind icons ───────────────────────────────────────────────────────────────
+
+const KIND_ICON: Record<string, React.ElementType> = {
+  local: HardDrive,
+  sftp: Globe,
+  ftp: Globe,
+  s3: Globe,
+  smb: Globe
+}
+
+// ── VFS Browser Modal ────────────────────────────────────────────────────────
+
+function VfsFilePickerModal({
+  mode,
+  onConfirm,
+  onClose
+}: {
+  mode: FilePickerMode
+  onConfirm: (result: VfsPickerResult) => void
+  onClose: () => void
+}) {
+  const [mounts, setMounts] = useState<VfsMount[]>([])
+  const [selectedMount, setSelectedMount] = useState<VfsMount | null>(null)
+  const [currentPath, setCurrentPath] = useState('/')
+  const [nodes, setNodes] = useState<VfsNode[]>([])
+  const [loading, setLoading] = useState(false)
+  const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
+  const [fetchingContent, setFetchingContent] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  // Load mounts on open
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectMount intentionally omitted; should run once
+  useEffect(() => {
+    apiClient
+      .getVfsMounts()
+      .then(r => {
+        setMounts(r.data)
+        if (r.data.length > 0) selectMount(r.data[0])
+      })
+      .catch(console.error)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectMount = (mount: VfsMount) => {
+    setSelectedMount(mount)
+    setCurrentPath('/')
+    setSelectedNode(null)
+    loadDir(mount.id, '/')
+  }
+
+  const loadDir = useCallback(async (mountId: string, path: string) => {
+    setLoading(true)
+    setNodes([])
+    try {
+      const r = await apiClient.listVfsDir(mountId, path)
+      const sorted = [...r.data].sort((a, b) => {
+        if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1
+        return a.name.localeCompare(b.name)
+      })
+      setNodes(sorted)
+    } catch (e) {
+      console.error('VFS list error:', e)
+      setNodes([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const navigate = (node: VfsNode) => {
+    if (!selectedMount) return
+    if (node.is_dir) {
+      setCurrentPath(node.path)
+      setSelectedNode(null)
+      loadDir(selectedMount.id, node.path)
+    } else {
+      setSelectedNode(node)
+    }
+  }
+
+  const handleConfirm = async () => {
+    if (!selectedMount) return
+    const targetNode = selectedNode
+    const finalPath = mode === 'directory' ? currentPath : (targetNode?.path ?? currentPath)
+    if (!finalPath) return
+
+    const isRemote = selectedMount.kind !== 'local'
+    if (isRemote && targetNode && !targetNode.is_dir) {
+      // For remote files, fetch content for inline use
+      setFetchingContent(true)
+      try {
+        const blob = await apiClient.readVfsFileRaw(selectedMount.id, finalPath)
+        onConfirm({
+          path: `vfs://${selectedMount.id}${finalPath}`,
+          mountId: selectedMount.id,
+          mountKind: selectedMount.kind,
+          isRemote: true,
+          content: blob
+        })
+      } catch (e) {
+        console.error('VFS fetch content error:', e)
+      } finally {
+        setFetchingContent(false)
+      }
+    } else {
+      // Local mount: reconstruct actual path from mount's local_path + node path
+      const localBase: string = (selectedMount as unknown as { local_path?: string }).local_path ?? ''
+      let realPath: string
+      if (localBase) {
+        realPath = finalPath === '/' ? localBase : `${localBase}${finalPath}`
+      } else {
+        realPath = finalPath
+      }
+      onConfirm({
+        path: realPath,
+        mountId: selectedMount.id,
+        mountKind: selectedMount.kind,
+        isRemote: false
+      })
+    }
+  }
+
+  // Breadcrumb
+  const segments: Array<{ label: string; path: string }> = [{ label: '/', path: '/' }]
+  if (currentPath !== '/') {
+    const parts = currentPath.split('/').filter(Boolean)
+    parts.forEach((p, i) => {
+      segments.push({ label: p, path: '/' + parts.slice(0, i + 1).join('/') })
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.14 }}
+        className="flex flex-col overflow-hidden rounded-xl"
+        style={{
+          width: 680,
+          height: 480,
+          background: 'var(--vos-bg-surface)',
+          boxShadow: '0 24px 80px rgba(0,0,0,.5)',
+          border: '0.5px solid var(--vos-border-subtle)'
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center px-4 py-2.5 gap-3 flex-shrink-0"
+          style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+        >
+          <span className="text-xs font-semibold flex-1">{mode === 'directory' ? '选择目录' : '选择文件'}</span>
+          <button type="button" className="vos-btn" style={{ padding: '2px 6px' }} onClick={onClose}>
+            <X size={12} />
+          </button>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar: VFS mounts */}
+          <div
+            className="w-40 flex-shrink-0 flex flex-col py-2 overflow-y-auto"
+            style={{ borderRight: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-base)' }}
+          >
+            <div
+              className="px-3 pb-1 text-[10px] font-semibold uppercase"
+              style={{ color: 'var(--vos-text-tertiary)' }}
+            >
+              存储源
+            </div>
+            {mounts.map(m => {
+              const Icon = KIND_ICON[m.kind] ?? HardDrive
+              const active = selectedMount?.id === m.id
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  className="flex items-center gap-2 px-3 py-1.5 w-full text-left border-none bg-transparent cursor-pointer text-xs"
+                  style={{
+                    background: active ? 'var(--vos-accent-primary)' : 'transparent',
+                    color: active ? '#fff' : 'var(--vos-text-primary)',
+                    borderRadius: 4,
+                    margin: '1px 4px',
+                    width: 'calc(100% - 8px)'
+                  }}
+                  onClick={() => selectMount(m)}
+                >
+                  <Icon size={12} style={{ flexShrink: 0 }} />
+                  <span className="truncate">{m.name}</span>
+                </button>
+              )
+            })}
+            {mounts.length === 0 && (
+              <div className="px-3 py-2 text-[11px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+                暂无存储源
+              </div>
+            )}
+          </div>
+
+          {/* Main browser area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Breadcrumb */}
+            <div
+              className="flex items-center gap-1 px-3 h-8 flex-shrink-0 overflow-x-auto"
+              style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+            >
+              {segments.map((seg, i) => (
+                <span key={seg.path} className="flex items-center gap-1">
+                  {i > 0 && <ChevronRight size={10} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />}
+                  <button
+                    type="button"
+                    className="bg-transparent border-none cursor-pointer text-xs p-0"
+                    style={{
+                      color: i === segments.length - 1 ? 'var(--vos-text-primary)' : 'var(--vos-text-secondary)'
+                    }}
+                    onClick={() => {
+                      if (!selectedMount) return
+                      setCurrentPath(seg.path)
+                      setSelectedNode(null)
+                      loadDir(selectedMount.id, seg.path)
+                    }}
+                  >
+                    {i === 0 ? <Home size={11} /> : seg.label}
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            {/* File list */}
+            <div ref={listRef} className="flex-1 overflow-y-auto p-1">
+              {loading && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 size={16} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+                </div>
+              )}
+              {!loading &&
+                nodes.map(node => {
+                  const isSelected = selectedNode?.path === node.path
+                  const hidden = node.name.startsWith('.')
+                  if (hidden) return null
+                  return (
+                    <button
+                      key={node.path}
+                      type="button"
+                      className="flex items-center gap-2 px-2 py-1 w-full text-left border-none cursor-pointer text-xs"
+                      style={{
+                        background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
+                        color: isSelected ? '#fff' : 'var(--vos-text-primary)',
+                        borderRadius: 4,
+                        opacity: mode === 'file' && node.is_dir ? 1 : 1
+                      }}
+                      onClick={() => {
+                        if (node.is_dir) {
+                          navigate(node)
+                        } else if (mode === 'file') {
+                          setSelectedNode(node)
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        if (node.is_dir) navigate(node)
+                      }}
+                    >
+                      {node.is_dir ? (
+                        <FolderOpen
+                          size={13}
+                          style={{ color: isSelected ? '#fff' : 'var(--vos-accent-warning, #f59e0b)', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <File
+                          size={13}
+                          style={{ color: isSelected ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }}
+                        />
+                      )}
+                      <span className="truncate">{node.name}</span>
+                    </button>
+                  )
+                })}
+              {!loading && nodes.length === 0 && (
+                <div className="py-8 text-center text-[11px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  空目录
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
+          style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
+        >
+          <div
+            className="flex-1 text-xs font-mono truncate px-2 py-1 rounded"
+            style={{
+              background: 'var(--vos-bg-input)',
+              color: 'var(--vos-text-secondary)',
+              border: '0.5px solid var(--vos-border-subtle)'
+            }}
+          >
+            {selectedNode?.path ?? (mode === 'directory' ? currentPath : '未选择文件')}
+          </div>
+          <button type="button" className="vos-btn text-xs" onClick={onClose} style={{ flexShrink: 0 }}>
+            取消
+          </button>
+          <button
+            type="button"
+            className="vos-btn vos-btn-primary text-xs"
+            style={{ flexShrink: 0 }}
+            disabled={fetchingContent || (mode === 'file' && !selectedNode)}
+            onClick={handleConfirm}
+          >
+            {fetchingContent ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : mode === 'directory' ? (
+              '选择此目录'
+            ) : (
+              '打开'
+            )}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ─── VfsPathPickerInput ─────────────────────────────────────────────────────
+
+/**
+ * A path input widget backed by the VFS mount browser.
+ * For local mounts: returns the actual OS path.
+ * For remote mounts: path = "vfs://mountId/path", and `result.content` contains
+ * the raw file bytes for apps that need inline embedding (e.g. kubeconfig).
+ */
+export function VfsPathPickerInput({
+  value,
+  onChange,
+  mode = 'file',
+  placeholder,
+  className,
+  style,
+  disabled
+}: VfsPathPickerInputProps) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input
+          className={className ?? 'vos-input'}
+          style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, ...style }}
+          placeholder={
+            placeholder ?? (mode === 'directory' ? '目录路径 (支持 VFS 存储源)' : '文件路径 (支持 VFS 存储源)')
+          }
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          disabled={disabled}
+        />
+        <button
+          type="button"
+          className="vos-btn"
+          style={{ flexShrink: 0, fontSize: 12 }}
+          disabled={disabled}
+          onClick={() => setOpen(true)}
+        >
+          <Folder size={12} />
+          浏览
+        </button>
+      </div>
+      <AnimatePresence>
+        {open && (
+          <VfsFilePickerModal
+            key="vfs-picker"
+            mode={mode}
+            onConfirm={result => {
+              onChange(result.path, result)
+              setOpen(false)
+            }}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  )
+}

@@ -4502,15 +4502,19 @@ dependencies = [
  "axum",
  "chrono",
  "mime_guess",
+ "ring",
  "russh",
  "russh-sftp",
+ "rustls",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
+ "tokio-rustls",
  "tracing",
  "uuid",
  "ventoos-core",
+ "webpki-roots 1.0.6",
 ]
 
 [[package]]

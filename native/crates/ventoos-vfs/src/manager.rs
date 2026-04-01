@@ -3,17 +3,20 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
+use crate::ftp::FtpPool;
+use crate::s3::{S3Client, S3Config};
 use crate::sftp::SftpPool;
 use crate::types::{
-    CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq,
-    VfsMount, VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
+    CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq, VfsMount,
+    VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
 };
 
 /// Virtual file system manager.
-/// Supports local filesystem and SFTP; other sources are stubs.
+/// Supports local filesystem, SFTP, FTP, and S3-compatible object storage.
 pub struct VfsManager {
     mounts: Arc<RwLock<HashMap<String, VfsMount>>>,
     sftp_pool: SftpPool,
+    ftp_pool: FtpPool,
 }
 
 impl VfsManager {
@@ -21,6 +24,7 @@ impl VfsManager {
         Self {
             mounts: Arc::new(RwLock::new(HashMap::new())),
             sftp_pool: SftpPool::new(),
+            ftp_pool: FtpPool::new(),
         }
     }
 
@@ -51,6 +55,7 @@ impl VfsManager {
 
     pub async fn delete_mount(&self, id: &str) -> bool {
         self.sftp_pool.remove(id).await;
+        self.ftp_pool.remove(id).await;
         self.mounts.write().await.remove(id).is_some()
     }
 
@@ -67,10 +72,22 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.list_local_dir(&mount.root, &req.path).await,
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                let conn = self
+                    .sftp_pool
+                    .get_or_connect(&req.mount_id, &mount.root)
+                    .await?;
                 conn.list_dir(&req.path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_list_dir(&self.ftp_pool, &req.mount_id, &mount.root, &req.path)
+                    .await
+            }
+            VfsSourceKind::S3 => {
+                S3Client::new(S3Config::parse(&mount.root)?)
+                    .list_dir(&req.path)
+                    .await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -157,10 +174,25 @@ impl VfsManager {
                     .await
             }
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                let conn = self
+                    .sftp_pool
+                    .get_or_connect(&req.mount_id, &mount.root)
+                    .await?;
                 conn.read_file(&req.path, req.max_bytes).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                let raw =
+                    crate::ftp::ftp_read_raw(&self.ftp_pool, &req.mount_id, &mount.root, &req.path)
+                        .await?;
+                Ok(Self::bytes_to_file_content(&req.path, &raw, req.max_bytes))
+            }
+            VfsSourceKind::S3 => {
+                let raw = S3Client::new(S3Config::parse(&mount.root)?)
+                    .get_object(&req.path)
+                    .await?;
+                Ok(Self::bytes_to_file_content(&req.path, &raw, req.max_bytes))
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -177,10 +209,28 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.move_local(&mount.root, &req.src, &req.dest).await,
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                let conn = self
+                    .sftp_pool
+                    .get_or_connect(&req.mount_id, &mount.root)
+                    .await?;
                 conn.move_file(&req.src, &req.dest).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_rename(
+                    &self.ftp_pool,
+                    &req.mount_id,
+                    &mount.root,
+                    &req.src,
+                    &req.dest,
+                )
+                .await
+            }
+            VfsSourceKind::S3 => {
+                let s3 = S3Client::new(S3Config::parse(&mount.root)?);
+                s3.copy_object(&req.src, &req.dest).await?;
+                s3.delete_object(&req.src).await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -197,10 +247,25 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.copy_local(&mount.root, &req.src, &req.dest).await,
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                let conn = self
+                    .sftp_pool
+                    .get_or_connect(&req.mount_id, &mount.root)
+                    .await?;
                 conn.copy_file(&req.src, &req.dest).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                let data =
+                    crate::ftp::ftp_read_raw(&self.ftp_pool, &req.mount_id, &mount.root, &req.src)
+                        .await?;
+                crate::ftp::ftp_write(&self.ftp_pool, &req.mount_id, &mount.root, &req.dest, data)
+                    .await
+            }
+            VfsSourceKind::S3 => {
+                S3Client::new(S3Config::parse(&mount.root)?)
+                    .copy_object(&req.src, &req.dest)
+                    .await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -217,10 +282,26 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.mkdir_local(&mount.root, &req.path).await,
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                let conn = self
+                    .sftp_pool
+                    .get_or_connect(&req.mount_id, &mount.root)
+                    .await?;
                 conn.mkdir(&req.path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_mkdir(&self.ftp_pool, &req.mount_id, &mount.root, &req.path).await
+            }
+            VfsSourceKind::S3 => {
+                // S3 has no real directories; create a zero-byte "folder" marker object
+                let marker = format!(
+                    "{}/",
+                    req.path.trim_start_matches('/').trim_end_matches('/')
+                );
+                S3Client::new(S3Config::parse(&mount.root)?)
+                    .put_object(&marker, &[])
+                    .await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -237,10 +318,22 @@ impl VfsManager {
         match mount.kind {
             VfsSourceKind::Local => self.delete_local(&mount.root, &req.path).await,
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                let conn = self
+                    .sftp_pool
+                    .get_or_connect(&req.mount_id, &mount.root)
+                    .await?;
                 conn.delete(&req.path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_delete_auto(&self.ftp_pool, &req.mount_id, &mount.root, &req.path)
+                    .await
+            }
+            VfsSourceKind::S3 => {
+                S3Client::new(S3Config::parse(&mount.root)?)
+                    .delete_object(&req.path)
+                    .await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -260,10 +353,28 @@ impl VfsManager {
                     .await
             }
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
+                let conn = self
+                    .sftp_pool
+                    .get_or_connect(&req.mount_id, &mount.root)
+                    .await?;
                 conn.write_file(&req.path, req.content.as_bytes()).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_write(
+                    &self.ftp_pool,
+                    &req.mount_id,
+                    &mount.root,
+                    &req.path,
+                    req.content.as_bytes().to_vec(),
+                )
+                .await
+            }
+            VfsSourceKind::S3 => {
+                S3Client::new(S3Config::parse(&mount.root)?)
+                    .put_object(&req.path, req.content.as_bytes())
+                    .await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -288,7 +399,15 @@ impl VfsManager {
                 let conn = self.sftp_pool.get_or_connect(mount_id, &mount.root).await?;
                 conn.write_file(path, &data).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_write(&self.ftp_pool, mount_id, &mount.root, path, data).await
+            }
+            VfsSourceKind::S3 => {
+                S3Client::new(S3Config::parse(&mount.root)?)
+                    .put_object(path, &data)
+                    .await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -308,7 +427,15 @@ impl VfsManager {
                 let conn = self.sftp_pool.get_or_connect(mount_id, &mount.root).await?;
                 conn.stat(path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_stat(&self.ftp_pool, mount_id, &mount.root, path).await
+            }
+            VfsSourceKind::S3 => {
+                S3Client::new(S3Config::parse(&mount.root)?)
+                    .stat(path)
+                    .await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -333,10 +460,30 @@ impl VfsManager {
                 .await
             }
             VfsSourceKind::Sftp => {
-                let conn = self.sftp_pool.get_or_connect(&req.mount_id, &mount.root).await?;
-                conn.search(&req.path, &req.query, req.max_results.unwrap_or(100)).await
+                let conn = self
+                    .sftp_pool
+                    .get_or_connect(&req.mount_id, &mount.root)
+                    .await?;
+                conn.search(&req.path, &req.query, req.max_results.unwrap_or(100))
+                    .await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_search(
+                    &self.ftp_pool,
+                    &req.mount_id,
+                    &mount.root,
+                    &req.path,
+                    &req.query,
+                    req.max_results.unwrap_or(100),
+                )
+                .await
+            }
+            VfsSourceKind::S3 => {
+                S3Client::new(S3Config::parse(&mount.root)?)
+                    .search(&req.path, &req.query, req.max_results.unwrap_or(100))
+                    .await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 
@@ -569,6 +716,32 @@ impl VfsManager {
         Ok(results)
     }
 
+    /// Convert raw bytes to `VfsFileContent`, applying size limits and binary detection.
+    fn bytes_to_file_content(path: &str, bytes: &[u8], max_bytes: Option<u64>) -> VfsFileContent {
+        let file_size = bytes.len() as u64;
+        let limit = max_bytes.unwrap_or(1_048_576);
+        let truncated = file_size > limit;
+        let slice = if truncated {
+            &bytes[..usize::try_from(limit).unwrap_or(usize::MAX)]
+        } else {
+            bytes
+        };
+        let check_len = slice.len().min(8192);
+        let is_binary = slice[..check_len].contains(&0);
+        let content = if is_binary {
+            format!("[Binary file, {file_size} bytes]")
+        } else {
+            String::from_utf8_lossy(slice).into_owned()
+        };
+        VfsFileContent {
+            path: path.to_string(),
+            size: file_size,
+            content,
+            is_binary,
+            truncated,
+        }
+    }
+
     /// Read raw file bytes for download / image preview.
     pub async fn read_file_raw(&self, mount_id: &str, path: &str) -> Result<Vec<u8>, String> {
         let mount = self
@@ -585,7 +758,15 @@ impl VfsManager {
                 let conn = self.sftp_pool.get_or_connect(mount_id, &mount.root).await?;
                 conn.read_file_raw(path).await
             }
-            _ => Err(format!("{:?} source not yet implemented", mount.kind)),
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_read_raw(&self.ftp_pool, mount_id, &mount.root, path).await
+            }
+            VfsSourceKind::S3 => {
+                S3Client::new(S3Config::parse(&mount.root)?)
+                    .get_object(path)
+                    .await
+            }
+            VfsSourceKind::Smb => Err("SMB/CIFS is not yet supported. Use SFTP instead.".into()),
         }
     }
 

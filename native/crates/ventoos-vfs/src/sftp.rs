@@ -131,10 +131,9 @@ impl SftpConn {
         let config = Arc::new(russh::client::Config::default());
         let handler = SshHandler;
 
-        let mut session =
-            russh::client::connect(config, (info.host.as_str(), info.port), handler)
-                .await
-                .map_err(|e| format!("SSH connect failed: {e}"))?;
+        let mut session = russh::client::connect(config, (info.host.as_str(), info.port), handler)
+            .await
+            .map_err(|e| format!("SSH connect failed: {e}"))?;
 
         let auth = session
             .authenticate_password(&info.user, &info.password)
@@ -221,9 +220,7 @@ fn is_dir_from_perms(perms: Option<u32>) -> bool {
 
 /// Convert unix-timestamp seconds to RFC 3339 string.
 fn mtime_to_rfc3339(mtime: Option<u32>) -> Option<String> {
-    mtime.and_then(|t| {
-        chrono::DateTime::from_timestamp(i64::from(t), 0).map(|dt| dt.to_rfc3339())
-    })
+    mtime.and_then(|t| chrono::DateTime::from_timestamp(i64::from(t), 0).map(|dt| dt.to_rfc3339()))
 }
 
 /// Format octal permission string from the lower 12 bits.
@@ -530,11 +527,7 @@ impl SftpConn {
             .map_err(|e| format!("SFTP stat failed: {e}"))?;
 
         let is_dir = is_dir_from_perms(meta.permissions);
-        let name = abs
-            .rsplit('/')
-            .next()
-            .unwrap_or("")
-            .to_string();
+        let name = abs.rsplit('/').next().unwrap_or("").to_string();
 
         Ok(VfsNode {
             name,
@@ -556,8 +549,16 @@ impl SftpConn {
         let abs = self.resolve(rel_path)?;
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
-        self.search_recursive(&abs, rel_path, &query_lower, max_results, 0, 10, &mut results)
-            .await;
+        self.search_recursive(
+            &abs,
+            rel_path,
+            &query_lower,
+            max_results,
+            0,
+            10,
+            &mut results,
+        )
+        .await;
         Ok(results)
     }
 
@@ -610,8 +611,7 @@ impl SftpConn {
             }
 
             if is_dir {
-                let child_abs =
-                    format!("{}/{name}", abs_dir.trim_end_matches('/'));
+                let child_abs = format!("{}/{name}", abs_dir.trim_end_matches('/'));
                 let child_rel = if rel_dir == "/" {
                     format!("/{name}")
                 } else {
@@ -749,14 +749,8 @@ mod tests {
             resolve_sftp_path("/home/data", "/sub/file.txt").unwrap(),
             "/home/data/sub/file.txt"
         );
-        assert_eq!(
-            resolve_sftp_path("/home/data", "/").unwrap(),
-            "/home/data"
-        );
-        assert_eq!(
-            resolve_sftp_path("/home/data", "").unwrap(),
-            "/home/data"
-        );
+        assert_eq!(resolve_sftp_path("/home/data", "/").unwrap(), "/home/data");
+        assert_eq!(resolve_sftp_path("/home/data", "").unwrap(), "/home/data");
     }
 
     #[test]

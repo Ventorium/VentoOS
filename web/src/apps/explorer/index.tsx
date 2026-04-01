@@ -336,7 +336,7 @@ interface ColumnData {
 // ─── Column View Component ─────────────────────────────────────────────────
 
 function ColumnView({
-  mountId: _mountId,
+  mountId,
   columns,
   multiSelect,
   activeColumn,
@@ -344,6 +344,7 @@ function ColumnView({
   renameValue,
   onMoveFile,
   onItemClick,
+  onItemDoubleClick,
   onItemContextMenu,
   onColumnContextMenu,
   onRenameChange,
@@ -356,8 +357,9 @@ function ColumnView({
   activeColumn: number
   renamingPath: string | null
   renameValue: string
-  onMoveFile: (srcPath: string, destDir: string) => void
+  onMoveFile: (srcPath: string, destDir: string, srcMountId?: string) => void
   onItemClick: (colIndex: number, entry: VfsNode, e: React.MouseEvent) => void
+  onItemDoubleClick: (colIndex: number, entry: VfsNode) => void
   onItemContextMenu: (colIndex: number, entry: VfsNode, e: React.MouseEvent) => void
   onColumnContextMenu: (colIndex: number, path: string, e: React.MouseEvent) => void
   onRenameChange: (val: string) => void
@@ -377,6 +379,7 @@ function ColumnView({
 
   const handleDragStart = (e: React.DragEvent, entry: VfsNode) => {
     e.dataTransfer.setData('application/x-vfs-path', entry.path)
+    e.dataTransfer.setData('application/x-vfs-mount-id', mountId)
     e.dataTransfer.setData('text/plain', entry.path)
     e.dataTransfer.effectAllowed = 'move'
   }
@@ -397,19 +400,21 @@ function ColumnView({
     setDropTarget(null)
     if (!targetDir.is_dir) return
     const srcPath = e.dataTransfer.getData('application/x-vfs-path')
+    const srcMountId = e.dataTransfer.getData('application/x-vfs-mount-id') || undefined
     if (!srcPath || srcPath === targetDir.path) return
     if (targetDir.path.startsWith(`${srcPath}/`)) return
-    onMoveFile(srcPath, targetDir.path)
+    onMoveFile(srcPath, targetDir.path, srcMountId)
   }
 
   const handleColumnDrop = (e: React.DragEvent, colPath: string) => {
     e.preventDefault()
     setDropTarget(null)
     const srcPath = e.dataTransfer.getData('application/x-vfs-path')
+    const srcMountId = e.dataTransfer.getData('application/x-vfs-mount-id') || undefined
     if (!srcPath) return
     const srcParent = srcPath.substring(0, srcPath.lastIndexOf('/')) || '/'
-    if (srcParent === colPath) return
-    onMoveFile(srcPath, colPath)
+    if (srcParent === colPath && srcMountId === mountId) return
+    onMoveFile(srcPath, colPath, srcMountId)
   }
 
   return (
@@ -482,6 +487,7 @@ function ColumnView({
                         outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
                       }}
                       onClick={e => onItemClick(colIdx, entry, e)}
+                      onDoubleClick={() => onItemDoubleClick(colIdx, entry)}
                       onContextMenu={e => onItemContextMenu(colIdx, entry, e)}
                     >
                       {entry.is_dir ? (
@@ -709,6 +715,326 @@ function FileInfoPanel({
   )
 }
 
+// ─── File viewer modal ────────────────────────────────────────────────────
+
+const PDF_EXTS = new Set(['pdf'])
+const TEXT_EXTS = new Set([
+  'txt',
+  'md',
+  'markdown',
+  'log',
+  'csv',
+  'tsv',
+  'ini',
+  'env',
+  'conf',
+  'cfg',
+  'toml',
+  'yaml',
+  'yml',
+  'xml',
+  'html',
+  'htm',
+  'css',
+  'less',
+  'scss',
+  'js',
+  'jsx',
+  'ts',
+  'tsx',
+  'json',
+  'jsonc',
+  'rs',
+  'py',
+  'go',
+  'java',
+  'c',
+  'cpp',
+  'h',
+  'hpp',
+  'cs',
+  'php',
+  'rb',
+  'sh',
+  'bash',
+  'zsh',
+  'fish',
+  'ps1',
+  'bat',
+  'cmd',
+  'sql',
+  'graphql',
+  'proto',
+  'diff',
+  'patch',
+  'gitignore',
+  'dockerfile',
+  'makefile',
+  'license',
+  'readme'
+])
+
+function isTextFile(name: string): boolean {
+  const ext = getFileExt(name)
+  if (TEXT_EXTS.has(ext)) return true
+  // No extension — treat as text (like Makefile, Dockerfile)
+  if (!ext || ext === name.toLowerCase()) return true
+  return false
+}
+
+function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: VfsNode; onClose: () => void }) {
+  const [content, setContent] = useState<VfsFileContent | null>(null)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [editContent, setEditContent] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const ext = getFileExt(node.name)
+  const isImage = IMAGE_EXTS.has(ext)
+  const isPdf = PDF_EXTS.has(ext)
+  const isText = isTextFile(node.name)
+  const isCode = CODE_EXTS.has(ext) || ext === 'json' || ext === 'yaml' || ext === 'yml'
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: node.path+mountId are the real deps
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    setContent(null)
+    setBlobUrl(null)
+    setEditing(false)
+    let revoke: string | null = null
+
+    if (isImage || isPdf) {
+      apiClient
+        .readVfsFileRaw(mountId, node.path)
+        .then(blob => {
+          const url = URL.createObjectURL(blob)
+          revoke = url
+          setBlobUrl(url)
+        })
+        .catch(e => setError(e instanceof Error ? e.message : '加载失败'))
+        .finally(() => setLoading(false))
+    } else {
+      apiClient
+        .readVfsFile(mountId, node.path, 4 * 1024 * 1024)
+        .then(r => {
+          setContent(r.data)
+          setEditContent(r.data.content)
+        })
+        .catch(e => setError(e instanceof Error ? e.message : '加载失败'))
+        .finally(() => setLoading(false))
+    }
+    return () => {
+      if (revoke) URL.revokeObjectURL(revoke)
+    }
+  }, [mountId, node.path])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await apiClient.writeVfsFile(mountId, node.path, editContent)
+      setEditing(false)
+      setContent(prev => (prev ? { ...prev, content: editContent } : prev))
+    } catch (e) {
+      console.error('Save failed:', e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Keyboard: Escape closes, Ctrl/Cmd+S saves
+  // biome-ignore lint/correctness/useExhaustiveDependencies: handleSave is stable within the effect
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if ((e.metaKey || e.ctrlKey) && e.key === 's' && editing) {
+        e.preventDefault()
+        handleSave()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [editing, editContent, onClose])
+
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click to close
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.55)' }}
+      onClick={onClose}
+    >
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: modal panel */}
+      <div
+        className="flex flex-col overflow-hidden rounded-lg"
+        style={{
+          width: '82%',
+          height: '82%',
+          background: 'var(--vos-bg-surface)',
+          boxShadow: '0 24px 80px rgba(0,0,0,.6)'
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Toolbar */}
+        <div
+          className="flex items-center px-3 py-2 gap-2 flex-shrink-0"
+          style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+        >
+          <File size={13} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+          <span className="text-xs font-medium flex-1 truncate">{node.name}</span>
+          {!node.is_dir &&
+            isText &&
+            content &&
+            !content.is_binary &&
+            (editing ? (
+              <>
+                <button
+                  type="button"
+                  className="vos-btn vos-btn-primary"
+                  style={{ fontSize: 11, padding: '2px 8px' }}
+                  disabled={saving}
+                  onClick={handleSave}
+                >
+                  {saving ? '保存中...' : '保存'}
+                </button>
+                <button
+                  type="button"
+                  className="vos-btn"
+                  style={{ fontSize: 11, padding: '2px 8px' }}
+                  onClick={() => {
+                    setEditing(false)
+                    setEditContent(content.content)
+                  }}
+                >
+                  取消
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="vos-btn"
+                style={{ fontSize: 11, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+                onClick={() => setEditing(true)}
+              >
+                <Pencil size={11} />
+                编辑
+              </button>
+            ))}
+          <button type="button" className="vos-btn" style={{ fontSize: 11, padding: '2px 6px' }} onClick={onClose}>
+            <X size={12} />
+          </button>
+        </div>
+
+        {/* Content area */}
+        <div className="flex-1 overflow-hidden relative">
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 size={20} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="p-6 text-xs" style={{ color: 'var(--vos-accent-danger)' }}>
+              加载失败：{error}
+            </div>
+          )}
+
+          {!loading && !error && isImage && blobUrl && (
+            <div className="flex items-center justify-center w-full h-full p-4 overflow-auto">
+              <img
+                src={blobUrl}
+                alt={node.name}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 4 }}
+              />
+            </div>
+          )}
+
+          {!loading && !error && isPdf && blobUrl && (
+            <embed
+              src={`${blobUrl}#toolbar=1&navpanes=0`}
+              type="application/pdf"
+              style={{ width: '100%', height: '100%' }}
+            />
+          )}
+
+          {!loading && !error && content?.is_binary && (
+            <div className="p-6 text-xs font-mono" style={{ color: 'var(--vos-text-tertiary)' }}>
+              <div className="mb-2" style={{ color: 'var(--vos-text-secondary)' }}>
+                二进制文件
+              </div>
+              <div>大小：{fmtSize(content.size)}</div>
+              <div>类型：{ext?.toUpperCase() ?? '未知'}</div>
+            </div>
+          )}
+
+          {!loading &&
+            !error &&
+            content &&
+            !content.is_binary &&
+            (editing ? (
+              <textarea
+                autoFocus
+                className="w-full h-full p-3 text-xs resize-none border-none outline-none"
+                style={{
+                  background: 'var(--vos-bg-editor, var(--vos-bg-base))',
+                  color: 'var(--vos-text-primary)',
+                  fontFamily: isCode ? 'var(--vos-font-mono, monospace)' : 'inherit',
+                  lineHeight: 1.7,
+                  tabSize: 2
+                }}
+                value={editContent}
+                onChange={e => setEditContent(e.target.value)}
+                spellCheck={false}
+              />
+            ) : (
+              <div className="w-full h-full overflow-auto">
+                {content.truncated && (
+                  <div
+                    className="px-3 py-1 text-[11px] flex-shrink-0"
+                    style={{
+                      background: 'var(--vos-accent-warning-subtle, rgba(234,179,8,0.1))',
+                      color: 'var(--vos-accent-warning, #ca8a04)',
+                      borderBottom: '0.5px solid var(--vos-border-subtle)'
+                    }}
+                  >
+                    文件过大，仅预览前 4MB
+                  </div>
+                )}
+                <pre
+                  className="p-3 text-xs m-0 whitespace-pre-wrap break-words"
+                  style={{
+                    color: 'var(--vos-text-primary)',
+                    background: 'transparent',
+                    fontFamily: isCode ? 'var(--vos-font-mono, monospace)' : 'inherit',
+                    lineHeight: 1.7
+                  }}
+                >
+                  {content.content}
+                </pre>
+              </div>
+            ))}
+        </div>
+
+        {/* Footer: file info */}
+        {content && (
+          <div
+            className="flex items-center gap-4 px-3 py-1.5 text-[11px] flex-shrink-0"
+            style={{
+              borderTop: '0.5px solid var(--vos-border-subtle)',
+              color: 'var(--vos-text-tertiary)'
+            }}
+          >
+            <span>{fmtSize(content.size)}</span>
+            {node.modified && <span>{new Date(node.modified).toLocaleString()}</span>}
+            {node.permissions && <span>{node.permissions}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main app ──────────────────────────────────────────────────────────────
 
 export default function ExplorerApp(_props: AppComponentProps) {
@@ -719,6 +1045,10 @@ export default function ExplorerApp(_props: AppComponentProps) {
   const [preview, setPreview] = useState<VfsFileContent | null>(null)
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
   const [showInfo, setShowInfo] = useState(false)
+
+  // File viewer
+  const [viewerNode, setViewerNode] = useState<VfsNode | null>(null)
+  const [viewerMountId, setViewerMountId] = useState<string | null>(null)
 
   // Multi-select: colIdx -> Set of item names
   const [multiSelect, setMultiSelect] = useState<Map<number, Set<string>>>(new Map())
@@ -819,12 +1149,19 @@ export default function ExplorerApp(_props: AppComponentProps) {
     setColumns([{ path: '/', entries, loading: false }])
   }
 
-  const handleMoveFile = async (srcPath: string, destDir: string) => {
+  const handleMoveFile = async (srcPath: string, destDir: string, srcMountId?: string) => {
     if (!selectedMount) return
     const fileName = srcPath.split('/').pop() || ''
     const dest = destDir === '/' ? `/${fileName}` : `${destDir}/${fileName}`
     try {
-      await apiClient.moveVfsFile(selectedMount, srcPath, dest)
+      if (srcMountId && srcMountId !== selectedMount) {
+        // Cross-mount: read from source, upload to destination
+        const blob = await apiClient.readVfsFileRaw(srcMountId, srcPath)
+        const file = new File([blob], fileName)
+        await apiClient.uploadVfsFile(selectedMount, dest, file)
+      } else {
+        await apiClient.moveVfsFile(selectedMount, srcPath, dest)
+      }
       // Refresh affected columns
       setColumns(prev =>
         prev.map(col => {
@@ -1001,7 +1338,15 @@ export default function ExplorerApp(_props: AppComponentProps) {
       for (const item of clipboard.items) {
         const fileName = item.node.name
         const dest = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`
-        if (clipboard.operation === 'copy') {
+        if (item.mountId !== selectedMount) {
+          // Cross-mount: read from source, upload to destination
+          const blob = await apiClient.readVfsFileRaw(item.mountId, item.node.path)
+          const file = new File([blob], fileName)
+          await apiClient.uploadVfsFile(selectedMount, dest, file)
+          if (clipboard.operation === 'cut') {
+            await apiClient.deleteVfs(item.mountId, item.node.path)
+          }
+        } else if (clipboard.operation === 'copy') {
           await apiClient.copyVfsFile(item.mountId, item.node.path, dest)
         } else {
           await apiClient.moveVfsFile(item.mountId, item.node.path, dest)
@@ -1099,6 +1444,11 @@ export default function ExplorerApp(_props: AppComponentProps) {
     }
   }
 
+  const handleOpenViewer = (mountId: string, node: VfsNode) => {
+    setViewerMountId(mountId)
+    setViewerNode(node)
+  }
+
   const handleOpenInShell = (entry: VfsNode) => {
     if (!selectedMount) return
     const mount = mounts.find(m => m.id === selectedMount)
@@ -1119,6 +1469,16 @@ export default function ExplorerApp(_props: AppComponentProps) {
         .then(r => setPreview(r.data))
         .catch(console.error)
     }
+  }
+
+  const handleItemDoubleClick = (colIdx: number, entry: VfsNode) => {
+    void colIdx
+    if (!selectedMount) return
+    if (entry.is_dir) {
+      // directories: navigate on single-click already, double-click is redundant
+      return
+    }
+    handleOpenViewer(selectedMount, entry)
   }
 
   // ── Context menus ──────────────────────────────────────────────────
@@ -1156,7 +1516,14 @@ export default function ExplorerApp(_props: AppComponentProps) {
               action: () => handleOpenInShell(entry)
             }
           ]
-        : []),
+        : [
+            {
+              id: 'open-viewer',
+              label: '打开文件',
+              icon: <File size={14} />,
+              action: () => selectedMount && handleOpenViewer(selectedMount, entry)
+            }
+          ]),
       { type: 'separator' as const },
       {
         id: 'copy',
@@ -1531,9 +1898,9 @@ export default function ExplorerApp(_props: AppComponentProps) {
           const KindIcon = kindMeta[m.kind]?.icon ?? HardDrive
           const isActive = selectedMount === m.id
           return (
-            <div
+            <button
               key={m.id}
-              role="button"
+              type="button"
               tabIndex={0}
               className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group"
               style={{
@@ -1559,7 +1926,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
               >
                 <Trash2 size={10} />
               </button>
-            </div>
+            </button>
           )
         })}
         {mounts.length === 0 && (
@@ -1650,12 +2017,25 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 renameValue={renameValue}
                 onMoveFile={handleMoveFile}
                 onItemClick={handleItemClick}
+                onItemDoubleClick={handleItemDoubleClick}
                 onItemContextMenu={handleItemContextMenu}
                 onColumnContextMenu={handleColumnContextMenu}
                 onRenameChange={setRenameValue}
                 onRenameConfirm={handleRenameConfirm}
                 onRenameCancel={() => setRenamingPath(null)}
               />
+
+              {/* File viewer modal */}
+              {viewerNode && viewerMountId && (
+                <FileViewerModal
+                  mountId={viewerMountId}
+                  node={viewerNode}
+                  onClose={() => {
+                    setViewerNode(null)
+                    setViewerMountId(null)
+                  }}
+                />
+              )}
 
               {/* Info / preview panel */}
               {showInfo && (
