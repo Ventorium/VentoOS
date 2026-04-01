@@ -4,7 +4,6 @@ use std::time::{Duration, Instant};
 
 use reqwest::{Client, RequestBuilder, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tracing::debug;
@@ -12,7 +11,7 @@ use tracing::debug;
 use crate::types::{
     AgentError, AgentMessage, FunctionCall, OpenAiErrorResponse, OpenAiReasoningConfig,
     OpenAiRequest, OpenAiResponse, OpenAiStreamChunk, ProviderConfig, ProviderProbeRequest,
-    ProviderProbeResult, ProviderType, ProviderVendor, ReasoningMode, StreamEvent,
+    ProviderProbeResult, ProviderVendor, ReasoningMode, StreamEvent,
     StreamToolCallDelta, ToolCall, ToolDefinition,
 };
 
@@ -320,7 +319,7 @@ impl AnthropicProvider {
         messages: &[AgentMessage],
         model: Option<&str>,
     ) -> Result<AgentMessage, AgentError> {
-        let body = self.build_request(messages, model.unwrap_or(&self.config.default_model), 1024);
+        let body = Self::build_request(messages, model.unwrap_or(&self.config.default_model), 1024);
         let response = self
             .request_builder()
             .json(&body)
@@ -401,12 +400,7 @@ impl AnthropicProvider {
         })
     }
 
-    fn build_request(
-        &self,
-        messages: &[AgentMessage],
-        model: &str,
-        max_tokens: u32,
-    ) -> AnthropicRequest {
+    fn build_request(messages: &[AgentMessage], model: &str, max_tokens: u32) -> AnthropicRequest {
         let mut system_lines = Vec::new();
         let mut anthropic_messages = Vec::new();
 
@@ -470,7 +464,7 @@ impl GeminiProvider {
         messages: &[AgentMessage],
         model: Option<&str>,
     ) -> Result<AgentMessage, AgentError> {
-        let body = self.build_request(messages);
+        let body = Self::build_request(messages);
         let response = self
             .request_builder(model.unwrap_or(&self.config.default_model))
             .json(&body)
@@ -561,7 +555,7 @@ impl GeminiProvider {
         })
     }
 
-    fn build_request(&self, messages: &[AgentMessage]) -> GeminiRequest {
+    fn build_request(messages: &[AgentMessage]) -> GeminiRequest {
         let mut contents = Vec::new();
         let mut system_lines = Vec::new();
 
@@ -740,8 +734,7 @@ fn extract_anthropic_text(content: &[AnthropicContentBlock]) -> String {
     content
         .iter()
         .filter_map(|block| block.text.clone())
-        .collect::<Vec<_>>()
-        .join("")
+        .collect::<String>()
 }
 
 fn extract_gemini_text(response: &GeminiResponse) -> String {

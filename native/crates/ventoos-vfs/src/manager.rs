@@ -104,6 +104,51 @@ impl VfsManager {
         self.mounts.write().await.remove(id).is_some()
     }
 
+    pub async fn update_mount(&self, id: &str, req: CreateVfsMountReq) -> Option<VfsMount> {
+        let mut mounts = self.mounts.write().await;
+        if let Some(mount) = mounts.get_mut(id) {
+            mount.name = req.name;
+            mount.kind = req.kind;
+            mount.root = req.root;
+            mount.connection_id = req.connection_id;
+            mount.group = req.group;
+            Some(mount.clone())
+        } else {
+            None
+        }
+    }
+
+    /// Test whether a mount configuration is accessible by listing its root.
+    pub async fn test_connection(&self, req: &CreateVfsMountReq) -> Result<(), String> {
+        let temp_id = format!("test-conn-{}", uuid::Uuid::new_v4());
+        {
+            let mut mounts = self.mounts.write().await;
+            mounts.insert(
+                temp_id.clone(),
+                VfsMount {
+                    id: temp_id.clone(),
+                    name: "test".to_string(),
+                    kind: req.kind.clone(),
+                    root: req.root.clone(),
+                    connection_id: req.connection_id.clone(),
+                    group: None,
+                },
+            );
+        }
+        let result = self
+            .list_dir(&VfsListReq {
+                mount_id: temp_id.clone(),
+                path: "/".to_string(),
+            })
+            .await
+            .map(|_| ());
+        {
+            let mut mounts = self.mounts.write().await;
+            mounts.remove(&temp_id);
+        }
+        result
+    }
+
     /// List directory contents.
     pub async fn list_dir(&self, req: &VfsListReq) -> Result<Vec<VfsNode>, String> {
         let mount = self

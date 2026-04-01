@@ -8,6 +8,7 @@
 /// - **Agent**: ReAct execution loop with streaming output.
 /// - **Session**: Chat session management with system prompt support.
 pub mod agent;
+pub mod channel;
 pub mod guard;
 pub mod manager;
 pub mod provider;

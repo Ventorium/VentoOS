@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 一次性增强 VentoOS AI Assistant 的 provider 接入、探针测试、预设 / 自定义 agent 与前端配置 UI。
+**Goal:** 一次性增强 VentoOS AI Assistant 的 provider 接入、探针测试、预设 / 自定义 agent、外部 channel 接入与前端配置 UI。
 
-**Architecture:** 后端将 AI provider 拆分为原生 provider 与 OpenAI-compatible provider 两大类，并以统一 capability / probe / profile 模型向前端暴露。前端将 AI Assistant 设置页升级为 provider 管理、agent 管理与运行时选择一体化界面，会话层绑定 agent profile。
+**Architecture:** 后端将 AI provider 拆分为原生 provider 与 OpenAI-compatible provider 两大类，并引入统一 `ChannelAdapter` 抽象，将 QQ / 钉钉 / 飞书 / 企业微信 / Telegram 的消息都映射为标准 `ChannelEvent` 后再进入 Agent Runtime。前端将 AI Assistant 设置页升级为 provider 管理、agent 管理、channel 管理与运行时观测一体化界面，会话层同时支持 agent profile 绑定和 channel conversation 投影。
 
-**Tech Stack:** Rust + Axum + reqwest + serde + React + TypeScript + Vite + Vitest
+**Tech Stack:** Rust + Axum + tokio + reqwest + serde + React + TypeScript + Vite + Vitest
 
 ---
 
@@ -21,12 +21,15 @@
 * `native/crates/ventoos-agent/src/routes.rs`
 * `native/crates/ventoos-agent/src/session.rs`
 * `native/crates/ventoos-agent/src/lib.rs`
+* `native/crates/ventoos-agent/src/channel.rs`
+* `native/crates/ventoos-agent/src/channel/*`
 
 **前端主要修改**
 
 * `web/src/infra/api/types.ts`
 * `web/src/infra/api/client.ts`
 * `web/src/apps/ai-assistant/index.tsx`
+* `web/src/apps/ai-assistant/channel/*`
 * `web/src/apps/ai-assistant/*.test.tsx` 或 `*.test.ts`
 
 **文档**
@@ -74,9 +77,24 @@
 - [ ] Step 3: 实现最小后端逻辑
 - [ ] Step 4: 运行测试确认通过
 
+### Task 4: Channel 抽象与消息绑定
+
+**Files:**
+* Create: `native/crates/ventoos-agent/src/channel.rs`
+* Create: `native/crates/ventoos-agent/src/channel/mod.rs`
+* Modify: `native/crates/ventoos-agent/src/types.rs`
+* Modify: `native/crates/ventoos-agent/src/manager.rs`
+* Modify: `native/crates/ventoos-agent/src/routes.rs`
+* Test: `native/crates/ventoos-agent/src/channel.rs` 或 `native/crates/ventoos-agent/src/channel/*.rs`
+
+- [ ] Step 1: 写 `ChannelAdapter`、事件归一化、conversation binding 的失败测试
+- [ ] Step 2: 运行测试确认失败
+- [ ] Step 3: 实现最小 channel runtime
+- [ ] Step 4: 运行测试确认通过
+
 ## Chunk 2: 前端 API 与 UI
 
-### Task 4: 前端 API 类型和客户端升级
+### Task 5: 前端 API 类型和客户端升级
 
 **Files:**
 * Modify: `web/src/infra/api/types.ts`
@@ -87,7 +105,7 @@
 - [ ] Step 3: 实现最小类型与 API 客户端扩展
 - [ ] Step 4: 运行测试确认通过
 
-### Task 5: AI Assistant UI 升级
+### Task 6: AI Assistant UI 升级
 
 **Files:**
 * Modify: `web/src/apps/ai-assistant/index.tsx`
@@ -98,9 +116,58 @@
 - [ ] Step 3: 实现最小 UI 升级
 - [ ] Step 4: 运行测试确认通过
 
-## Chunk 3: 验证与文档
+### Task 7: Channel 配置与会话观测 UI
 
-### Task 6: 文档回填与验收
+**Files:**
+* Create: `web/src/apps/ai-assistant/channel/*.tsx`
+* Modify: `web/src/apps/ai-assistant/index.tsx`
+* Test: `web/src/apps/ai-assistant/channel/*.test.tsx`
+
+- [ ] Step 1: 写 channel 配置面板、会话投影、agent 路由展示失败测试
+- [ ] Step 2: 运行测试确认失败
+- [ ] Step 3: 实现最小 UI 升级
+- [ ] Step 4: 运行测试确认通过
+
+## Chunk 3: 渠道适配器落地
+
+### Task 8: Telegram Adapter
+
+**Files:**
+* Create: `native/crates/ventoos-agent/src/channel/telegram.rs`
+* Test: `native/crates/ventoos-agent/src/channel/telegram.rs`
+
+- [ ] Step 1: 写 webhook/polling 事件解析与发送失败测试
+- [ ] Step 2: 运行测试确认失败
+- [ ] Step 3: 实现最小 Telegram adapter
+- [ ] Step 4: 运行测试确认通过
+
+### Task 9: 飞书 / 钉钉 / 企业微信 Adapter
+
+**Files:**
+* Create: `native/crates/ventoos-agent/src/channel/feishu.rs`
+* Create: `native/crates/ventoos-agent/src/channel/dingtalk.rs`
+* Create: `native/crates/ventoos-agent/src/channel/wecom.rs`
+* Test: `native/crates/ventoos-agent/src/channel/*.rs`
+
+- [ ] Step 1: 写签名校验 / stream 回调 / 解密流程失败测试
+- [ ] Step 2: 运行测试确认失败
+- [ ] Step 3: 实现最小 adapter
+- [ ] Step 4: 运行测试确认通过
+
+### Task 10: QQ 官方 Bot Adapter
+
+**Files:**
+* Create: `native/crates/ventoos-agent/src/channel/qq.rs`
+* Test: `native/crates/ventoos-agent/src/channel/qq.rs`
+
+- [ ] Step 1: 写官方 bot 事件接入与发送失败测试
+- [ ] Step 2: 运行测试确认失败
+- [ ] Step 3: 实现最小 QQ adapter
+- [ ] Step 4: 运行测试确认通过
+
+## Chunk 4: 验证与文档
+
+### Task 11: 文档回填与验收
 
 **Files:**
 * Create: `docs/requirements/06-ai-assistant/ai-assistant-增强-完成情况.md`

@@ -34,7 +34,8 @@ impl AppPlugin for VfsPlugin {
     fn routes(&self) -> Router {
         Router::new()
             .route("/api/vfs/mounts", get(list_mounts).post(create_mount))
-            .route("/api/vfs/mounts/{id}", get(get_mount).delete(delete_mount))
+            .route("/api/vfs/mounts/test-connection", post(test_connection_handler))
+            .route("/api/vfs/mounts/{id}", get(get_mount).put(update_mount).delete(delete_mount))
             .route("/api/vfs/mounts/{id}/ls", get(list_dir))
             .route("/api/vfs/mounts/{id}/read", get(read_file))
             .route("/api/vfs/mounts/{id}/raw", get(read_file_raw))
@@ -91,6 +92,35 @@ async fn delete_mount(
             Json(ApiResponse::<()>::err("Mount not found")),
         )
             .into_response()
+    }
+}
+
+async fn update_mount(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(req): Json<CreateVfsMountReq>,
+) -> impl IntoResponse {
+    match mgr.update_mount(&id, req).await {
+        Some(mount) => Json(ApiResponse::ok(mount)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Mount not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn test_connection_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Json(req): Json<CreateVfsMountReq>,
+) -> Json<ApiResponse<serde_json::Value>> {
+    match mgr.test_connection(&req).await {
+        Ok(_) => Json(ApiResponse::ok(
+            serde_json::json!({"success": true, "message": "连接成功"}),
+        )),
+        Err(e) => Json(ApiResponse::ok(
+            serde_json::json!({"success": false, "message": e}),
+        )),
     }
 }
 

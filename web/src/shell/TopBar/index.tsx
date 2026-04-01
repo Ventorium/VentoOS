@@ -7,8 +7,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, BellOff, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
+import BrandLogo from '@/components/BrandLogo'
 import { apiClient } from '@/infra/api'
-import { closeAllWindows as closeAllWindowsFn, useAppStore, useWindowStore } from '@/kernel'
+import { closeAllWindows as closeAllWindowsFn, openWindow, useAppStore, useWindowStore } from '@/kernel'
 import { useAuthStore } from '@/services/auth'
 import { useNotificationStore } from '@/services/notification'
 import { useSettingsStore } from '@/services/settings'
@@ -81,11 +82,8 @@ function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
         onClick={e => e.stopPropagation()}
       >
         <div style={{ padding: '28px 28px 24px', textAlign: 'center' }}>
-          <div style={{ marginBottom: 14 }}>
-            <svg width="52" height="52" viewBox="0 0 16 16" fill="var(--vos-accent-primary)" aria-hidden="true">
-              <circle cx="8" cy="4.5" r="2.5" />
-              <path d="M8 9c-3 0-5.5 1.3-5.5 3S5 15 8 15s5.5-1.3 5.5-3S11 9 8 9z" />
-            </svg>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+            <BrandLogo size={72} />
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--vos-text-primary)', letterSpacing: '-0.01em' }}>
             VentoOS
@@ -147,10 +145,7 @@ function MenuBarLeft({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
       <button type="button" className="vos-topbar-btn vos-topbar-logo" onClick={openLogoMenu} title="VentoOS">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <circle cx="8" cy="4.5" r="2.5" />
-          <path d="M8 9c-3 0-5.5 1.3-5.5 3S5 15 8 15s5.5-1.3 5.5-3S11 9 8 9z" />
-        </svg>
+        <BrandLogo size={18} />
       </button>
       {activeApp && (
         <button
@@ -158,7 +153,7 @@ function MenuBarLeft({
           className="vos-topbar-btn vos-topbar-appname"
           onClick={e => {
             const rect = e.currentTarget.getBoundingClientRect()
-            showCtxMenu(rect.left, rect.bottom + 2, [
+            const menuItems: import('@/shell/ContextMenu/store').ContextMenuItems = [
               {
                 id: 'about-app',
                 label: `关于 ${activeApp.name}`,
@@ -168,6 +163,12 @@ function MenuBarLeft({
               },
               { type: 'separator' },
               { id: 'hide-app', label: `隐藏 ${activeApp.name}`, disabled: true },
+            ]
+            if (activeApp.multiWindow) {
+              menuItems.push({ id: 'new-window', label: '新建窗口', action: () => openWindow(activeApp.id) })
+            }
+            menuItems.push(
+              { type: 'separator' },
               {
                 id: 'quit-app',
                 label: `退出 ${activeApp.name}`,
@@ -175,7 +176,8 @@ function MenuBarLeft({
                   closeAllWindowsFn()
                 }
               }
-            ])
+            )
+            showCtxMenu(rect.left, rect.bottom + 2, menuItems)
           }}
         >
           {activeApp.name}

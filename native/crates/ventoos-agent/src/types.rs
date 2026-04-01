@@ -6,10 +6,6 @@ fn default_true() -> bool {
     true
 }
 
-fn default_false() -> bool {
-    false
-}
-
 fn default_max_iterations() -> usize {
     10
 }
@@ -32,6 +28,10 @@ fn default_probe_max_tokens() -> u32 {
 
 fn default_reasoning_mode() -> ReasoningMode {
     ReasoningMode::Off
+}
+
+fn default_channel_auto_route() -> bool {
+    true
 }
 
 // ─── Provider Types ────────────────────────────────────────────────────────
@@ -111,8 +111,7 @@ impl ProviderVendor {
     #[must_use]
     pub fn default_model(self) -> &'static str {
         match self {
-            Self::OpenAi => "gpt-4o-mini",
-            Self::AzureOpenAi => "gpt-4o-mini",
+            Self::OpenAi | Self::AzureOpenAi | Self::Custom => "gpt-4o-mini",
             Self::Anthropic => "claude-3-5-sonnet-latest",
             Self::Gemini => "gemini-2.5-flash",
             Self::OpenRouter => "openai/gpt-4o-mini",
@@ -120,12 +119,12 @@ impl ProviderVendor {
             Self::DeepSeek => "deepseek-chat",
             Self::SiliconFlow => "Qwen/Qwen3-8B",
             Self::Groq => "llama-3.1-8b-instant",
-            Self::Custom => "gpt-4o-mini",
         }
     }
 }
 
 /// Provider feature flags used by the UI/runtime to gate functionality.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProviderCapabilities {
     pub supports_streaming: bool,
@@ -304,6 +303,139 @@ pub struct ProviderProbeResult {
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_preview: Option<String>,
+}
+
+// ─── Channel Types ────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum ChannelKind {
+    Qq,
+    DingTalk,
+    Feishu,
+    WeCom,
+    Telegram,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ChannelConfig {
+    pub id: String,
+    pub name: String,
+    pub kind: ChannelKind,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub default_agent_profile_id: Option<String>,
+    #[serde(default = "default_channel_auto_route")]
+    pub auto_route_agent: bool,
+    #[serde(default)]
+    pub webhook_url: Option<String>,
+    #[serde(default)]
+    pub bot_user_id: Option<String>,
+    #[serde(default)]
+    pub credentials: serde_json::Value,
+}
+
+impl ChannelConfig {
+    #[must_use]
+    pub fn new(id: String, name: String, kind: ChannelKind) -> Self {
+        Self {
+            id,
+            name,
+            kind,
+            enabled: true,
+            default_agent_profile_id: None,
+            auto_route_agent: true,
+            webhook_url: None,
+            bot_user_id: None,
+            credentials: serde_json::Value::Object(serde_json::Map::new()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChannelIdentity {
+    pub channel_id: String,
+    pub kind: ChannelKind,
+    pub external_user_id: String,
+    pub external_conversation_id: String,
+    #[serde(default)]
+    pub external_thread_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChannelConversationBinding {
+    pub channel_id: String,
+    pub kind: ChannelKind,
+    pub external_conversation_id: String,
+    #[serde(default)]
+    pub external_thread_id: Option<String>,
+    pub external_user_id: String,
+    pub session_id: String,
+    #[serde(default)]
+    pub agent_profile_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl ChannelConversationBinding {
+    #[must_use]
+    pub fn new(
+        channel_id: String,
+        kind: ChannelKind,
+        external_conversation_id: String,
+        external_thread_id: Option<String>,
+        external_user_id: String,
+        session_id: String,
+        agent_profile_id: Option<String>,
+    ) -> Self {
+        let now = chrono::Utc::now().to_rfc3339();
+        Self {
+            channel_id,
+            kind,
+            external_conversation_id,
+            external_thread_id,
+            external_user_id,
+            session_id,
+            agent_profile_id,
+            created_at: now.clone(),
+            updated_at: now,
+        }
+    }
+
+    #[must_use]
+    pub fn key(&self) -> String {
+        Self::lookup_key(
+            &self.channel_id,
+            self.kind,
+            &self.external_conversation_id,
+            self.external_thread_id.as_deref(),
+        )
+    }
+
+    #[must_use]
+    pub fn lookup_key(
+        channel_id: &str,
+        kind: ChannelKind,
+        external_conversation_id: &str,
+        external_thread_id: Option<&str>,
+    ) -> String {
+        let thread = external_thread_id.unwrap_or("-");
+        format!("{channel_id}::{kind:?}::{external_conversation_id}::{thread}")
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChannelMessageEvent {
+    pub channel_id: String,
+    pub kind: ChannelKind,
+    pub external_message_id: String,
+    pub external_conversation_id: String,
+    #[serde(default)]
+    pub external_thread_id: Option<String>,
+    pub sender: ChannelIdentity,
+    pub content: String,
+    pub occurred_at: String,
 }
 
 // ─── Agent Profile Types ───────────────────────────────────────────────────
@@ -631,6 +763,8 @@ pub struct ChatSession {
     pub system_prompt: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_binding: Option<ChannelConversationBinding>,
     pub messages: Vec<AgentMessage>,
     pub created_at: String,
     pub updated_at: String,
@@ -771,6 +905,7 @@ pub(crate) struct OpenAiStreamChunk {
 #[derive(Debug, Deserialize)]
 pub(crate) struct OpenAiStreamChoice {
     pub delta: OpenAiStreamDelta,
+    #[allow(dead_code)]
     pub finish_reason: Option<String>,
 }
 
@@ -909,12 +1044,12 @@ mod tests {
     fn test_provider_config_normalized_uses_vendor_defaults() {
         let cfg = ProviderConfig {
             id: "p1".into(),
-            name: "".into(),
+            name: String::new(),
             provider_type: ProviderType::Native,
             vendor: ProviderVendor::Groq,
-            api_key: "".into(),
-            base_url: "".into(),
-            default_model: "".into(),
+            api_key: String::new(),
+            base_url: String::new(),
+            default_model: String::new(),
             enabled: true,
             capabilities: None,
         }
@@ -1041,6 +1176,43 @@ mod tests {
         let json = serde_json::to_string(&event).expect("stream event should serialize");
         assert!(json.contains("content_delta"));
         assert!(json.contains("hello"));
+    }
+
+    #[test]
+    fn test_channel_config_defaults() {
+        let config = ChannelConfig::new(
+            "channel-1".into(),
+            "Telegram".into(),
+            ChannelKind::Telegram,
+        );
+
+        assert!(config.enabled);
+        assert!(config.auto_route_agent);
+        assert_eq!(config.kind, ChannelKind::Telegram);
+        assert_eq!(config.credentials, serde_json::json!({}));
+    }
+
+    #[test]
+    fn test_channel_binding_key_uses_thread_when_present() {
+        let binding = ChannelConversationBinding::new(
+            "channel-telegram".into(),
+            ChannelKind::Telegram,
+            "chat-42".into(),
+            Some("thread-7".into()),
+            "user-9".into(),
+            "session-1".into(),
+            None,
+        );
+
+        assert_eq!(
+            binding.key(),
+            ChannelConversationBinding::lookup_key(
+                "channel-telegram",
+                ChannelKind::Telegram,
+                "chat-42",
+                Some("thread-7"),
+            )
+        );
     }
 
     #[test]

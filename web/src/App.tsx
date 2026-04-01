@@ -45,7 +45,8 @@ function App() {
   const showLockScreen = locked || !token
 
   return (
-    <div className="vos-shell">
+    // biome-ignore lint/a11y/useKeyWithClickEvents: WebOS shell suppresses default browser context menu
+    <div className="vos-shell" onContextMenu={e => e.preventDefault()}>
       {showLockScreen ? (
         <LoginScreen />
       ) : (

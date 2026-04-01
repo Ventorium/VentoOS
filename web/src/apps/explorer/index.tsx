@@ -4,18 +4,19 @@ import {
   ClipboardPaste,
   Copy,
   File,
+  FilePlus,
   FileUp,
   Folder,
   FolderOpen,
   FolderPlus,
   HardDrive,
-  Info,
   Loader2,
   Monitor,
   Pencil,
   Plus,
   RefreshCw,
   Scissors,
+  Settings,
   Terminal,
   Trash2,
   X
@@ -25,6 +26,7 @@ import type { CreateVfsMountReq, VfsFileContent, VfsMount, VfsNode, VfsSourceKin
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow } from '@/kernel'
+import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { PathPickerInput } from '@/shell/FilePicker'
@@ -33,27 +35,87 @@ const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent
 
 // ─── Mount form ────────────────────────────────────────────────────────────
 
-function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m: VfsMount) => void }) {
-  const [name, setName] = useState('')
-  const [kind, setKind] = useState<VfsSourceKind>('local')
+function parseMountFields(mount: { kind: VfsSourceKind; root: string }) {
+  const result = {
+    localPath: '',
+    host: '',
+    port: '',
+    username: '',
+    password: '',
+    basePath: '/',
+    share: '',
+    bucket: '',
+    region: '',
+    accessKey: '',
+    secretKey: '',
+    endpoint: ''
+  }
+  try {
+    if (mount.kind === 'local') {
+      result.localPath = mount.root
+    } else if (mount.kind === 'sftp' || mount.kind === 'ftp') {
+      const url = new URL(mount.root)
+      result.host = url.hostname
+      result.port = url.port
+      result.username = decodeURIComponent(url.username)
+      result.password = decodeURIComponent(url.password)
+      result.basePath = url.pathname || '/'
+    } else if (mount.kind === 'smb') {
+      const url = new URL(mount.root)
+      result.host = url.hostname
+      result.username = decodeURIComponent(url.username)
+      result.password = decodeURIComponent(url.password)
+      // pathname is /shareName or /
+      result.share = url.pathname.replace(/^\//, '')
+    } else if (mount.kind === 's3') {
+      const url = new URL(mount.root)
+      result.bucket = url.hostname
+      result.accessKey = decodeURIComponent(url.username)
+      result.secretKey = decodeURIComponent(url.password)
+      result.region = url.searchParams.get('region') ?? ''
+      result.endpoint = url.searchParams.get('endpoint') ?? ''
+    }
+  } catch { /* ignore parse errors */ }
+  return result
+}
+
+function MountForm({
+  onClose,
+  onCreated,
+  onUpdated,
+  mountToEdit
+}: {
+  onClose: () => void
+  onCreated?: (m: VfsMount) => void
+  onUpdated?: (m: VfsMount) => void
+  mountToEdit?: VfsMount
+}) {
+  const isEditing = !!mountToEdit
+  const initial = mountToEdit ? parseMountFields(mountToEdit) : null
+
+  const [name, setName] = useState(mountToEdit?.name ?? '')
+  const [kind, setKind] = useState<VfsSourceKind>(mountToEdit?.kind ?? 'local')
   // local
-  const [localPath, setLocalPath] = useState('')
+  const [localPath, setLocalPath] = useState(initial?.localPath ?? '')
   // sftp / ftp
-  const [host, setHost] = useState('')
-  const [port, setPort] = useState('')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [basePath, setBasePath] = useState('/')
+  const [host, setHost] = useState(initial?.host ?? '')
+  const [port, setPort] = useState(initial?.port ?? '')
+  const [username, setUsername] = useState(initial?.username ?? '')
+  const [password, setPassword] = useState(initial?.password ?? '')
+  const [basePath, setBasePath] = useState(initial?.basePath ?? '/')
   // smb
-  const [share, setShare] = useState('')
+  const [share, setShare] = useState(initial?.share ?? '')
   // s3
-  const [bucket, setBucket] = useState('')
-  const [region, setRegion] = useState('')
-  const [accessKey, setAccessKey] = useState('')
-  const [secretKey, setSecretKey] = useState('')
-  const [endpoint, setEndpoint] = useState('')
+  const [bucket, setBucket] = useState(initial?.bucket ?? '')
+  const [region, setRegion] = useState(initial?.region ?? '')
+  const [accessKey, setAccessKey] = useState(initial?.accessKey ?? '')
+  const [secretKey, setSecretKey] = useState(initial?.secretKey ?? '')
+  const [endpoint, setEndpoint] = useState(initial?.endpoint ?? '')
 
   const [saving, setSaving] = useState(false)
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [testing, setTesting] = useState(false)
+
   const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
   const fs = {
     background: 'var(--vos-bg-input)',
@@ -77,7 +139,7 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
       }
       case 'smb': {
         const auth = username ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
-        return `smb://${auth}${host}/${share}`
+        return `smb://${auth}${host}${share ? `/${share}` : ''}`
       }
       case 's3': {
         const params = new URLSearchParams()
@@ -101,11 +163,25 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
       case 'ftp':
         return !!host
       case 'smb':
-        return !!host && !!share
+        return !!host
       case 's3':
         return !!bucket
       default:
         return false
+    }
+  }
+
+  const handleTest = async () => {
+    if (!isValid()) return
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await apiClient.testVfsMountConnection({ name: name || 'test', kind, root: buildRoot() })
+      setTestResult(res.data)
+    } catch (e) {
+      setTestResult({ success: false, message: e instanceof Error ? e.message : '测试失败' })
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -114,8 +190,13 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
     setSaving(true)
     try {
       const body: CreateVfsMountReq = { name, kind, root: buildRoot() }
-      const res = await apiClient.createVfsMount(body)
-      onCreated(res.data)
+      if (isEditing && mountToEdit) {
+        const res = await apiClient.updateVfsMount(mountToEdit.id, body)
+        onUpdated?.(res.data)
+      } else {
+        const res = await apiClient.createVfsMount(body)
+        onCreated?.(res.data)
+      }
     } catch (e) {
       console.error(e)
     } finally {
@@ -129,7 +210,7 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
         className="rounded-lg p-4 flex flex-col gap-3"
         style={{ width: 400, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
       >
-        <div className="text-sm font-medium">添加数据源</div>
+        <div className="text-sm font-medium">{isEditing ? '编辑数据源' : '添加数据源'}</div>
         <input className={fc} style={fs} placeholder="名称" value={name} onChange={e => setName(e.target.value)} />
         <select className={fc} style={fs} value={kind} onChange={e => setKind(e.target.value as VfsSourceKind)}>
           <option value="local">本地磁盘</option>
@@ -210,7 +291,7 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
             <input
               className={fc}
               style={fs}
-              placeholder="共享名称（share name）"
+              placeholder="共享名称（可选，留空则列出所有共享）"
               value={share}
               onChange={e => setShare(e.target.value)}
             />
@@ -280,23 +361,92 @@ function MountForm({ onClose, onCreated }: { onClose: () => void; onCreated: (m:
           </>
         )}
 
-        <div className="flex justify-end gap-2 mt-1">
+        <div className="flex justify-between items-center gap-2 mt-1">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+              style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)', opacity: isValid() ? 1 : 0.5 }}
+              onClick={handleTest}
+              disabled={testing || !isValid()}
+            >
+              {testing ? '测试中…' : '测试连接'}
+            </button>
+            {testResult && (
+              <span className="text-xs" style={{ color: testResult.success ? 'var(--vos-accent-success)' : 'var(--vos-accent-danger)' }}>
+                {testResult.message}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+              style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+              onClick={onClose}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+              style={{ background: 'var(--vos-accent-primary)', color: '#fff', opacity: isValid() ? 1 : 0.5 }}
+              onClick={submit}
+              disabled={saving || !isValid()}
+            >
+              {saving ? (isEditing ? '保存中…' : '添加中…') : (isEditing ? '保存' : '添加')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Confirm Dialog ────────────────────────────────────────────────────────
+
+function ConfirmDialog({
+  message,
+  confirmLabel = '删除',
+  danger = true,
+  onConfirm,
+  onCancel
+}: {
+  message: string
+  confirmLabel?: string
+  danger?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div
+        className="rounded-lg p-4 flex flex-col gap-4"
+        style={{ width: 320, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.35)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="text-sm leading-relaxed" style={{ color: 'var(--vos-text-primary)' }}>
+          {message}
+        </div>
+        <div className="flex justify-end gap-2">
           <button
             type="button"
             className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
             style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
-            onClick={onClose}
+            onClick={onCancel}
           >
             取消
           </button>
           <button
             type="button"
             className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-accent-primary)', color: '#fff', opacity: isValid() ? 1 : 0.5 }}
-            onClick={submit}
-            disabled={saving || !isValid()}
+            style={{
+              background: danger ? 'var(--vos-accent-danger)' : 'var(--vos-accent-primary)',
+              color: '#fff'
+            }}
+            onClick={onConfirm}
           >
-            {saving ? '添加中…' : '添加'}
+            {confirmLabel}
           </button>
         </div>
       </div>
@@ -343,6 +493,7 @@ function ColumnView({
   renamingPath,
   renameValue,
   onMoveFile,
+  onExternalFileDrop,
   onItemClick,
   onItemDoubleClick,
   onItemContextMenu,
@@ -358,6 +509,7 @@ function ColumnView({
   renamingPath: string | null
   renameValue: string
   onMoveFile: (srcPath: string, destDir: string, srcMountId?: string) => void
+  onExternalFileDrop: (files: FileList, targetPath: string) => void
   onItemClick: (colIndex: number, entry: VfsNode, e: React.MouseEvent) => void
   onItemDoubleClick: (colIndex: number, entry: VfsNode) => void
   onItemContextMenu: (colIndex: number, entry: VfsNode, e: React.MouseEvent) => void
@@ -399,6 +551,11 @@ function ColumnView({
     e.preventDefault()
     setDropTarget(null)
     if (!targetDir.is_dir) return
+    // External files from OS
+    if (e.dataTransfer.files.length > 0) {
+      onExternalFileDrop(e.dataTransfer.files, targetDir.path)
+      return
+    }
     const srcPath = e.dataTransfer.getData('application/x-vfs-path')
     const srcMountId = e.dataTransfer.getData('application/x-vfs-mount-id') || undefined
     if (!srcPath || srcPath === targetDir.path) return
@@ -409,6 +566,11 @@ function ColumnView({
   const handleColumnDrop = (e: React.DragEvent, colPath: string) => {
     e.preventDefault()
     setDropTarget(null)
+    // External files from OS
+    if (e.dataTransfer.files.length > 0) {
+      onExternalFileDrop(e.dataTransfer.files, colPath)
+      return
+    }
     const srcPath = e.dataTransfer.getData('application/x-vfs-path')
     const srcMountId = e.dataTransfer.getData('application/x-vfs-mount-id') || undefined
     if (!srcPath) return
@@ -503,11 +665,21 @@ function ColumnView({
                       )}
                       {isRenaming ? (
                         <input
+                          ref={el => {
+                            if (el) {
+                              const dot = renameValue.lastIndexOf('.')
+                              if (dot > 0) {
+                                el.setSelectionRange(0, dot)
+                              } else {
+                                el.select()
+                              }
+                            }
+                          }}
                           autoFocus
                           className="flex-1 text-xs px-1 py-0 rounded border-none outline-none"
                           style={{
-                            background: 'var(--vos-bg-input)',
-                            color: 'var(--vos-text-primary)',
+                            background: '#fff',
+                            color: '#000',
                             minWidth: 0
                           }}
                           value={renameValue}
@@ -1040,6 +1212,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
 export default function ExplorerApp(_props: AppComponentProps) {
   const [mounts, setMounts] = useState<VfsMount[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [editingMount, setEditingMount] = useState<VfsMount | null>(null)
   const [selectedMount, setSelectedMount] = useState<string | null>(null)
   const [columns, setColumns] = useState<ColumnData[]>([])
   const [preview, setPreview] = useState<VfsFileContent | null>(null)
@@ -1061,6 +1234,20 @@ export default function ExplorerApp(_props: AppComponentProps) {
     colPath: '',
     name: ''
   })
+
+  // New file overlay
+  const [newFileState, setNewFileState] = useState<{ visible: boolean; dirPath: string; name: string }>({
+    visible: false,
+    dirPath: '',
+    name: ''
+  })
+
+  // Confirm dialog
+  const [confirmState, setConfirmState] = useState<{
+    visible: boolean
+    message: string
+    onConfirm: () => void
+  }>({ visible: false, message: '', onConfirm: () => {} })
 
   // Upload
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1366,16 +1553,22 @@ export default function ExplorerApp(_props: AppComponentProps) {
     const entries = getSelectedEntries(activeColumn)
     if (entries.length === 0) return
     const names = entries.map(e => e.name).join(', ')
-    if (!window.confirm(`确认删除 ${entries.length} 项？\n${names}`)) return
-    try {
-      for (const entry of entries) {
-        await apiClient.deleteVfs(selectedMount, entry.path)
+    setConfirmState({
+      visible: true,
+      message: `确认删除 ${entries.length} 项？\n${names}`,
+      onConfirm: async () => {
+        setConfirmState(s => ({ ...s, visible: false }))
+        try {
+          for (const entry of entries) {
+            await apiClient.deleteVfs(selectedMount, entry.path)
+          }
+          clearMultiSelect()
+          await refreshColumn(activeColumn)
+        } catch (e) {
+          console.error('Delete failed:', e)
+        }
       }
-      clearMultiSelect()
-      await refreshColumn(activeColumn)
-    } catch (e) {
-      console.error('Delete failed:', e)
-    }
+    })
   }
 
   const handleRenameStart = () => {
@@ -1422,20 +1615,46 @@ export default function ExplorerApp(_props: AppComponentProps) {
     }
   }
 
-  const handleUpload = async (files: FileList) => {
-    if (!selectedMount || files.length === 0) return
-    const targetPath = uploadTargetRef.current
+  const handleNewFile = async () => {
+    if (!selectedMount || !newFileState.name.trim()) return
+    const filePath =
+      newFileState.dirPath === '/' ? `/${newFileState.name}` : `${newFileState.dirPath}/${newFileState.name}`
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        const filePath = targetPath === '/' ? `/${file.name}` : `${targetPath}/${file.name}`
-        await apiClient.uploadVfsFile(selectedMount, filePath, file)
-      }
-      const targetColIdx = columns.findIndex(c => c.path === targetPath)
+      await apiClient.writeVfsFile(selectedMount, filePath, '')
+      setNewFileState({ visible: false, dirPath: '', name: '' })
+      const targetColIdx = columns.findIndex(c => c.path === newFileState.dirPath)
       if (targetColIdx >= 0) {
         await refreshColumn(targetColIdx)
       }
     } catch (e) {
+      console.error('New file failed:', e)
+    }
+  }
+
+  const handleUpload = async (files: FileList, targetPath?: string) => {
+    if (!selectedMount || files.length === 0) return
+    const tPath = targetPath ?? uploadTargetRef.current
+    const taskId = taskService.createTask(
+      {
+        name: files.length > 1 ? `上传 ${files.length} 个文件` : `上传 ${files[0].name}`,
+        source: 'explorer'
+      },
+      { runImmediately: true }
+    )
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const filePath = tPath === '/' ? `/${file.name}` : `${tPath}/${file.name}`
+        taskService.updateTask(taskId, 'running', Math.round((i / files.length) * 100))
+        await apiClient.uploadVfsFile(selectedMount, filePath, file)
+      }
+      taskService.updateTask(taskId, 'success', 100)
+      const targetColIdx = columns.findIndex(c => c.path === tPath)
+      if (targetColIdx >= 0) {
+        await refreshColumn(targetColIdx)
+      }
+    } catch (e) {
+      taskService.updateTask(taskId, 'failed')
       console.error('Upload failed:', e)
     }
   }
@@ -1512,6 +1731,19 @@ export default function ExplorerApp(_props: AppComponentProps) {
               label: '在终端中打开',
               icon: <Terminal size={14} />,
               action: () => handleOpenInShell(entry)
+            },
+            { type: 'separator' as const },
+            {
+              id: 'new-folder',
+              label: '新建文件夹',
+              icon: <FolderPlus size={14} />,
+              action: () => setNewFolderState({ visible: true, colPath: entry.path, name: '' })
+            },
+            {
+              id: 'new-file',
+              label: '新建文件',
+              icon: <FilePlus size={14} />,
+              action: () => setNewFileState({ visible: true, dirPath: entry.path, name: '' })
             }
           ]
         : [
@@ -1582,22 +1814,21 @@ export default function ExplorerApp(_props: AppComponentProps) {
         danger: true,
         action: () => {
           if (!selectedMount) return
-          if (!window.confirm(`确认删除「${entry.name}」？`)) return
-          apiClient
-            .deleteVfs(selectedMount, entry.path)
-            .then(() => {
-              clearMultiSelect()
-              refreshColumn(colIdx)
-            })
-            .catch(console.error)
+          setConfirmState({
+            visible: true,
+            message: `确认删除「${entry.name}」？`,
+            onConfirm: async () => {
+              setConfirmState(s => ({ ...s, visible: false }))
+              try {
+                await apiClient.deleteVfs(selectedMount, entry.path)
+                clearMultiSelect()
+                refreshColumn(colIdx)
+              } catch (err) {
+                console.error('Delete failed:', err)
+              }
+            }
+          })
         }
-      },
-      { type: 'separator' as const },
-      {
-        id: 'properties',
-        label: '属性',
-        icon: <Info size={14} />,
-        action: () => handleShowProperties(entry)
       }
     ])
   }
@@ -1611,6 +1842,12 @@ export default function ExplorerApp(_props: AppComponentProps) {
         label: '新建文件夹',
         icon: <FolderPlus size={14} />,
         action: () => setNewFolderState({ visible: true, colPath, name: '' })
+      },
+      {
+        id: 'new-file',
+        label: '新建文件',
+        icon: <FilePlus size={14} />,
+        action: () => setNewFileState({ visible: true, dirPath: colPath, name: '' })
       },
       ...(clipboard && clipboard.items.length > 0
         ? [
@@ -1797,6 +2034,17 @@ export default function ExplorerApp(_props: AppComponentProps) {
         />
       )}
 
+      {editingMount && (
+        <MountForm
+          mountToEdit={editingMount}
+          onClose={() => setEditingMount(null)}
+          onUpdated={m => {
+            setMounts(p => p.map(x => (x.id === m.id ? m : x)))
+            setEditingMount(null)
+          }}
+        />
+      )}
+
       {/* New folder overlay */}
       {newFolderState.visible && (
         <div
@@ -1849,6 +2097,69 @@ export default function ExplorerApp(_props: AppComponentProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* New file overlay */}
+      {newFileState.visible && (
+        <div
+          className="absolute inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+        >
+          <div
+            className="rounded-lg p-4 flex flex-col gap-3"
+            style={{ width: 320, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+          >
+            <div className="text-sm font-medium">新建文件</div>
+            <input
+              autoFocus
+              className="w-full text-xs px-2 py-1.5 rounded border-none outline-none"
+              style={{
+                background: 'var(--vos-bg-input)',
+                color: 'var(--vos-text-primary)',
+                border: '0.5px solid var(--vos-border-subtle)'
+              }}
+              placeholder="文件名称（如 notes.txt）"
+              value={newFileState.name}
+              onChange={e => setNewFileState(prev => ({ ...prev, name: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleNewFile()
+                if (e.key === 'Escape') setNewFileState({ visible: false, dirPath: '', name: '' })
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                onClick={() => setNewFileState({ visible: false, dirPath: '', name: '' })}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+                style={{
+                  background: 'var(--vos-accent-primary)',
+                  color: '#fff',
+                  opacity: newFileState.name.trim() ? 1 : 0.5
+                }}
+                disabled={!newFileState.name.trim()}
+                onClick={handleNewFile}
+              >
+                创建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm dialog */}
+      {confirmState.visible && (
+        <ConfirmDialog
+          message={confirmState.message}
+          onConfirm={confirmState.onConfirm}
+          onCancel={() => setConfirmState(s => ({ ...s, visible: false }))}
+        />
       )}
 
       {/* Hidden file input for upload */}
@@ -1921,6 +2232,16 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer text-inherit"
                 onClick={e => {
                   e.stopPropagation()
+                  setEditingMount(m)
+                }}
+              >
+                <Settings size={10} />
+              </button>
+              <button
+                type="button"
+                className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer text-inherit"
+                onClick={e => {
+                  e.stopPropagation()
                   deleteMount(m.id)
                 }}
               >
@@ -1976,16 +2297,61 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 className="flex-1 flex items-center gap-0.5 overflow-hidden text-xs"
                 style={{ color: 'var(--vos-text-secondary)' }}
               >
-                {currentPath
-                  .split('/')
-                  .filter(Boolean)
-                  .map((seg, i) => (
-                    <span key={seg} className="flex items-center gap-0.5 truncate">
-                      {i > 0 && <ChevronRight size={10} style={{ opacity: 0.4, flexShrink: 0 }} />}
-                      <span className="truncate">{seg}</span>
-                    </span>
-                  ))}
-                {currentPath === '/' && <span>/</span>}
+                {(() => {
+                  const segments = currentPath.split('/').filter(Boolean)
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        className="border-none bg-transparent cursor-pointer p-0 text-xs hover:underline"
+                        style={{ color: 'var(--vos-text-secondary)' }}
+                        onClick={() => {
+                          const colIdx = 0
+                          if (columns.length > 1) {
+                            setColumns(prev => prev.slice(0, 1))
+                            setActiveColumn(0)
+                            setPreview(null)
+                            setSelectedNode(null)
+                            setShowInfo(false)
+                          }
+                        }}
+                      >
+                        /
+                      </button>
+                      {segments.map((seg, i) => {
+                        const segPath = `/${segments.slice(0, i + 1).join('/')}`
+                        const isLast = i === segments.length - 1
+                        const targetColIdx = i + 1
+                        return (
+                          <span key={segPath} className="flex items-center gap-0.5">
+                            <ChevronRight size={10} style={{ opacity: 0.4, flexShrink: 0 }} />
+                            <button
+                              type="button"
+                              className="border-none bg-transparent cursor-pointer p-0 text-xs truncate"
+                              style={{
+                                color: isLast ? 'var(--vos-text-primary)' : 'var(--vos-text-secondary)',
+                                fontWeight: isLast ? 500 : 400,
+                                maxWidth: 120
+                              }}
+                              onClick={() => {
+                                if (isLast) return
+                                if (targetColIdx < columns.length) {
+                                  setColumns(prev => prev.slice(0, targetColIdx + 1))
+                                  setActiveColumn(targetColIdx)
+                                  setPreview(null)
+                                  setSelectedNode(null)
+                                  setShowInfo(false)
+                                }
+                              }}
+                            >
+                              {seg}
+                            </button>
+                          </span>
+                        )
+                      })}
+                    </>
+                  )
+                })()}
               </div>
               <button
                 type="button"
@@ -2016,6 +2382,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 renamingPath={renamingPath}
                 renameValue={renameValue}
                 onMoveFile={handleMoveFile}
+                onExternalFileDrop={(files, targetPath) => handleUpload(files, targetPath)}
                 onItemClick={handleItemClick}
                 onItemDoubleClick={handleItemDoubleClick}
                 onItemContextMenu={handleItemContextMenu}

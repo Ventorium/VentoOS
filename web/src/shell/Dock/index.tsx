@@ -11,9 +11,10 @@
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { Grid3X3 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { type AppManifest, focusWindow, openWindow, restoreWindow, useAppStore, useWindowStore } from '@/kernel'
+import { type AppManifest, closeWindow, focusWindow, openWindow, restoreWindow, useAppStore, useWindowStore } from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { tokens } from '@/theme'
 
 const { gap } = tokens.dock
@@ -26,6 +27,7 @@ function DockIcon({
   icon,
   isRunning,
   onClick,
+  onContextMenu,
   mouseX,
   iconSize,
   magnification
@@ -34,6 +36,7 @@ function DockIcon({
   icon: React.ReactNode
   isRunning?: boolean
   onClick: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
   mouseX: ReturnType<typeof useMotionValue<number>>
   iconSize: number
   magnification: boolean
@@ -87,6 +90,7 @@ function DockIcon({
         className="vos-dock-icon"
         style={{ scale, y, width: iconSize, height: iconSize }}
         onClick={handleClick}
+        onContextMenu={onContextMenu}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         animate={bouncing ? { y: [0, -16, 0, -8, 0] } : {}}
@@ -131,6 +135,46 @@ export default function Dock() {
   const focusWindowFn = focusWindow
   const restoreWindowFn = restoreWindow
   const toggleLaunchpad = useLaunchpadStore(s => s.toggle)
+  const showCtxMenu = useContextMenuStore(s => s.show)
+
+  const handleAppContextMenu = useCallback((e: React.MouseEvent, app: AppManifest) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const getWindowsByApp = useWindowStore.getState().getWindowsByApp
+    const appWindows = getWindowsByApp(app.id)
+    const isRunning = appWindows.length > 0
+    const items: import('@/shell/ContextMenu/store').ContextMenuItems = []
+
+    if (!isRunning) {
+      items.push({ id: 'open', label: `打开 ${app.name}`, action: () => openWindowFn(app.id) })
+    } else {
+      items.push({
+        id: 'focus',
+        label: `前置 ${app.name}`,
+        action: () => {
+          const top = appWindows.filter(w => !w.isMinimized)
+          if (top.length > 0) {
+            focusWindowFn(top.reduce((a, b) => (a.zIndex > b.zIndex ? a : b)).id)
+          } else {
+            restoreWindowFn(appWindows.reduce((a, b) => (a.zIndex > b.zIndex ? a : b)).id)
+          }
+        }
+      })
+      if (app.multiWindow) {
+        items.push({ id: 'new-window', label: '新建窗口', action: () => openWindowFn(app.id) })
+      }
+      items.push({ type: 'separator' })
+      items.push({
+        id: 'quit',
+        label: `退出 ${app.name}`,
+        danger: true,
+        action: () => {
+          for (const w of appWindows) closeWindow(w.id)
+        }
+      })
+    }
+    showCtxMenu(e.clientX, e.clientY, items)
+  }, [showCtxMenu, openWindowFn, focusWindowFn, restoreWindowFn])
   const mouseX = useMotionValue(999)
 
   // Settings
@@ -247,6 +291,7 @@ export default function Dock() {
               icon={app.icon}
               isRunning={windows.some(w => w.appId === app.id)}
               onClick={() => handleAppClick(app)}
+              onContextMenu={e => handleAppContextMenu(e, app)}
               mouseX={mouseX}
               iconSize={iconSize}
               magnification={magnification}

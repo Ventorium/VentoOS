@@ -5,17 +5,19 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use crate::types::{AgentMessage, ChatSession};
+use crate::types::{AgentMessage, ChannelConversationBinding, ChannelKind, ChatSession};
 
 /// In-memory store for chat sessions.
 pub struct SessionStore {
     sessions: Arc<RwLock<HashMap<String, ChatSession>>>,
+    channel_bindings: Arc<RwLock<HashMap<String, ChannelConversationBinding>>>,
 }
 
 impl SessionStore {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            channel_bindings: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -37,6 +39,7 @@ impl SessionStore {
             model,
             system_prompt,
             agent_profile_id,
+            channel_binding: None,
             messages: Vec::new(),
             created_at: now.clone(),
             updated_at: now,
@@ -107,6 +110,45 @@ impl SessionStore {
             .await;
         (session, true)
     }
+
+    /// Bind an external channel conversation to a `VentoOS` chat session.
+    pub async fn bind_channel_conversation(&self, binding: ChannelConversationBinding) {
+        self.channel_bindings
+            .write()
+            .await
+            .insert(binding.key(), binding.clone());
+
+        let mut sessions = self.sessions.write().await;
+        if let Some(session) = sessions.get_mut(&binding.session_id) {
+            if session.agent_profile_id.is_none() {
+                session.agent_profile_id.clone_from(&binding.agent_profile_id);
+            }
+            session.channel_binding = Some(binding);
+            session.updated_at = chrono::Utc::now().to_rfc3339();
+        }
+    }
+
+    /// Resolve a session ID from a channel conversation tuple.
+    pub async fn find_session_by_channel(
+        &self,
+        channel_id: &str,
+        kind: ChannelKind,
+        external_conversation_id: &str,
+        external_thread_id: Option<&str>,
+    ) -> Option<String> {
+        let key = ChannelConversationBinding::lookup_key(
+            channel_id,
+            kind,
+            external_conversation_id,
+            external_thread_id,
+        );
+
+        self.channel_bindings
+            .read()
+            .await
+            .get(&key)
+            .map(|binding| binding.session_id.clone())
+    }
 }
 
 impl Default for SessionStore {
@@ -129,7 +171,7 @@ pub fn truncate_title(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::MessageRole;
+    use crate::types::{ChannelConversationBinding, ChannelKind, MessageRole};
 
     #[tokio::test]
     async fn test_create_session() {
@@ -221,6 +263,78 @@ mod tests {
             .await;
         assert!(!created);
         assert_eq!(session.title, "Existing");
+    }
+
+    #[tokio::test]
+    async fn test_bind_and_resolve_channel_conversation() {
+        let store = SessionStore::new();
+        store
+            .create("s1".into(), "Channel Session".into(), None, None, None, None)
+            .await;
+
+        let binding = ChannelConversationBinding::new(
+            "channel-telegram".into(),
+            ChannelKind::Telegram,
+            "chat-42".into(),
+            Some("thread-7".into()),
+            "user-99".into(),
+            "s1".into(),
+            Some("general-assistant".into()),
+        );
+
+        store.bind_channel_conversation(binding.clone()).await;
+
+        let resolved = store
+            .find_session_by_channel(
+                "channel-telegram",
+                ChannelKind::Telegram,
+                "chat-42",
+                Some("thread-7"),
+            )
+            .await;
+
+        assert_eq!(resolved.as_deref(), Some("s1"));
+
+        let session = store.get("s1").await.expect("session exists");
+        assert_eq!(
+            session
+                .channel_binding
+                .as_ref()
+                .map(|item| item.external_conversation_id.as_str()),
+            Some("chat-42")
+        );
+        assert_eq!(session.agent_profile_id.as_deref(), Some("general-assistant"));
+    }
+
+    #[tokio::test]
+    async fn test_find_session_by_channel_without_thread() {
+        let store = SessionStore::new();
+        store
+            .create("s1".into(), "Channel Session".into(), None, None, None, None)
+            .await;
+
+        store
+            .bind_channel_conversation(ChannelConversationBinding::new(
+                "channel-feishu".into(),
+                ChannelKind::Feishu,
+                "conversation-1".into(),
+                None,
+                "open-id-1".into(),
+                "s1".into(),
+                None,
+            ))
+            .await;
+
+        let resolved = store
+            .find_session_by_channel(
+                "channel-feishu",
+                ChannelKind::Feishu,
+                "conversation-1",
+                None,
+            )
+            .await;
+
+        assert_eq!(resolved.as_deref(), Some("s1"));
     }
 
     #[test]

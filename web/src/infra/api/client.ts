@@ -7,6 +7,7 @@
  */
 
 import type {
+  AgentProfile,
   AgentConfig,
   ApiResponse,
   AuthLoginData,
@@ -33,6 +34,9 @@ import type {
   LocalFsNode,
   PortMapping,
   ProviderConfig,
+  ProviderProbeRequest,
+  ProviderProbeResult,
+  ProviderTemplate,
   QueryResult,
   RedisCommandResult,
   RedisConnectionConfig,
@@ -250,6 +254,10 @@ export const apiClient = {
 
   getVfsMounts: () => request<ApiResponse<VfsMount[]>>('GET', '/api/vfs/mounts'),
   createVfsMount: (body: CreateVfsMountReq) => request<ApiResponse<VfsMount>>('POST', '/api/vfs/mounts', body),
+  updateVfsMount: (id: string, body: CreateVfsMountReq) =>
+    request<ApiResponse<VfsMount>>('PUT', `/api/vfs/mounts/${id}`, body),
+  testVfsMountConnection: (body: CreateVfsMountReq) =>
+    request<ApiResponse<{ success: boolean; message: string }>>('POST', '/api/vfs/mounts/test-connection', body),
   getVfsMount: (id: string) => request<ApiResponse<VfsMount>>('GET', `/api/vfs/mounts/${id}`),
   deleteVfsMount: (id: string) => request<ApiResponse<null>>('DELETE', `/api/vfs/mounts/${id}`),
   listVfsDir: (id: string, path?: string) =>
@@ -316,12 +324,24 @@ export const apiClient = {
 
   // Providers
   getAgentProviders: () => request<ApiResponse<ProviderConfig[]>>('GET', '/api/agent/providers'),
+  getAgentProviderTemplates: () => request<ApiResponse<ProviderTemplate[]>>('GET', '/api/agent/providers/templates'),
   getAgentProvider: (id: string) => request<ApiResponse<ProviderConfig>>('GET', `/api/agent/providers/${id}`),
   createAgentProvider: (body: ProviderConfig) =>
     request<ApiResponse<ProviderConfig>>('POST', '/api/agent/providers', body),
   updateAgentProvider: (id: string, body: ProviderConfig) =>
     request<ApiResponse<ProviderConfig>>('PUT', `/api/agent/providers/${id}`, body),
   deleteAgentProvider: (id: string) => request<ApiResponse<null>>('DELETE', `/api/agent/providers/${id}`),
+  testAgentProvider: (body: ProviderProbeRequest) =>
+    request<ApiResponse<ProviderProbeResult>>('POST', '/api/agent/providers/test', body),
+
+  // Agent profiles
+  getAgentProfiles: () => request<ApiResponse<AgentProfile[]>>('GET', '/api/agent/profiles'),
+  getAgentProfile: (id: string) => request<ApiResponse<AgentProfile>>('GET', `/api/agent/profiles/${id}`),
+  createAgentProfile: (body: AgentProfile) =>
+    request<ApiResponse<AgentProfile>>('POST', '/api/agent/profiles', body),
+  updateAgentProfile: (id: string, body: AgentProfile) =>
+    request<ApiResponse<AgentProfile>>('PUT', `/api/agent/profiles/${id}`, body),
+  deleteAgentProfile: (id: string) => request<ApiResponse<null>>('DELETE', `/api/agent/profiles/${id}`),
 
   // Tools
   getAgentTools: () => request<ApiResponse<ToolDefinition[]>>('GET', '/api/agent/tools'),

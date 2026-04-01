@@ -83,6 +83,7 @@ Prompt → Agent → Tool → Guard → Harness → Result
 * 强类型（Rust）
 * 工具统一调度
 * 可嵌入 agent
+* 可嵌入多聊天渠道（channel）
 
 ---
 
@@ -98,7 +99,102 @@ trait Tool {
 
 ---
 
-### 4.3 内置工具（最小集）
+### 4.3 Channel 抽象（对外控制入口）
+
+为支持“从外界聊天软件直接驱动 VentoOS 执行操作”，AI Runtime 在底层必须内建类似 openclaw 的 `channel` 抽象，而不是把各聊天渠道写死在前端页面。
+
+统一抽象目标：
+
+* 外部消息统一进入 Runtime，再映射为 VentoOS 会话。
+* 各渠道复用同一套 agent / tool / guard / harness。
+* Channel 对话、执行结果、工具调用、失败信息都可在 Web 端回看。
+* 支持“默认通用 agent + 基于意图自动选 agent”的双模式。
+
+建议抽象：
+
+```rust
+trait ChannelAdapter {
+    fn id(&self) -> &str;
+    fn kind(&self) -> ChannelKind;
+    fn verify(&self, request: &InboundRequest) -> Result<VerifiedInbound>;
+    fn normalize(&self, inbound: VerifiedInbound) -> Result<ChannelEvent>;
+    async fn send(&self, outbound: ChannelOutboundMessage) -> Result<ChannelSendResult>;
+}
+```
+
+核心对象：
+
+* `ChannelKind`：QQ / DingTalk / Feishu / WeCom / Telegram
+* `ChannelConfig`：凭据、回调地址、机器人 ID、启用状态、签名算法、回传策略
+* `ChannelIdentity`：渠道用户 / 群组 / 会话在 VentoOS 内的映射
+* `ChannelConversationBinding`：渠道线程与 VentoOS agent session 的绑定关系
+* `ChannelEvent`：消息、提及、命令、文件、卡片交互等统一事件模型
+
+---
+
+### 4.4 Channel Runtime 流程
+
+```text
+Channel Ingress
+→ Adapter Verify
+→ Normalize Event
+→ Session Binding / Create
+→ Agent Router
+→ Tool / Guard / Harness
+→ Channel Reply + Web UI Projection
+```
+
+关键规则：
+
+* 默认所有 channel 对话进入通用 agent。
+* 若用户意图能稳定映射到某个专业 agent，可由 `AgentRouter` 自动切换。
+* 自动路由必须产出审计信息，Web 端可见“本轮为何切换 agent”。
+* 外部渠道触发的所有会话都必须能在 Web 端看到原始消息、路由结果、执行状态与回放。
+
+---
+
+### 4.5 首批渠道要求
+
+第一阶段先接入以下常用聊天渠道：
+
+* QQ
+* 钉钉
+* 飞书
+* 企业微信
+* Telegram
+
+其中：
+
+* `QQ` 第一阶段按官方机器人能力设计，不把个人 QQ 非官方协议纳入正式验收范围。
+* `Telegram` 支持 webhook 与 long polling 两种接入模式，默认优先 webhook。
+* `钉钉 / 飞书 / 企业微信` 优先使用官方机器人、事件订阅、回调签名校验能力。
+
+---
+
+### 4.6 Rust 实现策略
+
+Rust 侧应优先复用官方协议或主流 Rust 实现，再按 VentoOS 分层复制必要核心逻辑，避免前端直连第三方 IM 平台。
+
+建议策略：
+
+| 渠道 | 官方能力优先级 | Rust 实现策略 | 第一阶段建议 |
+|---|---|---|---|
+| Telegram | Bot API 官方协议清晰 | 参考 `teloxide` 事件分发与 webhook/polling 结构 | 优先最快接入 |
+| 飞书 | 官方开放平台 + 事件订阅 | 参考 `lark-rs` 或 `openlark` 的签名校验、事件回调模型 | 走 webhook + callback |
+| 钉钉 | 官方 Stream / 机器人回调 | 参考 `dingtalk-stream-sdk-rs`，对齐官方 Stream SDK 语义 | 走 Stream 模式 |
+| 企业微信 | 官方回调 + 加解密 | 参考 `wxwork-api` / `wecom-rs` 的 token 缓存与回调解密 | 走回调模式 |
+| QQ | 官方机器人开放平台 | 参考 QQ 官方机器人 API 语义；Rust 侧可参考 `botrs` 等实现组织 Gateway / Event / REST | 单独做官方 bot adapter |
+
+实现原则：
+
+* 渠道协议细节只存在于 `ChannelAdapter` 层。
+* Agent、Tool、Guard、Session、Audit 不感知具体渠道。
+* 所有第三方回调都先落入 Rust Core，再广播到 Web。
+* 高风险操作仍需走统一确认链，不能因为来自聊天渠道就绕过。
+
+---
+
+### 4.7 内置工具（最小集）
 
 #### 1. read
 
@@ -412,6 +508,7 @@ Definition of done:
 * 自动生成 claude.md
 * 多模型对比 eval
 * 可视化 replay 系统
+* Channel marketplace（插件化接入更多 IM / Ticket / 告警渠道）
 
 ---
 

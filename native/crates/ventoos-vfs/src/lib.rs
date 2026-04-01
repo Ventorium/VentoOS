@@ -9,6 +9,8 @@ pub(crate) mod s3;
 pub(crate) mod smb;
 pub mod sftp;
 pub mod types;
+#[cfg(test)]
+mod tests;
 
 pub use manager::VfsManager;
 pub use routes::VfsPlugin;

@@ -417,14 +417,107 @@ export type ProviderType = 'open_ai' | 'anthropic' | 'ollama' | 'custom'
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool'
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
 
+export type ProviderType = 'native' | 'open_ai_compatible'
+
+export type ProviderVendor =
+  | 'open_ai'
+  | 'azure_open_ai'
+  | 'anthropic'
+  | 'gemini'
+  | 'open_router'
+  | 'ollama'
+  | 'deep_seek'
+  | 'silicon_flow'
+  | 'groq'
+  | 'custom'
+
+export interface ProviderCapabilities {
+  supports_streaming: boolean
+  supports_tools: boolean
+  supports_reasoning_control: boolean
+  supports_connection_test: boolean
+  supports_model_fetch: boolean
+}
+
+export interface ProviderTemplate {
+  vendor: ProviderVendor
+  provider_type: ProviderType
+  name: string
+  base_url: string
+  default_model: string
+  requires_api_key: boolean
+  capabilities: ProviderCapabilities
+}
+
 export interface ProviderConfig {
   id: string
   name: string
   provider_type: ProviderType
+  vendor: ProviderVendor
   api_key: string
   base_url: string
   default_model: string
   enabled: boolean
+  capabilities?: ProviderCapabilities
+}
+
+export type ReasoningMode = 'off' | 'low' | 'medium' | 'high'
+
+export interface ProviderProbeRequest {
+  provider: ProviderConfig
+  prompt?: string
+  max_tokens?: number
+  timeout_ms?: number
+  reasoning_mode?: ReasoningMode
+}
+
+export interface ProviderProbeResult {
+  success: boolean
+  provider_name: string
+  provider_vendor: ProviderVendor
+  model: string
+  latency_ms: number
+  status_code?: number
+  message: string
+  response_preview?: string
+}
+
+export type AgentPresetKind =
+  | 'general_assistant'
+  | 'coding_assistant'
+  | 'ops_assistant'
+  | 'network_assistant'
+  | 'custom'
+
+export type AgentToolPolicyMode = 'all' | 'allow_list' | 'disabled'
+
+export interface AgentBehaviorConfig {
+  require_impact_for_destructive: boolean
+  read_only_mode: boolean
+  concise_output: boolean
+  extra_rules: string[]
+}
+
+export interface AgentToolConfig {
+  mode: AgentToolPolicyMode
+  enabled_tools: string[]
+  allow_bash: boolean
+}
+
+export interface AgentProfile {
+  id: string
+  name: string
+  description: string
+  preset_kind: AgentPresetKind
+  is_builtin: boolean
+  system_prompt: string
+  behavior: AgentBehaviorConfig
+  tool_config: AgentToolConfig
+  default_provider_id?: string
+  default_model?: string
+  temperature: number
+  max_tokens: number
+  reasoning_mode: ReasoningMode
 }
 
 export interface ToolCall {
@@ -450,6 +543,7 @@ export interface ChatSession {
   provider_id?: string
   model?: string
   system_prompt?: string
+  agent_profile_id?: string
   messages: AgentMessage[]
   created_at: string
   updated_at: string
@@ -461,6 +555,7 @@ export interface ChatRequest {
   provider_id?: string
   model?: string
   system_prompt?: string
+  agent_profile_id?: string
 }
 
 export interface ChatResponse {
@@ -471,6 +566,7 @@ export interface ChatResponse {
 export interface AgentConfig {
   default_provider_id?: string
   default_model?: string
+  default_agent_profile_id?: string
   default_system_prompt: string
   max_iterations: number
   tools_enabled: boolean

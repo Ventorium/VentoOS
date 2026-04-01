@@ -12,8 +12,9 @@ use crate::provider::ProviderClient;
 use crate::session::SessionStore;
 use crate::tool::{StubToolExecutor, ToolExecutor, ToolRegistry};
 use crate::types::{
-    AgentConfig, AgentError, AgentProfile, ChatRequest, ProviderConfig, ProviderProbeRequest,
-    ProviderProbeResult, ProviderTemplate, builtin_agent_profiles, builtin_provider_templates,
+    AgentConfig, AgentError, AgentProfile, ChannelConfig, ChatRequest, ProviderConfig,
+    ProviderProbeRequest, ProviderProbeResult, ProviderTemplate, builtin_agent_profiles,
+    builtin_provider_templates,
 };
 
 /// Central coordinator for the AI agent subsystem.
@@ -21,6 +22,7 @@ pub struct AgentManager {
     pub(crate) sessions: Arc<SessionStore>,
     pub(crate) providers: Arc<RwLock<HashMap<String, ProviderConfig>>>,
     pub(crate) profiles: Arc<RwLock<HashMap<String, AgentProfile>>>,
+    pub(crate) channels: Arc<RwLock<HashMap<String, ChannelConfig>>>,
     pub(crate) tool_registry: Arc<RwLock<ToolRegistry>>,
     pub(crate) guards: Arc<GuardChain>,
     pub(crate) config: Arc<RwLock<AgentConfig>>,
@@ -43,6 +45,7 @@ impl AgentManager {
             sessions: Arc::new(SessionStore::new()),
             providers: Arc::new(RwLock::new(HashMap::new())),
             profiles: Arc::new(RwLock::new(profiles)),
+            channels: Arc::new(RwLock::new(HashMap::new())),
             tool_registry: Arc::new(RwLock::new(ToolRegistry::with_builtins())),
             guards: Arc::new(GuardChain::with_defaults()),
             config: Arc::new(RwLock::new(AgentConfig::default())),
@@ -95,7 +98,8 @@ impl AgentManager {
         &self,
         request: ProviderProbeRequest,
     ) -> Result<ProviderProbeResult, AgentError> {
-        ProviderClient::new(request.provider.normalized()).probe(&request).await
+        let provider = request.provider.clone().normalized();
+        ProviderClient::new(provider).probe(&request).await
     }
 
     // ── Agent Profile Management ───────────────────────────────────────────
@@ -132,8 +136,41 @@ impl AgentManager {
         if let Some(existing) = profiles.get(id)
             && existing.is_builtin {
                 return false;
-            }
+        }
         profiles.remove(id).is_some()
+    }
+
+    // ── Channel Management ─────────────────────────────────────────────────
+
+    pub async fn add_channel(&self, config: ChannelConfig) {
+        self.channels
+            .write()
+            .await
+            .insert(config.id.clone(), config);
+    }
+
+    pub async fn get_channel(&self, id: &str) -> Option<ChannelConfig> {
+        self.channels.read().await.get(id).cloned()
+    }
+
+    pub async fn list_channels(&self) -> Vec<ChannelConfig> {
+        let mut channels: Vec<_> = self.channels.read().await.values().cloned().collect();
+        channels.sort_by(|a, b| a.name.cmp(&b.name));
+        channels
+    }
+
+    pub async fn update_channel(&self, config: ChannelConfig) -> bool {
+        let mut channels = self.channels.write().await;
+        if channels.contains_key(&config.id) {
+            channels.insert(config.id.clone(), config);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub async fn delete_channel(&self, id: &str) -> bool {
+        self.channels.write().await.remove(id).is_some()
     }
 
     // ── Configuration ──────────────────────────────────────────────────────
@@ -213,7 +250,7 @@ impl AgentManager {
         let providers = self.providers.read().await;
         let provider_config = providers
             .get(&effective_id)
-            .ok_or_else(|| AgentError::ProviderNotFound(effective_id.to_string()))?;
+            .ok_or_else(|| AgentError::ProviderNotFound(effective_id.clone()))?;
 
         if !provider_config.enabled {
             return Err(AgentError::Provider(format!(
@@ -242,7 +279,8 @@ impl Default for AgentManager {
 mod tests {
     use super::*;
     use crate::types::{
-        AgentPresetKind, ProviderType, ProviderVendor,
+        AgentBehaviorConfig, AgentPresetKind, AgentToolConfig, ChannelConfig, ChannelKind,
+        ProviderType, ProviderVendor,
     };
 
     fn test_provider() -> ProviderConfig {
@@ -267,8 +305,8 @@ mod tests {
             preset_kind: AgentPresetKind::Custom,
             is_builtin: false,
             system_prompt: "You are custom".into(),
-            behavior: Default::default(),
-            tool_config: Default::default(),
+            behavior: AgentBehaviorConfig::default(),
+            tool_config: AgentToolConfig::default(),
             default_provider_id: Some("p1".into()),
             default_model: Some("gpt-4o-mini".into()),
             temperature: 0.2,
@@ -418,5 +456,21 @@ mod tests {
             })
             .await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_add_and_list_channel_configs() {
+        let mgr = AgentManager::new();
+        mgr.add_channel(ChannelConfig::new(
+            "channel-tg".into(),
+            "Telegram Bot".into(),
+            ChannelKind::Telegram,
+        ))
+        .await;
+
+        let channels = mgr.list_channels().await;
+        assert_eq!(channels.len(), 1);
+        assert_eq!(channels[0].kind, ChannelKind::Telegram);
+        assert!(channels[0].enabled);
     }
 }

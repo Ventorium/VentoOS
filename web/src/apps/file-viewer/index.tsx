@@ -14,7 +14,7 @@
  */
 
 import { XMarkdown } from '@ant-design/x-markdown'
-import { FileText, Loader2, Pencil, Save, X } from 'lucide-react'
+import { FileText, Loader2, Pencil, Pause, Play, Save, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { VfsFileContent, VfsNode } from '@/infra/api'
@@ -54,8 +54,8 @@ function toHex(bytes: Uint8Array, lineLen = 16): string {
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'])
 const PDF_EXTS = new Set(['pdf'])
 const MD_EXTS = new Set(['md', 'markdown'])
-const VIDEO_EXTS = new Set(['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'])
-const AUDIO_EXTS = new Set(['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'])
+const VIDEO_EXTS = new Set(['mp4', 'webm', 'ogg', 'ogv', 'mov', 'avi', 'mkv', 'm4v', '3gp', 'flv'])
+const AUDIO_EXTS = new Set(['mp3', 'wav', 'ogg', 'oga', 'flac', 'aac', 'm4a', 'opus', 'wma', 'weba'])
 const CODE_EXTS = new Set([
   'js', 'ts', 'jsx', 'tsx', 'json', 'yaml', 'yml', 'toml',
   'rs', 'go', 'py', 'sh', 'bash', 'zsh', 'css', 'html', 'xml', 'sql', 'env'
@@ -133,6 +133,144 @@ function ImageViewer({ src }: { src: string }) {
       <div className="absolute bottom-2 right-3 text-[11px] px-2 py-0.5 rounded"
         style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', pointerEvents: 'none' }}>
         {Math.round(scale * 100)}%
+      </div>
+    </div>
+  )
+}
+
+// ─── Media Player ────────────────────────────────────────────────────────────
+
+function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
+  const mediaRef = useRef<HTMLVideoElement & HTMLAudioElement>(null)
+  const [playing, setPlaying] = useState(false)
+  const [muted, setMuted] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolume] = useState(1)
+
+  function fmt(seconds: number): string {
+    const m = Math.floor(seconds / 60)
+    const s = Math.floor(seconds % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  function togglePlay() {
+    const el = mediaRef.current
+    if (!el) return
+    if (el.paused) { el.play().catch(() => {}); setPlaying(true) }
+    else { el.pause(); setPlaying(false) }
+  }
+
+  function toggleMute() {
+    const el = mediaRef.current
+    if (!el) return
+    el.muted = !el.muted
+    setMuted(el.muted)
+  }
+
+  const handleTimeUpdate = () => {
+    const el = mediaRef.current
+    if (!el) return
+    setCurrentTime(el.currentTime)
+  }
+
+  const handleLoadedMetadata = () => {
+    const el = mediaRef.current
+    if (!el) return
+    setDuration(el.duration || 0)
+  }
+
+  const handleEnded = () => setPlaying(false)
+
+  const playerStyle: React.CSSProperties = {
+    background: 'var(--vos-bg-surface)',
+    border: '0.5px solid var(--vos-border-subtle)',
+    borderRadius: 12,
+    padding: 16,
+    maxWidth: type === 'audio' ? 480 : '100%',
+    width: type === 'audio' ? 480 : '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: type === 'video' ? '#000' : 'var(--vos-bg-base)', flexDirection: 'column', gap: 0 }}>
+      {type === 'video' && (
+        // biome-ignore lint/a11y/useMediaCaption: file viewer
+        <video
+          ref={mediaRef as React.RefObject<HTMLVideoElement>}
+          src={src}
+          style={{ maxWidth: '100%', maxHeight: 'calc(100% - 80px)', outline: 'none', display: 'block' }}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onEnded={handleEnded}
+          onClick={togglePlay}
+        />
+      )}
+      {type === 'audio' && (
+        // biome-ignore lint/a11y/useMediaCaption: file viewer
+        <audio
+          ref={mediaRef as React.RefObject<HTMLAudioElement>}
+          src={src}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onEnded={handleEnded}
+        />
+      )}
+      {/* Controls bar */}
+      <div style={playerStyle}>
+        {/* Progress */}
+        <input
+          type="range"
+          min={0}
+          max={duration || 1}
+          step={0.1}
+          value={currentTime}
+          style={{ width: '100%', accentColor: 'var(--vos-accent-primary)', cursor: 'pointer' }}
+          onChange={e => {
+            const t = Number(e.target.value)
+            setCurrentTime(t)
+            if (mediaRef.current) mediaRef.current.currentTime = t
+          }}
+        />
+        {/* Buttons row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            className="vos-btn"
+            style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+            onClick={togglePlay}
+          >
+            {playing ? <Pause size={14} /> : <Play size={14} />}
+          </button>
+          <span style={{ fontSize: 11, color: 'var(--vos-text-secondary)', minWidth: 80 }}>
+            {fmt(currentTime)} / {duration ? fmt(duration) : '--:--'}
+          </span>
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            className="vos-btn"
+            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center' }}
+            onClick={toggleMute}
+          >
+            {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={muted ? 0 : volume}
+            style={{ width: 72, accentColor: 'var(--vos-accent-primary)', cursor: 'pointer' }}
+            onChange={e => {
+              const v = Number(e.target.value)
+              setVolume(v)
+              if (mediaRef.current) { mediaRef.current.volume = v; mediaRef.current.muted = v === 0 }
+              setMuted(v === 0)
+            }}
+          />
+        </div>
       </div>
     </div>
   )
@@ -374,22 +512,12 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
 
         {/* Video */}
         {!loading && !error && isVideo && blobUrl && (
-          <div className="w-full h-full flex items-center justify-center" style={{ background: '#000' }}>
-            {/* biome-ignore lint/a11y/useMediaCaption: not applicable for file viewer */}
-            <video
-              controls
-              src={blobUrl}
-              style={{ maxWidth: '100%', maxHeight: '100%', outline: 'none' }}
-            />
-          </div>
+          <MediaPlayer src={blobUrl} type="video" />
         )}
 
         {/* Audio */}
         {!loading && !error && isAudio && blobUrl && (
-          <div className="w-full h-full flex items-center justify-center">
-            {/* biome-ignore lint/a11y/useMediaCaption: not applicable for file viewer */}
-            <audio controls src={blobUrl} style={{ width: '80%' }} />
-          </div>
+          <MediaPlayer src={blobUrl} type="audio" />
         )}
 
         {/* Markdown */}

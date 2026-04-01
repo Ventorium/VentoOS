@@ -12,6 +12,12 @@
 6. 自定义 agent 需要可配置：行为约束、工具配置、系统提示词等。
 7. 前端 UI 要同步支持上述配置和测试流程。
 8. 本次需求文档归档到 `docs/requirements/06-ai-assistant/`。
+9. AI agent 底层要支持类似 openclaw 的 channel 机制，以便从外部聊天渠道控制 VentoOS 执行操作。
+10. 第一阶段先接入 QQ、钉钉、飞书、企业微信、Telegram 这些常用聊天渠道。
+11. 每个 channel 都要有对应的 Rust 实现方案，优先参考官方协议或主流 Rust 实现。
+12. 页面上必须有 channel 配置入口。
+13. 所有 channel 都能触发对话，默认用通用 agent 执行，也支持按用户对话自动选择 agent。
+14. channel 中的对话必须能在 Web 端看到。
 
 ## 官方供应商地址确认
 
@@ -28,6 +34,16 @@
 | 9 | Groq | OpenAI-compatible | `https://api.groq.com/openai/v1` | 兼容入口 |
 | 10 | Custom Compatible | OpenAI-compatible | 用户自定义 | 仅要求配置 `base_url` |
 
+## Channel 接入参考
+
+| 序号 | 渠道 | 官方接入能力 | Rust 参考实现 | 第一阶段策略 | 备注 |
+|---|---|---|---|---|---|
+| 1 | Telegram | Bot API（Webhook / Long Polling） | `teloxide/teloxide` | 优先 webhook，保留 polling 兜底 | 协议清晰，优先落地 |
+| 2 | 飞书 | 开放平台机器人 + 事件订阅 | `chyroc/lark-rs` / `foxzool/openlark` | 走 callback + 签名校验 | 无官方 Rust SDK 时参考主流实现 |
+| 3 | 钉钉 | 机器人 + Stream 模式 | `SpenserCai/dingtalk-stream-sdk-rs` | 优先 Stream 模式 | 对齐官方 Python Stream SDK 语义 |
+| 4 | 企业微信 | 机器人回调 + 消息加解密 | `chang196700/wxwork-api` / `shenshouer/wecom-rs` | 走 callback + 加解密 | 必须在 Rust Core 完成签名/解密 |
+| 5 | QQ | 官方机器人开放平台 | `YinMo19/botrs` 等 | 按官方 bot 设计 adapter | 第一阶段不纳入个人 QQ 协议 |
+
 ## 需求拆解表
 
 | 序号 | 原始需求 | 子任务 | 验收标准 | 状态 |
@@ -41,8 +57,14 @@
 | 7 | 配置行为约束 / 工具 / 提示词 | AgentProfile 支持行为约束、系统提示词、工具配置、模型配置 | 后端可存取，前端可编辑 | 未开始 |
 | 8 | UI 同步 | AI Assistant 设置页升级为 Provider / Agent / Runtime 三块 | 用户可完成 provider 配置、测试、agent 选择与编辑 | 未开始 |
 | 9 | 会话绑定 agent | ChatRequest / Session 支持绑定 agent profile | 新会话可指定 agent，历史会话可显示 agent | 未开始 |
-| 10 | 测试补齐 | 后端与前端至少补充关键单元测试 | 关键新行为具备测试 | 未开始 |
+| 10 | 测试补齐 | 后端与前端至少补充关键单元测试 | 关键新行为具备测试 | 进行中 |
 | 11 | 验收闭环 | 输出完成情况与验收报告 | 同级目录下生成文档并回填结果 | 未开始 |
+| 12 | Channel 底层抽象 | 建立统一 `ChannelAdapter`、`ChannelEvent`、`ChannelConfig`、`ChannelConversationBinding` 模型 | Rust Core 可统一接入外部渠道，不把逻辑散落到 UI | 进行中 |
+| 13 | 首批 5 个 channel 接入 | 实现 QQ / 钉钉 / 飞书 / 企业微信 / Telegram adapter | 所有渠道可接入并触发对话 | 未开始 |
+| 14 | 默认与自动 agent 路由 | channel 消息默认走通用 agent，并支持按意图自动选择 agent | 可见默认路由和自动切换结果 | 未开始 |
+| 15 | Channel Web 可观测 | Web 端可看到 channel 配置、会话、消息、工具调用、错误 | 页面上有配置区和会话观察区 | 未开始 |
+| 16 | 渠道安全与审计 | 外部渠道触发的动作统一走 Guard / Harness / Confirm | 高风险操作不能绕过确认链 | 未开始 |
+| 17 | 渠道级验证 | 各 adapter 有单测/集测，页面与基础构建命令通过 | 满足页面可配置、渠道可对话、Web 可见的最低验收线 | 进行中 |
 
 ## 实现分块
 
@@ -77,3 +99,24 @@
 * 前端关键工具函数测试
 * 构建 / lint / 测试验证
 * 文档回填
+
+### T6 Channel Runtime
+
+* 建立 `ChannelAdapter` trait 与统一事件模型
+* 打通外部 channel 消息到 Agent Session 的绑定
+* 打通 channel 回复发送与 Web 投影
+
+### T7 首批渠道适配器
+
+* Telegram webhook / polling adapter
+* 飞书 callback adapter
+* 钉钉 Stream adapter
+* 企业微信 callback adapter
+* QQ 官方 bot adapter
+
+### T8 Channel UI 与审计
+
+* Channel 配置页
+* Channel 会话列表与详情
+* agent 路由信息、工具调用、错误态可视化
+* 高风险操作确认记录展示
