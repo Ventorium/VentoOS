@@ -261,8 +261,11 @@ export const apiClient = {
     request<ApiResponse<{ success: boolean; message: string }>>('POST', '/api/vfs/mounts/test-connection', body),
   getVfsMount: (id: string) => request<ApiResponse<VfsMount>>('GET', `/api/vfs/mounts/${id}`),
   deleteVfsMount: (id: string) => request<ApiResponse<null>>('DELETE', `/api/vfs/mounts/${id}`),
-  listVfsDir: (id: string, path?: string) =>
-    request<ApiResponse<VfsNode[]>>('GET', `/api/vfs/mounts/${id}/ls?path=${encodeURIComponent(path ?? '/')}`),
+  listVfsDir: (id: string, path?: string, showHidden?: boolean) => {
+    const params = new URLSearchParams({ path: path ?? '/' })
+    if (showHidden) params.set('show_hidden', 'true')
+    return request<ApiResponse<VfsNode[]>>('GET', `/api/vfs/mounts/${id}/ls?${params}`)
+  },
   readVfsFile: (id: string, path: string, maxBytes?: number) => {
     const params = new URLSearchParams({ path })
     if (maxBytes) params.set('max_bytes', String(maxBytes))

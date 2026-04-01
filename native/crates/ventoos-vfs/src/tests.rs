@@ -70,7 +70,7 @@ async fn test_sftp_list_root() {
         .await;
 
     let result = manager
-        .list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/".to_string() })
+        .list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/".to_string(), show_hidden: false })
         .await;
     assert!(result.is_ok(), "SFTP list_dir failed: {:?}", result.err());
     let nodes = result.unwrap();
@@ -115,7 +115,7 @@ async fn test_sftp_mkdir_and_list() {
         .await;
     assert!(mkdir_result.is_ok(), "SFTP mkdir failed: {:?}", mkdir_result.err());
 
-    let list_result = manager.list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/tmp".to_string() }).await;
+    let list_result = manager.list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/tmp".to_string(), show_hidden: false }).await;
     assert!(list_result.is_ok(), "SFTP list /tmp failed: {:?}", list_result.err());
     let entries = list_result.unwrap();
     let short_name = dir_name.trim_start_matches('/').split('/').last().unwrap_or("");

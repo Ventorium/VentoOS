@@ -56,6 +56,21 @@ impl VfsManager {
     pub async fn update_webdav_server_settings(&self, settings: WebDavServerSettings) {
         *self.webdav_server_settings.write().await = settings;
     }
+  
+    /// Expand `~` to the user's home directory in a path string.
+    /// Only applies to paths starting with `~` or `~/`.
+    fn expand_tilde(path: &str) -> String {
+        if path == "~" || path.starts_with("~/") {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
+            if path == "~" {
+                home
+            } else {
+                format!("{}/{}", home, &path[2..])
+            }
+        } else {
+            path.to_string()
+        }
+    }
 
     /// Get or create an SFTP session for a mount.
     /// Prefers `connection_id` if Some; falls back to parsing credentials from `root` URI.
@@ -72,7 +87,40 @@ impl VfsManager {
             return self.sftp_pool.get_or_connect(conn_id, provider).await;
         }
         // Fall back to URL-based credentials stored in mount.root
-        let (conn_info, _root) = crate::sftp::SshConnInfo::parse_sftp_url(&mount.root)?;
+        let (mut conn_info, _root) = crate::sftp::SshConnInfo::parse_sftp_url(&mount.root)?;
+        // If private key is a file path, read the file content
+        if let crate::sftp::SshAuth::PrivateKey {
+            key_pem,
+            passphrase,
+        } = &conn_info.auth
+        {
+            // Check if key_pem looks like a path (not PEM content)
+            let key_str = key_pem.trim();
+            if !key_str.contains("-----BEGIN") {
+                // It's a file path - expand ~ and read
+                let expanded = if key_str == "~" || key_str.starts_with("~/") {
+                    let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
+                    if key_str == "~" {
+                        home
+                    } else {
+                        format!("{}/{}", home, &key_str[2..])
+                    }
+                } else {
+                    key_str.to_string()
+                };
+                match tokio::fs::read_to_string(&expanded).await {
+                    Ok(content) => {
+                        conn_info.auth = crate::sftp::SshAuth::PrivateKey {
+                            key_pem: content,
+                            passphrase: passphrase.clone(),
+                        };
+                    }
+                    Err(e) => {
+                        return Err(format!("Failed to read private key file '{}': {}", expanded, e));
+                    }
+                }
+            }
+        }
         let provider = InlineSftpProvider(conn_info);
         self.sftp_pool
             .get_or_connect(&mount.id, &provider)
@@ -95,7 +143,7 @@ impl VfsManager {
             id: id.clone(),
             name: req.name,
             kind: req.kind,
-            root: req.root,
+            root: Self::expand_tilde(&req.root),
             connection_id: req.connection_id,
             group: req.group,
         };
@@ -123,7 +171,7 @@ impl VfsManager {
         if let Some(mount) = mounts.get_mut(id) {
             mount.name = req.name;
             mount.kind = req.kind;
-            mount.root = req.root;
+            mount.root = Self::expand_tilde(&req.root);
             mount.connection_id = req.connection_id;
             mount.group = req.group;
             Some(mount.clone())
@@ -143,7 +191,7 @@ impl VfsManager {
                     id: temp_id.clone(),
                     name: "test".to_string(),
                     kind: req.kind.clone(),
-                    root: req.root.clone(),
+                    root: Self::expand_tilde(&req.root),
                     connection_id: req.connection_id.clone(),
                     group: None,
                 },
@@ -153,6 +201,7 @@ impl VfsManager {
             .list_dir(&VfsListReq {
                 mount_id: temp_id.clone(),
                 path: "/".to_string(),
+                show_hidden: false,
             })
             .await
             .map(|_| ());
@@ -174,11 +223,11 @@ impl VfsManager {
             .ok_or("Mount not found")?;
 
         match mount.kind {
-            VfsSourceKind::Local => self.list_local_dir(&mount.root, &req.path).await,
+            VfsSourceKind::Local => self.list_local_dir(&mount.root, &req.path, req.show_hidden).await,
             VfsSourceKind::Sftp => {
                 let sftp = self.get_sftp_for_mount(&mount).await?;
                 let root = Self::sftp_root(&mount)?;
-                crate::sftp::list_dir(&sftp, &root, &req.path).await
+                crate::sftp::list_dir(&sftp, &root, &req.path, req.show_hidden).await
             }
             VfsSourceKind::Ftp => {
                 crate::ftp::ftp_list_dir(&self.ftp_pool, &mount.id, &mount.root, &req.path).await
@@ -192,7 +241,7 @@ impl VfsManager {
                 let local_root =
                     self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
                 let root_str = local_root.to_string_lossy().to_string();
-                self.list_local_dir(&root_str, &req.path).await
+                self.list_local_dir(&root_str, &req.path, req.show_hidden).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -203,7 +252,7 @@ impl VfsManager {
         }
     }
 
-    async fn list_local_dir(&self, root: &str, rel_path: &str) -> Result<Vec<VfsNode>, String> {
+    async fn list_local_dir(&self, root: &str, rel_path: &str, show_hidden: bool) -> Result<Vec<VfsNode>, String> {
         let base = std::path::Path::new(root);
         let full = if rel_path.is_empty() || rel_path == "/" {
             base.to_path_buf()
@@ -230,8 +279,8 @@ impl VfsManager {
 
         while let Ok(Some(entry)) = read_dir.next_entry().await {
             let name = entry.file_name().to_string_lossy().to_string();
-            // Skip hidden files by default
-            if name.starts_with('.') {
+            // Skip hidden files unless explicitly requested
+            if !show_hidden && name.starts_with('.') {
                 continue;
             }
             let metadata = entry.metadata().await.ok();

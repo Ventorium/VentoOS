@@ -31,5 +31,6 @@ export const fileViewerManifest: AppManifest = {
   minSize: { width: 480, height: 300 },
   permissions: ['storage'],
   hasBackendPlugin: false,
+  hidden: true,
   component: () => import('./index')
 }

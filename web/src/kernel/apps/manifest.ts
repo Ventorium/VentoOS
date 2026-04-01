@@ -98,6 +98,8 @@ export interface AppManifest {
   component: () => Promise<{ default: ComponentType<AppComponentProps> }>
   /** App has a corresponding Rust AppPlugin that exposes API routes */
   hasBackendPlugin?: boolean
+  /** Hide from Dock (still launchable via other apps) */
+  hidden?: boolean
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   lifecycle?: AppLifecycle

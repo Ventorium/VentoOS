@@ -1161,6 +1161,18 @@ export default function AIAssistantApp(_props: AppComponentProps) {
             <span className="text-sm font-medium">AI Assistant</span>
           </div>
           <div className="flex items-center gap-2 ml-auto">
+            <button
+              type="button"
+              className="bg-transparent border-none cursor-pointer p-1.5 rounded-lg"
+              style={{ color: 'var(--vos-text-tertiary)' }}
+              onClick={() => {
+                setSettingsTab('providers')
+                setShowSettings(true)
+              }}
+              title="Settings"
+            >
+              <Settings size={15} />
+            </button>
             <div className="min-w-[220px]">
               <SelectInput
                 value={selectedAgentId}
@@ -1189,7 +1201,14 @@ export default function AIAssistantApp(_props: AppComponentProps) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto px-4 py-3">
+        <div
+          className="flex-1 overflow-auto px-4 py-3"
+          style={{
+            background: 'var(--vos-bg-surface)',
+            backdropFilter: 'blur(32px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(32px) saturate(180%)'
+          }}
+        >
           {messages.length === 0 && !streamingContent && (
             <div className="flex-1 flex items-center justify-center h-full">
               <div className="text-center max-w-[520px]">

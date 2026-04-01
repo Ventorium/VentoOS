@@ -3,6 +3,9 @@ import {
   ChevronRight,
   ClipboardPaste,
   Copy,
+  Download,
+  Eye,
+  EyeOff,
   File,
   FilePlus,
   FileUp,
@@ -11,9 +14,11 @@ import {
   FolderPlus,
   Globe,
   HardDrive,
+  Key,
   Loader2,
   Monitor,
   Pencil,
+  PanelRight,
   Plus,
   RefreshCw,
   Scissors,
@@ -23,7 +28,7 @@ import {
   X
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CreateVfsMountReq, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from '@/infra/api'
+import type { CreateVfsMountReq, SshConfigHost, SshKeyFile, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow } from '@/kernel'
@@ -119,8 +124,17 @@ function MountForm({
     if (mountToEdit?.kind === 'webdav') return mountToEdit.root.startsWith('webdavs://')
     return false
   })
+  const [authMethod, setAuthMethod] = useState<'password' | 'private_key'>('password')
+  const [privateKeyPath, setPrivateKeyPath] = useState('')
+  const [privateKeyPassphrase, setPrivateKeyPassphrase] = useState('')
+  // SSH config import
+  const [sshConfigHosts, setSshConfigHosts] = useState<SshConfigHost[] | null>(null)
+  const [importingConfig, setImportingConfig] = useState(false)
+  // SSH key file browser
+  const [sshKeyFiles, setSshKeyFiles] = useState<SshKeyFile[] | null>(null)
   // smb
   const [share, setShare] = useState(initial?.share ?? '')
+  const [smbPort, setSmbPort] = useState('445')
   // s3
   const [bucket, setBucket] = useState(initial?.bucket ?? '')
   const [region, setRegion] = useState(initial?.region ?? '')
@@ -158,6 +172,11 @@ function MountForm({
         return localPath
       case 'sftp': {
         const p = port || '22'
+        if (authMethod === 'private_key' && privateKeyPath) {
+          // For private key auth, embed a special marker in the URL
+          const auth = username ? `${encodeURIComponent(username)}:@` : ':@'
+          return `sftp://${auth}${host}:${p}${basePath || '/'}?key_path=${encodeURIComponent(privateKeyPath)}&key_pass=${encodeURIComponent(privateKeyPassphrase)}`
+        }
         const auth = username ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
         return `sftp://${auth}${host}:${p}${basePath || '/'}`
       }
@@ -167,8 +186,9 @@ function MountForm({
         return `ftp://${auth}${host}:${p}${basePath || '/'}`
       }
       case 'smb': {
+        const p = smbPort && smbPort !== '445' ? `:${smbPort}` : ''
         const auth = username ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
-        return `smb://${auth}${host}${share ? `/${share}` : ''}`
+        return `smb://${auth}${host}${p}${share ? `/${share}` : ''}`
       }
       case 's3': {
         const params = new URLSearchParams()
@@ -205,6 +225,39 @@ function MountForm({
         return !!host
       default:
         return false
+    }
+  }
+
+  const handleImportSshConfig = async () => {
+    setImportingConfig(true)
+    try {
+      const res = await apiClient.getSshConfigHosts()
+      setSshConfigHosts(res.data)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setImportingConfig(false)
+    }
+  }
+
+  const handleImportSshHost = (h: SshConfigHost) => {
+    setName(h.alias)
+    setHost(h.hostname ?? h.alias)
+    setPort(h.port?.toString() ?? '22')
+    setUsername(h.user ?? 'root')
+    if (h.identity_file) {
+      setAuthMethod('private_key')
+      setPrivateKeyPath(h.identity_file)
+    }
+    setSshConfigHosts(null)
+  }
+
+  const handleBrowseSshKeys = async () => {
+    try {
+      const res = await apiClient.getSshKeyFiles()
+      setSshKeyFiles(res.data)
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -276,6 +329,20 @@ function MountForm({
         {/* ── SFTP / FTP ── */}
         {(kind === 'sftp' || kind === 'ftp') && (
           <>
+            {kind === 'sftp' && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="text-xs px-2 py-1 rounded cursor-pointer border-none"
+                  style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-secondary)', opacity: importingConfig ? 0.5 : 1 }}
+                  onClick={handleImportSshConfig}
+                  disabled={importingConfig}
+                >
+                  {importingConfig ? <Loader2 size={11} className="inline-block animate-spin" /> : <Download size={11} className="inline-block mr-1" />}
+                  从 ~/.ssh/config 导入
+                </button>
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 className={fc}
@@ -300,15 +367,103 @@ function MountForm({
                 value={username}
                 onChange={e => setUsername(e.target.value)}
               />
+              {kind === 'sftp' ? (
+                <div className="flex gap-1" style={{ flex: 1 }}>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1.5 rounded cursor-pointer border-none"
+                    style={{
+                      background: authMethod === 'password' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-item-hover)',
+                      color: authMethod === 'password' ? '#fff' : 'var(--vos-text-secondary)',
+                      flex: 1
+                    }}
+                    onClick={() => setAuthMethod('password')}
+                  >
+                    密码
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1.5 rounded cursor-pointer border-none"
+                    style={{
+                      background: authMethod === 'private_key' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-item-hover)',
+                      color: authMethod === 'private_key' ? '#fff' : 'var(--vos-text-secondary)',
+                      flex: 1
+                    }}
+                    onClick={() => setAuthMethod('private_key')}
+                  >
+                    私钥
+                  </button>
+                </div>
+              ) : (
+                <input
+                  className={fc}
+                  style={{ ...fs, flex: 1 }}
+                  type="password"
+                  placeholder="密码（可选）"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                />
+              )}
+            </div>
+            {kind === 'sftp' && authMethod === 'password' && (
               <input
                 className={fc}
-                style={{ ...fs, flex: 1 }}
+                style={fs}
                 type="password"
-                placeholder="密码（可选）"
+                placeholder="密码"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
               />
-            </div>
+            )}
+            {kind === 'sftp' && authMethod === 'private_key' && (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    className={fc}
+                    style={{ ...fs, flex: 1 }}
+                    placeholder="私钥路径（如 ~/.ssh/id_rsa）"
+                    value={privateKeyPath}
+                    onChange={e => setPrivateKeyPath(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1.5 rounded cursor-pointer border-none flex-shrink-0"
+                    style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-secondary)' }}
+                    onClick={handleBrowseSshKeys}
+                  >
+                    <Key size={12} />
+                  </button>
+                </div>
+                {sshKeyFiles && (
+                  <div className="rounded overflow-hidden" style={{ maxHeight: 120, overflow: 'auto', border: '0.5px solid var(--vos-border-subtle)' }}>
+                    {sshKeyFiles.filter(f => !f.is_public).length === 0 && (
+                      <div className="text-xs px-2 py-1.5" style={{ color: 'var(--vos-text-tertiary)' }}>未发现私钥文件</div>
+                    )}
+                    {sshKeyFiles.filter(f => !f.is_public).map(f => (
+                      <button
+                        key={f.path}
+                        type="button"
+                        className="w-full text-left text-xs px-2 py-1 cursor-pointer border-none"
+                        style={{ background: 'transparent', color: 'var(--vos-text-primary)' }}
+                        onMouseOver={e => { (e.target as HTMLElement).style.background = 'var(--vos-bg-item-hover)' }}
+                        onMouseOut={e => { (e.target as HTMLElement).style.background = 'transparent' }}
+                        onClick={() => { setPrivateKeyPath(f.path); setSshKeyFiles(null) }}
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <input
+                  className={fc}
+                  style={fs}
+                  placeholder="私钥密码（如有）"
+                  type="password"
+                  value={privateKeyPassphrase}
+                  onChange={e => setPrivateKeyPassphrase(e.target.value)}
+                />
+              </>
+            )}
             <input
               className={fc}
               style={fs}
@@ -322,13 +477,22 @@ function MountForm({
         {/* ── SMB ── */}
         {kind === 'smb' && (
           <>
-            <input
-              className={fc}
-              style={fs}
-              placeholder="主机地址"
-              value={host}
-              onChange={e => setHost(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <input
+                className={fc}
+                style={{ ...fs, flex: 1 }}
+                placeholder="主机地址"
+                value={host}
+                onChange={e => setHost(e.target.value)}
+              />
+              <input
+                className={fc}
+                style={{ ...fs, width: 72 }}
+                placeholder="445"
+                value={smbPort}
+                onChange={e => setSmbPort(e.target.value)}
+              />
+            </div>
             <input
               className={fc}
               style={fs}
@@ -451,9 +615,22 @@ function MountForm({
             />
           </>
         )}
-
-        <div className="flex justify-between items-center gap-2 mt-1">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 mt-1">
+          {testResult && (
+            <div
+              className="text-xs px-2 py-1.5 rounded"
+              style={{
+                background: testResult.success ? 'rgba(52, 199, 89, 0.1)' : 'rgba(255, 59, 48, 0.1)',
+                color: testResult.success ? 'var(--vos-accent-success)' : 'var(--vos-accent-danger)',
+                wordBreak: 'break-all',
+                maxHeight: 80,
+                overflow: 'auto'
+              }}
+            >
+              {testResult.message}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
@@ -463,13 +640,6 @@ function MountForm({
             >
               {testing ? '测试中…' : '测试连接'}
             </button>
-            {testResult && (
-              <span className="text-xs" style={{ color: testResult.success ? 'var(--vos-accent-success)' : 'var(--vos-accent-danger)' }}>
-                {testResult.message}
-              </span>
-            )}
-          </div>
-          <div className="flex gap-2">
             <button
               type="button"
               className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
@@ -489,6 +659,47 @@ function MountForm({
             </button>
           </div>
         </div>
+        {/* SSH Config Import Modal */}
+        {sshConfigHosts && (
+          <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
+            <div
+              className="rounded-lg p-4 flex flex-col gap-3"
+              style={{ width: 420, maxHeight: 400, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">~/.ssh/config 可用主机</span>
+                <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => setSshConfigHosts(null)}>
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="overflow-auto flex-1" style={{ gap: 4, display: 'flex', flexDirection: 'column' }}>
+                {sshConfigHosts.length === 0 && (
+                  <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>未发现 SSH Host 配置</div>
+                )}
+                {sshConfigHosts.map(h => (
+                  <div
+                    key={h.alias}
+                    className="rounded px-2 py-1.5 cursor-pointer"
+                    style={{ background: 'var(--vos-bg-input)' }}
+                    onClick={() => handleImportSshHost(h)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>{h.alias}</span>
+                      <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+                        {h.hostname ?? ''} {h.user ? `(${h.user})` : ''}
+                      </span>
+                    </div>
+                    {h.identity_file && (
+                      <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
+                        <Key size={9} className="inline mr-0.5" />{h.identity_file}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -742,6 +953,7 @@ function ColumnView({
   activeColumn,
   renamingPath,
   renameValue,
+  scrollTrigger,
   onMoveFile,
   onExternalFileDrop,
   onItemClick,
@@ -758,6 +970,7 @@ function ColumnView({
   activeColumn: number
   renamingPath: string | null
   renameValue: string
+  scrollTrigger: number
   onMoveFile: (srcPath: string, destDir: string, srcMountId?: string) => void
   onExternalFileDrop: (files: FileList, targetPath: string) => void
   onItemClick: (colIndex: number, entry: VfsNode, e: React.MouseEvent) => void
@@ -769,6 +982,7 @@ function ColumnView({
   onRenameCancel: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const colScrollRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const [dropTarget, setDropTarget] = useState<string | null>(null)
 
   // Auto scroll to the right when new columns are added
@@ -778,6 +992,16 @@ function ColumnView({
       scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
     }
   }, [columns.length])
+
+  // Scroll active column to keep selected item visible
+  useEffect(() => {
+    const colEl = colScrollRefs.current.get(activeColumn)
+    if (!colEl) return
+    const selected = colEl.querySelector('[aria-selected="true"]')
+    if (selected) {
+      selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [activeColumn, scrollTrigger, columns])
 
   const handleDragStart = (e: React.DragEvent, entry: VfsNode) => {
     e.dataTransfer.setData('application/x-vfs-path', entry.path)
@@ -867,7 +1091,7 @@ function ColumnView({
                 空目录
               </div>
             ) : (
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-auto" ref={el => { if (el) colScrollRefs.current.set(colIdx, el); else colScrollRefs.current.delete(colIdx) }}>
                 {col.entries.map(entry => {
                   const isPrimary = col.selected === entry.name
                   const isMulti = colSelected?.has(entry.name) ?? false
@@ -1469,6 +1693,9 @@ export default function ExplorerApp(_props: AppComponentProps) {
   const [preview, setPreview] = useState<VfsFileContent | null>(null)
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
   const [showInfo, setShowInfo] = useState(false)
+  const [scrollTrigger, setScrollTrigger] = useState(0)
+  const [showHidden, setShowHidden] = useState(true)
+  const [showSettingsMenu, setShowSettingsMenu] = useState<{ x: number; y: number } | null>(null)
 
   // Multi-select: colIdx -> Set of item names
   const [multiSelect, setMultiSelect] = useState<Map<number, Set<string>>>(new Map())
@@ -1520,10 +1747,10 @@ export default function ExplorerApp(_props: AppComponentProps) {
     try {
       const r = await apiClient.getVfsMounts()
       let mountList = r.data
-      // Auto-create "本机" mount at / if no local mounts exist
-      if (!mountList.some(m => m.kind === 'local' && m.root === '/')) {
+      // Auto-create "本机" mount at home dir if no local mounts exist
+      if (!mountList.some(m => m.kind === 'local')) {
         try {
-          const res = await apiClient.createVfsMount({ name: '本机', kind: 'local', root: '/' })
+          const res = await apiClient.createVfsMount({ name: '本机', kind: 'local', root: '~' })
           mountList = [...mountList, res.data]
         } catch (_e) {
           /* ignore if creation fails */
@@ -1543,9 +1770,29 @@ export default function ExplorerApp(_props: AppComponentProps) {
     reload()
   }, [reload])
 
+  // Re-load all visible columns when hidden files setting changes
+  useEffect(() => {
+    if (!selectedMount || columns.length === 0) return
+    ;(async () => {
+      const updated = await Promise.all(
+        columns.map(async col => {
+          const entries = await loadColumn(selectedMount, col.path)
+          return { ...col, entries, loading: false }
+        })
+      )
+      setColumns(updated)
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showHidden])
+
+  // Trigger scroll when info panel appears/disappears
+  useEffect(() => {
+    setScrollTrigger(v => v + 1)
+  }, [showInfo])
+
   const loadColumn = async (mountId: string, path: string): Promise<VfsNode[]> => {
     try {
-      const r = await apiClient.listVfsDir(mountId, path)
+      const r = await apiClient.listVfsDir(mountId, path, showHidden)
       return r.data
     } catch (e) {
       console.error(e)
@@ -2281,6 +2528,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
           onCreated={m => {
             setMounts(p => [...p, m])
             setShowForm(false)
+            reload()
           }}
         />
       )}
@@ -2292,6 +2540,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
           onUpdated={m => {
             setMounts(p => p.map(x => (x.id === m.id ? m : x)))
             setEditingMount(null)
+            reload()
           }}
         />
       )}
@@ -2447,6 +2696,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
               className="bg-transparent border-none cursor-pointer p-0"
               style={{ color: 'var(--vos-text-tertiary)' }}
               onClick={reload}
+              title="刷新"
             >
               <RefreshCw size={11} />
             </button>
@@ -2531,11 +2781,23 @@ export default function ExplorerApp(_props: AppComponentProps) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {selectedMount ? (
           <>
-            {/* Path bar */}
+            {/* Path bar / Menubar */}
             <div
               className="flex items-center gap-2 h-8 px-3 flex-shrink-0"
               style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
             >
+              {/* App menu: Explorer */}
+              <button
+                type="button"
+                className="bg-transparent border-none cursor-pointer p-0 text-xs font-medium"
+                style={{ color: 'var(--vos-text-primary)' }}
+                onClick={e => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setShowSettingsMenu({ x: rect.left, y: rect.bottom + 2 })
+                }}
+              >
+                Explorer
+              </button>
               <button
                 type="button"
                 className="bg-transparent border-none cursor-pointer p-0"
@@ -2637,6 +2899,18 @@ export default function ExplorerApp(_props: AppComponentProps) {
               >
                 <RefreshCw size={12} />
               </button>
+              <button
+                type="button"
+                className="bg-transparent border-none cursor-pointer p-0"
+                style={{ color: 'var(--vos-text-tertiary)' }}
+                onClick={e => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setShowSettingsMenu({ x: rect.right, y: rect.bottom + 2 })
+                }}
+                title="设置"
+              >
+                <Settings size={12} />
+              </button>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
@@ -2648,6 +2922,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 activeColumn={activeColumn}
                 renamingPath={renamingPath}
                 renameValue={renameValue}
+                scrollTrigger={scrollTrigger}
                 onMoveFile={handleMoveFile}
                 onExternalFileDrop={(files, targetPath) => handleUpload(files, targetPath)}
                 onItemClick={handleItemClick}
@@ -2687,6 +2962,68 @@ export default function ExplorerApp(_props: AppComponentProps) {
           </div>
         )}
       </div>
+
+      {/* Settings popup menu */}
+      {showSettingsMenu && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: click-outside handler for menu
+        <div
+          role="presentation"
+          style={{ position: 'fixed', inset: 0, zIndex: 100 }}
+          onClick={() => setShowSettingsMenu(null)}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: Math.min(showSettingsMenu.x, window.innerWidth - 180),
+              top: showSettingsMenu.y,
+              minWidth: 170,
+              padding: '4px 0',
+              background: 'var(--vos-bg-contextMenu)',
+              backdropFilter: 'blur(40px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+              border: '0.5px solid var(--vos-border-default)',
+              borderRadius: 8,
+              boxShadow: '0 12px 36px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12)',
+              zIndex: 101
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ padding: '4px 12px', fontSize: 10, fontWeight: 600, color: 'var(--vos-text-tertiary)', letterSpacing: '0.04em' }}>
+              显示
+            </div>
+            <button
+              type="button"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 12px',
+                fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-text-primary)',
+                cursor: 'pointer', textAlign: 'left'
+              }}
+              onClick={() => {
+                setShowHidden(v => !v)
+                setShowSettingsMenu(null)
+              }}
+            >
+              {showHidden ? <EyeOff size={14} style={{ opacity: 0.6 }} /> : <Eye size={14} style={{ opacity: 0.6 }} />}
+              {showHidden ? '隐藏隐藏文件' : '显示隐藏文件'}
+            </button>
+            <button
+              type="button"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 12px',
+                fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-text-primary)',
+                cursor: 'pointer', textAlign: 'left'
+              }}
+              onClick={() => {
+                setShowInfo(v => !v)
+                setShowSettingsMenu(null)
+              }}
+            >
+              <PanelRight size={14} style={{ opacity: 0.6 }} />
+              {showInfo ? '隐藏预览面板' : '显示预览面板'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
