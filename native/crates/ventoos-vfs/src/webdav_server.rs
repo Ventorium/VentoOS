@@ -222,6 +222,7 @@ async fn handle_propfind(
             .list_dir(&VfsListReq {
                 mount_id: mount_id.to_string(),
                 path: file_path.to_string(),
+                show_hidden: false,
             })
             .await
         {
