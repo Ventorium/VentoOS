@@ -481,9 +481,6 @@ body,
   align-items: center;
   justify-content: center;
   font-size: 36px;
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.35),
-    0 1px 4px rgba(0, 0, 0, 0.2);
   transition: box-shadow 0.15s;
 }
 
@@ -612,7 +609,6 @@ body,
 .vos-settings-sidebar {
   width: 200px;
   flex-shrink: 0;
-  background: var(--vos-bg-surface);
   border-right: 0.5px solid var(--vos-border-subtle);
   display: flex;
   flex-direction: column;
@@ -968,30 +964,15 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-}
-.vos-lock-kicker {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  color: rgba(100,170,255,0.75);
-  text-transform: uppercase;
-  margin: 0;
+  gap: 0;
 }
 .vos-lock-title {
-  font-size: 28px;
-  font-weight: 300;
-  color: rgba(255, 255, 255, 0.92);
-  letter-spacing: -0.5px;
+  font-size: 26px;
+  font-weight: 280;
+  color: rgba(255, 255, 255, 0.94);
+  letter-spacing: -0.6px;
   margin: 0;
-  text-shadow: 0 1px 20px rgba(60,120,255,0.35);
-}
-.vos-lock-subtitle {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
-  line-height: 1.5;
-  max-width: 280px;
-  margin: 0;
+  text-shadow: 0 1px 24px rgba(60, 120, 255, 0.28);
 }
 
 /* ── Frosted panel card ── */
@@ -1000,49 +981,39 @@ body,
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px 28px 24px;
-  background: rgba(12, 22, 48, 0.45);
-  backdrop-filter: blur(60px) saturate(200%) brightness(1.1);
-  -webkit-backdrop-filter: blur(60px) saturate(200%) brightness(1.1);
-  border: 0.5px solid rgba(100, 160, 255, 0.15);
-  border-radius: 20px;
+  gap: 14px;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 32%, rgba(8, 16, 34, 0.28) 100%),
+    rgba(12, 22, 48, 0.28);
+  backdrop-filter: blur(52px) saturate(185%) brightness(1.08);
+  -webkit-backdrop-filter: blur(52px) saturate(185%) brightness(1.08);
+  border: 0.5px solid rgba(155, 210, 255, 0.18);
+  border-radius: 24px;
   box-shadow:
-    0 0 0 0.5px rgba(255,255,255,0.06) inset,
-    0 32px 80px rgba(0, 0, 20, 0.65),
-    0 2px 4px rgba(0,0,0,0.4);
+    0 0 0 0.5px rgba(255,255,255,0.08) inset,
+    0 20px 70px rgba(0, 0, 20, 0.52),
+    0 2px 4px rgba(0,0,0,0.32);
   width: 100%;
+  overflow: hidden;
 }
-
-/* ── Panel head (icon + title row) ── */
-.vos-lock-panel-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.vos-lock-card::before {
+  content: "";
+  position: absolute;
+  inset: 1px 1px auto;
+  height: 48%;
+  border-radius: 23px 23px 18px 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.06) 62%, transparent 100%);
+  pointer-events: none;
 }
-.vos-lock-panel-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: rgba(60,120,255,0.18);
-  border: 0.5px solid rgba(100,160,255,0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(130,185,255,0.9);
-  flex-shrink: 0;
-}
-.vos-lock-panel-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.88);
-  letter-spacing: -0.1px;
-}
-.vos-lock-panel-subtitle {
-  font-size: 12px;
-  color: rgba(255,255,255,0.38);
-  margin-top: 2px;
-  line-height: 1.3;
+.vos-lock-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -12% -45% 26%;
+  height: 70%;
+  background: radial-gradient(circle, rgba(102, 181, 255, 0.24) 0%, rgba(102, 181, 255, 0.05) 42%, transparent 70%);
+  filter: blur(30px);
+  pointer-events: none;
 }
 
 /* ── Form ── */
@@ -1055,45 +1026,61 @@ body,
 .vos-lock-input-wrap {
   position: relative;
   width: 100%;
+  isolation: isolate;
+}
+.vos-lock-input-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 17px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 58%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 .vos-lock-input {
   width: 100%;
-  height: 42px;
-  padding: 0 40px 0 14px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 0.5px solid rgba(255, 255, 255, 0.14);
-  border-radius: 11px;
+  height: 52px;
+  padding: 0 100px 0 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
+  font-size: 15px;
+  letter-spacing: 0.01em;
   outline: none;
   transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
   -webkit-text-security: disc;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 .vos-lock-input[type="text"] {
   -webkit-text-security: none;
 }
 .vos-lock-input::placeholder {
-  color: rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.34);
 }
 .vos-lock-input:focus {
-  border-color: rgba(80, 160, 255, 0.5);
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 0 0 3px rgba(60,120,255,0.12);
+  border-color: rgba(118, 196, 255, 0.42);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 3px rgba(83, 151, 255, 0.1),
+    0 14px 36px rgba(46, 97, 208, 0.16);
 }
 
 .vos-lock-show-btn {
   position: absolute;
-  right: 12px;
+  right: 58px;
   top: 50%;
   transform: translateY(-50%);
   background: transparent;
   border: none;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.36);
   display: flex;
   align-items: center;
   padding: 0;
+  z-index: 2;
   transition: color 0.12s;
 }
 .vos-lock-show-btn:hover {
@@ -1108,33 +1095,63 @@ body,
 }
 
 .vos-lock-btn {
-  height: 42px;
-  width: 100%;
-  border: none;
-  border-radius: 11px;
-  background: linear-gradient(135deg, rgba(60,120,255,0.85) 0%, rgba(40,90,220,0.9) 100%);
+  align-self: center;
+  width: 38px;
+  height: 38px;
+  border: 0.5px solid rgba(157, 214, 255, 0.2);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.06) 100%),
+    rgba(37, 86, 176, 0.34);
   color: rgba(255,255,255,0.95);
-  font-size: 14px;
-  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  transition: background 0.18s, transform 0.1s, box-shadow 0.18s;
+  z-index: 2;
+  transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
   margin-top: 2px;
-  box-shadow: 0 4px 20px rgba(40,100,255,0.3), 0 0 0 0.5px rgba(255,255,255,0.1) inset;
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,0.12) inset,
+    0 10px 24px rgba(30, 78, 168, 0.28);
 }
 .vos-lock-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(80,140,255,0.95) 0%, rgba(60,110,240,0.98) 100%);
-  box-shadow: 0 6px 28px rgba(40,100,255,0.45), 0 0 0 0.5px rgba(255,255,255,0.15) inset;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.08) 100%),
+    rgba(47, 103, 204, 0.42);
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,0.15) inset,
+    0 14px 30px rgba(34, 90, 193, 0.34);
 }
 .vos-lock-btn:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 .vos-lock-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
+}
+.vos-spin {
+  animation: vos-spin 0.8s linear infinite;
+}
+
+@media (max-width: 640px) {
+  .vos-lock-main {
+    max-width: 360px;
+    gap: 24px;
+  }
+
+  .vos-lock-title {
+    font-size: 24px;
+  }
+
+  .vos-lock-card {
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .vos-lock-input {
+    height: 50px;
+  }
 }
 
 /* ─── Dock App Icon Colors ─────────────────────────────────── */
@@ -1408,7 +1425,6 @@ select.vos-input {
 .ssh-sidebar {
   width: 180px;
   flex-shrink: 0;
-  background: var(--vos-bg-surface);
   border-right: 0.5px solid var(--vos-border-subtle);
   display: flex;
   flex-direction: column;

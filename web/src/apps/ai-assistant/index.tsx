@@ -34,6 +34,7 @@ import type {
 } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
+import { useAppStorage } from '@/kernel'
 
 type SettingsTab = 'providers' | 'agents' | 'runtime' | 'channels'
 
@@ -201,7 +202,6 @@ function MessageBubble({ msg }: { msg: ChatSession['messages'][number] }) {
         <div
           className="max-w-[80%] px-3 py-2 rounded-lg text-xs leading-relaxed"
           style={{
-            background: 'var(--vos-bg-surface)',
             color: 'var(--vos-text-secondary)',
             border: panelBorder,
             fontFamily: 'monospace',
@@ -1167,6 +1167,7 @@ function createEmptyProvider(): ProviderDraft {
 }
 
 export default function AIAssistantApp(_props: AppComponentProps) {
+  const storage = useAppStorage('ai-assistant')
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSession, setCurrentSession] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatSession['messages']>([])
@@ -1183,6 +1184,13 @@ export default function AIAssistantApp(_props: AppComponentProps) {
   const [config, setConfig] = useState<AgentConfig | null>(null)
   const [selectedAgentId, setSelectedAgentId] = useState<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Load persisted preferences
+  useEffect(() => {
+    storage.getJSON<{ selectedAgentId?: string }>('preferences').then(prefs => {
+      if (prefs?.selectedAgentId) setSelectedAgentId(prefs.selectedAgentId)
+    })
+  }, [storage])
 
   const activeProfile = useMemo(
     () => profiles.find(profile => profile.id === selectedAgentId) ?? null,
@@ -1340,7 +1348,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
     <div className="flex h-full">
       <div
         className="flex flex-col flex-shrink-0 overflow-auto"
-        style={{ width: 220, borderRight: panelBorder, background: 'var(--vos-bg-surface)' }}
+        style={{ width: 220, borderRight: panelBorder }}
       >
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-xs font-medium" style={{ color: 'var(--vos-text-tertiary)' }}>
@@ -1414,7 +1422,10 @@ export default function AIAssistantApp(_props: AppComponentProps) {
             <div className="min-w-[220px]">
               <SelectInput
                 value={selectedAgentId}
-                onChange={setSelectedAgentId}
+                onChange={(id: string) => {
+                  setSelectedAgentId(id)
+                  storage.setJSON('preferences', { selectedAgentId: id })
+                }}
                 options={profiles.map(profile => ({
                   value: profile.id,
                   label: profile.name
@@ -1441,11 +1452,6 @@ export default function AIAssistantApp(_props: AppComponentProps) {
 
         <div
           className="flex-1 overflow-auto px-4 py-3"
-          style={{
-            background: 'var(--vos-bg-surface)',
-            backdropFilter: 'blur(32px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(32px) saturate(180%)'
-          }}
         >
           {messages.length === 0 && !streamingContent && (
             <div className="flex-1 flex items-center justify-center h-full">

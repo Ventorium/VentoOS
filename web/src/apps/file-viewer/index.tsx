@@ -434,7 +434,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--vos-bg-surface)' }}>
+    <div className="flex flex-col h-full overflow-hidden">
       {/* ── Toolbar ── */}
       <div
         className="flex items-center px-3 py-2 gap-2 flex-shrink-0"

@@ -120,7 +120,7 @@ export const lightTheme = {
 export const darkTheme = {
   bg: {
     desktop: 'transparent',
-    surface: 'rgba(34, 34, 36, 0.72)',
+    surface: 'rgba(34, 34, 36, 0.2)',
     surfaceHover: 'rgba(50, 50, 52, 0.82)',
     overlay: 'rgba(24, 24, 26, 0.88)',
     topBar: 'rgba(18, 18, 20, 0.68)',

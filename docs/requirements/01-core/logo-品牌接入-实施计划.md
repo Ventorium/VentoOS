@@ -70,6 +70,19 @@
 - [ ] Step 3: 增加窄屏场景下的响应式调整
 - [ ] Step 4: 重新运行相关测试
 
+### Task 5.1: 锁屏文案减重与液态玻璃微调
+
+**Files:**
+- Modify: `web/src/shell/LoginScreen/index.tsx`
+- Modify: `web/src/assets/styles/app.css`
+- Modify: `web/src/shell/__tests__/branding.test.tsx`
+
+- [x] Step 1: 先补失败测试，要求 unlock 模式移除解释型文案、setup 模式仅保留单句标题
+- [x] Step 2: 将锁屏主文案收敛为品牌标题和最少必要占位提示
+- [x] Step 3: 将大文字按钮改为轻量图标提交动作，保留错误反馈和可见性切换
+- [x] Step 4: 微调玻璃面板高光、输入壳体和流体反射，保留深海流带氛围
+- [ ] Step 5: 在具备 Node.js 的环境重跑 `cd web && pnpm test -- --run web/src/shell/__tests__/branding.test.tsx`
+
 ### Task 6: 关于弹窗品牌化
 
 **Files:**

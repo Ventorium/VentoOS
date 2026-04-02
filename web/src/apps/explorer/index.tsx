@@ -1,17 +1,13 @@
 import {
   ChevronLeft,
   ChevronRight,
-  ClipboardPaste,
   Copy,
   Download,
   Eye,
   EyeOff,
   File,
-  FilePlus,
-  FileUp,
   Folder,
   FolderOpen,
-  FolderPlus,
   Globe,
   HardDrive,
   Key,
@@ -21,9 +17,7 @@ import {
   PanelRight,
   Plus,
   RefreshCw,
-  Scissors,
   Settings,
-  Terminal,
   Trash2,
   X
 } from 'lucide-react'
@@ -31,7 +25,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CreateVfsMountReq, SshConfigHost, SshKeyFile, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
-import { closeWindow, openWindow } from '@/kernel'
+import { openWindow, registerAppMenus, unregisterAppMenus, useAppStorage } from '@/kernel'
+import type { AppMenuGroup } from '@/kernel'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -145,6 +140,25 @@ function MountForm({
   const [saving, setSaving] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [testing, setTesting] = useState(false)
+
+  // Auto-parse a pasted WebDAV URL and populate https/host/port/basePath fields
+  const handleWebDavHostChange = (value: string) => {
+    const trimmed = value.trim()
+    if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+      try {
+        const parsed = new URL(trimmed)
+        setUseHttps(parsed.protocol === 'https:')
+        setHost(parsed.hostname)
+        setPort(parsed.port || '')
+        const pathname = parsed.pathname || '/'
+        setBasePath(pathname.endsWith('/') ? pathname : `${pathname}/`)
+      } catch {
+        setHost(trimmed)
+      }
+    } else {
+      setHost(trimmed)
+    }
+  }
 
   const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
   const fs = {
@@ -577,9 +591,9 @@ function MountForm({
               <input
                 className={fc}
                 style={{ ...fs, flex: 1 }}
-                placeholder="主机地址"
+                placeholder="主机地址或完整 URL（如 https://example.com/dav/）"
                 value={host}
-                onChange={e => setHost(e.target.value)}
+                onChange={e => handleWebDavHostChange(e.target.value)}
               />
               <input
                 className={fc}
@@ -737,8 +751,14 @@ function WebDavServerPanel({
     exposed_mounts: []
   })
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  const saveSettings = (next: WebDavServerSettings) => {
+    setSettings(next)
+    apiClient.updateWebDavServerSettings(next)
+      .then(r => { setSettings(r.data); setSaved(true); setTimeout(() => setSaved(false), 1500) })
+      .catch(console.error)
+  }
 
   const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
   const fs = {
@@ -754,27 +774,12 @@ function WebDavServerPanel({
   }, [])
 
   const toggleMount = (id: string) => {
-    setSettings(prev => ({
-      ...prev,
-      exposed_mounts: prev.exposed_mounts.includes(id)
-        ? prev.exposed_mounts.filter(m => m !== id)
-        : [...prev.exposed_mounts, id]
-    }))
-  }
-
-  const save = async () => {
-    setSaving(true)
-    setSaved(false)
-    try {
-      const r = await apiClient.updateWebDavServerSettings(settings)
-      setSettings(r.data)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setSaving(false)
-    }
+    saveSettings({
+      ...settings,
+      exposed_mounts: settings.exposed_mounts.includes(id)
+        ? settings.exposed_mounts.filter((m: string) => m !== id)
+        : [...settings.exposed_mounts, id]
+    })
   }
 
   const content = (
@@ -789,7 +794,7 @@ function WebDavServerPanel({
             <input
               type="checkbox"
               checked={settings.enabled}
-              onChange={e => setSettings(s => ({ ...s, enabled: e.target.checked }))}
+              onChange={e => saveSettings({ ...settings, enabled: e.target.checked })}
             />
             启用 WebDAV 服务器（通过 /webdav 路径访问）
           </label>
@@ -802,7 +807,7 @@ function WebDavServerPanel({
                   style={{ ...fs, flex: 1 }}
                   placeholder="访问用户名（留空则无需认证）"
                   value={settings.username}
-                  onChange={e => setSettings(s => ({ ...s, username: e.target.value }))}
+                  onChange={e => saveSettings({ ...settings, username: e.target.value })}
                 />
                 <input
                   className={fc}
@@ -810,7 +815,7 @@ function WebDavServerPanel({
                   type="password"
                   placeholder="访问密码"
                   value={settings.password}
-                  onChange={e => setSettings(s => ({ ...s, password: e.target.value }))}
+                  onChange={e => saveSettings({ ...settings, password: e.target.value })}
                 />
               </div>
 
@@ -837,25 +842,9 @@ function WebDavServerPanel({
             </>
           )}
 
-          <div className="flex justify-end gap-2 mt-1">
-            <button
-              type="button"
-              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-              style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
-              onClick={onClose}
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-              style={{ background: 'var(--vos-accent-primary)', color: '#fff', opacity: saving ? 0.6 : 1 }}
-              onClick={save}
-              disabled={saving}
-            >
-              {saving ? '保存中…' : saved ? '已保存 ✓' : '保存'}
-            </button>
-          </div>
+          {saved && (
+            <div className="text-xs text-right" style={{ color: 'var(--vos-accent-primary)' }}>已保存</div>
+          )}
         </>
       )}
     </>
@@ -1273,7 +1262,7 @@ function ExplorerSettingsDialog({
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold" style={{ color: 'var(--vos-text-primary)' }}>设置</span>
+          <span className="text-sm font-semibold" style={{ color: 'var(--vos-text-primary)' }}>偏好设置</span>
           <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={onClose}>
             <X size={14} />
           </button>
@@ -1776,6 +1765,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
 // ─── Main app ──────────────────────────────────────────────────────────────
 
 export default function ExplorerApp({ windowId }: AppComponentProps) {
+  const storage = useAppStorage('explorer')
   const [mounts, setMounts] = useState<VfsMount[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingMount, setEditingMount] = useState<VfsMount | null>(null)
@@ -1786,7 +1776,13 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
   const [scrollTrigger, setScrollTrigger] = useState(0)
   const [showHidden, setShowHidden] = useState(true)
-  const [showSettingsMenu, setShowSettingsMenu] = useState<{ x: number; y: number } | null>(null)
+
+  // Load persisted preferences from storage SDK
+  useEffect(() => {
+    storage.getJSON<{ showHidden?: boolean }>('preferences').then(prefs => {
+      if (prefs?.showHidden !== undefined) setShowHidden(prefs.showHidden)
+    })
+  }, [storage])
 
   // Multi-select: colIdx -> Set of item names
   const [multiSelect, setMultiSelect] = useState<Map<number, Set<string>>>(new Map())
@@ -1832,6 +1828,23 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
 
   // Context menu
   const showContextMenu = useContextMenuStore(s => s.show)
+
+  // Register app menus via kernel menu system
+  useEffect(() => {
+    const menus: AppMenuGroup[] = [
+      {
+        id: 'explorer',
+        label: 'Explorer',
+        items: [
+          { id: 'preferences', label: '偏好设置', action: () => setShowExplorerSettings(true) },
+          { type: 'separator' },
+          { id: 'new-window', label: '新建窗口', action: () => openWindow('explorer') },
+        ],
+      },
+    ]
+    registerAppMenus('explorer', menus)
+    return () => unregisterAppMenus('explorer')
+  }, [windowId])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount-once
   const reload = useCallback(async () => {
@@ -2302,7 +2315,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {
         id: 'open',
         label: entry.is_dir ? '打开' : '预览',
-        icon: <FolderOpen size={14} />,
         action: () => handleNavigate(colIdx, entry)
       },
       ...(entry.is_dir
@@ -2310,20 +2322,17 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             {
               id: 'open-shell',
               label: '在终端中打开',
-              icon: <Terminal size={14} />,
               action: () => handleOpenInShell(entry)
             },
             { type: 'separator' as const },
             {
               id: 'new-folder',
               label: '新建文件夹',
-              icon: <FolderPlus size={14} />,
               action: () => setNewFolderState({ visible: true, colPath: entry.path, name: '' })
             },
             {
               id: 'new-file',
               label: '新建文件',
-              icon: <FilePlus size={14} />,
               action: () => setNewFileState({ visible: true, dirPath: entry.path, name: '' })
             }
           ]
@@ -2331,7 +2340,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             {
               id: 'open-viewer',
               label: '打开文件',
-              icon: <File size={14} />,
               action: () => selectedMount && handleOpenViewer(selectedMount, entry)
             }
           ]),
@@ -2339,7 +2347,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {
         id: 'copy',
         label: '复制',
-        icon: <Copy size={14} />,
         shortcut: `${modSymbol}C`,
         action: () => {
           if (!selectedMount) return
@@ -2354,7 +2361,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {
         id: 'cut',
         label: '剪切',
-        icon: <Scissors size={14} />,
         shortcut: `${modSymbol}X`,
         action: () => {
           if (!selectedMount) return
@@ -2371,7 +2377,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             {
               id: 'paste',
               label: '粘贴',
-              icon: <ClipboardPaste size={14} />,
               shortcut: `${modSymbol}V`,
               action: () => handlePaste(entry.is_dir ? entry.path : currentColPath)
             }
@@ -2381,7 +2386,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {
         id: 'rename',
         label: '重命名',
-        icon: <Pencil size={14} />,
         shortcut: 'F2',
         action: () => {
           setRenamingPath(entry.path)
@@ -2391,7 +2395,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {
         id: 'delete',
         label: '删除',
-        icon: <Trash2 size={14} />,
         danger: true,
         action: () => {
           if (!selectedMount) return
@@ -2421,13 +2424,11 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {
         id: 'new-folder',
         label: '新建文件夹',
-        icon: <FolderPlus size={14} />,
         action: () => setNewFolderState({ visible: true, colPath, name: '' })
       },
       {
         id: 'new-file',
         label: '新建文件',
-        icon: <FilePlus size={14} />,
         action: () => setNewFileState({ visible: true, dirPath: colPath, name: '' })
       },
       ...(clipboard && clipboard.items.length > 0
@@ -2435,7 +2436,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             {
               id: 'paste',
               label: '粘贴',
-              icon: <ClipboardPaste size={14} />,
               action: () => handlePaste(colPath)
             }
           ]
@@ -2443,7 +2443,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {
         id: 'upload',
         label: '上传文件',
-        icon: <FileUp size={14} />,
         action: () => {
           uploadTargetRef.current = colPath
           fileInputRef.current?.click()
@@ -2453,7 +2452,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {
         id: 'refresh',
         label: '刷新',
-        icon: <RefreshCw size={14} />,
         action: () => refreshColumn(colIdx)
       }
     ])
@@ -2632,7 +2630,11 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         <ExplorerSettingsDialog
           mounts={mounts.map(m => ({ id: m.id, name: m.name }))}
           showHidden={showHidden}
-          onToggleHidden={() => setShowHidden(v => !v)}
+          onToggleHidden={() => setShowHidden(v => {
+            const next = !v
+            storage.setJSON('preferences', { showHidden: next })
+            return next
+          })}
           onClose={() => setShowExplorerSettings(false)}
         />
       )}
@@ -2769,7 +2771,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {/* Sidebar — mount sources */}
       <div
         className="flex flex-col flex-shrink-0 overflow-auto"
-        style={{ width: 180, borderRight: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+        style={{ width: 180, borderRight: '0.5px solid var(--vos-border-subtle)' }}
       >
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-[10px] font-semibold tracking-wider" style={{ color: 'var(--vos-text-tertiary)' }}>
@@ -2860,20 +2862,9 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             {/* Path bar / Menubar */}
             <div
               className="flex items-center gap-2 h-8 px-3 flex-shrink-0"
-              style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+              style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
             >
-              {/* App menu: Explorer */}
-              <button
-                type="button"
-                className="bg-transparent border-none cursor-pointer p-0 text-xs font-medium"
-                style={{ color: 'var(--vos-text-primary)' }}
-                onClick={e => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  setShowSettingsMenu({ x: rect.left, y: rect.bottom + 2 })
-                }}
-              >
-                Explorer
-              </button>
+              {/* Back button */}
               <button
                 type="button"
                 className="bg-transparent border-none cursor-pointer p-0"
@@ -3021,93 +3012,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           </div>
         )}
       </div>
-
-      {/* Explorer app menu */}
-      {showSettingsMenu && (
-        // biome-ignore lint/a11y/noStaticElementInteractions: click-outside handler for menu
-        <div
-          role="presentation"
-          style={{ position: 'fixed', inset: 0, zIndex: 100 }}
-          onClick={() => setShowSettingsMenu(null)}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              left: Math.min(showSettingsMenu.x, window.innerWidth - 180),
-              top: showSettingsMenu.y,
-              minWidth: 170,
-              padding: '4px 0',
-              background: 'var(--vos-bg-contextMenu)',
-              backdropFilter: 'blur(40px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-              border: '0.5px solid var(--vos-border-default)',
-              borderRadius: 8,
-              boxShadow: '0 12px 36px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12)',
-              zIndex: 101
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 12px',
-                fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-text-primary)',
-                cursor: 'pointer', textAlign: 'left'
-              }}
-              onClick={() => {
-                setShowSettingsMenu(null)
-                setShowExplorerSettings(true)
-              }}
-            >
-              <Settings size={14} style={{ opacity: 0.6 }} />
-              设置
-            </button>
-            <button
-              type="button"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 12px',
-                fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-text-primary)',
-                cursor: 'pointer', textAlign: 'left'
-              }}
-              onClick={() => {
-                setShowSettingsMenu(null)
-                openWindow('explorer')
-              }}
-            >
-              新建窗口
-            </button>
-            <div style={{ height: 1, margin: '4px 12px', background: 'var(--vos-border-subtle)' }} />
-            <button
-              type="button"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 12px',
-                fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-text-primary)',
-                cursor: 'pointer', textAlign: 'left'
-              }}
-              onClick={() => {
-                setShowSettingsMenu(null)
-                windowId && closeWindow(windowId)
-              }}
-            >
-              隐藏窗口
-            </button>
-            <button
-              type="button"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 12px',
-                fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-accent-danger)',
-                cursor: 'pointer', textAlign: 'left'
-              }}
-              onClick={() => {
-                setShowSettingsMenu(null)
-                windowId && closeWindow(windowId)
-              }}
-            >
-              退出 Explorer
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

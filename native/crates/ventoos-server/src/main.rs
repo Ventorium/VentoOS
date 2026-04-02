@@ -19,6 +19,8 @@ use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    install_rustls_crypto_provider();
+
     // Initialize tracing
     tracing_subscriber::registry()
         .with(
@@ -33,11 +35,11 @@ async fn main() -> Result<()> {
     // Determine data directory
     let data_dir = dirs_data_dir();
     std::fs::create_dir_all(&data_dir)?;
-    let db_path = data_dir.join("ventoos.db");
+    let db_path = data_dir.join("system.db");
 
     // Initialize state
-    let state = AppState::new(&db_path)?;
-    info!("Database initialized at {}", db_path.display());
+    let state = AppState::new(&db_path, &data_dir)?;
+    info!("Data directory: {}, database: {}", data_dir.display(), db_path.display());
 
     // Build router
     let app = routes::create_router(&state)
@@ -53,38 +55,27 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+fn install_rustls_crypto_provider() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 fn dirs_data_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("VENTOOS_DATA_DIR") {
         return PathBuf::from(dir);
     }
-    let base = dirs_next().unwrap_or_else(|| PathBuf::from("."));
-    base.join("ventoos")
+    PathBuf::from("./storage")
 }
 
-fn dirs_next() -> Option<PathBuf> {
-    #[cfg(target_os = "macos")]
-    {
-        std::env::var("HOME")
-            .ok()
-            .map(|h| PathBuf::from(h).join("Library").join("Application Support"))
-    }
-    #[cfg(target_os = "linux")]
-    {
-        std::env::var("XDG_DATA_HOME")
-            .ok()
-            .map(PathBuf::from)
-            .or_else(|| {
-                std::env::var("HOME")
-                    .ok()
-                    .map(|h| PathBuf::from(h).join(".local").join("share"))
-            })
-    }
-    #[cfg(target_os = "windows")]
-    {
-        std::env::var("APPDATA").ok().map(PathBuf::from)
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        None
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_install_rustls_crypto_provider_sets_default() {
+        install_rustls_crypto_provider();
+        assert!(
+            rustls::crypto::CryptoProvider::get_default().is_some(),
+            "server startup should install a rustls default CryptoProvider"
+        );
     }
 }

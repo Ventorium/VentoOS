@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { useThemeSync } from '@/hooks/useTheme'
 import { wsClient } from '@/infra/ws'
+import { useWindowStore } from '@/kernel'
 import { authService, useAuthStore } from '@/services/auth'
+import { useSettingsStore } from '@/services/settings/store'
 import AISidePanel from '@/shell/AISidePanel'
 
 import CommandPalette from '@/shell/CommandPalette'
@@ -27,11 +29,16 @@ function App() {
       .then(res => {
         setInitialized(res.initialized)
         if (res.initialized && token) {
-          // Re-validate stored token, then connect WS
+          // Re-validate stored token, then connect WS and load backend state
           authService
             .revalidateToken()
             .then(valid => {
-              if (valid) wsClient.connect()
+              if (valid) {
+                wsClient.connect()
+                // Load persisted state from backend
+                useWindowStore.getState().loadFromBackend()
+                useSettingsStore.getState().loadFromBackend()
+              }
             })
             .catch(() => useAuthStore.getState().lock())
         }

@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { CreateK8sClusterReq, K8sCluster, K8sNamespace, K8sResource, K8sResourceKind } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
+import { useAppStorage } from '@/kernel'
 import type { VfsPickerResult } from '@/shell/FilePicker'
 import { VfsPathPickerInput } from '@/shell/FilePicker'
 
@@ -158,6 +159,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
 // ─── Main app ──────────────────────────────────────────────────────────────
 
 export default function KubernetesApp(_props: AppComponentProps) {
+  const storage = useAppStorage('kubernetes')
   const [clusters, setClusters] = useState<K8sCluster[]>([])
   const [showForm, setShowForm] = useState(false)
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null)
@@ -178,6 +180,17 @@ export default function KubernetesApp(_props: AppComponentProps) {
     }
   }, [])
 
+  // Load persisted view preferences
+  useEffect(() => {
+    storage.getJSON<{ cluster?: string; ns?: string; kind?: K8sResourceKind; groups?: string[] }>('preferences').then(prefs => {
+      if (!prefs) return
+      if (prefs.cluster) setSelectedCluster(prefs.cluster)
+      if (prefs.ns) setSelectedNs(prefs.ns)
+      if (prefs.kind) setSelectedKind(prefs.kind)
+      if (prefs.groups) setExpandedGroups(new Set(prefs.groups))
+    })
+  }, [storage])
+
   useEffect(() => {
     reload()
   }, [reload])
@@ -185,6 +198,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
   const selectCluster = async (id: string) => {
     setSelectedCluster(id)
     setExpandedClusters(s => new Set(s).add(id))
+    storage.setJSON('preferences', { cluster: id, ns: selectedNs, kind: selectedKind, groups: [...expandedGroups] })
     try {
       const r = await apiClient.getK8sNamespaces(id)
       setNamespaces(r.data)
@@ -210,17 +224,20 @@ export default function KubernetesApp(_props: AppComponentProps) {
   const pickKind = (kind: K8sResourceKind) => {
     setSelectedKind(kind)
     if (selectedCluster) fetchResources(selectedCluster, selectedNs, kind)
+    storage.setJSON('preferences', { cluster: selectedCluster, ns: selectedNs, kind, groups: [...expandedGroups] })
   }
 
   const pickNs = (ns: string) => {
     setSelectedNs(ns)
     if (selectedCluster) fetchResources(selectedCluster, ns, selectedKind)
+    storage.setJSON('preferences', { cluster: selectedCluster, ns, kind: selectedKind, groups: [...expandedGroups] })
   }
 
   const toggleGroup = (label: string) =>
     setExpandedGroups(s => {
       const n = new Set(s)
       n.has(label) ? n.delete(label) : n.add(label)
+      storage.setJSON('preferences', { cluster: selectedCluster, ns: selectedNs, kind: selectedKind, groups: [...n] })
       return n
     })
 
@@ -251,7 +268,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
       {/* Sidebar */}
       <div
         className="flex flex-col flex-shrink-0 overflow-auto"
-        style={{ width: 210, borderRight: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+        style={{ width: 210, borderRight: '0.5px solid var(--vos-border-subtle)' }}
       >
         {/* Clusters section */}
         <div className="px-3 pt-3 pb-1 flex items-center justify-between flex-shrink-0">
@@ -420,9 +437,20 @@ export default function KubernetesApp(_props: AppComponentProps) {
                 {clusters.find(c => c.id === selectedCluster)?.name}
               </span>
               <ChevronRight size={10} style={{ color: 'var(--vos-text-tertiary)' }} />
-              <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
-                {selectedNs}
-              </span>
+              <select
+                className="text-xs border-none outline-none cursor-pointer rounded px-1 py-0.5"
+                style={{
+                  background: 'var(--vos-bg-input)',
+                  color: 'var(--vos-text-primary)',
+                  border: '0.5px solid var(--vos-border-subtle)'
+                }}
+                value={selectedNs}
+                onChange={e => pickNs(e.target.value)}
+              >
+                {namespaces.map(ns => (
+                  <option key={ns.name} value={ns.name}>{ns.name}</option>
+                ))}
+              </select>
               <ChevronRight size={10} style={{ color: 'var(--vos-text-tertiary)' }} />
               <span className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>
                 {selectedKind}s

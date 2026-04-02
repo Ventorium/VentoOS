@@ -13,6 +13,7 @@ import { kubernetesManifest } from './kubernetes/manifest'
 import { redisManifest } from './redis/manifest'
 import { settingsManifest } from './settings/manifest'
 import { sshManifest } from './ssh/manifest'
+import { terminalManifest } from './terminal/manifest'
 
 export const builtinManifests: AppManifest[] = [
   kubernetesManifest,
@@ -20,6 +21,7 @@ export const builtinManifests: AppManifest[] = [
   redisManifest,
   explorerManifest,
   sshManifest,
+  terminalManifest,
   aiAssistantManifest,
   settingsManifest,
   fileViewerManifest
@@ -33,5 +35,6 @@ export {
   kubernetesManifest,
   redisManifest,
   settingsManifest,
-  sshManifest
+  sshManifest,
+  terminalManifest
 }

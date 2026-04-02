@@ -519,11 +519,13 @@ function VfsFilePickerModal({
         setFetchingContent(false)
       }
     } else {
-      // Local mount: reconstruct actual path from mount's local_path + node path
-      const localBase: string = (selectedMount as unknown as { local_path?: string }).local_path ?? ''
+      // Local mount: reconstruct actual path from mount's root + node path
+      const mountRoot = selectedMount.root ?? ''
       let realPath: string
-      if (localBase) {
-        realPath = finalPath === '/' ? localBase : `${localBase}${finalPath}`
+      if (mountRoot) {
+        // Remove trailing slash from root to avoid double slashes
+        const base = mountRoot.endsWith('/') ? mountRoot.slice(0, -1) : mountRoot
+        realPath = finalPath === '/' ? base : `${base}${finalPath}`
       } else {
         realPath = finalPath
       }

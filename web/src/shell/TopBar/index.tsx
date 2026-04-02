@@ -5,11 +5,20 @@
  * Right: Tasks, Notifications, Theme, Clock
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, BellOff, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
+import { Bell, BellOff, Info, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import BrandLogo from '@/components/BrandLogo'
 import { apiClient } from '@/infra/api'
-import { closeAllWindows as closeAllWindowsFn, openWindow, useAppStore, useWindowStore } from '@/kernel'
+import {
+  closeAllWindows as closeAllWindowsFn,
+  useActiveAppMenus,
+  useAllTrays,
+  useAppStore,
+  useWindowStore,
+} from '@/kernel'
+import type { AppMenuEntry } from '@/kernel'
+import type { AppMenuGroup } from '@/kernel/apps/menu'
+import type { AppManifest } from '@/kernel/apps/manifest'
 import { useAuthStore } from '@/services/auth'
 import { useNotificationStore } from '@/services/notification'
 import { useSettingsStore } from '@/services/settings'
@@ -119,7 +128,75 @@ function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
-/* ---- Left: Logo + Active App ---- */
+/* ---- Convert AppMenuEntry[] to ContextMenuItems ---- */
+function toContextMenuItems(entries: AppMenuEntry[]): import('@/shell/ContextMenu/store').ContextMenuItems {
+  return entries
+    .filter(e => !('type' in e && e.type === 'separator') || true)
+    .map(entry => {
+      if ('type' in entry && entry.type === 'separator') return { type: 'separator' as const }
+      const item = entry as import('@/kernel').AppMenuItem
+      if (item.hidden) return null
+      const result: import('@/shell/ContextMenu/store').MenuItem = {
+        id: item.id,
+        label: item.label,
+        shortcut: item.shortcut,
+        disabled: item.disabled,
+        danger: item.danger,
+        action: item.action,
+      }
+      if (item.children && item.children.length > 0) {
+        result.submenu = toContextMenuItems(item.children)
+      }
+      return result
+    })
+    .filter(Boolean) as import('@/shell/ContextMenu/store').ContextMenuItems
+}
+
+/* ---- Build the app-name dropdown menu ---- */
+type CtxMenuItems = import('@/shell/ContextMenu/store').ContextMenuItems
+type CtxMenuItem = import('@/shell/ContextMenu/store').MenuItem
+
+function buildAppNameMenu(opts: {
+  app: AppManifest
+  aboutApp: (app: AboutAppInfo) => void
+  appMenu: AppMenuGroup | undefined
+}): CtxMenuItems {
+  const { app, aboutApp, appMenu } = opts
+  const result: CtxMenuItems = []
+
+  // System-default "关于" — always first; app can override if it provides one
+  const systemAbout: CtxMenuItem = {
+    id: 'about-app',
+    label: `关于 ${app.name}`,
+    icon: <Info size={14} />,
+    action: () => aboutApp(app),
+  }
+
+  if (appMenu) {
+    // App registered an app-level menu — use its items as the body
+    const converted = toContextMenuItems(appMenu.items)
+    const hasAbout = converted.some(i => i && 'id' in i && (i as CtxMenuItem).label?.startsWith('关于'))
+    if (!hasAbout) result.push(systemAbout)
+    result.push(...converted)
+  } else {
+    // No app-level registration — use system defaults
+    result.push(systemAbout)
+  }
+
+  // "退出 [App]" — always at the end, app cannot override
+  result.push(
+    { type: 'separator' },
+    {
+      id: 'quit-app',
+      label: `退出 ${app.name}`,
+      danger: true,
+      action: () => closeAllWindowsFn(),
+    }
+  )
+  return result
+}
+
+/* ---- Left: Logo + Active App + App Menus ---- */
 function MenuBarLeft({
   onAboutApp,
   onAboutVentoOS
@@ -132,6 +209,10 @@ function MenuBarLeft({
   const getApp = useAppStore(s => s.getApp)
   const activeApp = focusedAppId ? getApp(focusedAppId) : null
   const showCtxMenu = useContextMenuStore(s => s.show)
+  const appMenuGroups = useActiveAppMenus()
+  // Split: app-level group (label === app name) merges into app name button; others render as separate buttons
+  const appMenu = appMenuGroups.find(g => g.label === activeApp?.name)
+  const extraMenus = appMenuGroups.filter(g => g.label !== activeApp?.name)
 
   function openLogoMenu(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -164,41 +245,36 @@ function MenuBarLeft({
           className="vos-topbar-btn vos-topbar-appname"
           onClick={e => {
             const rect = e.currentTarget.getBoundingClientRect()
-            const menuItems: import('@/shell/ContextMenu/store').ContextMenuItems = [
-              {
-                id: 'about-app',
-                label: `关于 ${activeApp.name}`,
-                action: () => {
-                  onAboutApp(activeApp)
-                }
-              },
-              { type: 'separator' },
-              { id: 'hide-app', label: `隐藏 ${activeApp.name}`, disabled: true },
-            ]
-            if (activeApp.multiWindow) {
-              menuItems.push({ id: 'new-window', label: '新建窗口', action: () => openWindow(activeApp.id) })
-            }
-            menuItems.push(
-              { type: 'separator' },
-              {
-                id: 'quit-app',
-                label: `退出 ${activeApp.name}`,
-                action: () => {
-                  closeAllWindowsFn()
-                }
-              }
-            )
-            showCtxMenu(rect.left, rect.bottom + 2, menuItems)
+            showCtxMenu(rect.left, rect.bottom + 2, buildAppNameMenu({
+              app: activeApp,
+              aboutApp: onAboutApp,
+              appMenu,
+            }))
           }}
         >
           {activeApp.name}
         </button>
       )}
+      {/* Additional app-registered menu groups rendered as separate menu bar items */}
+      {extraMenus.map(group => (
+        <button
+          key={group.id}
+          type="button"
+          className="vos-topbar-btn"
+          style={{ fontSize: 13 }}
+          onClick={e => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            showCtxMenu(rect.left, rect.bottom + 2, toContextMenuItems(group.items))
+          }}
+        >
+          {group.label}
+        </button>
+      ))}
     </div>
   )
 }
 
-/* ---- Right: System Status ---- */
+/* ---- Right: Tray + System Status ---- */
 function MenuBarRight() {
   const themeMode = useSettingsStore(s => s.themeMode)
   const setThemeMode = useSettingsStore(s => s.setThemeMode)
@@ -210,6 +286,8 @@ function MenuBarRight() {
   const toggleTaskPanel = useTaskStore(s => s.togglePanel)
   const toggleAI = useAISidePanelStore(s => s.toggle)
   const aiOpen = useAISidePanelStore(s => s.isOpen)
+  const trays = useAllTrays()
+  const showCtxMenu = useContextMenuStore(s => s.show)
 
   // Clock tick
   const [now, setNow] = useState(new Date())
@@ -229,6 +307,26 @@ function MenuBarRight() {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+      {/* App tray icons */}
+      {trays.map(({ appId, config }) => (
+        <button
+          key={appId}
+          type="button"
+          className="vos-topbar-btn"
+          title={config.tooltip ?? appId}
+          onClick={e => {
+            if (config.items && config.items.length > 0) {
+              const rect = e.currentTarget.getBoundingClientRect()
+              showCtxMenu(rect.left, rect.bottom + 2, toContextMenuItems(config.items))
+            } else {
+              config.onClick?.()
+            }
+          }}
+        >
+          {config.icon ?? <span style={{ fontSize: 13 }}>●</span>}
+        </button>
+      ))}
+
       {activeTaskCount > 0 && (
         <button type="button" className="vos-topbar-btn" onClick={toggleTaskPanel} title="任务中心">
           <Loader2 size={13} className="vos-spin" />

@@ -6,7 +6,7 @@ use ventoos_connection::ConnectionManager;
 use ventoos_core::plugin::AppPlugin;
 use ventoos_db::{DbManager, DbPlugin};
 use ventoos_k8s::{K8sManager, K8sPlugin};
-use ventoos_persist::Database;
+use ventoos_persist::{Database, SettingsManager, StorageManager, WindowStateManager};
 use ventoos_redis::{RedisManager, RedisPlugin};
 use ventoos_task::TaskEngine;
 use ventoos_vfs::{VfsManager, VfsPlugin};
@@ -25,12 +25,15 @@ pub struct AppState {
     pub auth: AuthManager,
     pub ssh: Arc<SshManager>,
     pub processes: Arc<ProcessManager>,
+    pub settings_mgr: Arc<SettingsManager>,
+    pub window_states: Arc<WindowStateManager>,
+    pub storage: Arc<StorageManager>,
     /// Application plugins (K8s, DB, Redis, VFS, Agent).
     pub plugins: Arc<Vec<Box<dyn AppPlugin>>>,
 }
 
 impl AppState {
-    pub fn new(db_path: &Path) -> Result<Self, anyhow::Error> {
+    pub fn new(db_path: &Path, data_dir: &Path) -> Result<Self, anyhow::Error> {
         let db = Arc::new(Database::open(db_path)?);
 
         let ssh = Arc::new(SshManager::new());
@@ -49,6 +52,9 @@ impl AppState {
         ];
 
         Ok(Self {
+            settings_mgr: Arc::new(SettingsManager::new(Arc::clone(&db))),
+            window_states: Arc::new(WindowStateManager::new(Arc::clone(&db))),
+            storage: Arc::new(StorageManager::new(data_dir)),
             auth: AuthManager::new(Arc::clone(&db)),
             db,
             connections: Arc::new(ConnectionManager::new()),
@@ -79,7 +85,12 @@ impl AppState {
             Box::new(AgentPlugin::new(agent_manager)),
         ];
 
+        let tmp_dir = std::env::temp_dir().join("ventoos-test");
+
         Ok(Self {
+            settings_mgr: Arc::new(SettingsManager::new(Arc::clone(&db))),
+            window_states: Arc::new(WindowStateManager::new(Arc::clone(&db))),
+            storage: Arc::new(StorageManager::new(&tmp_dir)),
             auth: AuthManager::new(Arc::clone(&db)),
             db,
             connections: Arc::new(ConnectionManager::new()),

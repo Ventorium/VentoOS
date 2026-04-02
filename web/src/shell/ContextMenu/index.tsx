@@ -79,7 +79,6 @@ function MenuItemRow({ item, close }: { item: MenuItem; close: () => void }) {
           close()
         }}
       >
-        {item.icon && <span className="vos-ctx-icon">{item.icon}</span>}
         <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
         {item.shortcut && <span className="vos-ctx-shortcut">{item.shortcut}</span>}
         {item.submenu && <ChevronRight size={12} style={{ marginLeft: 4, opacity: 0.5 }} />}

@@ -496,10 +496,10 @@ fn strip_prefix<'a>(s: &'a str, prefix: &str) -> &'a str {
     s.strip_prefix(prefix).unwrap_or(s)
 }
 
-/// Minimal percent-decoder (handles %XX sequences).
+/// Minimal percent-decoder (handles %XX sequences, including multi-byte UTF-8).
 fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
-    let mut out = String::with_capacity(s.len());
+    let mut raw: Vec<u8> = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
@@ -507,17 +507,16 @@ fn percent_decode(s: &str) -> String {
                 hex_val(bytes[i + 1]),
                 hex_val(bytes[i + 2]),
             ) {
-                let byte = (h << 4) | l;
-                // Try to decode as UTF-8; fallback to replacement char
-                out.push(byte as char);
+                raw.push((h << 4) | l);
                 i += 3;
                 continue;
             }
         }
-        out.push(bytes[i] as char);
+        raw.push(bytes[i]);
         i += 1;
     }
-    out
+    // Properly decode the accumulated bytes as UTF-8
+    String::from_utf8(raw).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
 }
 
 fn hex_val(b: u8) -> Option<u8> {

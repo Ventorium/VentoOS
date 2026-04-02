@@ -39,6 +39,7 @@ impl AppPlugin for DbPlugin {
                 get(get_connection).delete(delete_connection),
             )
             .route("/api/db/connections/{id}/test", post(test_connection))
+            .route("/api/db/connections/test", post(test_connection_inline))
             .route("/api/db/connections/{id}/connect", post(connect_db))
             .route("/api/db/connections/{id}/disconnect", post(disconnect_db))
             .route("/api/db/connections/{id}/schemas", get(list_schemas))
@@ -113,6 +114,15 @@ async fn test_connection(
         )
             .into_response(),
     }
+}
+
+/// Test a connection inline without saving it first.
+async fn test_connection_inline(
+    State(mgr): State<Arc<DbManager>>,
+    Json(req): Json<CreateDbConnectionReq>,
+) -> impl IntoResponse {
+    let result = mgr.test_connection_inline(&req).await;
+    Json(ApiResponse::ok(result))
 }
 
 async fn connect_db(

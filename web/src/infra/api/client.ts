@@ -26,6 +26,7 @@ import type {
   CreateVfsMountReq,
   DbConnectionConfig,
   DbTestResult,
+  DesktopSettings,
   K8sCluster,
   K8sNamespace,
   K8sResource,
@@ -57,7 +58,8 @@ import type {
   VfsMount,
   VfsNode,
   VProcess,
-  WebDavServerSettings
+  WebDavServerSettings,
+  WindowStateDTO
 } from './types'
 
 // ─── Token provider (set by services/auth at boot) ─────────────────────────
@@ -148,10 +150,20 @@ export const apiClient = {
 
   // ── Settings ─────────────────────────────────────────────────────────────
 
-  getDesktopSettings: () => request<ApiResponse<unknown>>('GET', '/api/settings/desktop'),
-  saveDesktopSettings: (body: unknown) => request<ApiResponse<unknown>>('PUT', '/api/settings/desktop', body),
-  getWindowSettings: () => request<ApiResponse<unknown>>('GET', '/api/settings/windows'),
-  saveWindowSettings: (body: unknown) => request<ApiResponse<unknown>>('PUT', '/api/settings/windows', body),
+  getDesktopSettings: () => request<ApiResponse<DesktopSettings>>('GET', '/api/settings/desktop'),
+  saveDesktopSettings: (body: Partial<DesktopSettings>) => request<ApiResponse<unknown>>('PUT', '/api/settings/desktop', body),
+  getWindowSettings: () => request<ApiResponse<WindowStateDTO[]>>('GET', '/api/settings/windows'),
+  saveWindowSettings: (body: WindowStateDTO[]) => request<ApiResponse<unknown>>('PUT', '/api/settings/windows', body),
+
+  // ── Per-App Storage ──────────────────────────────────────────────────────
+
+  listStorageKeys: (appId: string) => request<ApiResponse<string[]>>('GET', `/api/storage/${encodeURIComponent(appId)}`),
+  getStorageValue: (appId: string, key: string) =>
+    request<ApiResponse<{ key: string; value: string }>>('GET', `/api/storage/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`),
+  setStorageValue: (appId: string, key: string, value: string) =>
+    request<ApiResponse<unknown>>('PUT', `/api/storage/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`, { value }),
+  deleteStorageValue: (appId: string, key: string) =>
+    request<ApiResponse<unknown>>('DELETE', `/api/storage/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`),
 
   // ── SSH Servers ──────────────────────────────────────────────────────────
 
@@ -194,6 +206,8 @@ export const apiClient = {
   getDbConnection: (id: string) => request<ApiResponse<DbConnectionConfig>>('GET', `/api/db/connections/${id}`),
   deleteDbConnection: (id: string) => request<ApiResponse<null>>('DELETE', `/api/db/connections/${id}`),
   testDbConnection: (id: string) => request<ApiResponse<DbTestResult>>('POST', `/api/db/connections/${id}/test`),
+  testDbConnectionInline: (body: CreateDbConnectionReq) =>
+    request<ApiResponse<DbTestResult>>('POST', '/api/db/connections/test', body),
   connectDb: (id: string) => request<ApiResponse<unknown>>('POST', `/api/db/connections/${id}/connect`),
   disconnectDb: (id: string) => request<ApiResponse<unknown>>('POST', `/api/db/connections/${id}/disconnect`),
   getDbSchemas: (id: string) => request<ApiResponse<SchemaInfo[]>>('GET', `/api/db/connections/${id}/schemas`),

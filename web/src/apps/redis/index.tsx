@@ -20,6 +20,7 @@ import { VList } from 'virtua'
 import type { CreateRedisConnectionReq, RedisConnectionConfig, RedisKeyInfo, RedisKeyValue } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
+import { useAppStorage } from '@/kernel'
 
 // ─── Trie Tree for key grouping ────────────────────────────────────────────
 
@@ -823,6 +824,7 @@ function ValueViewer({
 // ─── Main app ──────────────────────────────────────────────────────────────
 
 export default function RedisApp(_props: AppComponentProps) {
+  const storage = useAppStorage('redis')
   const [connections, setConnections] = useState<RedisConnectionConfig[]>([])
   const [showForm, setShowForm] = useState(false)
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set())
@@ -838,6 +840,13 @@ export default function RedisApp(_props: AppComponentProps) {
   const [cliInput, setCliInput] = useState('')
   const [cliHistory, setCliHistory] = useState<{ cmd: string; result: string }[]>([])
   const cliRef = useRef<HTMLDivElement>(null)
+
+  // Load persisted CLI history
+  useEffect(() => {
+    storage.getJSON<{ cliHistory?: { cmd: string; result: string }[] }>('preferences').then(prefs => {
+      if (prefs?.cliHistory) setCliHistory(prefs.cliHistory)
+    })
+  }, [storage])
 
   // Build trie from flat key list
   const trie = useMemo(() => buildTrie(keys, ':'), [keys])
@@ -931,7 +940,13 @@ export default function RedisApp(_props: AppComponentProps) {
     try {
       const r = await apiClient.executeRedisCommand(selectedConn, cliInput)
       const result = typeof r.data.result === 'string' ? r.data.result : JSON.stringify(r.data.result, null, 2)
-      setCliHistory(h => [...h, { cmd: cliInput, result }])
+      setCliHistory(h => {
+        const next = [...h, { cmd: cliInput, result }]
+        // Keep last 100 commands
+        const trimmed = next.slice(-100)
+        storage.setJSON('preferences', { cliHistory: trimmed })
+        return trimmed
+      })
       setCliInput('')
       setTimeout(() => cliRef.current?.scrollTo(0, cliRef.current.scrollHeight), 50)
     } catch (e) {
@@ -961,7 +976,7 @@ export default function RedisApp(_props: AppComponentProps) {
       {/* Sidebar — connections */}
       <div
         className="flex flex-col flex-shrink-0 overflow-auto"
-        style={{ width: 180, borderRight: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+        style={{ width: 180, borderRight: '0.5px solid var(--vos-border-subtle)' }}
       >
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-[10px] font-semibold tracking-wider" style={{ color: 'var(--vos-text-tertiary)' }}>

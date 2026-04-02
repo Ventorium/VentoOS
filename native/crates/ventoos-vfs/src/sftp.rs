@@ -591,7 +591,9 @@ pub async fn search(
 fn resolve_remote_path(root: &str, rel_path: &str) -> String {
     let root = root.trim_end_matches('/');
     if rel_path.is_empty() || rel_path == "/" {
-        return root.to_string();
+        // If root itself was "/", trimming the trailing slash leaves an empty string.
+        // In that case return "/" so SFTP operations target the filesystem root.
+        return if root.is_empty() { "/".to_string() } else { root.to_string() };
     }
 
     // Normalize: split by '/', reject '..' components

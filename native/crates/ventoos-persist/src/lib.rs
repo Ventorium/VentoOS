@@ -1,10 +1,17 @@
 mod migrations;
+pub mod settings;
+pub mod storage;
+pub mod window_state;
 
 use std::path::Path;
 use std::sync::Mutex;
 
 use rusqlite::Connection;
 use tracing::info;
+
+pub use settings::SettingsManager;
+pub use storage::StorageManager;
+pub use window_state::WindowStateManager;
 
 /// The database manager handles `SQLite` persistence.
 pub struct Database {

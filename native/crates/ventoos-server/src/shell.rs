@@ -4,8 +4,11 @@ use axum::response::IntoResponse;
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use serde::Deserialize;
 use std::io::{Read, Write};
+use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
 use tracing::{error, info};
+use ventoos_vfs::sftp::{SshAuth, SshInfoProvider};
 
 use crate::state::AppState;
 
@@ -171,44 +174,203 @@ async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16) {
     info!("Local shell session ended");
 }
 
+/// Minimal russh client handler for SSH shell sessions.
+struct ShellSshHandler;
+
+impl russh::client::Handler for ShellSshHandler {
+    type Error = russh::Error;
+
+    async fn check_server_key(
+        &mut self,
+        _server_public_key: &russh::keys::PublicKey,
+    ) -> Result<bool, Self::Error> {
+        // Accept all host keys — production should verify against known_hosts.
+        Ok(true)
+    }
+}
+
 async fn handle_ssh_shell(
     socket: &mut WebSocket,
     server_id: uuid::Uuid,
-    _cols: u16,
-    _rows: u16,
+    cols: u16,
+    rows: u16,
     state: AppState,
 ) {
     info!("Starting SSH shell session for server {server_id}");
 
-    // Look up server from SSH manager
-    let Some(server) = state.ssh.get_server(server_id).await else {
-        let _ = socket
-            .send(Message::Text(
-                "\r\nError: SSH server not found\r\n".to_string().into(),
-            ))
-            .await;
-        return;
+    let id_str = server_id.to_string();
+
+    // Resolve SSH connection info via SshInfoProvider
+    let conn_info = match state.ssh.resolve(&id_str).await {
+        Ok(info) => info,
+        Err(e) => {
+            let _ = socket
+                .send(Message::Text(
+                    format!("\r\nError resolving SSH credentials: {e}\r\n").into(),
+                ))
+                .await;
+            return;
+        }
     };
 
     let _ = socket
         .send(Message::Text(
             format!(
                 "\r\nConnecting to {}@{}:{}...\r\n",
-                server.username, server.host, server.port
+                conn_info.username, conn_info.host, conn_info.port
             )
             .into(),
         ))
         .await;
 
-    // TODO: Implement actual SSH connection using russh
-    // For now, send a placeholder message
+    // Establish SSH connection
+    let config = Arc::new(russh::client::Config::default());
+    let handler = ShellSshHandler;
+
+    let mut session = match russh::client::connect(
+        config,
+        (conn_info.host.as_str(), conn_info.port),
+        handler,
+    )
+    .await
+    {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = socket
+                .send(Message::Text(
+                    format!("\r\nSSH connect failed: {e}\r\n").into(),
+                ))
+                .await;
+            return;
+        }
+    };
+
+    // Authenticate
+    let auth_ok = match &conn_info.auth {
+        SshAuth::Password(pw) => session
+            .authenticate_password(&conn_info.username, pw)
+            .await
+            .map(|r| r.success())
+            .unwrap_or(false),
+        SshAuth::PrivateKey {
+            key_pem,
+            passphrase,
+        } => {
+            let key = match russh::keys::decode_secret_key(key_pem, passphrase.as_deref()) {
+                Ok(k) => k,
+                Err(e) => {
+                    let _ = socket
+                        .send(Message::Text(
+                            format!("\r\nInvalid private key: {e}\r\n").into(),
+                        ))
+                        .await;
+                    return;
+                }
+            };
+            let key_with_alg = russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), None);
+            session
+                .authenticate_publickey(&conn_info.username, key_with_alg)
+                .await
+                .map(|r| r.success())
+                .unwrap_or(false)
+        }
+    };
+
+    if !auth_ok {
+        let _ = socket
+            .send(Message::Text(
+                "\r\nSSH authentication failed\r\n".to_string().into(),
+            ))
+            .await;
+        return;
+    }
+
+    // Open channel, request PTY, and start shell
+    let channel = match session.channel_open_session().await {
+        Ok(ch) => ch,
+        Err(e) => {
+            let _ = socket
+                .send(Message::Text(
+                    format!("\r\nFailed to open SSH channel: {e}\r\n").into(),
+                ))
+                .await;
+            return;
+        }
+    };
+
+    if let Err(e) = channel
+        .request_pty(true, "xterm-256color", cols.into(), rows.into(), 0, 0, &[])
+        .await
+    {
+        let _ = socket
+            .send(Message::Text(
+                format!("\r\nFailed to request PTY: {e}\r\n").into(),
+            ))
+            .await;
+        return;
+    }
+
+    if let Err(e) = channel.request_shell(true).await {
+        let _ = socket
+            .send(Message::Text(
+                format!("\r\nFailed to start shell: {e}\r\n").into(),
+            ))
+            .await;
+        return;
+    }
+
     let _ = socket
-        .send(Message::Text(
-            "\r\nSSH connection not yet implemented. Please use local shell for now.\r\n"
-                .to_string()
-                .into(),
-        ))
+        .send(Message::Text("\r\nConnected.\r\n".to_string().into()))
         .await;
+
+    // Get a stream for the channel
+    let mut stream = channel.into_stream();
+
+    // Relay loop: WebSocket ↔ SSH channel
+    let mut buf = vec![0u8; 4096];
+    loop {
+        tokio::select! {
+            // SSH channel → WebSocket
+            result = stream.read(&mut buf) => {
+                match result {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        let text = String::from_utf8_lossy(&buf[..n]).to_string();
+                        if socket.send(Message::Text(text.into())).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            // WebSocket → SSH channel
+            msg = socket.recv() => {
+                match msg {
+                    Some(Ok(Message::Text(text))) => {
+                        // Handle resize messages
+                        if let Some((new_cols, new_rows)) = parse_resize(&text) {
+                            // russh doesn't easily support window-change on stream;
+                            // the original channel handle is consumed by into_stream.
+                            // Resize is best-effort here.
+                            let _ = (new_cols, new_rows);
+                            continue;
+                        }
+                        if stream.write_all(text.as_bytes()).await.is_err() {
+                            break;
+                        }
+                    }
+                    Some(Ok(Message::Binary(data))) => {
+                        if stream.write_all(&data).await.is_err() {
+                            break;
+                        }
+                    }
+                    Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    info!("SSH shell session ended for server {server_id}");
 }
 
 /// Parse resize message: "\x1b[resize:COLSxROWS"

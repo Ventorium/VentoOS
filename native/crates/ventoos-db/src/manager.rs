@@ -220,7 +220,7 @@ impl DbManager {
             username: req.username,
             password: req.password,
             database: req.database,
-            file_path: req.file_path,
+            sqlite_path: req.sqlite_path,
             group: req.group,
             ssl_enabled: req.ssl_enabled.unwrap_or(false),
         };
@@ -244,37 +244,59 @@ impl DbManager {
         self.configs.write().await.remove(id).is_some()
     }
 
-    #[allow(clippy::too_many_lines)]
     pub async fn test_connection(&self, id: &str) -> Option<DbTestResult> {
         let config = self.configs.read().await.get(id)?.clone();
+        Some(Self::test_config(&config).await)
+    }
+
+    /// Test a connection inline from a create request (without saving).
+    pub async fn test_connection_inline(&self, req: &CreateDbConnectionReq) -> DbTestResult {
+        let config = DbConnectionConfig {
+            id: String::new(),
+            name: req.name.clone(),
+            engine: req.engine.clone(),
+            host: req.host.clone(),
+            port: req.port,
+            username: req.username.clone(),
+            password: req.password.clone(),
+            database: req.database.clone(),
+            sqlite_path: req.sqlite_path.clone(),
+            group: req.group.clone(),
+            ssl_enabled: req.ssl_enabled.unwrap_or(false),
+        };
+        Self::test_config(&config).await
+    }
+
+    #[allow(clippy::too_many_lines)]
+    async fn test_config(config: &DbConnectionConfig) -> DbTestResult {
         let start = Instant::now();
         let latency = |s: &Instant| u64::try_from(s.elapsed().as_millis()).unwrap_or(u64::MAX);
 
         match config.engine {
             DbEngine::Sqlite => {
-                let path = config.file_path.as_deref().unwrap_or(":memory:");
+                let path = config.sqlite_path.as_deref().unwrap_or(":memory:");
                 match rusqlite::Connection::open(path) {
                     Ok(conn) => {
                         let version: String = conn
                             .query_row("SELECT sqlite_version()", [], |row| row.get(0))
                             .unwrap_or_default();
-                        Some(DbTestResult {
+                        DbTestResult {
                             success: true,
                             message: "Connected successfully".into(),
                             latency_ms: Some(latency(&start)),
                             server_version: Some(format!("SQLite {version}")),
-                        })
+                        }
                     }
-                    Err(e) => Some(DbTestResult {
+                    Err(e) => DbTestResult {
                         success: false,
                         message: format!("Connection failed: {e}"),
                         latency_ms: Some(latency(&start)),
                         server_version: None,
-                    }),
+                    },
                 }
             }
             DbEngine::PostgreSql => {
-                let pg = build_pg_config(&config);
+                let pg = build_pg_config(config);
                 match pg.connect(tokio_postgres::NoTls).await {
                     Ok((client, connection)) => {
                         let driver = tokio::spawn(async move {
@@ -285,64 +307,64 @@ impl DbManager {
                         let result = match client.query_one("SELECT version()", &[]).await {
                             Ok(row) => {
                                 let version: String = row.get(0);
-                                Some(DbTestResult {
+                                DbTestResult {
                                     success: true,
                                     message: "Connected successfully".into(),
                                     latency_ms: Some(latency(&start)),
                                     server_version: Some(version),
-                                })
+                                }
                             }
-                            Err(e) => Some(DbTestResult {
+                            Err(e) => DbTestResult {
                                 success: false,
                                 message: format!("Query failed: {e}"),
                                 latency_ms: Some(latency(&start)),
                                 server_version: None,
-                            }),
+                            },
                         };
                         driver.abort();
                         result
                     }
-                    Err(e) => Some(DbTestResult {
+                    Err(e) => DbTestResult {
                         success: false,
                         message: format!("Connection failed: {e}"),
                         latency_ms: Some(latency(&start)),
                         server_version: None,
-                    }),
+                    },
                 }
             }
             DbEngine::MySql => {
-                let opts = build_mysql_opts(&config);
+                let opts = build_mysql_opts(config);
                 match mysql_async::Conn::new(opts).await {
                     Ok(mut conn) => {
                         let result = match conn.query_first::<String, _>("SELECT VERSION()").await {
-                            Ok(Some(version)) => Some(DbTestResult {
+                            Ok(Some(version)) => DbTestResult {
                                 success: true,
                                 message: "Connected successfully".into(),
                                 latency_ms: Some(latency(&start)),
                                 server_version: Some(version),
-                            }),
-                            Ok(None) => Some(DbTestResult {
+                            },
+                            Ok(None) => DbTestResult {
                                 success: true,
                                 message: "Connected (no version info)".into(),
                                 latency_ms: Some(latency(&start)),
                                 server_version: None,
-                            }),
-                            Err(e) => Some(DbTestResult {
+                            },
+                            Err(e) => DbTestResult {
                                 success: false,
                                 message: format!("Query failed: {e}"),
                                 latency_ms: Some(latency(&start)),
                                 server_version: None,
-                            }),
+                            },
                         };
                         let _ = conn.disconnect().await;
                         result
                     }
-                    Err(e) => Some(DbTestResult {
+                    Err(e) => DbTestResult {
                         success: false,
                         message: format!("Connection failed: {e}"),
                         latency_ms: Some(latency(&start)),
                         server_version: None,
-                    }),
+                    },
                 }
             }
         }
@@ -360,7 +382,7 @@ impl DbManager {
 
         let pool = match config.engine {
             DbEngine::Sqlite => {
-                let path = config.file_path.as_deref().unwrap_or(":memory:");
+                let path = config.sqlite_path.as_deref().unwrap_or(":memory:");
                 let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
                 DbPool::Sqlite(Arc::new(std::sync::Mutex::new(conn)))
             }

@@ -178,7 +178,10 @@ impl VfsManager {
 
     pub async fn update_mount(&self, id: &str, req: CreateVfsMountReq) -> Option<VfsMount> {
         let root = Self::expand_tilde(&req.root);
+        // Invalidate all cached connections for this mount so next access uses new config
         self.smb_pool.remove(id).await;
+        self.sftp_pool.remove(id).await;
+        self.ftp_pool.remove(id).await;
         let mut mounts = self.mounts.write().await;
         if let Some(mount) = mounts.get_mut(id) {
             mount.name = req.name;
@@ -202,6 +205,7 @@ impl VfsManager {
     /// Test whether a mount configuration is accessible by listing its root.
     pub async fn test_connection(&self, req: &CreateVfsMountReq) -> Result<(), String> {
         let temp_id = format!("test-conn-{}", uuid::Uuid::new_v4());
+        let root = Self::expand_tilde(&req.root);
         {
             let mut mounts = self.mounts.write().await;
             mounts.insert(
@@ -210,11 +214,19 @@ impl VfsManager {
                     id: temp_id.clone(),
                     name: "test".to_string(),
                     kind: req.kind.clone(),
-                    root: Self::expand_tilde(&req.root),
+                    root: root.clone(),
                     connection_id: req.connection_id.clone(),
                     group: None,
                 },
             );
+        }
+        // SMB requires explicit pool registration before first use
+        if matches!(req.kind, VfsSourceKind::Smb) {
+            if let Err(e) = self.smb_pool.register(&temp_id, &root).await {
+                // Clean up and return the error early
+                self.mounts.write().await.remove(&temp_id);
+                return Err(format!("SMB pool register failed: {e}"));
+            }
         }
         let result = self
             .list_dir(&VfsListReq {
@@ -224,10 +236,11 @@ impl VfsManager {
             })
             .await
             .map(|_| ());
-        {
-            let mut mounts = self.mounts.write().await;
-            mounts.remove(&temp_id);
-        }
+        // Clean up temp entries
+        self.mounts.write().await.remove(&temp_id);
+        self.smb_pool.remove(&temp_id).await;
+        self.sftp_pool.remove(&temp_id).await;
+        self.ftp_pool.remove(&temp_id).await;
         result
     }
 
@@ -1212,6 +1225,7 @@ mod tests {
             .list_dir(&VfsListReq {
                 mount_id: mount.id,
                 path: "/".into(),
+                show_hidden: false,
             })
             .await;
         assert!(result.is_ok());
@@ -1233,6 +1247,7 @@ mod tests {
             .list_dir(&VfsListReq {
                 mount_id: mount.id,
                 path: "/../etc".into(),
+                show_hidden: false,
             })
             .await;
         assert!(result.is_err());

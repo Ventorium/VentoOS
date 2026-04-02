@@ -4,7 +4,6 @@
  * Shell-internal state for the right-click context menu.
  */
 
-import type { ReactNode } from 'react'
 import { create } from 'zustand'
 
 export interface MenuSeparator {
@@ -15,7 +14,6 @@ export interface MenuItem {
   type?: 'item'
   id: string
   label: string
-  icon?: ReactNode
   /** e.g. "⌘K", "⌥⌘N" */
   shortcut?: string
   action?: () => void

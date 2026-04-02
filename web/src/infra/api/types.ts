@@ -610,3 +610,31 @@ export interface ChannelConfig {
   bot_user_id?: string
   credentials: Record<string, unknown>
 }
+
+// ── Desktop Settings ─────────────────────────────────────────────────────
+
+export interface DesktopSettings {
+  wallpaper: string
+  theme_mode: string
+  dock_icon_size: number
+  dock_position: string
+  dock_magnification: boolean
+  dock_auto_hide: boolean
+}
+
+// ── Window State DTO (backend persistence) ───────────────────────────────
+
+export interface WindowStateDTO {
+  id: string
+  app_id: string
+  title: string
+  x: number
+  y: number
+  width: number
+  height: number
+  z_index: number
+  status: string
+  is_maximized: boolean
+  tab_states?: unknown
+  app_state?: Record<string, unknown>
+}

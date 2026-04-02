@@ -6,7 +6,7 @@
  *  - unlock:  standard login / lock screen
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import BrandLogo from '@/components/BrandLogo'
 import { authService, useAuthStore } from '@/services/auth'
@@ -101,11 +101,7 @@ export default function LoginScreen() {
             <BrandLogo size={172} />
           </div>
           <div className="vos-lock-brand-copy">
-            <p className="vos-lock-kicker">VentoOS System</p>
-            <h2 className="vos-lock-title">{mode === 'setup' ? '设置访问密码' : 'VentoOS'}</h2>
-            <p className="vos-lock-subtitle">
-              {mode === 'setup' ? '首次使用，请设置一个访问密码' : '输入密码以继续访问你的基础设施工作台'}
-            </p>
+            <h2 className="vos-lock-title">{mode === 'setup' ? '设置解锁密码' : 'VentoOS'}</h2>
           </div>
         </motion.section>
 
@@ -124,18 +120,6 @@ export default function LoginScreen() {
           }
           transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="vos-lock-panel-head">
-            <div className="vos-lock-panel-icon">
-              {mode === 'setup' ? <ShieldCheck size={18} strokeWidth={1.8} /> : <Lock size={18} strokeWidth={1.8} />}
-            </div>
-            <div>
-              <div className="vos-lock-panel-title">{mode === 'setup' ? '初始化安全访问' : '解锁系统'}</div>
-              <div className="vos-lock-panel-subtitle">
-                {mode === 'setup' ? '创建本地访问密码' : '本地验证，不上传到前端之外的存储'}
-              </div>
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="vos-lock-form">
             <div className="vos-lock-input-wrap">
               <input
@@ -150,6 +134,7 @@ export default function LoginScreen() {
                 className="vos-lock-input"
                 autoComplete="current-password"
                 autoFocus
+                aria-label={mode === 'setup' ? '设置密码' : '输入密码'}
               />
               <button type="button" className="vos-lock-show-btn" onClick={() => setShow(v => !v)} tabIndex={-1}>
                 {show ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -168,6 +153,7 @@ export default function LoginScreen() {
                   }}
                   className="vos-lock-input"
                   autoComplete="new-password"
+                  aria-label="确认密码"
                 />
               </div>
             )}
@@ -185,23 +171,16 @@ export default function LoginScreen() {
               )}
             </AnimatePresence>
 
-            <button type="submit" className="vos-lock-btn" disabled={loading}>
+            <button
+              type="submit"
+              className="vos-lock-btn"
+              disabled={loading}
+              aria-label={mode === 'setup' ? '确认设置密码' : '解锁'}
+            >
               {loading ? (
-                <span
-                  className="vos-spin"
-                  style={{
-                    display: 'inline-block',
-                    width: 16,
-                    height: 16,
-                    border: '2px solid rgba(255,255,255,0.35)',
-                    borderTopColor: '#fff',
-                    borderRadius: '50%'
-                  }}
-                />
-              ) : mode === 'setup' ? (
-                '设置密码'
+                <Loader2 size={16} className="vos-spin" />
               ) : (
-                '解锁'
+                <ArrowRight size={16} />
               )}
             </button>
           </form>

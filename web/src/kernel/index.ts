@@ -8,6 +8,9 @@
 export { useApp, useAppComponent, useAppList } from './apps/hooks'
 export { getAllApps, getApp, getAppComponent, registerApp, registerApps } from './apps/manager'
 export type { AppComponentProps, AppLifecycle, AppManifest, AppPermission } from './apps/manifest'
+export type { AppMenuEntry, AppMenuGroup, AppMenuItem, AppTrayConfig } from './apps/menu'
+export { useActiveAppMenus, useAllTrays, useAppMenus, useAppTray } from './apps/menu-hooks'
+export { registerAppMenus, registerAppTray, unregisterAppMenus, unregisterAppTray, useMenuStore } from './apps/menu-store'
 // ── App registry ───────────────────────────────────────────────────────────
 export { useAppStore } from './apps/store'
 // ── Bootstrap ──────────────────────────────────────────────────────────────
@@ -15,6 +18,9 @@ export { bootKernel } from './bootstrap'
 export type { SystemNotifications } from './channel'
 // ── SystemChannel ──────────────────────────────────────────────────────────
 export { systemChannel } from './channel'
+// ── Storage SDK ────────────────────────────────────────────────────────────
+export { createAppStorage, useAppStorage } from './storage'
+export type { AppStorageAPI } from './storage'
 export {
   useAppWindows,
   useFocusedWindow,

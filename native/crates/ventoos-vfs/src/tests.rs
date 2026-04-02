@@ -168,7 +168,13 @@ async fn test_s3_list_root() {
         })
         .await;
 
-    let result = manager.list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/".to_string() }).await;
+    let result = manager
+        .list_dir(&VfsListReq {
+            mount_id: mount.id.clone(),
+            path: "/".to_string(),
+            show_hidden: false,
+        })
+        .await;
     assert!(result.is_ok(), "S3 list_dir failed: {:?}", result.err());
 }
 
@@ -215,7 +221,13 @@ async fn test_smb_list_root() {
         })
         .await;
 
-    let result = manager.list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/".to_string() }).await;
+    let result = manager
+        .list_dir(&VfsListReq {
+            mount_id: mount.id.clone(),
+            path: "/".to_string(),
+            show_hidden: false,
+        })
+        .await;
     assert!(result.is_ok(), "SMB list_dir failed: {:?}", result.err());
 }
 
@@ -250,7 +262,13 @@ async fn test_ftp_list_root() {
         })
         .await;
 
-    let result = manager.list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/".to_string() }).await;
+    let result = manager
+        .list_dir(&VfsListReq {
+            mount_id: mount.id.clone(),
+            path: "/".to_string(),
+            show_hidden: false,
+        })
+        .await;
     assert!(result.is_ok(), "FTP list_dir failed: {:?}", result.err());
 }
 
@@ -406,7 +424,11 @@ async fn test_webdav_list_root() {
         .await;
 
     let result = manager
-        .list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/".to_string() })
+        .list_dir(&VfsListReq {
+            mount_id: mount.id.clone(),
+            path: "/".to_string(),
+            show_hidden: false,
+        })
         .await;
     assert!(result.is_ok(), "WebDAV list_dir failed: {:?}", result.err());
 }

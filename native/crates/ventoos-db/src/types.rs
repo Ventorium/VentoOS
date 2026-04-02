@@ -2,10 +2,12 @@ use serde::{Deserialize, Serialize};
 
 /// Database engine type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum DbEngine {
+    #[serde(rename = "postgresql")]
     PostgreSql,
+    #[serde(rename = "mysql")]
     MySql,
+    #[serde(rename = "sqlite")]
     Sqlite,
 }
 
@@ -21,7 +23,8 @@ pub struct DbConnectionConfig {
     pub password: Option<String>,
     pub database: Option<String>,
     /// For `SQLite`: file path
-    pub file_path: Option<String>,
+    #[serde(alias = "file_path")]
+    pub sqlite_path: Option<String>,
     pub group: Option<String>,
     pub ssl_enabled: bool,
 }
@@ -35,7 +38,8 @@ pub struct CreateDbConnectionReq {
     pub username: Option<String>,
     pub password: Option<String>,
     pub database: Option<String>,
-    pub file_path: Option<String>,
+    #[serde(alias = "file_path")]
+    pub sqlite_path: Option<String>,
     pub group: Option<String>,
     pub ssl_enabled: Option<bool>,
 }

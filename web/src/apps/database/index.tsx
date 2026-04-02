@@ -19,12 +19,15 @@ import type {
   CreateDbConnectionReq,
   DbConnectionConfig,
   DbEngine,
+  DbTestResult,
   QueryResult,
   SchemaInfo,
   TableStructure
 } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
+import { useAppStorage } from '@/kernel'
+import { PathPickerInput } from '@/shell/FilePicker'
 
 // ─── Connection form dialog ────────────────────────────────────────────────
 
@@ -38,27 +41,43 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
   const [database, setDatabase] = useState('')
   const [sqlitePath, setSqlitePath] = useState('')
   const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<DbTestResult | null>(null)
+
+  const buildReqBody = (): CreateDbConnectionReq => ({
+    name,
+    engine,
+    host: engine === 'sqlite' ? undefined : host,
+    port: engine === 'sqlite' ? undefined : Number(port),
+    username: engine === 'sqlite' ? undefined : username,
+    password: engine === 'sqlite' ? undefined : password,
+    database: engine === 'sqlite' ? undefined : database,
+    sqlite_path: engine === 'sqlite' ? sqlitePath : undefined
+  })
 
   const submit = async () => {
     if (!name) return
     setSaving(true)
     try {
-      const body: CreateDbConnectionReq = {
-        name,
-        engine,
-        host: engine === 'sqlite' ? undefined : host,
-        port: engine === 'sqlite' ? undefined : Number(port),
-        username: engine === 'sqlite' ? undefined : username,
-        password: engine === 'sqlite' ? undefined : password,
-        database: engine === 'sqlite' ? undefined : database,
-        sqlite_path: engine === 'sqlite' ? sqlitePath : undefined
-      }
-      const res = await apiClient.createDbConnection(body)
+      const res = await apiClient.createDbConnection(buildReqBody())
       onCreated(res.data)
     } catch (e) {
       console.error(e)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const testConn = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await apiClient.testDbConnectionInline(buildReqBody())
+      setTestResult(res.data)
+    } catch (e) {
+      setTestResult({ success: false, message: String(e) })
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -94,12 +113,13 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
           <option value="mysql">MySQL</option>
         </select>
         {engine === 'sqlite' ? (
-          <input
+          <PathPickerInput
+            mode="file"
+            value={sqlitePath}
+            onChange={setSqlitePath}
+            placeholder="数据库文件路径"
             className={fieldClass}
             style={fieldStyle}
-            placeholder="数据库文件路径"
-            value={sqlitePath}
-            onChange={e => setSqlitePath(e.target.value)}
           />
         ) : (
           <>
@@ -143,6 +163,25 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
             />
           </>
         )}
+        {/* Test connection */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+            style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+            onClick={testConn}
+            disabled={testing}
+          >
+            {testing ? '测试中…' : '测试连接'}
+          </button>
+          {testResult && (
+            <span className="text-xs" style={{ color: testResult.success ? 'var(--vos-accent-success, #52c41a)' : 'var(--vos-accent-danger, #f5222d)' }}>
+              {testResult.success
+                ? `✓ ${testResult.server_version ?? '连接成功'}${testResult.latency_ms != null ? ` (${testResult.latency_ms}ms)` : ''}`
+                : `✗ ${testResult.message}`}
+            </span>
+          )}
+        </div>
         <div className="flex justify-end gap-2 mt-1">
           <button
             type="button"
@@ -170,6 +209,7 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
 // ─── Main app ──────────────────────────────────────────────────────────────
 
 export default function DatabaseApp(_props: AppComponentProps) {
+  const storage = useAppStorage('database')
   const [connections, setConnections] = useState<DbConnectionConfig[]>([])
   const [showForm, setShowForm] = useState(false)
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set())
@@ -186,6 +226,13 @@ export default function DatabaseApp(_props: AppComponentProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(100)
   const sqlRef = useRef<HTMLTextAreaElement>(null)
+
+  // Load persisted view preferences
+  useEffect(() => {
+    storage.getJSON<{ rightTab?: 'structure' | 'data' | 'sql' }>('preferences').then(prefs => {
+      if (prefs?.rightTab) setRightTab(prefs.rightTab)
+    })
+  }, [storage])
 
   const reload = useCallback(async () => {
     try {
@@ -272,6 +319,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
       const res = await apiClient.executeDbSql(selectedTable.connId, sqlText)
       setSqlResult(res.data)
       setRightTab('sql')
+      storage.setJSON('preferences', { rightTab: 'sql' })
     } catch (e) {
       console.error(e)
     }
@@ -369,7 +417,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
       {/* Left sidebar — connection tree */}
       <div
         className="flex flex-col flex-shrink-0 overflow-auto"
-        style={{ width: 220, borderRight: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+        style={{ width: 220, borderRight: '0.5px solid var(--vos-border-subtle)' }}
       >
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-[10px] font-semibold tracking-wider" style={{ color: 'var(--vos-text-tertiary)' }}>
@@ -536,7 +584,10 @@ export default function DatabaseApp(_props: AppComponentProps) {
                     background: rightTab === tab ? 'var(--vos-accent-primary)' : 'transparent',
                     color: rightTab === tab ? '#fff' : 'var(--vos-text-secondary)'
                   }}
-                  onClick={() => setRightTab(tab)}
+                  onClick={() => {
+                    setRightTab(tab)
+                    storage.setJSON('preferences', { rightTab: tab })
+                  }}
                 >
                   {tab === 'structure' ? (
                     <>

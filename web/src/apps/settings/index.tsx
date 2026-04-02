@@ -4,17 +4,19 @@
  * macOS-style settings with sidebar categories and content panels.
  * Categories: Appearance, Desktop & Dock, Notifications, General
  */
-import { Bell, Info, Layout, Monitor, Palette } from 'lucide-react'
+import { Bell, Bot, Info, Layout, Monitor, Palette } from 'lucide-react'
 import { useState } from 'react'
 import { useNotificationStore } from '@/services/notification'
 import { type ThemeMode, useSettingsStore } from '@/services/settings'
+import { openWindow } from '@/kernel'
 
-type Category = 'appearance' | 'desktop' | 'notifications' | 'general'
+type Category = 'appearance' | 'desktop' | 'notifications' | 'ai' | 'general'
 
 const CATEGORIES = [
   { id: 'appearance' as Category, label: '外观', icon: Palette },
   { id: 'desktop' as Category, label: '桌面与Dock', icon: Layout },
   { id: 'notifications' as Category, label: '通知', icon: Bell },
+  { id: 'ai' as Category, label: 'AI 助手', icon: Bot },
   { id: 'general' as Category, label: '通用', icon: Monitor }
 ]
 
@@ -291,10 +293,36 @@ function GeneralPanel() {
   )
 }
 
+/* ---- AI Assistant Settings ---- */
+function AIPanel() {
+  const openAISettings = () => {
+    openWindow('ai-assistant')
+  }
+  return (
+    <div className="vos-settings-content">
+      <h2 className="vos-settings-section-title">AI 助手</h2>
+      <div className="vos-settings-group">
+        <p className="text-xs" style={{ color: 'var(--vos-text-secondary)', margin: '0 0 12px' }}>
+          AI 助手提供 Provider 管理、Agent 配置、运行时策略和频道管理等完整设置。
+        </p>
+        <button
+          type="button"
+          className="text-xs px-4 py-2 rounded cursor-pointer border-none"
+          style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
+          onClick={openAISettings}
+        >
+          打开 AI 控制中心
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const PANELS: Record<Category, React.ComponentType> = {
   appearance: AppearancePanel,
   desktop: DesktopPanel,
   notifications: NotificationsPanel,
+  ai: AIPanel,
   general: GeneralPanel
 }
 
@@ -304,7 +332,7 @@ export default function SettingsApp(_props: { windowId: string; processId: numbe
   const Panel = PANELS[activeCategory]
 
   return (
-    <div style={{ display: 'flex', height: '100%', background: 'var(--vos-bg-window)' }}>
+    <div style={{ display: 'flex', height: '100%' }}>
       {/* Sidebar */}
       <div className="vos-settings-sidebar">
         <div

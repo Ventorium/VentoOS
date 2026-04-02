@@ -6,6 +6,7 @@
 //! URI format: `s3://accessKeyId:secretAccessKey@endpoint[:port]/bucket[/prefix]`
 //! For HTTPS-only use: port defaults to 443.
 
+use std::sync::Once;
 use std::sync::Arc;
 
 use ring::{digest, hmac};
@@ -57,9 +58,9 @@ impl S3Config {
         let (hostport, bucket_prefix) = hostpath.split_once('/').unwrap_or((hostpath, ""));
 
         let (host, port_s) = hostport.split_once(':').unwrap_or((hostport, "443"));
-        let port: u16 = port_s.parse().unwrap_or(443);
+        let port_from_host: u16 = port_s.parse().unwrap_or(443);
 
-        let (bucket, prefix) = bucket_prefix
+        let (bucket_from_path, prefix) = bucket_prefix
             .split_once('/')
             .map(|(b, p)| {
                 // Ensure prefix always ends with '/' (but don't double)
@@ -74,23 +75,66 @@ impl S3Config {
             })
             .unwrap_or((bucket_prefix, String::new()));
 
-        if bucket.is_empty() {
-            return Err("S3 URI: bucket name required".to_string());
-        }
-
-        // Parse query params
+        // Parse query params first — we need `endpoint` to decide whether
+        // the host part is the bucket (Rclone / Cloudflare R2 style) or the
+        // endpoint (traditional AWS-style: s3://key:secret@s3.amazonaws.com/bucket).
         let mut region = "us-east-1".to_string();
         let mut path_style = false;
-        for pair in query.split('&') {
-            if let Some(v) = pair.strip_prefix("region=") {
-                region = v.to_string();
-            } else if pair == "path_style=true" || pair == "path_style=1" {
-                path_style = true;
+        let mut endpoint_from_query: Option<String> = None;
+        let mut port_from_query: Option<u16> = None;
+        for pair in query.split('&').filter(|s| !s.is_empty()) {
+            if let Some((k, v)) = pair.split_once('=') {
+                let v = urlpercent_decode(v);
+                match k {
+                    "region" => region = v,
+                    "endpoint" => {
+                        // Strip scheme, extract host and optional port
+                        let ep = v
+                            .strip_prefix("https://")
+                            .or_else(|| v.strip_prefix("http://"))
+                            .unwrap_or(&v);
+                        let ep = ep.trim_end_matches('/');
+                        let (ep_host, ep_port) = ep.split_once(':').unwrap_or((ep, ""));
+                        if let Ok(p) = ep_port.parse::<u16>() {
+                            port_from_query = Some(p);
+                        }
+                        endpoint_from_query = Some(ep_host.to_string());
+                    }
+                    "path_style" if v == "true" || v == "1" => path_style = true,
+                    _ => {}
+                }
+            } else {
+                match pair {
+                    "path_style=true" | "path_style=1" => path_style = true,
+                    _ => {}
+                }
             }
         }
 
+        // Determine (endpoint, port, bucket):
+        // • If an `endpoint` query param is provided AND bucket_prefix is empty,
+        //   the URI is in the bucket-as-host format: s3://key:secret@bucket?endpoint=...
+        // • Otherwise it's the classical format:    s3://key:secret@endpoint/bucket
+        let (endpoint, port, bucket) = if let Some(ep) = endpoint_from_query {
+            if bucket_from_path.is_empty() {
+                // Rclone / R2-style: host == bucket, endpoint comes from query
+                let p = port_from_query.unwrap_or(443);
+                (ep, p, host.to_string())
+            } else {
+                // endpoint given explicitly but bucket is also in path — prefer path
+                let p = port_from_query.unwrap_or(port_from_host);
+                (ep, p, bucket_from_path.to_string())
+            }
+        } else {
+            (host.to_string(), port_from_host, bucket_from_path.to_string())
+        };
+
+        if bucket.is_empty() {
+            return Err("S3 URI: bucket name required. Expected s3://key:secret@endpoint/bucket or s3://key:secret@bucket?endpoint=https://...".to_string());
+        }
+
         // Auto-detect MinIO by non-AWS endpoint → enable path-style
-        let is_aws = host.ends_with(".amazonaws.com");
+        let is_aws = endpoint.ends_with(".amazonaws.com");
         if !is_aws {
             path_style = true;
         }
@@ -98,9 +142,9 @@ impl S3Config {
         Ok(S3Config {
             access_key: access_key.to_string(),
             secret_key: secret_key.to_string(),
-            endpoint: host.to_string(),
+            endpoint,
             port,
-            bucket: bucket.to_string(),
+            bucket,
             prefix,
             region,
             path_style,
@@ -123,6 +167,33 @@ impl S3Config {
             format!("/{}", object_key.trim_start_matches('/'))
         }
     }
+}
+
+// ─── Minimal percent-decoder (for S3 URI query param values) ─────────────────
+
+fn urlpercent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut raw: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(b) = u8::from_str_radix(
+                std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""),
+                16,
+            ) {
+                raw.push(b);
+                i += 3;
+                continue;
+            }
+        } else if bytes[i] == b'+' {
+            raw.push(b' ');
+            i += 1;
+            continue;
+        }
+        raw.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8(raw).unwrap_or_default()
 }
 
 // ─── AWS Signature V4 ────────────────────────────────────────────────────────
@@ -247,12 +318,21 @@ impl SigV4 {
 
 /// Build a TLS connector using `WebPKI` roots.
 fn tls_connector() -> TlsConnector {
+    ensure_rustls_crypto_provider();
     let mut root_store = rustls::RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     let config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
         .with_no_client_auth();
     TlsConnector::from(Arc::new(config))
+}
+
+fn ensure_rustls_crypto_provider() {
+    static INSTALL_RUSTLS_PROVIDER: Once = Once::new();
+
+    INSTALL_RUSTLS_PROVIDER.call_once(|| {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    });
 }
 
 /// A parsed HTTP response.
@@ -779,5 +859,14 @@ mod tests {
         let chunked = b"7\r\nMozilla\r\n12\r\n Developer Network\r\n0\r\n\r\n";
         let decoded = decode_chunked(chunked).unwrap();
         assert_eq!(decoded, b"Mozilla Developer Network");
+    }
+
+    #[test]
+    fn test_tls_connector_installs_rustls_crypto_provider() {
+        let _connector = tls_connector();
+        assert!(
+            rustls::crypto::CryptoProvider::get_default().is_some(),
+            "tls_connector should ensure a process-level rustls CryptoProvider is installed"
+        );
     }
 }
