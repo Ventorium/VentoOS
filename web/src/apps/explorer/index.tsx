@@ -6,6 +6,8 @@ import {
   Eye,
   EyeOff,
   File,
+  FlipHorizontal2,
+  FlipVertical2,
   Folder,
   FolderOpen,
   Globe,
@@ -17,6 +19,8 @@ import {
   PanelRight,
   Plus,
   RefreshCw,
+  RotateCcw,
+  RotateCw,
   Settings,
   Trash2,
   X
@@ -24,8 +28,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CreateVfsMountReq, SshConfigHost, SshKeyFile, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from '@/infra/api'
 import { apiClient } from '@/infra/api'
-import type { AppComponentProps } from '@/kernel'
-import { openWindow, registerAppMenus, unregisterAppMenus, useAppStorage } from '@/kernel'
+import type { AppComponentProps, AppManifest } from '@/kernel'
+import { getAppsForFile, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage } from '@/kernel'
 import type { AppMenuGroup } from '@/kernel'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
@@ -1002,9 +1006,13 @@ function ColumnView({
   // Auto scroll to the right when new columns are added
   // biome-ignore lint/correctness/useExhaustiveDependencies: columns.length triggers scroll
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
-    }
+    const el = scrollRef.current
+    if (!el) return
+    // Defer to next frame so the new column is laid out before measuring scrollWidth
+    const raf = requestAnimationFrame(() => {
+      el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(raf)
   }, [columns.length])
 
   // Scroll active column to keep selected item visible
@@ -1337,7 +1345,7 @@ function FileInfoPanel({
     }
   }, [mountId, node])
 
-  if (!node) return null
+  if (!node || node.is_dir) return null
 
   const ext = getFileExt(node.name)
   const isImage = IMAGE_EXTS.has(ext)
@@ -1517,12 +1525,17 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
+  // Image transform state
+  const [imgRotation, setImgRotation] = useState(0)
+  const [imgFlipH, setImgFlipH] = useState(false)
+  const [imgFlipV, setImgFlipV] = useState(false)
 
   const ext = getFileExt(node.name)
   const isImage = IMAGE_EXTS.has(ext)
   const isPdf = PDF_EXTS.has(ext)
   const isText = isTextFile(node.name)
   const isCode = CODE_EXTS.has(ext) || ext === 'json' || ext === 'yaml' || ext === 'yml'
+  const canSaveImage = isImage && new Set(['png', 'jpg', 'jpeg', 'webp', 'bmp']).has(ext)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: node.path+mountId are the real deps
   useEffect(() => {
@@ -1531,6 +1544,9 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
     setContent(null)
     setBlobUrl(null)
     setEditing(false)
+    setImgRotation(0)
+    setImgFlipH(false)
+    setImgFlipV(false)
     let revoke: string | null = null
 
     if (isImage || isPdf) {
@@ -1566,6 +1582,45 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
       setContent(prev => (prev ? { ...prev, content: editContent } : prev))
     } catch (e) {
       console.error('Save failed:', e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveImageTransform = async (rot: number, fH: boolean, fV: boolean) => {
+    if (!canSaveImage || !blobUrl) return
+    setSaving(true)
+    try {
+      const img = new Image()
+      img.src = blobUrl
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('image load failed'))
+      })
+      const r = ((rot % 360) + 360) % 360
+      const isRotated90 = r === 90 || r === 270
+      const canvas = document.createElement('canvas')
+      canvas.width = isRotated90 ? img.naturalHeight : img.naturalWidth
+      canvas.height = isRotated90 ? img.naturalWidth : img.naturalHeight
+      const ctx = canvas.getContext('2d')!
+      ctx.translate(canvas.width / 2, canvas.height / 2)
+      ctx.rotate((r * Math.PI) / 180)
+      if (fH) ctx.scale(-1, 1)
+      if (fV) ctx.scale(1, -1)
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2)
+      const mimeType = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : 'image/png'
+      const newBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), mimeType, 0.95)
+      })
+      const file = new File([newBlob], node.name, { type: mimeType })
+      await apiClient.uploadVfsFile(mountId, node.path, file)
+      const newUrl = URL.createObjectURL(newBlob)
+      setBlobUrl(prev => { if (prev) URL.revokeObjectURL(prev); return newUrl })
+      setImgRotation(0)
+      setImgFlipH(false)
+      setImgFlipV(false)
+    } catch (e) {
+      console.error('Save image transform failed:', e)
     } finally {
       setSaving(false)
     }
@@ -1610,6 +1665,64 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
         >
           <File size={13} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />
           <span className="text-xs font-medium flex-1 truncate">{node.name}</span>
+          {/* Image transform toolbar */}
+          {isImage && blobUrl && canSaveImage && (
+            <>
+              <button
+                type="button"
+                className="vos-btn"
+                style={{ fontSize: 11, padding: '2px 6px' }}
+                title="向左旋转"
+                onClick={() => {
+                  const r = imgRotation - 90
+                  setImgRotation(r)
+                  handleSaveImageTransform(r, imgFlipH, imgFlipV)
+                }}
+              >
+                <RotateCcw size={12} />
+              </button>
+              <button
+                type="button"
+                className="vos-btn"
+                style={{ fontSize: 11, padding: '2px 6px' }}
+                title="向右旋转"
+                onClick={() => {
+                  const r = imgRotation + 90
+                  setImgRotation(r)
+                  handleSaveImageTransform(r, imgFlipH, imgFlipV)
+                }}
+              >
+                <RotateCw size={12} />
+              </button>
+              <button
+                type="button"
+                className="vos-btn"
+                style={{ fontSize: 11, padding: '2px 6px' }}
+                title="水平翻转"
+                onClick={() => {
+                  const fH = !imgFlipH
+                  setImgFlipH(fH)
+                  handleSaveImageTransform(imgRotation, fH, imgFlipV)
+                }}
+              >
+                <FlipHorizontal2 size={12} />
+              </button>
+              <button
+                type="button"
+                className="vos-btn"
+                style={{ fontSize: 11, padding: '2px 6px' }}
+                title="垂直翻转"
+                onClick={() => {
+                  const fV = !imgFlipV
+                  setImgFlipV(fV)
+                  handleSaveImageTransform(imgRotation, imgFlipH, fV)
+                }}
+              >
+                <FlipVertical2 size={12} />
+              </button>
+              {saving && <Loader2 size={12} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />}
+            </>
+          )}
           {!node.is_dir &&
             isText &&
             content &&
@@ -1662,8 +1775,19 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
           )}
 
           {!loading && error && (
-            <div className="p-6 text-xs" style={{ color: 'var(--vos-accent-danger)' }}>
-              加载失败：{error}
+            <div className="p-6 flex flex-col gap-2">
+              <div className="text-xs" style={{ color: 'var(--vos-accent-danger)', userSelect: 'text', wordBreak: 'break-all' }}>
+                加载失败：{error}
+              </div>
+              <button
+                type="button"
+                className="vos-btn text-xs self-start flex items-center gap-1"
+                style={{ padding: '2px 8px' }}
+                onClick={() => navigator.clipboard.writeText(error)}
+              >
+                <Copy size={11} />
+                复制错误
+              </button>
             </div>
           )}
 
@@ -1672,7 +1796,13 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
               <img
                 src={blobUrl}
                 alt={node.name}
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 4 }}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  borderRadius: 4,
+                  transform: `rotate(${imgRotation}deg) scaleX(${imgFlipH ? -1 : 1}) scaleY(${imgFlipV ? -1 : 1})`
+                }}
               />
             </div>
           )}
@@ -1813,6 +1943,13 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     message: string
     onConfirm: () => void
   }>({ visible: false, message: '', onConfirm: () => {} })
+
+  // Open-with dialog
+  const [openWithState, setOpenWithState] = useState<{
+    visible: boolean
+    node: VfsNode | null
+    apps: AppManifest[]
+  }>({ visible: false, node: null, apps: [] })
 
   // Upload
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -2285,11 +2422,14 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   const handleItemDoubleClick = (colIdx: number, entry: VfsNode) => {
     void colIdx
     if (!selectedMount) return
-    if (entry.is_dir) {
-      // directories: navigate on single-click already, double-click is redundant
-      return
+    if (entry.is_dir) return
+    const ext = getFileExt(entry.name)
+    const associatedApps = getAppsForFile(ext)
+    if (associatedApps.length > 0) {
+      setOpenWithState({ visible: true, node: entry, apps: associatedApps })
+    } else {
+      handleOpenViewer(selectedMount, entry)
     }
-    handleOpenViewer(selectedMount, entry)
   }
 
   // ── Context menus ──────────────────────────────────────────────────
@@ -2754,6 +2894,68 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           onConfirm={confirmState.onConfirm}
           onCancel={() => setConfirmState(s => ({ ...s, visible: false }))}
         />
+      )}
+
+      {/* Open-with dialog */}
+      {openWithState.visible && openWithState.node && selectedMount && (
+        <div
+          className="absolute inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
+        >
+          <div
+            className="rounded-lg p-4 flex flex-col gap-3"
+            style={{ width: 320, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.3)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="text-sm font-medium">选择打开方式</div>
+            <div className="text-xs truncate" style={{ color: 'var(--vos-text-tertiary)' }}>
+              {openWithState.node.name}
+            </div>
+            <div className="flex flex-col gap-1">
+              {openWithState.apps.map(app => (
+                <button
+                  key={app.id}
+                  type="button"
+                  className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
+                  style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                  onClick={() => {
+                    setOpenWithState({ visible: false, node: null, apps: [] })
+                    openWindow(app.id)
+                  }}
+                >
+                  <span className="font-medium">{app.name}</span>
+                  {app.description && (
+                    <span style={{ color: 'var(--vos-text-tertiary)' }} className="truncate">{app.description}</span>
+                  )}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
+                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                onClick={() => {
+                  const n = openWithState.node!
+                  setOpenWithState({ visible: false, node: null, apps: [] })
+                  handleOpenViewer(selectedMount, n)
+                }}
+              >
+                <span className="font-medium">文件查看器</span>
+                <span style={{ color: 'var(--vos-text-tertiary)' }}>文本 / 图片预览</span>
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Hidden file input for upload */}

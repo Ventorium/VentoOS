@@ -195,6 +195,24 @@ impl WebDavClient {
             .map_err(|e| format!("WebDAV GET failed: {e}"))?;
 
         let status = resp.status();
+        // 416 Range Not Satisfiable — some servers don't support partial content
+        // (e.g. empty files or servers that ignore range headers). Retry without Range.
+        if status == StatusCode::RANGE_NOT_SATISFIABLE {
+            let resp2 = self
+                .request("GET", &url)
+                .send()
+                .await
+                .map_err(|e| format!("WebDAV GET fallback failed: {e}"))?;
+            let status2 = resp2.status();
+            if !status2.is_success() {
+                return Err(format!("WebDAV GET returned {status2}"));
+            }
+            return resp2
+                .bytes()
+                .await
+                .map(|b| b.to_vec())
+                .map_err(|e| format!("WebDAV read body: {e}"));
+        }
         if !status.is_success() {
             return Err(format!("WebDAV GET returned {status}"));
         }

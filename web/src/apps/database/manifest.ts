@@ -27,6 +27,7 @@ export const databaseManifest: AppManifest = {
   author: { name: 'VentoOS' },
   description: 'Connect and manage PostgreSQL, MySQL, and SQLite databases',
   icon: React.createElement(DatabaseIcon),
+  fileAssociations: ['db', 'sqlite', 'sqlite3', 'db3'],
   multiWindow: true,
   defaultSize: { width: 1060, height: 700 },
   minSize: { width: 800, height: 480 },

@@ -76,6 +76,13 @@ export interface AppManifest {
   thumbnails?: string[]
   categories?: string[]
 
+  // ── File associations ─────────────────────────────────────────────────────
+  /**
+   * File extensions this app can open, e.g. ['db', 'sqlite', 'sqlite3'].
+   * Used by Explorer to show "Open with" dialog when double-clicking files.
+   */
+  fileAssociations?: string[]
+
   // ── Window behavior ───────────────────────────────────────────────────────
   /** Allow multiple simultaneous windows */
   multiWindow: boolean

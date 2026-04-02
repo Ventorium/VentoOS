@@ -179,8 +179,10 @@ export default function LoginScreen() {
             >
               {loading ? (
                 <Loader2 size={16} className="vos-spin" />
+              ) : mode === 'setup' ? (
+                '确认'
               ) : (
-                <ArrowRight size={16} />
+                '解锁'
               )}
             </button>
           </form>
