@@ -594,3 +594,19 @@ export type StreamEvent =
   | { type: 'message_complete'; message: AgentMessage }
   | { type: 'error'; message: string }
   | { type: 'done'; session_id: string }
+
+// ─── Channel Types ──────────────────────────────────────────────
+
+export type ChannelKind = 'qq' | 'ding_talk' | 'feishu' | 'we_com' | 'telegram'
+
+export interface ChannelConfig {
+  id: string
+  name: string
+  kind: ChannelKind
+  enabled: boolean
+  default_agent_profile_id?: string
+  auto_route_agent: boolean
+  webhook_url?: string
+  bot_user_id?: string
+  credentials: Record<string, unknown>
+}

@@ -6,6 +6,7 @@ import {
   Loader2,
   MessageSquare,
   Plus,
+  Radio,
   Send,
   Settings,
   Shield,
@@ -23,6 +24,8 @@ import type {
   AgentConfig,
   AgentProfile,
   AgentToolPolicyMode,
+  ChannelConfig,
+  ChannelKind,
   ChatSession,
   ProviderConfig,
   ProviderProbeResult,
@@ -32,7 +35,7 @@ import type {
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 
-type SettingsTab = 'providers' | 'agents' | 'runtime'
+type SettingsTab = 'providers' | 'agents' | 'runtime' | 'channels'
 
 export interface ProviderDraft extends ProviderConfig {}
 
@@ -839,6 +842,225 @@ function RuntimeSettings({
   )
 }
 
+const CHANNEL_KIND_LABELS: Record<ChannelKind, string> = {
+  qq: 'QQ',
+  ding_talk: '钉钉',
+  feishu: '飞书',
+  we_com: '企业微信',
+  telegram: 'Telegram'
+}
+
+const CHANNEL_KIND_OPTIONS: { value: ChannelKind; label: string }[] = [
+  { value: 'qq', label: 'QQ' },
+  { value: 'ding_talk', label: '钉钉' },
+  { value: 'feishu', label: '飞书' },
+  { value: 'we_com', label: '企业微信' },
+  { value: 'telegram', label: 'Telegram' }
+]
+
+function createEmptyChannel(): Omit<ChannelConfig, 'id'> & { id: string } {
+  return {
+    id: '',
+    name: '',
+    kind: 'telegram',
+    enabled: true,
+    default_agent_profile_id: undefined,
+    auto_route_agent: true,
+    webhook_url: undefined,
+    bot_user_id: undefined,
+    credentials: {}
+  }
+}
+
+function ChannelCredentialFields({
+  kind,
+  credentials,
+  onChange
+}: {
+  kind: ChannelKind
+  credentials: Record<string, unknown>
+  onChange: (creds: Record<string, unknown>) => void
+}) {
+  const field = (key: string, label: string, placeholder?: string) => (
+    <div key={key}>
+      <FieldLabel>{label}</FieldLabel>
+      <TextInput
+        value={String(credentials[key] ?? '')}
+        placeholder={placeholder}
+        onChange={e => onChange({ ...credentials, [key]: e.target.value })}
+      />
+    </div>
+  )
+
+  if (kind === 'telegram') {
+    return <>{field('token', 'Bot Token', 'Bot Token from @BotFather')}</>
+  }
+  if (kind === 'ding_talk') {
+    return (
+      <>
+        {field('app_key', 'App Key')}
+        {field('app_secret', 'App Secret')}
+      </>
+    )
+  }
+  if (kind === 'feishu') {
+    return (
+      <>
+        {field('app_id', 'App ID')}
+        {field('app_secret', 'App Secret')}
+      </>
+    )
+  }
+  if (kind === 'we_com') {
+    return (
+      <>
+        {field('corp_id', 'Corp ID')}
+        {field('corp_secret', 'Corp Secret')}
+        {field('agent_id', 'Agent ID')}
+      </>
+    )
+  }
+  if (kind === 'qq') {
+    return (
+      <>
+        {field('app_id', 'App ID')}
+        {field('app_secret', 'App Secret')}
+      </>
+    )
+  }
+  return null
+}
+
+function ChannelsPanel({
+  channels,
+  profiles,
+  onReload
+}: {
+  channels: ChannelConfig[]
+  profiles: AgentProfile[]
+  onReload: () => Promise<void>
+}) {
+  const [draft, setDraft] = useState<ReturnType<typeof createEmptyChannel>>(createEmptyChannel())
+
+  const handleSave = async () => {
+    if (!draft.name || !draft.kind) return
+    if (draft.id) {
+      await apiClient.agentUpdateChannel(draft.id, draft)
+    } else {
+      await apiClient.agentCreateChannel(draft)
+    }
+    setDraft(createEmptyChannel())
+    await onReload()
+  }
+
+  return (
+    <div className="flex gap-4 h-full">
+      <div className="w-[44%] overflow-auto">
+        <SectionTitle title="Channel Integrations" meta="配置外部机器人渠道，将 AI Agent 接入 IM 平台。" />
+        <div className="space-y-2">
+          <TinyButton tone="primary" onClick={() => setDraft(createEmptyChannel())}>
+            New Channel
+          </TinyButton>
+          {channels.map(channel => (
+            <div
+              key={channel.id}
+              className="rounded-xl p-3 cursor-pointer"
+              style={{
+                background: draft.id === channel.id ? 'var(--vos-bg-active)' : 'var(--vos-bg-surface)',
+                border: panelBorder
+              }}
+              onClick={() => setDraft({ ...channel })}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+                    {channel.name}
+                  </div>
+                  <div className="text-[11px] mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>
+                    {CHANNEL_KIND_LABELS[channel.kind]} · {channel.enabled ? 'enabled' : 'disabled'}
+                  </div>
+                </div>
+                <TinyButton
+                  tone="danger"
+                  onClick={e => {
+                    e.stopPropagation()
+                    apiClient.agentDeleteChannel(channel.id).then(onReload)
+                  }}
+                >
+                  Delete
+                </TinyButton>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto rounded-xl p-4 space-y-3" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
+        <SectionTitle title={draft.id ? 'Edit Channel' : 'New Channel'} />
+        <div>
+          <FieldLabel>Name</FieldLabel>
+          <TextInput
+            value={draft.name}
+            placeholder="Channel name"
+            onChange={e => setDraft({ ...draft, name: e.target.value })}
+          />
+        </div>
+        <div>
+          <FieldLabel>Platform</FieldLabel>
+          <SelectInput
+            value={draft.kind}
+            onChange={value => setDraft({ ...draft, kind: (value || 'telegram') as ChannelKind, credentials: {} })}
+            options={CHANNEL_KIND_OPTIONS}
+          />
+        </div>
+        <div>
+          <FieldLabel>Default Agent</FieldLabel>
+          <SelectInput
+            value={draft.default_agent_profile_id}
+            onChange={value => setDraft({ ...draft, default_agent_profile_id: value || undefined })}
+            options={profiles.map(p => ({ value: p.id, label: p.name }))}
+            placeholder="Unset"
+          />
+        </div>
+        {(draft.kind === 'ding_talk' || draft.kind === 'qq') && (
+          <div>
+            <FieldLabel>Webhook URL</FieldLabel>
+            <TextInput
+              value={draft.webhook_url ?? ''}
+              placeholder="https://..."
+              onChange={e => setDraft({ ...draft, webhook_url: e.target.value || undefined })}
+            />
+          </div>
+        )}
+        <ChannelCredentialFields
+          kind={draft.kind}
+          credentials={draft.credentials as Record<string, unknown>}
+          onChange={creds => setDraft({ ...draft, credentials: creds })}
+        />
+        <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+          <input
+            type="checkbox"
+            checked={draft.enabled}
+            onChange={e => setDraft({ ...draft, enabled: e.target.checked })}
+          />
+          Enabled
+        </label>
+        <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+          <input
+            type="checkbox"
+            checked={draft.auto_route_agent}
+            onChange={e => setDraft({ ...draft, auto_route_agent: e.target.checked })}
+          />
+          Auto-route to default agent
+        </label>
+        <TinyButton tone="primary" onClick={handleSave}>
+          {draft.id ? 'Save Channel' : 'Create Channel'}
+        </TinyButton>
+      </div>
+    </div>
+  )
+}
+
 function SettingsPanel({
   tab,
   onTabChange,
@@ -846,10 +1068,12 @@ function SettingsPanel({
   providers,
   templates,
   profiles,
+  channels,
   config,
   onReloadProviders,
   onReloadProfiles,
-  onReloadConfig
+  onReloadConfig,
+  onReloadChannels
 }: {
   tab: SettingsTab
   onTabChange: (tab: SettingsTab) => void
@@ -857,10 +1081,12 @@ function SettingsPanel({
   providers: ProviderConfig[]
   templates: ProviderTemplate[]
   profiles: AgentProfile[]
+  channels: ChannelConfig[]
   config: AgentConfig | null
   onReloadProviders: () => Promise<void>
   onReloadProfiles: () => Promise<void>
   onReloadConfig: () => Promise<void>
+  onReloadChannels: () => Promise<void>
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -871,7 +1097,8 @@ function SettingsPanel({
           {[
             { key: 'providers', label: 'Providers', icon: Cpu },
             { key: 'agents', label: 'Agents', icon: Bot },
-            { key: 'runtime', label: 'Runtime', icon: Shield }
+            { key: 'runtime', label: 'Runtime', icon: Shield },
+            { key: 'channels', label: 'Channels', icon: Radio }
           ].map(item => {
             const Icon = item.icon
             const active = tab === item.key
@@ -918,6 +1145,9 @@ function SettingsPanel({
         {tab === 'runtime' && (
           <RuntimeSettings config={config} profiles={profiles} providers={providers} onReload={onReloadConfig} />
         )}
+        {tab === 'channels' && (
+          <ChannelsPanel channels={channels} profiles={profiles} onReload={onReloadChannels} />
+        )}
       </div>
     </div>
   )
@@ -949,6 +1179,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
   const [providers, setProviders] = useState<ProviderConfig[]>([])
   const [templates, setTemplates] = useState<ProviderTemplate[]>([])
   const [profiles, setProfiles] = useState<AgentProfile[]>([])
+  const [channels, setChannels] = useState<ChannelConfig[]>([])
   const [config, setConfig] = useState<AgentConfig | null>(null)
   const [selectedAgentId, setSelectedAgentId] = useState<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -987,9 +1218,14 @@ export default function AIAssistantApp(_props: AppComponentProps) {
     setSelectedAgentId(response.data.default_agent_profile_id ?? '')
   }, [])
 
+  const loadChannels = useCallback(async () => {
+    const response = await apiClient.agentListChannels()
+    setChannels(response.data)
+  }, [])
+
   useEffect(() => {
-    void Promise.all([loadSessions(), loadProviders(), loadProfiles(), loadConfig()])
-  }, [loadSessions, loadProviders, loadProfiles, loadConfig])
+    void Promise.all([loadSessions(), loadProviders(), loadProfiles(), loadConfig(), loadChannels()])
+  }, [loadSessions, loadProviders, loadProfiles, loadConfig, loadChannels])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -1090,10 +1326,12 @@ export default function AIAssistantApp(_props: AppComponentProps) {
         providers={providers}
         templates={templates}
         profiles={profiles}
+        channels={channels}
         config={config}
         onReloadProviders={loadProviders}
         onReloadProfiles={loadProfiles}
         onReloadConfig={loadConfig}
+        onReloadChannels={loadChannels}
       />
     )
   }

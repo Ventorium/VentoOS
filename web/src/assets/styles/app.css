@@ -821,6 +821,27 @@ body,
 }
 
 /* ─── Lock / Login Screen ─────────────────────────────────── */
+@keyframes vos-liquid-drift-l {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(40px, -60px) scale(1.08); }
+  66%  { transform: translate(-30px, 40px) scale(0.95); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes vos-liquid-drift-r {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(-50px, 60px) scale(0.94); }
+  66%  { transform: translate(30px, -40px) scale(1.06); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes vos-glow-pulse {
+  0%, 100% { opacity: 0.35; transform: translate(-50%, -50%) scale(1); }
+  50%       { opacity: 0.55; transform: translate(-50%, -50%) scale(1.12); }
+}
+@keyframes vos-logo-float {
+  0%, 100% { transform: translateY(0); filter: drop-shadow(0 0 32px rgba(77,148,255,0.45)); }
+  50%       { transform: translateY(-8px); filter: drop-shadow(0 0 48px rgba(77,148,255,0.65)); }
+}
+
 .vos-lock-screen {
   position: fixed;
   inset: 0;
@@ -828,183 +849,271 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   overflow: hidden;
+  background: #060b18;
 }
 
+/* ── Background layer: dark deep ocean with subtle vignette ── */
 .vos-lock-bg {
   position: absolute;
-  inset: 0;
-  background: var(--vos-wallpaper, linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%));
-  filter: blur(0);
-  transform: scale(1.02);
+  inset: -8px;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 30%, rgba(10,26,64,0.9) 0%, transparent 65%),
+    linear-gradient(160deg, #080d1f 0%, #07111e 30%, #060918 60%, #04070f 100%);
+  transform: scale(1.04);
 }
-
 .vos-lock-bg::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: radial-gradient(ellipse 70% 70% at 50% 100%, rgba(0,0,0,0.6) 0%, transparent 60%);
 }
 
-.vos-lock-clock {
+/* ── Liquid blobs ── */
+.vos-lock-liquid {
   position: absolute;
-  top: 12%;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  z-index: 1;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(90px);
   pointer-events: none;
 }
+.vos-lock-liquid-left {
+  width: 600px;
+  height: 600px;
+  left: -140px;
+  top: -80px;
+  background: radial-gradient(circle, rgba(15,80,180,0.38) 0%, rgba(20,60,140,0.18) 55%, transparent 75%);
+  animation: vos-liquid-drift-l 20s ease-in-out infinite;
+}
+.vos-lock-liquid-right {
+  width: 520px;
+  height: 520px;
+  right: -100px;
+  bottom: -60px;
+  background: radial-gradient(circle, rgba(30,100,200,0.32) 0%, rgba(60,20,120,0.16) 50%, transparent 75%);
+  animation: vos-liquid-drift-r 26s ease-in-out infinite;
+}
 
+/* ── Central glow ── */
+.vos-lock-glow {
+  position: absolute;
+  z-index: 0;
+  width: 560px;
+  height: 380px;
+  left: 50%;
+  top: 42%;
+  background: radial-gradient(ellipse, rgba(40,100,220,0.22) 0%, rgba(30,60,160,0.08) 50%, transparent 72%);
+  transform: translate(-50%, -50%);
+  filter: blur(30px);
+  pointer-events: none;
+  animation: vos-glow-pulse 8s ease-in-out infinite;
+}
+
+/* ── Clock: top-center macOS style ── */
+.vos-lock-clock {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  padding-top: 7vh;
+  flex-shrink: 0;
+}
 .vos-lock-clock-time {
-  font-size: 80px;
+  font-size: 86px;
   font-weight: 200;
-  letter-spacing: -2px;
-  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: -3px;
+  color: rgba(255, 255, 255, 0.9);
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 32px rgba(60,120,255,0.3);
 }
-
 .vos-lock-clock-date {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.75);
-  margin-top: 6px;
-  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 8px;
+  letter-spacing: 0.04em;
 }
 
+/* ── Main layout: hero + card stacked vertically ── */
+.vos-lock-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  width: 100%;
+  max-width: 420px;
+  padding: 2vh 16px 8vh;
+}
+
+/* ── Hero: logo + brand copy ── */
+.vos-lock-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.vos-lock-brand-mark {
+  animation: vos-logo-float 5s ease-in-out infinite;
+  filter: drop-shadow(0 0 24px rgba(60,120,255,0.5));
+}
+.vos-lock-brand-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.vos-lock-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: rgba(100,170,255,0.75);
+  text-transform: uppercase;
+  margin: 0;
+}
+.vos-lock-title {
+  font-size: 28px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: -0.5px;
+  margin: 0;
+  text-shadow: 0 1px 20px rgba(60,120,255,0.35);
+}
+.vos-lock-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.5;
+  max-width: 280px;
+  margin: 0;
+}
+
+/* ── Frosted panel card ── */
 .vos-lock-card {
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 36px 40px 32px;
-  background: rgba(30, 30, 40, 0.55);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  gap: 16px;
+  padding: 24px 28px 24px;
+  background: rgba(12, 22, 48, 0.45);
+  backdrop-filter: blur(60px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(60px) saturate(200%) brightness(1.1);
+  border: 0.5px solid rgba(100, 160, 255, 0.15);
   border-radius: 20px;
   box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.5),
-    0 1px 0 rgba(255, 255, 255, 0.08) inset;
-  min-width: 320px;
-  max-width: 380px;
+    0 0 0 0.5px rgba(255,255,255,0.06) inset,
+    0 32px 80px rgba(0, 0, 20, 0.65),
+    0 2px 4px rgba(0,0,0,0.4);
   width: 100%;
 }
 
-.vos-lock-avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
+/* ── Panel head (icon + title row) ── */
+.vos-lock-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.vos-lock-panel-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(60,120,255,0.18);
+  border: 0.5px solid rgba(100,160,255,0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 4px;
+  color: rgba(130,185,255,0.9);
+  flex-shrink: 0;
 }
-
-.vos-lock-avatar-ring {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.vos-lock-title {
-  font-size: 20px;
+.vos-lock-panel-title {
+  font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.92);
-  letter-spacing: -0.3px;
-  text-align: center;
+  color: rgba(255,255,255,0.88);
+  letter-spacing: -0.1px;
+}
+.vos-lock-panel-subtitle {
+  font-size: 12px;
+  color: rgba(255,255,255,0.38);
+  margin-top: 2px;
+  line-height: 1.3;
 }
 
-.vos-lock-subtitle {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
-  text-align: center;
-  margin-top: -6px;
-  line-height: 1.4;
-}
-
+/* ── Form ── */
 .vos-lock-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  margin-top: 4px;
 }
-
 .vos-lock-input-wrap {
   position: relative;
   width: 100%;
 }
-
 .vos-lock-input {
   width: 100%;
-  height: 40px;
+  height: 42px;
   padding: 0 40px 0 14px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 0.5px solid rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.07);
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  border-radius: 11px;
+  color: rgba(255, 255, 255, 0.9);
   font-size: 14px;
   outline: none;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
   -webkit-text-security: disc;
+  box-sizing: border-box;
 }
-
 .vos-lock-input[type="text"] {
   -webkit-text-security: none;
 }
-
 .vos-lock-input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.28);
 }
-
 .vos-lock-input:focus {
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(80, 160, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 3px rgba(60,120,255,0.12);
 }
 
 .vos-lock-show-btn {
   position: absolute;
-  right: 10px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   background: transparent;
   border: none;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.38);
   display: flex;
   align-items: center;
   padding: 0;
   transition: color 0.12s;
 }
-
 .vos-lock-show-btn:hover {
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .vos-lock-error {
   font-size: 12px;
-  color: #ff6b6b;
+  color: rgba(255, 100, 100, 0.9);
   text-align: center;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .vos-lock-btn {
-  height: 40px;
+  height: 42px;
   width: 100%;
   border: none;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.88);
-  color: #1a1a2e;
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(60,120,255,0.85) 0%, rgba(40,90,220,0.9) 100%);
+  color: rgba(255,255,255,0.95);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -1012,22 +1121,19 @@ body,
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition:
-    background 0.15s,
-    transform 0.1s;
+  transition: background 0.18s, transform 0.1s, box-shadow 0.18s;
   margin-top: 2px;
+  box-shadow: 0 4px 20px rgba(40,100,255,0.3), 0 0 0 0.5px rgba(255,255,255,0.1) inset;
 }
-
 .vos-lock-btn:hover:not(:disabled) {
-  background: #fff;
+  background: linear-gradient(135deg, rgba(80,140,255,0.95) 0%, rgba(60,110,240,0.98) 100%);
+  box-shadow: 0 6px 28px rgba(40,100,255,0.45), 0 0 0 0.5px rgba(255,255,255,0.15) inset;
 }
-
 .vos-lock-btn:active:not(:disabled) {
   transform: scale(0.98);
 }
-
 .vos-lock-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 

@@ -18,7 +18,7 @@ use ventoos_core::types::ApiResponse;
 use crate::manager::AgentManager;
 use crate::tool::ToolRegistry;
 use crate::types::{
-    AgentConfig, AgentProfile, ChatRequest, ChatResponse, ChatSession, ProviderConfig,
+    AgentConfig, AgentProfile, ChannelConfig, ChatRequest, ChatResponse, ChatSession, ProviderConfig,
     ProviderProbeRequest, ProviderTemplate, StreamEvent, ToolDefinition,
 };
 
@@ -67,6 +67,11 @@ impl AppPlugin for AgentPlugin {
             )
             .route("/api/agent/tools", get(list_tools))
             .route("/api/agent/config", get(get_config).put(update_config))
+            .route("/api/agent/channels", get(list_channels).post(create_channel))
+            .route(
+                "/api/agent/channels/{id}",
+                get(get_channel).put(update_channel).delete(delete_channel),
+            )
             .with_state(self.manager.clone())
     }
 }
@@ -429,4 +434,73 @@ async fn update_config(
 ) -> Json<ApiResponse<serde_json::Value>> {
     mgr.update_config(config).await;
     Json(ApiResponse::ok(serde_json::json!({"updated": true})))
+}
+
+// ─── Channel Handlers ─────────────────────────────────────────────────────
+
+async fn list_channels(
+    State(mgr): State<Arc<AgentManager>>,
+) -> Json<ApiResponse<Vec<ChannelConfig>>> {
+    Json(ApiResponse::ok(mgr.list_channels().await))
+}
+
+async fn get_channel(
+    State(mgr): State<Arc<AgentManager>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match mgr.get_channel(&id).await {
+        Some(channel) => Json(ApiResponse::ok(channel)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Channel not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn create_channel(
+    State(mgr): State<Arc<AgentManager>>,
+    Json(mut channel): Json<ChannelConfig>,
+) -> impl IntoResponse {
+    if channel.id.is_empty() {
+        channel.id = uuid::Uuid::new_v4().to_string();
+    }
+    mgr.add_channel(channel.clone()).await;
+    (StatusCode::CREATED, Json(ApiResponse::ok(channel)))
+}
+
+async fn update_channel(
+    State(mgr): State<Arc<AgentManager>>,
+    Path(id): Path<String>,
+    Json(mut channel): Json<ChannelConfig>,
+) -> impl IntoResponse {
+    channel.id.clone_from(&id);
+    if mgr.update_channel(channel).await {
+        let channel = mgr
+            .get_channel(&id)
+            .await
+            .expect("channel should exist after update");
+        Json(ApiResponse::ok(channel)).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Channel not found")),
+        )
+            .into_response()
+    }
+}
+
+async fn delete_channel(
+    State(mgr): State<Arc<AgentManager>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    if mgr.delete_channel(&id).await {
+        Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response()
+    } else {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::err("Channel not found")),
+        )
+            .into_response()
+    }
 }

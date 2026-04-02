@@ -12,6 +12,7 @@ import type {
   ApiResponse,
   AuthLoginData,
   AuthStatusData,
+  ChannelConfig,
   ChatRequest,
   ChatResponse,
   ChatSession,
@@ -410,7 +411,15 @@ export const apiClient = {
   getSshConfigHosts: () => request<ApiResponse<SshConfigHost[]>>('GET', '/api/ssh/config-hosts'),
   getSshKeyFiles: () => request<ApiResponse<SshKeyFile[]>>('GET', '/api/ssh/key-files'),
   getSshConfigAliases: () => request<ApiResponse<string[]>>('GET', '/api/ssh/config-aliases'),
+  // ── Agent Channels ──────────────────────────────────────────────────────────────
 
+  agentListChannels: () => request<ApiResponse<ChannelConfig[]>>('GET', '/api/agent/channels'),
+  agentGetChannel: (id: string) => request<ApiResponse<ChannelConfig>>('GET', `/api/agent/channels/${id}`),
+  agentCreateChannel: (channel: Omit<ChannelConfig, 'id'> & { id?: string }) =>
+    request<ApiResponse<ChannelConfig>>('POST', '/api/agent/channels', channel),
+  agentUpdateChannel: (id: string, channel: Partial<ChannelConfig>) =>
+    request<ApiResponse<ChannelConfig>>('PUT', `/api/agent/channels/${id}`, { ...channel, id }),
+  agentDeleteChannel: (id: string) => request<ApiResponse<{ deleted: boolean }>>('DELETE', `/api/agent/channels/${id}`),
   // ── Local Filesystem Browse (system capability) ───────────────────────────
 
   browseLocalFs: (path?: string, dirsOnly?: boolean) => {

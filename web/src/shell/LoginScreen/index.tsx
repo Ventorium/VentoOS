@@ -88,6 +88,8 @@ export default function LoginScreen() {
       <div className="vos-lock-liquid vos-lock-liquid-right" />
       <div className="vos-lock-glow" />
 
+      <LockClock />
+
       <div className="vos-lock-main">
         <motion.section
           className="vos-lock-hero"
@@ -205,8 +207,6 @@ export default function LoginScreen() {
           </form>
         </motion.div>
       </div>
-
-      <LockClock />
     </motion.div>
   )
 }
