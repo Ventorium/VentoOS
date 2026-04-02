@@ -25,7 +25,7 @@ export const explorerManifest: AppManifest = {
   name: 'Explorer',
   version: '1.0.0',
   author: { name: 'VentoOS' },
-  description: 'Browse remote filesystems via SSH, SFTP, FTP, SMB, and S3',
+  description: 'Browse remote filesystems via SSH, SFTP, FTP, SMB, WebDAV and S3',
   icon: React.createElement(ExplorerIcon),
   multiWindow: true,
   defaultSize: { width: 1000, height: 680 },

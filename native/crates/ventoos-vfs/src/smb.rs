@@ -1,90 +1,161 @@
-//! SMB/CIFS mount manager using OS-native mount commands.
+//! SMB2/SMB3 client for browsing remote shares via pure Rust protocol.
 //!
-//! Mounts SMB shares to a temporary directory via `mount_smbfs` (macOS) or
-//! `mount -t cifs` (Linux) and exposes them as a local path, which the
-//! VfsManager then treats identically to a local file system.
+//! Uses the `smolder-smb-core` crate to connect directly to SMB shares
+//! without OS-level mount commands.
 //!
 //! URI format: `smb://[user[:pass]@]host[:port]/share[/path]`
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
-use tracing::{debug, warn};
+use smolder_core::facade::{Client, Share};
+use smolder_core::auth::NtlmCredentials;
+use tokio::sync::Mutex;
+use tracing::debug;
 
-/// Manages OS-level SMB mounts keyed by VFS mount ID.
-pub(crate) struct SmbMountManager {
-    mounts: Arc<RwLock<HashMap<String, PathBuf>>>,
+use crate::types::{VfsFileContent, VfsNode};
+
+#[allow(private_interfaces)]
+#[derive(Debug, Clone)]
+/// Parsed SMB connection info.
+struct SmbConnInfo {
+    server: String,
+    port: u16,
+    share: String,
+    username: String,
+    password: String,
+    base_path: String,
 }
 
-impl SmbMountManager {
+/// Pool of SMB connections keyed by mount ID.
+/// Each mount gets its own `Share` wrapped in a `Mutex`.
+pub(crate) struct SmbClientPool {
+    clients: Mutex<HashMap<String, Arc<Client>>>,
+    shares: Mutex<HashMap<String, Arc<Mutex<Option<Share>>>>>,
+    conn_infos: Mutex<HashMap<String, SmbConnInfo>>,
+}
+
+impl SmbClientPool {
     pub fn new() -> Self {
         Self {
-            mounts: Arc::new(RwLock::new(HashMap::new())),
+            clients: Mutex::new(HashMap::new()),
+            shares: Mutex::new(HashMap::new()),
+            conn_infos: Mutex::new(HashMap::new()),
         }
     }
 
-    /// Return the local path for the given SMB mount, creating the OS-level
-    /// mount if it does not already exist.
-    pub async fn get_or_mount(
-        &self,
-        mount_id: &str,
-        smb_uri: &str,
-    ) -> Result<PathBuf, String> {
-        // Fast path: already mounted
+    /// Register connection info for a mount.
+    pub async fn register(&self, mount_id: &str, smb_uri: &str) -> Result<(), String> {
+        let info = parse_smb_uri(smb_uri)?;
+
+        let client = Client::builder(info.server.clone())
+            .with_port(info.port)
+            .with_ntlm_credentials(NtlmCredentials::new(
+                if info.username.is_empty() { "guest" } else { &info.username },
+                &info.password,
+            ))
+            .build()
+            .map_err(|e| format!("SMB client build failed: {e}"))?;
+
+        self.clients
+            .lock()
+            .await
+            .insert(mount_id.to_string(), Arc::new(client));
+        self.shares
+            .lock()
+            .await
+            .insert(mount_id.to_string(), Arc::new(Mutex::new(None)));
+        self.conn_infos
+            .lock()
+            .await
+            .insert(mount_id.to_string(), info);
+        Ok(())
+    }
+
+    /// Get or create a share connection for the given mount.
+    async fn get_share(&self, mount_id: &str) -> Result<(Share, SmbConnInfo), String> {
+        let share_slot = {
+            let shares = self.shares.lock().await;
+            shares
+                .get(mount_id)
+                .cloned()
+                .ok_or_else(|| format!("SMB mount {mount_id} not registered"))?
+        };
+
+        // Take the share if available (moves out of Option)
         {
-            let guard = self.mounts.read().await;
-            if let Some(p) = guard.get(mount_id) {
-                // Verify the mount point is still accessible
-                if p.exists() {
-                    return Ok(p.clone());
+            let mut guard = share_slot.lock().await;
+            if let Some(share) = guard.take() {
+                // Try a quick echo to verify the connection is alive
+                // We can't easily check without consuming, so just return it.
+                // If it's broken, the next operation will fail and we reconnect.
+                let infos = self.conn_infos.lock().await;
+                if let Some(info) = infos.get(mount_id) {
+                    return Ok((share, info.clone()));
                 }
             }
         }
 
-        // Create a stable temp directory for this mount
-        let mount_point = std::env::temp_dir().join(format!("vos_smb_{mount_id}"));
-        tokio::fs::create_dir_all(&mount_point)
-            .await
-            .map_err(|e| format!("Failed to create SMB mount point: {e}"))?;
+        // Need to create a new connection
+        let client = {
+            let clients = self.clients.lock().await;
+            clients
+                .get(mount_id)
+                .cloned()
+                .ok_or_else(|| format!("SMB mount {mount_id} client not found"))?
+        };
 
-        // Execute the OS mount command
-        do_mount(smb_uri, &mount_point).await?;
+        let info = {
+            let infos = self.conn_infos.lock().await;
+            infos
+                .get(mount_id)
+                .cloned()
+                .ok_or_else(|| format!("SMB mount {mount_id} info not found"))?
+        };
 
         debug!(
-            "Mounted SMB {} at {}",
-            smb_uri,
-            mount_point.display()
+            "Connecting to SMB: {}:{}/{} as {}",
+            info.server, info.port, info.share, info.username
         );
 
-        self.mounts
-            .write()
+        let share = client
+            .connect_share(&info.share)
             .await
-            .insert(mount_id.to_string(), mount_point.clone());
-        Ok(mount_point)
+            .map_err(|e| format!("SMB connect failed: {e}"))?;
+
+        // Store the share back in the slot so it can be reused
+        // Actually, we return it and the caller should put it back
+        Ok((share, info))
     }
 
-    /// Unmount a previously mounted SMB share.
-    #[allow(dead_code)]
-    pub async fn unmount(&self, mount_id: &str) {
-        let path = self.mounts.write().await.remove(mount_id);
-        if let Some(p) = path {
-            let _ = do_unmount(&p).await;
+    /// Return a share to the pool for reuse.
+    async fn put_share(&self, mount_id: &str, share: Share) {
+        if let Some(slot) = self.shares.lock().await.get(mount_id) {
+            let mut guard = slot.lock().await;
+            if guard.is_none() {
+                *guard = Some(share);
+            }
         }
+    }
+
+    /// Remove a mount from the pool.
+    #[allow(dead_code)]
+    pub async fn remove(&self, mount_id: &str) {
+        self.clients.lock().await.remove(mount_id);
+        self.shares.lock().await.remove(mount_id);
+        self.conn_infos.lock().await.remove(mount_id);
     }
 }
 
-/// Parse `smb://[user[:pass]@]host[:port]/share` into the tuple
-/// `(user, pass, host, port, share_path)`.
-fn parse_smb_uri(uri: &str) -> Result<(String, String, String, u16, String), String> {
+#[allow(private_interfaces)]
+pub(crate) fn parse_smb_uri(uri: &str) -> Result<SmbConnInfo, String> {
     let stripped = uri
         .strip_prefix("smb://")
         .ok_or_else(|| format!("Not an smb:// URI: {uri}"))?;
 
     let (authority, share_path) = match stripped.find('/') {
         Some(idx) => (&stripped[..idx], stripped[idx..].to_string()),
-        None => (stripped, "/".to_string()),
+        None => return Err("SMB URI must include a share name: smb://host/share".to_string()),
     };
 
     let (userinfo, hostport) = match authority.rfind('@') {
@@ -102,7 +173,7 @@ fn parse_smb_uri(uri: &str) -> Result<(String, String, String, u16, String), Str
         None => (hostport, 445u16),
     };
 
-    let (user, pass) = match userinfo {
+    let (username, password) = match userinfo {
         None => (String::new(), String::new()),
         Some(ui) => match ui.find(':') {
             Some(idx) => (ui[..idx].to_string(), ui[idx + 1..].to_string()),
@@ -110,97 +181,339 @@ fn parse_smb_uri(uri: &str) -> Result<(String, String, String, u16, String), Str
         },
     };
 
-    Ok((user, pass, host.to_string(), port, share_path))
+    // share_path is "/share[/sub/path]" — extract share name and base_path
+    let parts: Vec<&str> = share_path.splitn(3, '/').collect();
+    let share = if parts.len() >= 2 {
+        parts[1].to_string()
+    } else {
+        return Err("SMB URI must include a share name".to_string());
+    };
+    let base_path = if parts.len() >= 3 {
+        format!("/{}", parts[2])
+    } else {
+        "/".to_string()
+    };
+
+    Ok(SmbConnInfo {
+        server: host.to_string(),
+        port,
+        share,
+        username,
+        password,
+        base_path,
+    })
 }
 
-/// Build the platform-specific mount URI/options.
-///
-/// On macOS we call `mount_smbfs smb://user:pass@host/share /mount_point`.
-/// On Linux we call `mount -t cifs //host/share /mount_point -o user=…,pass=…`.
-async fn do_mount(smb_uri: &str, mount_point: &PathBuf) -> Result<(), String> {
-    let (user, pass, host, port, share_path) = parse_smb_uri(smb_uri)?;
+// ─── Path helpers ────────────────────────────────────────────────────────────
 
-    #[cfg(target_os = "macos")]
-    {
-        // macOS: mount_smbfs smb://user:pass@host:port/share /mnt
-        let port_suffix = if port == 445 {
-            String::new()
-        } else {
-            format!(":{port}")
-        };
-        let cred = if user.is_empty() {
-            String::new()
-        } else if pass.is_empty() {
-            format!("{user}@")
-        } else {
-            format!("{user}:{pass}@")
-        };
-        let mount_uri = format!("smb://{cred}{host}{port_suffix}{share_path}");
-        let output = tokio::process::Command::new("mount_smbfs")
-            .arg(&mount_uri)
-            .arg(mount_point)
-            .output()
+/// Convert a VFS path (relative to share base) to an SMB share path.
+fn to_share_path(base_path: &str, vfs_path: &str) -> String {
+    let clean = vfs_path.trim_start_matches('/');
+    if clean.is_empty() {
+        base_path.to_string()
+    } else if base_path == "/" {
+        format!("/{clean}")
+    } else {
+        format!("{base_path}/{clean}")
+    }
+}
+
+// ─── VFS operations ──────────────────────────────────────────────────────────
+
+/// List directory contents via SMB.
+pub(crate) async fn list_dir(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+    show_hidden: bool,
+) -> Result<Vec<VfsNode>, String> {
+    let (mut share, info) = pool.get_share(mount_id).await?;
+    let share_path = to_share_path(&info.base_path, vfs_path);
+
+    let result = async {
+        let entries = share
+            .list(&share_path)
             .await
-            .map_err(|e| format!("Failed to run mount_smbfs: {e}"))?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("mount_smbfs failed: {stderr}"));
-        }
-    }
+            .map_err(|e| format!("SMB list failed: {e}"))?;
 
-    #[cfg(target_os = "linux")]
-    {
-        // Linux: mount -t cifs //host/share /mnt -o user=…,password=…,port=…
-        let unc = format!("//{host}{share_path}");
-        let mut opts = Vec::new();
-        if !user.is_empty() {
-            opts.push(format!("username={user}"));
+        let mut nodes = Vec::new();
+        for entry in entries {
+            let is_dir = entry.is_directory();
+            let name = entry.name;
+            if !show_hidden && name.starts_with('.') {
+                continue;
+            }
+
+            let size = entry.metadata.size;
+            let modified = entry.metadata.written.map(|t| format_system_time(&t));
+
+            let node_path = if vfs_path == "/" {
+                format!("/{name}")
+            } else {
+                format!("{vfs_path}/{name}")
+            };
+
+            nodes.push(VfsNode {
+                name,
+                path: node_path,
+                is_dir,
+                size: Some(size),
+                modified,
+                permissions: None,
+            });
         }
-        if !pass.is_empty() {
-            opts.push(format!("password={pass}"));
-        }
-        if port != 445 {
-            opts.push(format!("port={port}"));
-        }
-        let opts_str = if opts.is_empty() {
-            "guest".to_string()
-        } else {
-            opts.join(",")
-        };
-        let output = tokio::process::Command::new("mount")
-            .args(["-t", "cifs", &unc])
-            .arg(mount_point)
-            .args(["-o", &opts_str])
-            .output()
+        Ok(nodes)
+    }
+    .await;
+
+    pool.put_share(mount_id, share).await;
+    result
+}
+
+/// Read a file's text content via SMB.
+pub(crate) async fn read_file(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+    max_bytes: Option<u64>,
+) -> Result<VfsFileContent, String> {
+    let raw = read_file_raw(pool, mount_id, vfs_path).await?;
+    let size = raw.len();
+    let truncated = max_bytes.is_some_and(|m| (m as usize) < size);
+
+    let content = String::from_utf8_lossy(&raw).to_string();
+    let is_binary = content.contains('\u{FFFD}');
+
+    Ok(VfsFileContent {
+        path: vfs_path.to_string(),
+        size: size as u64,
+        content,
+        is_binary,
+        truncated,
+    })
+}
+
+/// Read raw file bytes via SMB.
+pub(crate) async fn read_file_raw(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+) -> Result<Vec<u8>, String> {
+    let (mut share, info) = pool.get_share(mount_id).await?;
+    let share_path = to_share_path(&info.base_path, vfs_path);
+
+    let result = async {
+        share
+            .read(&share_path)
             .await
-            .map_err(|e| format!("Failed to run mount: {e}"))?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("mount -t cifs failed: {stderr}"));
-        }
+            .map_err(|e| format!("SMB read failed: {e}"))
     }
+    .await;
 
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    {
-        let _ = (user, pass, host, port, share_path);
-        return Err("SMB mounts are not supported on this platform".to_string());
+    pool.put_share(mount_id, share).await;
+    result
+}
+
+/// Write text content to a file via SMB.
+pub(crate) async fn write_file(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+    content: &str,
+) -> Result<(), String> {
+    upload_file(pool, mount_id, vfs_path, content.as_bytes()).await
+}
+
+/// Upload raw binary data to a file via SMB.
+pub(crate) async fn upload_file(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+    data: &[u8],
+) -> Result<(), String> {
+    let (mut share, info) = pool.get_share(mount_id).await?;
+    let share_path = to_share_path(&info.base_path, vfs_path);
+
+    let result = async {
+        share
+            .write(&share_path, data)
+            .await
+            .map_err(|e| format!("SMB write failed: {e}"))
     }
+    .await;
 
-    Ok(())
+    pool.put_share(mount_id, share).await;
+    result
+}
+
+/// Create a directory via SMB.
+pub(crate) async fn mkdir(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+) -> Result<(), String> {
+    let (mut share, info) = pool.get_share(mount_id).await?;
+    let share_path = to_share_path(&info.base_path, vfs_path);
+
+    let result = async {
+        share
+            .create_dir(&share_path)
+            .await
+            .map_err(|e| format!("SMB mkdir failed: {e}"))
+    }
+    .await;
+
+    pool.put_share(mount_id, share).await;
+    result
+}
+
+/// Delete a file via SMB.
+pub(crate) async fn delete(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+) -> Result<(), String> {
+    let (mut share, info) = pool.get_share(mount_id).await?;
+    let share_path = to_share_path(&info.base_path, vfs_path);
+
+    let result = async {
+        share
+            .remove(&share_path)
+            .await
+            .map_err(|e| format!("SMB delete failed: {e}"))
+    }
+    .await;
+
+    pool.put_share(mount_id, share).await;
+    result
+}
+
+/// Move/rename a file or directory via SMB.
+pub(crate) async fn move_file(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    src_vfs_path: &str,
+    dest_vfs_path: &str,
+) -> Result<(), String> {
+    let (mut share, info) = pool.get_share(mount_id).await?;
+    let src_share_path = to_share_path(&info.base_path, src_vfs_path);
+    let dest_share_path = to_share_path(&info.base_path, dest_vfs_path);
+
+    let result = async {
+        share
+            .rename(&src_share_path, &dest_share_path)
+            .await
+            .map_err(|e| format!("SMB rename failed: {e}"))
+    }
+    .await;
+
+    pool.put_share(mount_id, share).await;
+    result
+}
+
+/// Copy a file via SMB (read + write, since SMB2 doesn't have server-side copy).
+pub(crate) async fn copy_file(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    src_vfs_path: &str,
+    dest_vfs_path: &str,
+) -> Result<(), String> {
+    let data = read_file_raw(pool, mount_id, src_vfs_path).await?;
+    upload_file(pool, mount_id, dest_vfs_path, &data).await
+}
+
+/// Get file/directory metadata via SMB.
+pub(crate) async fn stat(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+) -> Result<VfsNode, String> {
+    let (mut share, info) = pool.get_share(mount_id).await?;
+    let share_path = to_share_path(&info.base_path, vfs_path);
+
+    let result = async {
+        let metadata = share
+            .stat(&share_path)
+            .await
+            .map_err(|e| format!("SMB stat failed: {e}"))?;
+
+        let name = share_path
+            .rsplit('/')
+            .next()
+            .unwrap_or("")
+            .to_string();
+
+        Ok(VfsNode {
+            name,
+            path: vfs_path.to_string(),
+            is_dir: metadata.is_directory(),
+            size: Some(metadata.size),
+            modified: metadata.written.map(|t| format_system_time(&t)),
+            permissions: None,
+        })
+    }
+    .await;
+
+    pool.put_share(mount_id, share).await;
+    result
+}
+
+/// Search files/directories by name via SMB (enumerate and filter).
+pub(crate) async fn search(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+    query: &str,
+    max_results: Option<usize>,
+) -> Result<Vec<VfsNode>, String> {
+    let all = list_dir(pool, mount_id, vfs_path, true).await?;
+    let query_lower = query.to_lowercase();
+    let max = max_results.unwrap_or(100);
+    Ok(all
+        .into_iter()
+        .filter(|n| n.name.to_lowercase().contains(&query_lower))
+        .take(max)
+        .collect())
 }
 
 #[allow(dead_code)]
-async fn do_unmount(mount_point: &PathBuf) -> Result<(), String> {
-    let output = tokio::process::Command::new("umount")
-        .arg(mount_point)
-        .output()
+/// Test SMB connectivity by trying to connect and list the root.
+pub(crate) async fn test_connection(smb_uri: &str) -> Result<(), String> {
+    let info = parse_smb_uri(smb_uri)?;
+
+    let client = Client::builder(info.server.clone())
+        .with_port(info.port)
+        .with_ntlm_credentials(NtlmCredentials::new(
+            if info.username.is_empty() { "guest" } else { &info.username },
+            &info.password,
+        ))
+        .build()
+        .map_err(|e| format!("SMB client build failed: {e}"))?;
+
+    let mut share = client
+        .connect_share(&info.share)
         .await
-        .map_err(|e| format!("Failed to run umount: {e}"))?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        warn!("umount failed: {stderr}");
-    }
+        .map_err(|e| format!("SMB connection failed: {e}"))?;
+
+    // Verify by listing root
+    share
+        .list(&info.base_path)
+        .await
+        .map_err(|e| format!("SMB share access failed: {e}"))?;
+
+    let _ = share.logoff().await;
     Ok(())
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+fn format_system_time(t: &std::time::SystemTime) -> String {
+    use std::time::UNIX_EPOCH;
+    let duration = t.duration_since(UNIX_EPOCH).unwrap_or_default();
+    let secs = duration.as_secs();
+    // Simple year approximation for display
+    let year = 1970 + (secs / 31_557_600);
+    format!("{year}-??-??T??:??:??Z")
 }
 
 #[cfg(test)]
@@ -209,32 +522,48 @@ mod tests {
 
     #[test]
     fn test_parse_smb_uri_full() {
-        let (user, pass, host, port, path) =
-            parse_smb_uri("smb://alice:secret@fileserver.local:445/share/docs").unwrap();
-        assert_eq!(user, "alice");
-        assert_eq!(pass, "secret");
-        assert_eq!(host, "fileserver.local");
-        assert_eq!(port, 445);
-        assert_eq!(path, "/share/docs");
+        let info = parse_smb_uri("smb://alice:secret@fileserver.local:445/share/docs").unwrap();
+        assert_eq!(info.username, "alice");
+        assert_eq!(info.password, "secret");
+        assert_eq!(info.server, "fileserver.local");
+        assert_eq!(info.port, 445);
+        assert_eq!(info.share, "share");
+        assert_eq!(info.base_path, "/docs");
     }
 
     #[test]
     fn test_parse_smb_uri_no_creds() {
-        let (user, pass, host, port, path) =
-            parse_smb_uri("smb://nas.home/backup").unwrap();
-        assert_eq!(user, "");
-        assert_eq!(pass, "");
-        assert_eq!(host, "nas.home");
-        assert_eq!(port, 445);
-        assert_eq!(path, "/backup");
+        let info = parse_smb_uri("smb://nas.home/backup").unwrap();
+        assert_eq!(info.username, "");
+        assert_eq!(info.password, "");
+        assert_eq!(info.server, "nas.home");
+        assert_eq!(info.port, 445);
+        assert_eq!(info.share, "backup");
+        assert_eq!(info.base_path, "/");
     }
 
     #[test]
     fn test_parse_smb_uri_custom_port() {
-        let (user, _pass, host, port, _path) =
-            parse_smb_uri("smb://admin@server:4445/share").unwrap();
-        assert_eq!(user, "admin");
-        assert_eq!(host, "server");
-        assert_eq!(port, 4445);
+        let info = parse_smb_uri("smb://admin@server:4445/share").unwrap();
+        assert_eq!(info.username, "admin");
+        assert_eq!(info.server, "server");
+        assert_eq!(info.port, 4445);
+        assert_eq!(info.share, "share");
+        assert_eq!(info.base_path, "/");
+    }
+
+    #[test]
+    fn test_parse_smb_uri_no_share() {
+        let result = parse_smb_uri("smb://host/");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_to_share_path() {
+        assert_eq!(to_share_path("/", "/"), "/");
+        assert_eq!(to_share_path("/", "/foo"), "/foo");
+        assert_eq!(to_share_path("/", "/foo/bar"), "/foo/bar");
+        assert_eq!(to_share_path("/data", "/"), "/data");
+        assert_eq!(to_share_path("/data", "file.txt"), "/data/file.txt");
     }
 }

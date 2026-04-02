@@ -31,7 +31,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CreateVfsMountReq, SshConfigHost, SshKeyFile, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
-import { openWindow } from '@/kernel'
+import { closeWindow, openWindow } from '@/kernel'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -628,6 +628,20 @@ function MountForm({
               }}
             >
               {testResult.message}
+              {!testResult.success && (
+                <button
+                  type="button"
+                  className="bg-transparent border-none cursor-pointer ml-2 p-0"
+                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  title="复制错误信息"
+                  onClick={e => {
+                    e.stopPropagation()
+                    navigator.clipboard.writeText(testResult.message).catch(() => {})
+                  }}
+                >
+                  <Copy size={11} />
+                </button>
+              )}
             </div>
           )}
           <div className="flex justify-end gap-2">
@@ -709,10 +723,12 @@ function MountForm({
 
 function WebDavServerPanel({
   mounts,
-  onClose
+  onClose,
+  embedded = false
 }: {
   mounts: { id: string; name: string }[]
   onClose: () => void
+  embedded?: boolean
 }) {
   const [settings, setSettings] = useState<WebDavServerSettings>({
     enabled: false,
@@ -761,6 +777,94 @@ function WebDavServerPanel({
     }
   }
 
+  const content = (
+    <>
+      {loading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 size={16} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+        </div>
+      ) : (
+        <>
+          <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+            <input
+              type="checkbox"
+              checked={settings.enabled}
+              onChange={e => setSettings(s => ({ ...s, enabled: e.target.checked }))}
+            />
+            启用 WebDAV 服务器（通过 /webdav 路径访问）
+          </label>
+
+          {settings.enabled && (
+            <>
+              <div className="flex gap-2">
+                <input
+                  className={fc}
+                  style={{ ...fs, flex: 1 }}
+                  placeholder="访问用户名（留空则无需认证）"
+                  value={settings.username}
+                  onChange={e => setSettings(s => ({ ...s, username: e.target.value }))}
+                />
+                <input
+                  className={fc}
+                  style={{ ...fs, flex: 1 }}
+                  type="password"
+                  placeholder="访问密码"
+                  value={settings.password}
+                  onChange={e => setSettings(s => ({ ...s, password: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <div className="text-xs mb-1.5" style={{ color: 'var(--vos-text-secondary)' }}>
+                  暴露的存储源（勾选后可通过 WebDAV 访问）：
+                </div>
+                <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
+                  {mounts.length === 0 && (
+                    <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>暂无存储源</div>
+                  )}
+                  {mounts.map(m => (
+                    <label key={m.id} className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={settings.exposed_mounts.includes(m.id)}
+                        onChange={() => toggleMount(m.id)}
+                      />
+                      {m.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="flex justify-end gap-2 mt-1">
+            <button
+              type="button"
+              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+              style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+              onClick={onClose}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+              style={{ background: 'var(--vos-accent-primary)', color: '#fff', opacity: saving ? 0.6 : 1 }}
+              onClick={save}
+              disabled={saving}
+            >
+              {saving ? '保存中…' : saved ? '已保存 ✓' : '保存'}
+            </button>
+          </div>
+        </>
+      )}
+    </>
+  )
+
+  if (embedded) {
+    return <>{content}</>
+  }
+
   return (
     <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
       <div
@@ -778,86 +882,7 @@ function WebDavServerPanel({
             <X size={14} />
           </button>
         </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 size={16} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
-          </div>
-        ) : (
-          <>
-            <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
-              <input
-                type="checkbox"
-                checked={settings.enabled}
-                onChange={e => setSettings(s => ({ ...s, enabled: e.target.checked }))}
-              />
-              启用 WebDAV 服务器（通过 /webdav 路径访问）
-            </label>
-
-            {settings.enabled && (
-              <>
-                <div className="flex gap-2">
-                  <input
-                    className={fc}
-                    style={{ ...fs, flex: 1 }}
-                    placeholder="访问用户名（留空则无需认证）"
-                    value={settings.username}
-                    onChange={e => setSettings(s => ({ ...s, username: e.target.value }))}
-                  />
-                  <input
-                    className={fc}
-                    style={{ ...fs, flex: 1 }}
-                    type="password"
-                    placeholder="访问密码"
-                    value={settings.password}
-                    onChange={e => setSettings(s => ({ ...s, password: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <div className="text-xs mb-1.5" style={{ color: 'var(--vos-text-secondary)' }}>
-                    暴露的存储源（勾选后可通过 WebDAV 访问）：
-                  </div>
-                  <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
-                    {mounts.length === 0 && (
-                      <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>暂无存储源</div>
-                    )}
-                    {mounts.map(m => (
-                      <label key={m.id} className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
-                        <input
-                          type="checkbox"
-                          checked={settings.exposed_mounts.includes(m.id)}
-                          onChange={() => toggleMount(m.id)}
-                        />
-                        {m.name}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="flex justify-end gap-2 mt-1">
-              <button
-                type="button"
-                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
-                onClick={onClose}
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-                style={{ background: 'var(--vos-accent-primary)', color: '#fff', opacity: saving ? 0.6 : 1 }}
-                onClick={save}
-                disabled={saving}
-              >
-                {saving ? '保存中…' : saved ? '已保存 ✓' : '保存'}
-              </button>
-            </div>
-          </>
-        )}
+        {content}
       </div>
     </div>
   )
@@ -1221,6 +1246,73 @@ function tryFormatJson(content: string): string {
   } catch {
     return content
   }
+}
+
+// ─── Explorer Settings Dialog ────────────────────────────────────────────────
+
+function ExplorerSettingsDialog({
+  mounts,
+  showHidden,
+  onToggleHidden,
+  onClose
+}: {
+  mounts: { id: string; name: string }[]
+  showHidden: boolean
+  onToggleHidden: () => void
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="absolute inset-0 flex items-center justify-center z-50"
+      style={{ background: 'rgba(0,0,0,0.4)' }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-lg p-4 flex flex-col gap-3"
+        style={{ width: 420, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold" style={{ color: 'var(--vos-text-primary)' }}>设置</span>
+          <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={onClose}>
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Hidden files toggle */}
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs" style={{ color: 'var(--vos-text-primary)' }}>显示隐藏文件</span>
+          <button
+            type="button"
+            className="rounded-full border-none cursor-pointer p-0"
+            style={{
+              width: 36, height: 20, borderRadius: 10,
+              background: showHidden ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)',
+              position: 'relative', transition: 'background 0.2s'
+            }}
+            onClick={onToggleHidden}
+          >
+            <span
+              style={{
+                position: 'absolute', top: 2,
+                left: showHidden ? 18 : 2,
+                width: 16, height: 16, borderRadius: '50%',
+                background: '#fff', transition: 'left 0.2s'
+              }}
+            />
+          </button>
+        </div>
+
+        {/* WebDAV server settings */}
+        <div style={{ borderTop: '0.5px solid var(--vos-border-subtle)', margin: '4px 0' }} />
+        <WebDavServerPanel
+          mounts={mounts}
+          onClose={onClose}
+          embedded
+        />
+      </div>
+    </div>
+  )
 }
 
 function FileInfoPanel({
@@ -1683,16 +1775,15 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
 
 // ─── Main app ──────────────────────────────────────────────────────────────
 
-export default function ExplorerApp(_props: AppComponentProps) {
+export default function ExplorerApp({ windowId }: AppComponentProps) {
   const [mounts, setMounts] = useState<VfsMount[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingMount, setEditingMount] = useState<VfsMount | null>(null)
-  const [showWebDavSettings, setShowWebDavSettings] = useState(false)
+  const [showExplorerSettings, setShowExplorerSettings] = useState(false)
   const [selectedMount, setSelectedMount] = useState<string | null>(null)
   const [columns, setColumns] = useState<ColumnData[]>([])
   const [preview, setPreview] = useState<VfsFileContent | null>(null)
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
-  const [showInfo, setShowInfo] = useState(false)
   const [scrollTrigger, setScrollTrigger] = useState(0)
   const [showHidden, setShowHidden] = useState(true)
   const [showSettingsMenu, setShowSettingsMenu] = useState<{ x: number; y: number } | null>(null)
@@ -1785,11 +1876,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showHidden])
 
-  // Trigger scroll when info panel appears/disappears
-  useEffect(() => {
-    setScrollTrigger(v => v + 1)
-  }, [showInfo])
-
   const loadColumn = async (mountId: string, path: string): Promise<VfsNode[]> => {
     try {
       const r = await apiClient.listVfsDir(mountId, path, showHidden)
@@ -1821,7 +1907,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
     setSelectedMount(id)
     setPreview(null)
     setSelectedNode(null)
-    setShowInfo(false)
     setMultiSelect(new Map())
     setActiveColumn(0)
     // Load root column
@@ -1900,7 +1985,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
       setActiveColumn(colIndex + 1)
     } else {
       setSelectedNode(entry)
-      setShowInfo(true)
       try {
         const r = await apiClient.readVfsFile(selectedMount, entry.path)
         setPreview(r.data)
@@ -2177,7 +2261,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
 
   const handleShowProperties = (entry: VfsNode) => {
     setSelectedNode(entry)
-    setShowInfo(true)
     if (!entry.is_dir && selectedMount) {
       apiClient
         .readVfsFile(selectedMount, entry.path)
@@ -2545,10 +2628,12 @@ export default function ExplorerApp(_props: AppComponentProps) {
         />
       )}
 
-      {showWebDavSettings && (
-        <WebDavServerPanel
+      {showExplorerSettings && (
+        <ExplorerSettingsDialog
           mounts={mounts.map(m => ({ id: m.id, name: m.name }))}
-          onClose={() => setShowWebDavSettings(false)}
+          showHidden={showHidden}
+          onToggleHidden={() => setShowHidden(v => !v)}
+          onClose={() => setShowExplorerSettings(false)}
         />
       )}
 
@@ -2703,15 +2788,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
             <button
               type="button"
               className="bg-transparent border-none cursor-pointer p-0"
-              title="WebDAV 服务器设置"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-              onClick={() => setShowWebDavSettings(true)}
-            >
-              <Globe size={11} />
-            </button>
-            <button
-              type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
               style={{ color: 'var(--vos-accent-primary)' }}
               onClick={() => setShowForm(true)}
             >
@@ -2814,7 +2890,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
                     })
                     setPreview(null)
                     setSelectedNode(null)
-                    setShowInfo(false)
                     setActiveColumn(Math.max(0, activeColumn - 1))
                   }
                 }}
@@ -2841,7 +2916,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
                             setActiveColumn(0)
                             setPreview(null)
                             setSelectedNode(null)
-                            setShowInfo(false)
                           }
                         }}
                       >
@@ -2869,7 +2943,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
                                   setActiveColumn(targetColIdx)
                                   setPreview(null)
                                   setSelectedNode(null)
-                                  setShowInfo(false)
                                 }
                               }}
                             >
@@ -2899,18 +2972,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
               >
                 <RefreshCw size={12} />
               </button>
-              <button
-                type="button"
-                className="bg-transparent border-none cursor-pointer p-0"
-                style={{ color: 'var(--vos-text-tertiary)' }}
-                onClick={e => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  setShowSettingsMenu({ x: rect.right, y: rect.bottom + 2 })
-                }}
-                title="设置"
-              >
-                <Settings size={12} />
-              </button>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
@@ -2935,17 +2996,15 @@ export default function ExplorerApp(_props: AppComponentProps) {
               />
 
               {/* Info / preview panel */}
-              {showInfo && (
-                <FileInfoPanel
-                  mountId={selectedMount}
-                  preview={preview}
-                  node={selectedNode}
-                  onClose={() => {
-                    setShowInfo(false)
-                    setPreview(null)
-                  }}
-                />
-              )}
+              <FileInfoPanel
+                mountId={selectedMount}
+                preview={preview}
+                node={selectedNode}
+                onClose={() => {
+                  setSelectedNode(null)
+                  setPreview(null)
+                }}
+              />
             </div>
           </>
         ) : (
@@ -2963,7 +3022,7 @@ export default function ExplorerApp(_props: AppComponentProps) {
         )}
       </div>
 
-      {/* Settings popup menu */}
+      {/* Explorer app menu */}
       {showSettingsMenu && (
         // biome-ignore lint/a11y/noStaticElementInteractions: click-outside handler for menu
         <div
@@ -2988,9 +3047,6 @@ export default function ExplorerApp(_props: AppComponentProps) {
             }}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ padding: '4px 12px', fontSize: 10, fontWeight: 600, color: 'var(--vos-text-tertiary)', letterSpacing: '0.04em' }}>
-              显示
-            </div>
             <button
               type="button"
               style={{
@@ -2999,12 +3055,12 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 cursor: 'pointer', textAlign: 'left'
               }}
               onClick={() => {
-                setShowHidden(v => !v)
                 setShowSettingsMenu(null)
+                setShowExplorerSettings(true)
               }}
             >
-              {showHidden ? <EyeOff size={14} style={{ opacity: 0.6 }} /> : <Eye size={14} style={{ opacity: 0.6 }} />}
-              {showHidden ? '隐藏隐藏文件' : '显示隐藏文件'}
+              <Settings size={14} style={{ opacity: 0.6 }} />
+              设置
             </button>
             <button
               type="button"
@@ -3014,12 +3070,40 @@ export default function ExplorerApp(_props: AppComponentProps) {
                 cursor: 'pointer', textAlign: 'left'
               }}
               onClick={() => {
-                setShowInfo(v => !v)
                 setShowSettingsMenu(null)
+                openWindow('explorer')
               }}
             >
-              <PanelRight size={14} style={{ opacity: 0.6 }} />
-              {showInfo ? '隐藏预览面板' : '显示预览面板'}
+              新建窗口
+            </button>
+            <div style={{ height: 1, margin: '4px 12px', background: 'var(--vos-border-subtle)' }} />
+            <button
+              type="button"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 12px',
+                fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-text-primary)',
+                cursor: 'pointer', textAlign: 'left'
+              }}
+              onClick={() => {
+                setShowSettingsMenu(null)
+                windowId && closeWindow(windowId)
+              }}
+            >
+              隐藏窗口
+            </button>
+            <button
+              type="button"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 12px',
+                fontSize: 12, background: 'transparent', border: 'none', color: 'var(--vos-accent-danger)',
+                cursor: 'pointer', textAlign: 'left'
+              }}
+              onClick={() => {
+                setShowSettingsMenu(null)
+                windowId && closeWindow(windowId)
+              }}
+            >
+              退出 Explorer
             </button>
           </div>
         </div>

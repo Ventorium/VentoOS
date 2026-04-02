@@ -68,7 +68,7 @@ function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void 
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
             <button
               type="button"
-              className="vos-btn vos-btn-primary"
+              className="vos-btn vos-btn-primary justify-center"
               style={{ minWidth: 80, width: 'auto' }}
               onClick={onClose}
             >
@@ -109,7 +109,7 @@ function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
             © 2025 VentoOS Project
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
-            <button type="button" className="vos-btn vos-btn-primary" style={{ minWidth: 80, width: 'auto' }} onClick={onClose}>
+            <button type="button" className="vos-btn vos-btn-primary" style={{ minWidth: 80 }} onClick={onClose}>
               好
             </button>
           </div>

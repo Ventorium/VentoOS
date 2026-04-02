@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 
 use crate::ftp::FtpPool;
 use crate::sftp::{InlineSftpProvider, SftpPool, SshInfoProvider};
-use crate::smb::SmbMountManager;
+use crate::smb::SmbClientPool;
 use crate::types::{
     CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq,
     VfsMount, VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
@@ -13,13 +13,13 @@ use crate::types::{
 };
 
 /// Virtual file system manager.
-/// Supports local, SFTP, FTP, S3, SMB (OS-native mount), and WebDAV file systems.
+/// Supports local, SFTP, FTP, S3, SMB (pure Rust client), and WebDAV file systems.
 pub struct VfsManager {
     mounts: Arc<RwLock<HashMap<String, VfsMount>>>,
     sftp_pool: SftpPool,
     ssh_provider: Option<Arc<dyn SshInfoProvider>>,
     ftp_pool: FtpPool,
-    smb_manager: SmbMountManager,
+    smb_pool: SmbClientPool,
     webdav_server_settings: Arc<RwLock<WebDavServerSettings>>,
 }
 
@@ -30,7 +30,7 @@ impl VfsManager {
             sftp_pool: SftpPool::new(),
             ssh_provider: None,
             ftp_pool: FtpPool::new(),
-            smb_manager: SmbMountManager::new(),
+            smb_pool: SmbClientPool::new(),
             webdav_server_settings: Arc::new(RwLock::new(WebDavServerSettings::default())),
         }
     }
@@ -42,7 +42,7 @@ impl VfsManager {
             sftp_pool: SftpPool::new(),
             ssh_provider: Some(provider),
             ftp_pool: FtpPool::new(),
-            smb_manager: SmbMountManager::new(),
+            smb_pool: SmbClientPool::new(),
             webdav_server_settings: Arc::new(RwLock::new(WebDavServerSettings::default())),
         }
     }
@@ -139,14 +139,23 @@ impl VfsManager {
 
     pub async fn create_mount(&self, req: CreateVfsMountReq) -> VfsMount {
         let id = uuid::Uuid::new_v4().to_string();
+        let root = Self::expand_tilde(&req.root);
         let mount = VfsMount {
             id: id.clone(),
             name: req.name,
             kind: req.kind,
-            root: Self::expand_tilde(&req.root),
+            root: root.clone(),
             connection_id: req.connection_id,
             group: req.group,
         };
+
+        // Register SMB connections in the pool for lazy connect
+        if matches!(mount.kind, VfsSourceKind::Smb) {
+            if let Err(e) = self.smb_pool.register(&id, &root).await {
+                tracing::warn!("SMB pool register failed: {e}");
+            }
+        }
+
         self.mounts.write().await.insert(id, mount.clone());
         mount
     }
@@ -163,17 +172,27 @@ impl VfsManager {
     }
 
     pub async fn delete_mount(&self, id: &str) -> bool {
+        self.smb_pool.remove(id).await;
         self.mounts.write().await.remove(id).is_some()
     }
 
     pub async fn update_mount(&self, id: &str, req: CreateVfsMountReq) -> Option<VfsMount> {
+        let root = Self::expand_tilde(&req.root);
+        self.smb_pool.remove(id).await;
         let mut mounts = self.mounts.write().await;
         if let Some(mount) = mounts.get_mut(id) {
             mount.name = req.name;
             mount.kind = req.kind;
-            mount.root = Self::expand_tilde(&req.root);
+            mount.root = root.clone();
             mount.connection_id = req.connection_id;
             mount.group = req.group;
+
+            if matches!(mount.kind, VfsSourceKind::Smb) {
+                if let Err(e) = self.smb_pool.register(id, &root).await {
+                    tracing::warn!("SMB pool register failed: {e}");
+                }
+            }
+
             Some(mount.clone())
         } else {
             None
@@ -238,10 +257,7 @@ impl VfsManager {
                 client.list_dir(&req.path).await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.list_local_dir(&root_str, &req.path, req.show_hidden).await
+                crate::smb::list_dir(&self.smb_pool, &mount.id, &req.path, req.show_hidden).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -356,10 +372,7 @@ impl VfsManager {
                 Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.read_local_file(&root_str, &req.path, req.max_bytes).await
+                crate::smb::read_file(&self.smb_pool, &mount.id, &req.path, req.max_bytes).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -405,10 +418,7 @@ impl VfsManager {
                 client.delete_object(&req.src).await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.move_local(&root_str, &req.src, &req.dest).await
+                crate::smb::move_file(&self.smb_pool, &mount.id, &req.src, &req.dest).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -454,10 +464,7 @@ impl VfsManager {
                 client.copy_object(&req.src, &req.dest).await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.copy_local(&root_str, &req.src, &req.dest).await
+                crate::smb::copy_file(&self.smb_pool, &mount.id, &req.src, &req.dest).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -496,10 +503,7 @@ impl VfsManager {
                 client.put_object(&dir_key, &[]).await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.mkdir_local(&root_str, &req.path).await
+                crate::smb::mkdir(&self.smb_pool, &mount.id, &req.path).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -540,10 +544,7 @@ impl VfsManager {
                 client.delete_object(&req.path).await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.delete_local(&root_str, &req.path).await
+                crate::smb::delete(&self.smb_pool, &mount.id, &req.path).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -585,10 +586,7 @@ impl VfsManager {
                 client.put_object(&req.path, req.content.as_bytes()).await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.write_local_file(&root_str, &req.path, &req.content).await
+                crate::smb::write_file(&self.smb_pool, &mount.id, &req.path, &req.content).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -630,10 +628,7 @@ impl VfsManager {
                 client.put_object(path, &data).await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.upload_local_file(&root_str, path, &data).await
+                crate::smb::upload_file(&self.smb_pool, &mount.id, path, &data).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -670,10 +665,7 @@ impl VfsManager {
                 client.stat(path).await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.stat_local(&root_str, path).await
+                crate::smb::stat(&self.smb_pool, &mount.id, path).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
@@ -722,11 +714,14 @@ impl VfsManager {
                     .await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.search_local(&root_str, &req.path, &req.query, req.max_results)
-                    .await
+                crate::smb::search(
+                    &self.smb_pool,
+                    &mount.id,
+                    &req.path,
+                    &req.query,
+                    req.max_results,
+                )
+                .await
             }
             VfsSourceKind::WebDav => {
                 // WebDAV has no native search; enumerate and filter by name
@@ -857,10 +852,7 @@ impl VfsManager {
                 client.get_object(path).await
             }
             VfsSourceKind::Smb => {
-                let local_root =
-                    self.smb_manager.get_or_mount(&mount.id, &mount.root).await?;
-                let root_str = local_root.to_string_lossy().to_string();
-                self.read_local_file_raw(&root_str, path).await
+                crate::smb::read_file_raw(&self.smb_pool, &mount.id, path).await
             }
             VfsSourceKind::WebDav => {
                 let client = crate::webdav::WebDavClient::new(
