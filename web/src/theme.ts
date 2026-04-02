@@ -58,10 +58,10 @@ export const tokens = {
   },
   dock: {
     height: 68,
-    iconSize: 48,
+    iconSize: 40,
     hoveredIconSize: 64,
     margin: 8,
-    gap: 10
+    gap: 16
   },
   window: {
     titleBarHeight: 38,

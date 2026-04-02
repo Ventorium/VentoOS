@@ -112,12 +112,12 @@ function DockIcon({
 }
 
 /* ---- Dock Separator ---- */
-function DockSeparator({ iconSize }: { iconSize: number }) {
+function DockSeparator({ iconSize, isHorizontal }: { iconSize: number, isHorizontal: boolean }) {
   return (
     <div
       style={{
-        width: 1,
-        height: iconSize * 0.6,
+        width: isHorizontal ? 1 : iconSize * 0.6,
+        height: isHorizontal ? iconSize * 0.6 : 1,
         background: 'var(--vos-border-default)',
         margin: `0 ${gap}px`,
         alignSelf: 'center'
@@ -252,7 +252,7 @@ export default function Dock() {
     alignItems: isHorizontal ? 'flex-end' : 'center',
     flexDirection: isHorizontal ? 'row' : 'column',
     gap: gap,
-    padding: '4px 8px',
+    padding: '8px',
     background: 'var(--vos-bg-dock)',
     backdropFilter: 'blur(24px) saturate(180%)',
     WebkitBackdropFilter: 'blur(24px) saturate(180%)',
@@ -298,7 +298,7 @@ export default function Dock() {
             />
           ))}
 
-          {apps.length > 0 && <DockSeparator iconSize={iconSize} />}
+          {apps.length > 0 && <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />}
 
           {/* Launchpad */}
           <DockIcon
