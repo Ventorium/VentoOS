@@ -1,5 +1,54 @@
 use serde::{Deserialize, Serialize};
 
+// ── Connection mode ─────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RedisMode {
+    #[default]
+    Standalone,
+    Sentinel,
+    Cluster,
+}
+
+/// TLS configuration for Redis connections.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RedisTlsConfig {
+    pub enabled: bool,
+    pub ca_cert: Option<String>,
+    pub client_cert: Option<String>,
+    pub client_key: Option<String>,
+    pub skip_verify: Option<bool>,
+}
+
+/// Sentinel-specific configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SentinelConfig {
+    pub sentinels: Vec<SentinelNode>,
+    pub master_name: String,
+    pub sentinel_password: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SentinelNode {
+    pub host: String,
+    pub port: u16,
+}
+
+/// Cluster-specific configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterConfig {
+    pub nodes: Vec<ClusterNode>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterNode {
+    pub host: String,
+    pub port: u16,
+}
+
+// ── Connection config ───────────────────────────────────────
+
 /// Redis connection config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RedisConnectionConfig {
@@ -12,6 +61,11 @@ pub struct RedisConnectionConfig {
     pub db: u8,
     pub group: Option<String>,
     pub ssl_enabled: bool,
+    #[serde(default)]
+    pub mode: RedisMode,
+    pub tls: Option<RedisTlsConfig>,
+    pub sentinel: Option<SentinelConfig>,
+    pub cluster: Option<ClusterConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,7 +78,13 @@ pub struct CreateRedisConnectionReq {
     pub db: Option<u8>,
     pub group: Option<String>,
     pub ssl_enabled: Option<bool>,
+    pub mode: Option<RedisMode>,
+    pub tls: Option<RedisTlsConfig>,
+    pub sentinel: Option<SentinelConfig>,
+    pub cluster: Option<ClusterConfig>,
 }
+
+// ── Key types ───────────────────────────────────────────────
 
 /// Key info returned by SCAN.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,9 +144,103 @@ pub struct RedisScanResult {
     pub finished: bool,
 }
 
+// ── Pub/Sub ─────────────────────────────────────────────────
+
 /// Pub/Sub message received from a Redis subscription.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PubSubMessage {
     pub channel: String,
     pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublishRequest {
+    pub channel: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscribeRequest {
+    pub channels: Vec<String>,
+}
+
+// ── Stream types ────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamEntry {
+    pub id: String,
+    pub fields: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamAddRequest {
+    pub fields: Vec<(String, String)>,
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamRangeRequest {
+    pub start: Option<String>,
+    pub end: Option<String>,
+    pub count: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamGroupCreateRequest {
+    pub group_name: String,
+    pub start_id: Option<String>,
+}
+
+// ── Batch operations ────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchDeleteRequest {
+    pub pattern: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchTtlRequest {
+    pub pattern: String,
+    pub ttl: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchExportRequest {
+    pub pattern: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchResult {
+    pub affected: i64,
+    pub keys: Vec<String>,
+}
+
+// ── Stats / INFO ────────────────────────────────────────────
+
+/// Structured Redis INFO output.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RedisInfoParsed {
+    pub sections: std::collections::HashMap<String, std::collections::HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryUsageResult {
+    pub key: String,
+    pub bytes: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryStatsResult {
+    pub stats: serde_json::Value,
+}
+
+// ── MONITOR ─────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MonitorEntry {
+    pub timestamp: f64,
+    pub client: String,
+    pub command: String,
+    pub args: Vec<String>,
+    pub raw: String,
 }

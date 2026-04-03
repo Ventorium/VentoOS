@@ -14,6 +14,8 @@ export interface AppComponentProps {
   windowId: string
   /** The backend process ID (assigned by Rust ProcessManager) */
   processId: number
+  /** Application state restored from persistence (if any) */
+  initialAppState?: Record<string, unknown>
 }
 
 // ─── Permissions ───────────────────────────────────────────────────────────

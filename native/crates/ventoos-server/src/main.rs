@@ -1,11 +1,3 @@
-mod auth;
-mod process_manager;
-mod routes;
-mod shell;
-mod ssh_manager;
-mod state;
-mod websocket;
-
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
@@ -15,7 +7,8 @@ use tower_http::trace::TraceLayer;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::state::AppState;
+use ventoos_server::routes;
+use ventoos_server::state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<()> {

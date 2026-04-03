@@ -62,6 +62,9 @@ impl ToolRegistry {
         for tool in builtin_tools() {
             registry.register(tool);
         }
+        for tool in crate::tools::platform_tools() {
+            registry.register(tool);
+        }
         registry
     }
 
@@ -211,11 +214,18 @@ mod tests {
     #[test]
     fn test_registry_with_builtins() {
         let registry = ToolRegistry::with_builtins();
-        assert_eq!(registry.list().len(), 4);
+        // 4 built-in + platform tools
+        assert!(registry.list().len() >= 4);
         assert!(registry.get("read").is_some());
         assert!(registry.get("write").is_some());
         assert!(registry.get("edit").is_some());
         assert!(registry.get("bash").is_some());
+        // Platform tools should also be registered
+        assert!(registry.get("k8s_list_clusters").is_some());
+        assert!(registry.get("db_list_connections").is_some());
+        assert!(registry.get("redis_list_connections").is_some());
+        assert!(registry.get("vfs_list_mounts").is_some());
+        assert!(registry.get("system_notify").is_some());
         assert!(registry.get("nonexistent").is_none());
     }
 

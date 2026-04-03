@@ -28,7 +28,7 @@ export default function WindowManager() {
           return (
             <Window key={win.id} win={win}>
               {AppComponent ? (
-                <AppComponent windowId={win.id} processId={win.processId ?? 0} />
+                <AppComponent windowId={win.id} processId={win.processId ?? 0} initialAppState={win.appState} />
               ) : (
                 <div
                   style={{

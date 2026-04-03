@@ -7,14 +7,20 @@
  * - Bounce animation on launch
  * - Launchpad launcher button
  * - Tooltip on hover
+ * - Icon badges (active window/connection count)
+ * - Minimized window thumbnails section
+ * - AI status animated icon
  */
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
-import { Grid3X3 } from 'lucide-react'
+import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { Grid3X3, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type AppManifest, closeWindow, focusWindow, openWindow, restoreWindow, useAppStore, useWindowStore } from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
+import { useAISidePanelStore } from '@/shell/AISidePanel/store'
+import { useDockPositionStore } from './dockPositionStore'
+import { type AIStatus, useAIStatusStore } from './aiStatusStore'
 import { tokens } from '@/theme'
 
 const { gap } = tokens.dock
@@ -26,6 +32,8 @@ function DockIcon({
   label,
   icon,
   isRunning,
+  badge,
+  appId,
   onClick,
   onContextMenu,
   mouseX,
@@ -36,6 +44,8 @@ function DockIcon({
   label: string
   icon: React.ReactNode
   isRunning?: boolean
+  badge?: number
+  appId?: string
   onClick: () => void
   onContextMenu?: (e: React.MouseEvent) => void
   mouseX: ReturnType<typeof useMotionValue<number>>
@@ -46,6 +56,21 @@ function DockIcon({
   const ref = useRef<HTMLButtonElement>(null)
   const [hovered, setHovered] = useState(false)
   const [bouncing, setBouncing] = useState(false)
+  const registerIconRect = useDockPositionStore(s => s.registerIconRect)
+
+  // Register position for minimize animation target
+  useEffect(() => {
+    if (!appId || !ref.current) return
+    const updateRect = () => {
+      if (!ref.current) return
+      const r = ref.current.getBoundingClientRect()
+      registerIconRect(appId, { x: r.x, y: r.y, width: r.width, height: r.height })
+    }
+    updateRect()
+    // Re-register on resize
+    window.addEventListener('resize', updateRect)
+    return () => window.removeEventListener('resize', updateRect)
+  }, [appId, registerIconRect])
 
   const distance = useTransform(mouseX, val => {
     if (!ref.current) return 999
@@ -113,6 +138,40 @@ function DockIcon({
 
       {/* Running indicator */}
       {isRunning && <div className={`vos-dock-dot ${!isHorizontal ? 'vos-dock-dot-left' : ''}`} />}
+
+      {/* Badge */}
+      {badge != null && badge > 0 && (
+        <AnimatePresence>
+          <motion.div
+            key={badge}
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+            style={{
+              position: 'absolute',
+              top: -4,
+              right: -4,
+              minWidth: 18,
+              height: 18,
+              borderRadius: 9,
+              background: 'var(--vos-accent-danger, #ff3b30)',
+              color: '#fff',
+              fontSize: 10,
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4px',
+              lineHeight: 1,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              pointerEvents: 'none',
+            }}
+          >
+            {badge > 99 ? '99+' : badge}
+          </motion.div>
+        </AnimatePresence>
+      )}
     </div>
   )
 }
@@ -132,16 +191,102 @@ function DockSeparator({ iconSize, isHorizontal }: { iconSize: number, isHorizon
   )
 }
 
+/* ---- AI Status Icon ---- */
+function AIStatusIcon({ size }: { size: number }) {
+  const status = useAIStatusStore(s => s.status)
+
+  const iconStyle: React.CSSProperties = {
+    width: size * 0.5,
+    height: size * 0.5,
+  }
+
+  const animationClass = {
+    idle: '',
+    thinking: 'vos-ai-pulse',
+    executing: 'vos-ai-spin',
+    error: 'vos-ai-error-blink',
+  }[status]
+
+  return (
+    <div className={animationClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Sparkles
+        style={{
+          ...iconStyle,
+          color: status === 'error' ? 'var(--vos-accent-danger, #ff3b30)' : undefined,
+          opacity: 0.85,
+        }}
+      />
+    </div>
+  )
+}
+
+/* ---- Minimized Thumbnail ---- */
+function MinimizedThumbnail({
+  win,
+  iconSize,
+  isHorizontal,
+}: {
+  win: { id: string; title: string; appId: string }
+  iconSize: number
+  isHorizontal: boolean
+}) {
+  const appManifest = useAppStore(s => s.apps.get(win.appId))
+
+  return (
+    <motion.button
+      type="button"
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0, opacity: 0 }}
+      transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+      whileHover={{ scale: 1.12 }}
+      onClick={() => restoreWindow(win.id)}
+      title={win.title}
+      style={{
+        width: iconSize * 0.7,
+        height: iconSize * 0.7,
+        borderRadius: iconSize * 0.15,
+        background: 'var(--vos-bg-input)',
+        border: '0.5px solid var(--vos-border-subtle)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        overflow: 'hidden',
+        padding: 0,
+      }}
+    >
+      <div style={{ width: iconSize * 0.35, height: iconSize * 0.35, opacity: 0.7 }}>
+        {appManifest?.icon ?? null}
+      </div>
+    </motion.button>
+  )
+}
+
 /* ---- Dock Root ---- */
 export default function Dock() {
   const appsMap = useAppStore(s => s.apps)
   const apps = useMemo(() => Array.from(appsMap.values()).filter(a => !a.hidden), [appsMap])
   const windows = useWindowStore(s => s.windows)
+  const minimizedWindows = useMemo(() => windows.filter(w => w.isMinimized), [windows])
   const openWindowFn = openWindow
   const focusWindowFn = focusWindow
   const restoreWindowFn = restoreWindow
   const toggleLaunchpad = useLaunchpadStore(s => s.toggle)
+  const toggleAI = useAISidePanelStore(s => s.toggle)
   const showCtxMenu = useContextMenuStore(s => s.show)
+
+  // Compute badges: active window count per app
+  const appBadges = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const w of windows) {
+      if (!w.isMinimized) {
+        counts.set(w.appId, (counts.get(w.appId) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [windows])
 
   const handleAppContextMenu = useCallback((e: React.MouseEvent, app: AppManifest) => {
     e.preventDefault()
@@ -296,6 +441,8 @@ export default function Dock() {
               label={app.name}
               icon={app.icon}
               isRunning={windows.some(w => w.appId === app.id)}
+              badge={appBadges.get(app.id)}
+              appId={app.id}
               onClick={() => handleAppClick(app)}
               onContextMenu={e => handleAppContextMenu(e, app)}
               mouseX={mouseX}
@@ -305,6 +452,32 @@ export default function Dock() {
             />
           ))}
 
+          {/* Minimized window thumbnails section */}
+          {minimizedWindows.length > 0 && (
+            <>
+              <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: isHorizontal ? 'row' : 'column',
+                  gap: 6,
+                  alignItems: 'center',
+                }}
+              >
+                <AnimatePresence>
+                  {minimizedWindows.map(w => (
+                    <MinimizedThumbnail
+                      key={w.id}
+                      win={w}
+                      iconSize={iconSize}
+                      isHorizontal={isHorizontal}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </>
+          )}
+
           {apps.length > 0 && <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />}
 
           {/* Launchpad */}
@@ -312,6 +485,18 @@ export default function Dock() {
             label="启动台"
             icon={<Grid3X3 size={iconSize * 0.5} style={{ opacity: 0.85 }} />}
             onClick={toggleLaunchpad}
+            mouseX={mouseX}
+            iconSize={iconSize}
+            magnification={magnification}
+            isHorizontal={isHorizontal}
+          />
+
+          {/* AI Assistant */}
+          <DockIcon
+            label="AI 助手"
+            icon={<AIStatusIcon size={iconSize} />}
+            appId="ai-assistant"
+            onClick={toggleAI}
             mouseX={mouseX}
             iconSize={iconSize}
             magnification={magnification}

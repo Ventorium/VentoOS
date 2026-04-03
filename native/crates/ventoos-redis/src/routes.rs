@@ -10,7 +10,11 @@ use ventoos_core::plugin::AppPlugin;
 use ventoos_core::types::ApiResponse;
 
 use crate::manager::RedisManager;
-use crate::types::{CreateRedisConnectionReq, RedisConnectionConfig, RedisScanReq};
+use crate::types::{
+    BatchDeleteRequest, BatchExportRequest, BatchTtlRequest, CreateRedisConnectionReq,
+    PublishRequest, RedisConnectionConfig, RedisScanReq, StreamAddRequest,
+    StreamGroupCreateRequest, SubscribeRequest,
+};
 
 /// Redis application plugin.
 pub struct RedisPlugin {
@@ -30,6 +34,7 @@ impl AppPlugin for RedisPlugin {
 
     fn routes(&self) -> Router {
         Router::new()
+            // Connection management
             .route(
                 "/api/redis/connections",
                 get(list_connections).post(create_connection),
@@ -44,19 +49,83 @@ impl AppPlugin for RedisPlugin {
                 "/api/redis/connections/{id}/disconnect",
                 post(disconnect_redis),
             )
+            // Key browsing
             .route("/api/redis/connections/{id}/scan", get(scan_keys))
             .route(
                 "/api/redis/connections/{id}/keys/{key}",
                 get(get_key).delete(delete_key),
             )
             .route("/api/redis/connections/{id}/keys", post(set_key))
+            // Command execution
             .route("/api/redis/connections/{id}/command", post(execute_command))
+            // Server info & stats
             .route("/api/redis/connections/{id}/info", get(server_info))
+            .route(
+                "/api/redis/connections/{id}/info/parsed",
+                get(info_parsed),
+            )
+            // Memory analysis
+            .route(
+                "/api/redis/connections/{id}/memory/stats",
+                get(memory_stats),
+            )
+            .route(
+                "/api/redis/connections/{id}/memory/{key}",
+                get(memory_usage),
+            )
+            // Stream operations
+            .route(
+                "/api/redis/connections/{id}/stream/{key}",
+                get(stream_range).post(stream_add),
+            )
+            .route(
+                "/api/redis/connections/{id}/stream/{key}/groups",
+                post(stream_group_create),
+            )
+            .route(
+                "/api/redis/connections/{id}/stream/{key}/len",
+                get(stream_len),
+            )
+            // Batch operations
+            .route(
+                "/api/redis/connections/{id}/batch/delete",
+                post(batch_delete),
+            )
+            .route(
+                "/api/redis/connections/{id}/batch/ttl",
+                post(batch_set_ttl),
+            )
+            .route(
+                "/api/redis/connections/{id}/batch/export",
+                post(batch_export),
+            )
+            // Pub/Sub
+            .route(
+                "/api/redis/connections/{id}/pubsub/subscribe",
+                post(pubsub_subscribe),
+            )
+            .route(
+                "/api/redis/connections/{id}/pubsub/unsubscribe",
+                post(pubsub_unsubscribe),
+            )
+            .route(
+                "/api/redis/connections/{id}/pubsub/publish",
+                post(pubsub_publish),
+            )
+            // MONITOR
+            .route(
+                "/api/redis/connections/{id}/monitor/start",
+                post(monitor_start),
+            )
+            .route(
+                "/api/redis/connections/{id}/monitor/stop",
+                post(monitor_stop),
+            )
             .with_state(self.manager.clone())
     }
 }
 
-// --- Handlers ---
+// ─── Connection Handlers ────────────────────────────────────
 
 async fn list_connections(
     State(mgr): State<Arc<RedisManager>>,
@@ -134,6 +203,8 @@ async fn disconnect_redis(
     Json(ApiResponse::ok(serde_json::json!({"disconnected": true})))
 }
 
+// ─── Key Handlers ───────────────────────────────────────────
+
 #[derive(serde::Deserialize)]
 struct ScanQuery {
     cursor: Option<String>,
@@ -199,6 +270,8 @@ async fn set_key(
     }
 }
 
+// ─── Command Handler ────────────────────────────────────────
+
 #[derive(serde::Deserialize)]
 struct CommandBody {
     command: String,
@@ -215,6 +288,8 @@ async fn execute_command(
     }
 }
 
+// ─── Info / Stats Handlers ──────────────────────────────────
+
 async fn server_info(
     State(mgr): State<Arc<RedisManager>>,
     Path(id): Path<String>,
@@ -223,4 +298,188 @@ async fn server_info(
         Ok(info) => Json(ApiResponse::ok(info)).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
+}
+
+async fn info_parsed(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match mgr.info_parsed(&id).await {
+        Ok(info) => Json(ApiResponse::ok(info)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn memory_usage(
+    State(mgr): State<Arc<RedisManager>>,
+    Path((id, key)): Path<(String, String)>,
+) -> impl IntoResponse {
+    match mgr.memory_usage(&id, &key).await {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn memory_stats(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match mgr.memory_stats(&id).await {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── Stream Handlers ────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct StreamRangeQuery {
+    start: Option<String>,
+    end: Option<String>,
+    count: Option<u32>,
+}
+
+async fn stream_range(
+    State(mgr): State<Arc<RedisManager>>,
+    Path((id, key)): Path<(String, String)>,
+    Query(query): Query<StreamRangeQuery>,
+) -> impl IntoResponse {
+    let start = query.start.as_deref().unwrap_or("-");
+    let end = query.end.as_deref().unwrap_or("+");
+    match mgr.stream_range(&id, &key, start, end, query.count).await {
+        Ok(entries) => Json(ApiResponse::ok(entries)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn stream_add(
+    State(mgr): State<Arc<RedisManager>>,
+    Path((id, key)): Path<(String, String)>,
+    Json(body): Json<StreamAddRequest>,
+) -> impl IntoResponse {
+    match mgr.stream_add(&id, &key, &body).await {
+        Ok(entry_id) => {
+            Json(ApiResponse::ok(serde_json::json!({"id": entry_id}))).into_response()
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn stream_group_create(
+    State(mgr): State<Arc<RedisManager>>,
+    Path((id, key)): Path<(String, String)>,
+    Json(body): Json<StreamGroupCreateRequest>,
+) -> impl IntoResponse {
+    match mgr.stream_group_create(&id, &key, &body).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"ok": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn stream_len(
+    State(mgr): State<Arc<RedisManager>>,
+    Path((id, key)): Path<(String, String)>,
+) -> impl IntoResponse {
+    match mgr.stream_len(&id, &key).await {
+        Ok(len) => Json(ApiResponse::ok(serde_json::json!({"length": len}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── Batch Handlers ─────────────────────────────────────────
+
+async fn batch_delete(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<BatchDeleteRequest>,
+) -> impl IntoResponse {
+    match mgr.batch_delete(&id, &body).await {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn batch_set_ttl(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<BatchTtlRequest>,
+) -> impl IntoResponse {
+    match mgr.batch_set_ttl(&id, &body).await {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn batch_export(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<BatchExportRequest>,
+) -> impl IntoResponse {
+    match mgr.batch_export(&id, &body).await {
+        Ok(data) => Json(ApiResponse::ok(data)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── Pub/Sub Handlers ───────────────────────────────────────
+
+async fn pubsub_subscribe(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<SubscribeRequest>,
+) -> impl IntoResponse {
+    match mgr.subscribe(&id, body.channels).await {
+        Ok(_rx) => Json(ApiResponse::ok(serde_json::json!({"subscribed": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn pubsub_unsubscribe(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<SubscribeRequest>,
+) -> impl IntoResponse {
+    match mgr.unsubscribe(&id, body.channels).await {
+        Ok(()) => {
+            Json(ApiResponse::ok(serde_json::json!({"unsubscribed": true}))).into_response()
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn pubsub_publish(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<PublishRequest>,
+) -> impl IntoResponse {
+    match mgr.publish(&id, &body.channel, &body.message).await {
+        Ok(receivers) => {
+            Json(ApiResponse::ok(serde_json::json!({"receivers": receivers}))).into_response()
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── MONITOR Handlers ───────────────────────────────────────
+
+async fn monitor_start(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match mgr.monitor(&id).await {
+        Ok(_rx) => {
+            Json(ApiResponse::ok(serde_json::json!({"monitoring": true}))).into_response()
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn monitor_stop(
+    State(mgr): State<Arc<RedisManager>>,
+    Path(id): Path<String>,
+) -> Json<ApiResponse<serde_json::Value>> {
+    mgr.stop_monitor(&id).await;
+    Json(ApiResponse::ok(
+        serde_json::json!({"monitoring": false}),
+    ))
 }

@@ -36,6 +36,7 @@ impl GuardChain {
         let mut chain = Self::new();
         chain.add(Box::new(PathGuard));
         chain.add(Box::new(CommandGuard));
+        chain.add(Box::new(RiskGuard::default()));
         chain
     }
 
@@ -170,6 +171,50 @@ impl Guard for CommandGuard {
     }
 }
 
+// ─── Risk Guard ────────────────────────────────────────────────────────────
+
+/// Guard that checks the risk level of platform tools.
+///
+/// High-risk tools are logged and can optionally be blocked in strict mode.
+/// In normal mode this guard passes — the actual confirmation workflow
+/// is handled by the agent engine via WebSocket before calling the executor.
+#[derive(Default)]
+pub struct RiskGuard {
+    /// If true, `High` risk tools are rejected outright.
+    /// If false (default), they pass through for the confirmation flow.
+    pub strict_mode: bool,
+}
+
+/// Set of tool names that are always considered high-risk, regardless of
+/// their declared risk level, because they modify production state.
+const HIGH_RISK_TOOLS: &[&str] = &[
+    "k8s_apply_yaml",
+    "k8s_delete_resource",
+    "k8s_exec_command",
+    "db_execute_write",
+    "redis_delete_key",
+    "vfs_delete",
+];
+
+impl RiskGuard {
+    /// Returns `true` if the tool is in the high-risk list.
+    pub fn is_high_risk(tool_name: &str) -> bool {
+        HIGH_RISK_TOOLS.contains(&tool_name)
+    }
+}
+
+impl Guard for RiskGuard {
+    fn check(&self, tool_name: &str, _arguments: &Value) -> Result<(), AgentError> {
+        if self.strict_mode && Self::is_high_risk(tool_name) {
+            return Err(AgentError::GuardRejected(format!(
+                "Tool '{tool_name}' is high-risk and blocked in strict mode. \
+                 Disable strict mode or request user confirmation."
+            )));
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,5 +316,40 @@ mod tests {
         let chain = GuardChain::with_defaults();
         let args = serde_json::json!({"command": "rm -rf /"});
         assert!(chain.check_all("bash", &args).is_err());
+    }
+
+    // ── RiskGuard ──
+
+    #[test]
+    fn test_risk_guard_default_passes_high_risk() {
+        let guard = RiskGuard::default();
+        let args = serde_json::json!({});
+        // Default (non-strict) allows high-risk tools through
+        assert!(guard.check("k8s_delete_resource", &args).is_ok());
+    }
+
+    #[test]
+    fn test_risk_guard_strict_blocks_high_risk() {
+        let guard = RiskGuard { strict_mode: true };
+        let args = serde_json::json!({});
+        assert!(guard.check("k8s_delete_resource", &args).is_err());
+        assert!(guard.check("db_execute_write", &args).is_err());
+        assert!(guard.check("vfs_delete", &args).is_err());
+    }
+
+    #[test]
+    fn test_risk_guard_strict_allows_low_risk() {
+        let guard = RiskGuard { strict_mode: true };
+        let args = serde_json::json!({});
+        assert!(guard.check("k8s_list_clusters", &args).is_ok());
+        assert!(guard.check("vfs_read_file", &args).is_ok());
+    }
+
+    #[test]
+    fn test_is_high_risk() {
+        assert!(RiskGuard::is_high_risk("k8s_apply_yaml"));
+        assert!(RiskGuard::is_high_risk("k8s_exec_command"));
+        assert!(!RiskGuard::is_high_risk("k8s_list_clusters"));
+        assert!(!RiskGuard::is_high_risk("read"));
     }
 }

@@ -3,14 +3,14 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 
 use ventoos_core::plugin::AppPlugin;
 use ventoos_core::types::ApiResponse;
 
 use crate::manager::DbManager;
-use crate::types::{CreateDbConnectionReq, DbConnectionConfig, TableDataReq};
+use crate::types::{CreateDbConnectionReq, DbConnectionConfig, ExplainReq, ExportReq, RowDeleteReq, RowUpdateReq, TableDataReq};
 
 /// Database application plugin.
 pub struct DbPlugin {
@@ -52,6 +52,14 @@ impl AppPlugin for DbPlugin {
                 get(get_table_data),
             )
             .route("/api/db/connections/{id}/query", post(execute_sql))
+            // New routes
+            .route("/api/db/connections/{id}/explain", post(explain_sql))
+            .route("/api/db/connections/{id}/completion", get(get_completion))
+            .route("/api/db/connections/{id}/export", post(export_data))
+            .route(
+                "/api/db/connections/{id}/rows",
+                put(update_row).delete(delete_row),
+            )
             .with_state(self.manager.clone())
     }
 }
@@ -204,6 +212,93 @@ async fn execute_sql(
 ) -> impl IntoResponse {
     match mgr.execute_sql(&id, &body.sql).await {
         Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ── New Handlers ───────────────────────────────────────────────────────────
+
+async fn explain_sql(
+    State(mgr): State<Arc<DbManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<ExplainReq>,
+) -> impl IntoResponse {
+    match mgr.explain(&id, &body.sql).await {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct CompletionQuery {
+    refresh: Option<bool>,
+}
+
+async fn get_completion(
+    State(mgr): State<Arc<DbManager>>,
+    Path(id): Path<String>,
+    Query(query): Query<CompletionQuery>,
+) -> impl IntoResponse {
+    match mgr.completion(&id, query.refresh.unwrap_or(false)).await {
+        Ok(tree) => Json(ApiResponse::ok(tree)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn export_data(
+    State(mgr): State<Arc<DbManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<ExportReq>,
+) -> impl IntoResponse {
+    match mgr.export(&id, &body).await {
+        Ok(bytes) => {
+            let content_type = match body.format {
+                crate::types::ExportFormat::Csv => "text/csv",
+                _ => "application/json",
+            };
+            let filename = match body.format {
+                crate::types::ExportFormat::Csv => "export.csv",
+                _ => "export.json",
+            };
+            (
+                StatusCode::OK,
+                [
+                    ("content-type", content_type),
+                    (
+                        "content-disposition",
+                        &format!("attachment; filename=\"{filename}\""),
+                    ),
+                ],
+                bytes,
+            )
+                .into_response()
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn update_row(
+    State(mgr): State<Arc<DbManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<RowUpdateReq>,
+) -> impl IntoResponse {
+    match mgr.update_row(&id, &body).await {
+        Ok(affected) => {
+            Json(ApiResponse::ok(serde_json::json!({"affected_rows": affected}))).into_response()
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn delete_row(
+    State(mgr): State<Arc<DbManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<RowDeleteReq>,
+) -> impl IntoResponse {
+    match mgr.delete_row(&id, &body).await {
+        Ok(affected) => {
+            Json(ApiResponse::ok(serde_json::json!({"affected_rows": affected}))).into_response()
+        }
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }

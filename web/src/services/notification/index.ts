@@ -1,3 +1,3 @@
 export { notificationService } from './service'
-export type { NotificationItem } from './store'
-export { useNotificationStore } from './store'
+export type { NotificationFilter, NotificationItem, NotificationLevel, NotificationSource } from './store'
+export { filterNotifications, useNotificationStore } from './store'

@@ -7,9 +7,16 @@ use serde_json::Value;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 
+use crate::completion::{
+    self, build_pg_tree, build_sqlite_tree, CompletionCache, MYSQL_COMPLETION_QUERY,
+    PG_COMPLETION_QUERY,
+};
+use crate::explain;
+use crate::tunnel::SshTunnel;
 use crate::types::{
-    ColumnInfo, CreateDbConnectionReq, DbConnectionConfig, DbEngine, DbTestResult, IndexInfo,
-    QueryResult, SchemaInfo, TableDataReq, TableInfo, TableStructure,
+    ColumnInfo, CompletionTree, CreateDbConnectionReq, DbConnectionConfig, DbEngine,
+    DbTestResult, ExplainResult, ExportReq, IndexInfo, QueryResult,
+    RowDeleteReq, RowUpdateReq, SchemaInfo, TableDataReq, TableInfo, TableStructure,
 };
 
 // ---------------------------------------------------------------------------
@@ -199,6 +206,10 @@ pub struct DbManager {
     configs: Arc<RwLock<HashMap<String, DbConnectionConfig>>>,
     /// Active connection pools keyed by config id.
     pools: Arc<RwLock<HashMap<String, DbPool>>>,
+    /// Active SSH tunnels keyed by config id.
+    tunnels: Arc<RwLock<HashMap<String, SshTunnel>>>,
+    /// Schema completion cache.
+    completion_cache: CompletionCache,
 }
 
 impl DbManager {
@@ -206,6 +217,8 @@ impl DbManager {
         Self {
             configs: Arc::new(RwLock::new(HashMap::new())),
             pools: Arc::new(RwLock::new(HashMap::new())),
+            tunnels: Arc::new(RwLock::new(HashMap::new())),
+            completion_cache: CompletionCache::new(),
         }
     }
 
@@ -223,6 +236,7 @@ impl DbManager {
             sqlite_path: req.sqlite_path,
             group: req.group,
             ssl_enabled: req.ssl_enabled.unwrap_or(false),
+            tunnel: req.tunnel,
         };
         self.configs.write().await.insert(id, config.clone());
         config
@@ -263,6 +277,7 @@ impl DbManager {
             sqlite_path: req.sqlite_path.clone(),
             group: req.group.clone(),
             ssl_enabled: req.ssl_enabled.unwrap_or(false),
+            tunnel: req.tunnel.clone(),
         };
         Self::test_config(&config).await
     }
@@ -371,6 +386,7 @@ impl DbManager {
     }
 
     /// Connect to a database (creates a pool entry).
+    /// If the config has a tunnel, starts SSH tunnel first.
     pub async fn connect(&self, id: &str) -> Result<(), String> {
         let config = self
             .configs
@@ -380,14 +396,42 @@ impl DbManager {
             .cloned()
             .ok_or_else(|| "Connection not found".to_string())?;
 
-        let pool = match config.engine {
+        // If tunnel is configured, start it and override host/port
+        let effective_config = if let Some(ref tunnel_cfg) = config.tunnel {
+            let remote_host = config.host.as_deref().unwrap_or("localhost");
+            let remote_port = config.port.unwrap_or(match config.engine {
+                DbEngine::PostgreSql => 5432,
+                DbEngine::MySql => 3306,
+                DbEngine::Sqlite => 0,
+            });
+
+            let tunnel = SshTunnel::start(tunnel_cfg, remote_host, remote_port).await?;
+            let local_port = tunnel.local_port;
+            self.tunnels
+                .write()
+                .await
+                .insert(id.to_string(), tunnel);
+
+            // Modify config to connect via tunnel
+            let mut tunneled = config.clone();
+            tunneled.host = Some("127.0.0.1".to_string());
+            tunneled.port = Some(local_port);
+            tunneled
+        } else {
+            config
+        };
+
+        let pool = match effective_config.engine {
             DbEngine::Sqlite => {
-                let path = config.sqlite_path.as_deref().unwrap_or(":memory:");
+                let path = effective_config
+                    .sqlite_path
+                    .as_deref()
+                    .unwrap_or(":memory:");
                 let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
                 DbPool::Sqlite(Arc::new(std::sync::Mutex::new(conn)))
             }
             DbEngine::PostgreSql => {
-                let pg = build_pg_config(&config);
+                let pg = build_pg_config(&effective_config);
                 let (client, connection) = pg
                     .connect(tokio_postgres::NoTls)
                     .await
@@ -400,7 +444,7 @@ impl DbManager {
                 DbPool::Postgres { client, driver }
             }
             DbEngine::MySql => {
-                let opts = build_mysql_opts(&config);
+                let opts = build_mysql_opts(&effective_config);
                 let conn = mysql_async::Conn::new(opts)
                     .await
                     .map_err(|e| e.to_string())?;
@@ -428,6 +472,12 @@ impl DbManager {
                 DbPool::Sqlite(_) => {}
             }
         }
+        // Stop tunnel if any
+        if let Some(mut tunnel) = self.tunnels.write().await.remove(id) {
+            tunnel.stop();
+        }
+        // Invalidate completion cache
+        self.completion_cache.invalidate(id).await;
     }
 
     /// List schemas for a connected database.
@@ -1180,6 +1230,438 @@ impl DbManager {
             }
         }
     }
+
+    // ── EXPLAIN ────────────────────────────────────────────────────────────
+
+    /// Run EXPLAIN on a SQL statement and return a unified plan tree.
+    #[allow(clippy::too_many_lines)]
+    pub async fn explain(&self, conn_id: &str, sql: &str) -> Result<ExplainResult, String> {
+        let pools = self.pools.read().await;
+        let pool = pools.get(conn_id).ok_or("Not connected")?;
+
+        match pool {
+            DbPool::Sqlite(conn) => {
+                let conn = conn.lock().unwrap();
+                let explain_sql = format!("EXPLAIN QUERY PLAN {sql}");
+                let mut stmt = conn.prepare(&explain_sql).map_err(|e| e.to_string())?;
+                let rows: Vec<(i64, i64, i64, String)> = stmt
+                    .query_map([], |row| {
+                        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                    })
+                    .map_err(|e| e.to_string())?
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| e.to_string())?;
+                Ok(explain::parse_sqlite_explain(&rows))
+            }
+            DbPool::Postgres { client, .. } => {
+                let explain_sql = format!("EXPLAIN (FORMAT JSON, ANALYZE) {sql}");
+                let pg_rows = client
+                    .query(&*explain_sql, &[])
+                    .await
+                    .map_err(|e| e.to_string())?;
+                if pg_rows.is_empty() {
+                    return Err("EXPLAIN returned no rows".into());
+                }
+                let json_text: String = pg_rows[0]
+                    .try_get(0)
+                    .map_err(|e| format!("EXPLAIN parse: {e}"))?;
+                let json_val: Value =
+                    serde_json::from_str(&json_text).map_err(|e| format!("JSON parse: {e}"))?;
+                explain::parse_pg_explain(&json_val)
+            }
+            DbPool::Mysql(conn) => {
+                let mut conn = conn.lock().await;
+                let explain_sql = format!("EXPLAIN FORMAT=JSON {sql}");
+                let row: Option<String> = conn
+                    .query_first(&explain_sql)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let json_text = row.ok_or("EXPLAIN returned no data")?;
+                let json_val: Value =
+                    serde_json::from_str(&json_text).map_err(|e| format!("JSON parse: {e}"))?;
+                explain::parse_mysql_explain(&json_val)
+            }
+        }
+    }
+
+    // ── COMPLETION ─────────────────────────────────────────────────────────
+
+    /// Get schema completion data (cached). Pass `force_refresh = true` to bypass cache.
+    #[allow(clippy::too_many_lines)]
+    pub async fn completion(
+        &self,
+        conn_id: &str,
+        force_refresh: bool,
+    ) -> Result<CompletionTree, String> {
+        if !force_refresh
+            && let Some(cached) = self.completion_cache.get(conn_id).await {
+                return Ok(cached);
+            }
+
+        let pools = self.pools.read().await;
+        let pool = pools.get(conn_id).ok_or("Not connected")?;
+
+        let tree = match pool {
+            DbPool::Sqlite(conn) => {
+                let conn = conn.lock().unwrap();
+                // Get all tables
+                let mut table_stmt = conn
+                    .prepare("SELECT name FROM sqlite_master WHERE type IN ('table','view') ORDER BY name")
+                    .map_err(|e| e.to_string())?;
+                let tables: Vec<String> = table_stmt
+                    .query_map([], |row| row.get(0))
+                    .map_err(|e| e.to_string())?
+                    .filter_map(Result::ok)
+                    .collect();
+
+                let mut tables_with_columns = Vec::new();
+                for table_name in &tables {
+                    let pragma_sql = format!("PRAGMA table_info('{table_name}')");
+                    let mut col_stmt = conn.prepare(&pragma_sql).map_err(|e| e.to_string())?;
+                    let cols: Vec<(String, String)> = col_stmt
+                        .query_map([], |row| {
+                            let name: String = row.get(1)?;
+                            let dtype: String = row.get(2)?;
+                            Ok((name, dtype))
+                        })
+                        .map_err(|e| e.to_string())?
+                        .filter_map(Result::ok)
+                        .collect();
+                    tables_with_columns.push((table_name.clone(), cols));
+                }
+                build_sqlite_tree(&tables_with_columns)
+            }
+            DbPool::Postgres { client, .. } => {
+                let rows = client
+                    .query(PG_COMPLETION_QUERY, &[])
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let schema_rows: Vec<HashMap<String, Value>> = rows
+                    .iter()
+                    .map(|row| {
+                        let mut map = HashMap::new();
+                        map.insert("table_schema".into(), Value::String(row.get(0)));
+                        map.insert("table_name".into(), Value::String(row.get(1)));
+                        map.insert("column_name".into(), Value::String(row.get(2)));
+                        map.insert("data_type".into(), Value::String(row.get(3)));
+                        map
+                    })
+                    .collect();
+                build_pg_tree(&schema_rows)
+            }
+            DbPool::Mysql(conn) => {
+                let mut conn = conn.lock().await;
+                let rows: Vec<(String, String, String, String)> = conn
+                    .query(MYSQL_COMPLETION_QUERY)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let schema_rows: Vec<HashMap<String, Value>> = rows
+                    .into_iter()
+                    .map(|(schema, table, column, dtype)| {
+                        let mut map = HashMap::new();
+                        map.insert("table_schema".into(), Value::String(schema));
+                        map.insert("table_name".into(), Value::String(table));
+                        map.insert("column_name".into(), Value::String(column));
+                        map.insert("data_type".into(), Value::String(dtype));
+                        map
+                    })
+                    .collect();
+                completion::build_pg_tree(&schema_rows)
+            }
+        };
+
+        self.completion_cache.set(conn_id, tree.clone()).await;
+        Ok(tree)
+    }
+
+    // ── ROW EDIT ───────────────────────────────────────────────────────────
+
+    /// Update a single row by primary key.
+    #[allow(clippy::too_many_lines)]
+    pub async fn update_row(&self, conn_id: &str, req: &RowUpdateReq) -> Result<u64, String> {
+        let pools = self.pools.read().await;
+        let pool = pools.get(conn_id).ok_or("Not connected")?;
+
+        match pool {
+            DbPool::Sqlite(conn) => {
+                let conn_g = conn.lock().unwrap();
+                let set_clause: Vec<String> = req
+                    .changes
+                    .iter()
+                    .map(|(col, _)| format!("\"{}\" = ?", col.replace('"', "\"\"")))
+                    .collect();
+                let where_clause: Vec<String> = req
+                    .pk
+                    .iter()
+                    .map(|(col, _)| format!("\"{}\" = ?", col.replace('"', "\"\"")))
+                    .collect();
+
+                let sql = format!(
+                    "UPDATE \"{}\" SET {} WHERE {}",
+                    req.table.replace('"', "\"\""),
+                    set_clause.join(", "),
+                    where_clause.join(" AND ")
+                );
+
+                let params: Vec<String> = req
+                    .changes
+                    .values()
+                    .chain(req.pk.values())
+                    .map(json_to_sqlite_string)
+                    .collect();
+                let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                    .iter()
+                    .map(|s| s as &dyn rusqlite::types::ToSql)
+                    .collect();
+
+                let affected = conn_g
+                    .execute(&sql, param_refs.as_slice())
+                    .map_err(|e| e.to_string())?;
+                Ok(affected as u64)
+            }
+            DbPool::Postgres { client, .. } => {
+                let schema = req.schema.as_deref().unwrap_or("public");
+                let mut param_idx = 1u32;
+                let set_parts: Vec<String> = req
+                    .changes
+                    .keys()
+                    .map(|col| {
+                        let s = format!("{} = ${param_idx}", pg_quote_ident(col));
+                        param_idx += 1;
+                        s
+                    })
+                    .collect();
+                let where_parts: Vec<String> = req
+                    .pk
+                    .keys()
+                    .map(|col| {
+                        let s = format!("{} = ${param_idx}", pg_quote_ident(col));
+                        param_idx += 1;
+                        s
+                    })
+                    .collect();
+
+                let sql = format!(
+                    "UPDATE {}.{} SET {} WHERE {}",
+                    pg_quote_ident(schema),
+                    pg_quote_ident(&req.table),
+                    set_parts.join(", "),
+                    where_parts.join(" AND ")
+                );
+
+                // For simplicity, cast all params to text and let PG auto-cast
+                let params: Vec<String> = req
+                    .changes
+                    .values()
+                    .chain(req.pk.values())
+                    .map(json_to_pg_string)
+                    .collect();
+                let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = params
+                    .iter()
+                    .map(|s| s as &(dyn tokio_postgres::types::ToSql + Sync))
+                    .collect();
+
+                let affected = client
+                    .execute(&*sql, &param_refs)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(affected)
+            }
+            DbPool::Mysql(conn) => {
+                let mut conn = conn.lock().await;
+                let schema = req.schema.as_deref().unwrap_or("");
+                let set_parts: Vec<String> = req
+                    .changes
+                    .keys()
+                    .map(|col| format!("{} = ?", mysql_quote_ident(col)))
+                    .collect();
+                let where_parts: Vec<String> = req
+                    .pk
+                    .keys()
+                    .map(|col| format!("{} = ?", mysql_quote_ident(col)))
+                    .collect();
+
+                let table_ref = if schema.is_empty() {
+                    mysql_quote_ident(&req.table)
+                } else {
+                    format!(
+                        "{}.{}",
+                        mysql_quote_ident(schema),
+                        mysql_quote_ident(&req.table)
+                    )
+                };
+
+                let sql = format!(
+                    "UPDATE {} SET {} WHERE {}",
+                    table_ref,
+                    set_parts.join(", "),
+                    where_parts.join(" AND ")
+                );
+
+                let params: Vec<mysql_async::Value> = req
+                    .changes
+                    .values()
+                    .chain(req.pk.values())
+                    .map(json_to_mysql_value)
+                    .collect();
+
+                conn.exec_drop(&sql, params)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(conn.affected_rows())
+            }
+        }
+    }
+
+    /// Delete a single row by primary key.
+    #[allow(clippy::too_many_lines)]
+    pub async fn delete_row(&self, conn_id: &str, req: &RowDeleteReq) -> Result<u64, String> {
+        let pools = self.pools.read().await;
+        let pool = pools.get(conn_id).ok_or("Not connected")?;
+
+        match pool {
+            DbPool::Sqlite(conn) => {
+                let conn_g = conn.lock().unwrap();
+                let where_clause: Vec<String> = req
+                    .pk
+                    .iter()
+                    .map(|(col, _)| format!("\"{}\" = ?", col.replace('"', "\"\"")))
+                    .collect();
+
+                let sql = format!(
+                    "DELETE FROM \"{}\" WHERE {}",
+                    req.table.replace('"', "\"\""),
+                    where_clause.join(" AND ")
+                );
+
+                let params: Vec<String> = req.pk.values().map(json_to_sqlite_string).collect();
+                let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                    .iter()
+                    .map(|s| s as &dyn rusqlite::types::ToSql)
+                    .collect();
+
+                let affected = conn_g
+                    .execute(&sql, param_refs.as_slice())
+                    .map_err(|e| e.to_string())?;
+                Ok(affected as u64)
+            }
+            DbPool::Postgres { client, .. } => {
+                let schema = req.schema.as_deref().unwrap_or("public");
+                let mut param_idx = 1u32;
+                let where_parts: Vec<String> = req
+                    .pk
+                    .keys()
+                    .map(|col| {
+                        let s = format!("{} = ${param_idx}", pg_quote_ident(col));
+                        param_idx += 1;
+                        s
+                    })
+                    .collect();
+
+                let sql = format!(
+                    "DELETE FROM {}.{} WHERE {}",
+                    pg_quote_ident(schema),
+                    pg_quote_ident(&req.table),
+                    where_parts.join(" AND ")
+                );
+
+                let params: Vec<String> = req.pk.values().map(json_to_pg_string).collect();
+                let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = params
+                    .iter()
+                    .map(|s| s as &(dyn tokio_postgres::types::ToSql + Sync))
+                    .collect();
+
+                let affected = client
+                    .execute(&*sql, &param_refs)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(affected)
+            }
+            DbPool::Mysql(conn) => {
+                let mut conn = conn.lock().await;
+                let schema = req.schema.as_deref().unwrap_or("");
+                let where_parts: Vec<String> = req
+                    .pk
+                    .keys()
+                    .map(|col| format!("{} = ?", mysql_quote_ident(col)))
+                    .collect();
+
+                let table_ref = if schema.is_empty() {
+                    mysql_quote_ident(&req.table)
+                } else {
+                    format!(
+                        "{}.{}",
+                        mysql_quote_ident(schema),
+                        mysql_quote_ident(&req.table)
+                    )
+                };
+
+                let sql = format!(
+                    "DELETE FROM {} WHERE {}",
+                    table_ref,
+                    where_parts.join(" AND ")
+                );
+
+                let params: Vec<mysql_async::Value> =
+                    req.pk.values().map(json_to_mysql_value).collect();
+
+                conn.exec_drop(&sql, params)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(conn.affected_rows())
+            }
+        }
+    }
+
+    // ── EXPORT ─────────────────────────────────────────────────────────────
+
+    /// Execute SQL and export results in the requested format.
+    pub async fn export(
+        &self,
+        conn_id: &str,
+        req: &ExportReq,
+    ) -> Result<Vec<u8>, String> {
+        let result = self.execute_sql(conn_id, &req.sql).await?;
+        crate::export::export(&result, &req.format)
+    }
+}
+
+// ── Helper: JSON → DB parameter conversions ────────────────────────────────
+
+fn json_to_sqlite_string(val: &Value) -> String {
+    match val {
+        Value::Null => String::new(),
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => if *b { "1" } else { "0" }.to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn json_to_pg_string(val: &Value) -> String {
+    match val {
+        Value::Null => String::new(),
+        Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
+fn json_to_mysql_value(val: &Value) -> mysql_async::Value {
+    match val {
+        Value::Null => mysql_async::Value::NULL,
+        Value::String(s) => mysql_async::Value::Bytes(s.as_bytes().to_vec()),
+        Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                mysql_async::Value::Int(i)
+            } else if let Some(f) = n.as_f64() {
+                mysql_async::Value::Double(f)
+            } else {
+                mysql_async::Value::Bytes(n.to_string().into_bytes())
+            }
+        }
+        Value::Bool(b) => mysql_async::Value::Int(i64::from(*b)),
+        other => mysql_async::Value::Bytes(other.to_string().into_bytes()),
+    }
 }
 
 impl Default for DbManager {
@@ -1204,9 +1686,10 @@ mod tests {
                 username: None,
                 password: None,
                 database: None,
-                file_path: Some(":memory:".into()),
+                sqlite_path: Some(":memory:".into()),
                 group: None,
                 ssl_enabled: None,
+                tunnel: None,
             })
             .await;
         assert_eq!(conn.name, "test-sqlite");
@@ -1226,9 +1709,10 @@ mod tests {
                 username: None,
                 password: None,
                 database: None,
-                file_path: Some(":memory:".into()),
+                sqlite_path: Some(":memory:".into()),
                 group: None,
                 ssl_enabled: None,
+                tunnel: None,
             })
             .await;
 
@@ -1293,9 +1777,10 @@ mod tests {
                 username: None,
                 password: None,
                 database: None,
-                file_path: None,
+                sqlite_path: None,
                 group: None,
                 ssl_enabled: None,
+                tunnel: None,
             })
             .await;
         assert!(mgr.delete_connection(&conn.id).await);
@@ -1365,9 +1850,10 @@ mod tests {
             username: Some("myuser".into()),
             password: Some("mypass".into()),
             database: Some("mydb".into()),
-            file_path: None,
+            sqlite_path: None,
             group: None,
             ssl_enabled: false,
+            tunnel: None,
         };
         let pg = build_pg_config(&config);
         // Config doesn't expose getters easily, just ensure it builds without panic
@@ -1385,9 +1871,10 @@ mod tests {
             username: Some("root".into()),
             password: Some("secret".into()),
             database: Some("testdb".into()),
-            file_path: None,
+            sqlite_path: None,
             group: None,
             ssl_enabled: false,
+            tunnel: None,
         };
         let opts = build_mysql_opts(&config);
         assert_eq!(opts.ip_or_hostname(), "myhost");
@@ -1406,9 +1893,10 @@ mod tests {
                 username: Some("test".into()),
                 password: Some("test".into()),
                 database: Some("testdb".into()),
-                file_path: None,
+                sqlite_path: None,
                 group: None,
                 ssl_enabled: None,
+                tunnel: None,
             })
             .await;
 
@@ -1428,9 +1916,10 @@ mod tests {
                 username: Some("test".into()),
                 password: Some("test".into()),
                 database: Some("testdb".into()),
-                file_path: None,
+                sqlite_path: None,
                 group: None,
                 ssl_enabled: None,
+                tunnel: None,
             })
             .await;
 

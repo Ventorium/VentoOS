@@ -6,8 +6,8 @@ use tracing::{error, info};
 
 use crate::k8s_client::{K8sClient, Kubeconfig, parse_resource_list, parse_single_resource};
 use crate::types::{
-    CreateK8sClusterReq, K8sCluster, K8sNamespace, K8sResource, K8sResourceKind,
-    K8sResourceListReq, K8sTestResult, KubeconfigContext,
+    CreateK8sClusterReq, K8sCluster, K8sCondition, K8sEvent, K8sNamespace, K8sResource,
+    K8sResourceDetail, K8sResourceKind, K8sResourceListReq, K8sTestResult, KubeconfigContext,
 };
 
 /// Kubernetes cluster manager.
@@ -292,6 +292,143 @@ impl K8sManager {
         let json = client.get(&url).await?;
         let kind_str = format!("{kind:?}");
         parse_single_resource(&json, &kind_str)
+    }
+
+    /// Get resource YAML as a JSON string (raw K8s API response).
+    pub async fn get_resource_yaml(
+        &self,
+        cluster_id: &str,
+        kind: K8sResourceKind,
+        namespace: Option<&str>,
+        name: &str,
+    ) -> Result<String, String> {
+        let client = self.build_client(cluster_id).await?;
+        let url = kind.get_url(namespace, name);
+        let json = client.get(&url).await?;
+        serde_json::to_string_pretty(&json).map_err(|e| format!("JSON serialise: {e}"))
+    }
+
+    /// Update a resource by PUTing the full YAML/JSON body.
+    pub async fn update_resource_yaml(
+        &self,
+        cluster_id: &str,
+        kind: K8sResourceKind,
+        namespace: Option<&str>,
+        name: &str,
+        body: &str,
+    ) -> Result<serde_json::Value, String> {
+        let client = self.build_client(cluster_id).await?;
+        let url = kind.get_url(namespace, name);
+        info!("Updating {kind:?}/{name} in ns {namespace:?}");
+        client.put_json(&url, body).await
+    }
+
+    /// Get events associated with a resource.
+    pub async fn get_resource_events(
+        &self,
+        cluster_id: &str,
+        kind: K8sResourceKind,
+        namespace: Option<&str>,
+        name: &str,
+    ) -> Result<Vec<K8sEvent>, String> {
+        let client = self.build_client(cluster_id).await?;
+        let kind_str = format!("{kind:?}");
+        let ns = namespace.unwrap_or("default");
+        let field_selector = format!(
+            "involvedObject.name={name},involvedObject.kind={kind_str}"
+        );
+        let url = format!(
+            "/api/v1/namespaces/{ns}/events?fieldSelector={field_selector}"
+        );
+
+        let json = client.get(&url).await?;
+        let items = json
+            .get("items")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        Ok(items
+            .iter()
+            .map(|item| K8sEvent {
+                reason: item.get("reason").and_then(|v| v.as_str()).map(String::from),
+                message: item.get("message").and_then(|v| v.as_str()).map(String::from),
+                event_type: item.get("type").and_then(|v| v.as_str()).map(String::from),
+                count: item.get("count").and_then(|v| v.as_u64()).map(|n| n as u32),
+                first_timestamp: item
+                    .get("firstTimestamp")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                last_timestamp: item
+                    .get("lastTimestamp")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                source: item
+                    .pointer("/source/component")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+            })
+            .collect())
+    }
+
+    /// Get full resource detail: resource data + events + conditions.
+    pub async fn get_resource_detail(
+        &self,
+        cluster_id: &str,
+        kind: K8sResourceKind,
+        namespace: Option<&str>,
+        name: &str,
+    ) -> Result<K8sResourceDetail, String> {
+        let resource = self.get_resource(cluster_id, kind, namespace, name).await?;
+        let events = self
+            .get_resource_events(cluster_id, kind, namespace, name)
+            .await
+            .unwrap_or_default();
+
+        // Extract conditions from raw resource
+        let conditions = resource
+            .raw
+            .as_ref()
+            .and_then(|raw| raw.pointer("/status/conditions"))
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .map(|c| K8sCondition {
+                        condition_type: c
+                            .get("type")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        status: c
+                            .get("status")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        reason: c.get("reason").and_then(|v| v.as_str()).map(String::from),
+                        message: c.get("message").and_then(|v| v.as_str()).map(String::from),
+                        last_transition_time: c
+                            .get("lastTransitionTime")
+                            .and_then(|v| v.as_str())
+                            .map(String::from),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Ok(K8sResourceDetail {
+            resource,
+            events,
+            conditions,
+        })
+    }
+
+    /// Build a shareable client Arc for WebSocket handlers.
+    pub async fn build_shared_client(
+        &self,
+        cluster_id: &str,
+    ) -> Result<std::sync::Arc<K8sClient>, String> {
+        let client = self.build_client(cluster_id).await?;
+        Ok(std::sync::Arc::new(client))
     }
 
     // ------- internal helpers -------

@@ -1,6 +1,7 @@
-import { motion } from 'framer-motion'
-import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { motion, useAnimationControls } from 'framer-motion'
+import { type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { closeWindow, focusWindow, minimizeWindow, toggleMaximize, useWindowStore, type WindowInstance } from '@/kernel'
+import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
 import { tokens } from '@/theme'
 
 const TOPBAR_H = tokens.topBar.height
@@ -257,17 +258,58 @@ export default function Window({ win, children }: { win: WindowInstance; childre
   const width = isMax ? '100%' : win.width + resizeDelta.dw
   const height = isMax ? `calc(100dvh - ${TOPBAR_H}px)` : win.height + resizeDelta.dh
 
+  // ---- Minimize-to-Dock animation ----
+  const controls = useAnimationControls()
+  const windowRef = useRef<HTMLDivElement>(null)
+  const prevMinimized = useRef(win.isMinimized)
+
+  const dockTarget = useDockPositionStore(s => s.getTargetRect(win.appId))
+
+  useEffect(() => {
+    const wasMinimized = prevMinimized.current
+    prevMinimized.current = win.isMinimized
+
+    if (win.isMinimized && !wasMinimized) {
+      // Minimizing: animate to Dock icon position
+      const el = windowRef.current
+      if (el && dockTarget) {
+        const rect = el.getBoundingClientRect()
+        const centerX = rect.left + rect.width / 2
+        const centerY = rect.top + rect.height / 2
+        const targetCenterX = dockTarget.x + dockTarget.width / 2
+        const targetCenterY = dockTarget.y + dockTarget.height / 2
+        controls.start({
+          opacity: 0,
+          scale: 0.1,
+          x: targetCenterX - centerX,
+          y: targetCenterY - centerY,
+          transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] },
+        })
+      } else {
+        controls.start({
+          opacity: 0, scale: 0.88, y: 40,
+          transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] },
+        })
+      }
+    } else if (!win.isMinimized && wasMinimized) {
+      // Restoring: animate from Dock back to position
+      controls.start({
+        opacity: 1, scale: 1, x: 0, y: 0,
+        transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] },
+      })
+    } else if (!win.isMinimized) {
+      controls.start({
+        opacity: 1, scale: 1, x: 0, y: 0,
+        transition: { duration: 0.22, ease: [0.32, 0.72, 0, 1] },
+      })
+    }
+  }, [win.isMinimized, controls, dockTarget])
+
   return (
     <motion.div
+      ref={windowRef}
       initial={{ opacity: 0, scale: 0.94, y: 16 }}
-      animate={
-        {
-          opacity: win.isMinimized ? 0 : 1,
-          scale: win.isMinimized ? 0.88 : 1,
-          y: win.isMinimized ? 40 : 0,
-          pointerEvents: win.isMinimized ? 'none' : 'auto'
-        } as Parameters<typeof motion.div>[0]['animate']
-      }
+      animate={controls}
       exit={{ opacity: 0, scale: 0.92, y: 12 }}
       transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
       style={{
@@ -285,7 +327,8 @@ export default function Window({ win, children }: { win: WindowInstance; childre
         border: '0.5px solid var(--vos-border-subtle)',
         background: win.isFocused ? 'var(--vos-bg-window-active)' : 'var(--vos-bg-window)',
         backdropFilter: `blur(48px) saturate(200%)`,
-        WebkitBackdropFilter: `blur(48px) saturate(200%)`
+        WebkitBackdropFilter: `blur(48px) saturate(200%)`,
+        pointerEvents: win.isMinimized ? 'none' : 'auto'
       }}
       onMouseDown={() => {
         if (!win.isFocused) focusWindow(win.id)

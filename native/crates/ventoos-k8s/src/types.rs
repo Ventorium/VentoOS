@@ -101,3 +101,155 @@ pub struct KubeconfigContext {
     pub user: String,
     pub namespace: Option<String>,
 }
+
+// ─── Log Stream Types ──────────────────────────────────────────────────────
+
+/// Request parameters for Pod log streaming.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PodLogStreamReq {
+    pub container: Option<String>,
+    pub tail_lines: Option<u64>,
+    pub follow: Option<bool>,
+    /// Regex filter pattern for log lines.
+    pub filter: Option<String>,
+    /// Label selector for multi-pod aggregation.
+    pub label_selector: Option<String>,
+}
+
+/// A single log line entry.
+#[derive(Debug, Clone, Serialize)]
+pub struct LogEntry {
+    pub pod: String,
+    pub container: String,
+    pub timestamp: Option<String>,
+    pub message: String,
+}
+
+// ─── Exec Types ────────────────────────────────────────────────────────────
+
+/// Request parameters for Pod exec.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PodExecReq {
+    pub container: Option<String>,
+    pub command: Option<Vec<String>>,
+    pub cols: Option<u16>,
+    pub rows: Option<u16>,
+}
+
+/// WebSocket message for exec sessions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
+pub enum ExecMessage {
+    /// Terminal input from the client.
+    #[serde(rename = "stdin")]
+    Stdin(String),
+    /// Terminal output to the client.
+    #[serde(rename = "stdout")]
+    Stdout(String),
+    /// Terminal resize.
+    #[serde(rename = "resize")]
+    Resize { cols: u16, rows: u16 },
+    /// Error message.
+    #[serde(rename = "error")]
+    Error(String),
+    /// Session closed.
+    #[serde(rename = "close")]
+    Close,
+}
+
+// ─── Port-Forward Types ────────────────────────────────────────────────────
+
+/// Request to create a port-forward.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreatePortForwardReq {
+    pub pod_name: String,
+    pub namespace: String,
+    pub remote_port: u16,
+    /// If None, a random port is assigned.
+    pub local_port: Option<u16>,
+}
+
+/// Status of a port-forward.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PortForwardStatus {
+    Active,
+    Closing,
+    Closed,
+}
+
+/// A running port-forward entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortForwardInfo {
+    pub id: String,
+    pub cluster_id: String,
+    pub pod_name: String,
+    pub namespace: String,
+    pub local_port: u16,
+    pub remote_port: u16,
+    pub status: PortForwardStatus,
+}
+
+// ─── Resource Detail Types ─────────────────────────────────────────────────
+
+/// A Kubernetes Event.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct K8sEvent {
+    pub reason: Option<String>,
+    pub message: Option<String>,
+    #[serde(rename = "type")]
+    pub event_type: Option<String>,
+    pub count: Option<u32>,
+    pub first_timestamp: Option<String>,
+    pub last_timestamp: Option<String>,
+    pub source: Option<String>,
+}
+
+/// A condition from a resource's status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct K8sCondition {
+    #[serde(rename = "type")]
+    pub condition_type: String,
+    pub status: String,
+    pub reason: Option<String>,
+    pub message: Option<String>,
+    pub last_transition_time: Option<String>,
+}
+
+/// Resource detail including events, conditions, and annotations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct K8sResourceDetail {
+    pub resource: K8sResource,
+    pub events: Vec<K8sEvent>,
+    pub conditions: Vec<K8sCondition>,
+}
+
+// ─── Service Bridge Types ──────────────────────────────────────────────────
+
+/// Detected service type.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DetectedServiceType {
+    PostgreSQL,
+    MySQL,
+    Redis,
+    Unknown,
+}
+
+/// Detection result for a K8s Service.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceDetectResult {
+    pub service_type: DetectedServiceType,
+    pub port: u16,
+    pub target_port: u16,
+    pub annotations: Option<serde_json::Value>,
+}
+
+/// Result of bridging to a service (port-forward created).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceBridgeResult {
+    pub service_type: DetectedServiceType,
+    pub local_port: u16,
+    pub remote_port: u16,
+    pub forward_id: String,
+}

@@ -435,12 +435,12 @@ impl K8sClient {
 
     /// Execute an HTTP GET request against the K8s API and return the JSON body.
     pub async fn get(&self, path: &str) -> Result<Value, String> {
-        let raw = self.get_raw(path).await?;
+        let raw = self.get_raw_text(path).await?;
         serde_json::from_str(&raw).map_err(|e| format!("JSON parse error: {e}"))
     }
 
-    /// Execute an HTTP GET request and return the raw response body.
-    async fn get_raw(&self, path: &str) -> Result<String, String> {
+    /// Execute an HTTP GET and return the raw response body as text.
+    pub async fn get_raw_text(&self, path: &str) -> Result<String, String> {
         let request = format!(
             "GET {path} HTTP/1.1\r\n\
              Host: {host}\r\n\
@@ -500,6 +500,75 @@ impl K8sClient {
 
             parse_http_response(&buf)
         }
+    }
+
+    /// Execute an HTTP PUT request with a JSON body and return the JSON response.
+    pub async fn put_json(&self, path: &str, body: &str) -> Result<Value, String> {
+        let content_len = body.len();
+        let request = format!(
+            "PUT {path} HTTP/1.1\r\n\
+             Host: {host}\r\n\
+             Content-Type: application/json\r\n\
+             Accept: application/json\r\n\
+             Content-Length: {content_len}\r\n\
+             Connection: close\r\n\
+             {auth}\
+             \r\n\
+             {body}",
+            host = self.host,
+            auth = self
+                .auth_header
+                .as_ref()
+                .map(|a| format!("Authorization: {a}\r\n"))
+                .unwrap_or_default(),
+        );
+
+        let addr = format!("{}:{}", self.host, self.port);
+        let tcp = TcpStream::connect(&addr)
+            .await
+            .map_err(|e| format!("TCP connect to {addr} failed: {e}"))?;
+
+        let raw = if self.use_tls {
+            let connector = TlsConnector::from(
+                self.tls_config
+                    .clone()
+                    .ok_or("TLS config missing for HTTPS server")?,
+            );
+            let server_name = ServerName::try_from(self.host.clone())
+                .map_err(|e| format!("Invalid server name '{}': {e}", self.host))?;
+
+            let mut tls_stream = connector
+                .connect(server_name, tcp)
+                .await
+                .map_err(|e| format!("TLS handshake failed: {e}"))?;
+
+            tls_stream
+                .write_all(request.as_bytes())
+                .await
+                .map_err(|e| format!("TLS write failed: {e}"))?;
+
+            let mut buf = Vec::new();
+            tls_stream
+                .read_to_end(&mut buf)
+                .await
+                .map_err(|e| format!("TLS read failed: {e}"))?;
+
+            parse_http_response(&buf)?
+        } else {
+            let mut tcp = tcp;
+            tcp.write_all(request.as_bytes())
+                .await
+                .map_err(|e| format!("TCP write failed: {e}"))?;
+
+            let mut buf = Vec::new();
+            tcp.read_to_end(&mut buf)
+                .await
+                .map_err(|e| format!("TCP read failed: {e}"))?;
+
+            parse_http_response(&buf)?
+        };
+
+        serde_json::from_str(&raw).map_err(|e| format!("JSON parse error: {e}"))
     }
 }
 

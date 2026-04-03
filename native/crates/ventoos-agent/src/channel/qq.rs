@@ -239,8 +239,8 @@ mod tests {
     fn test_verify_valid_callback() {
         let adapter = test_adapter();
         let body = r#"{
-            "conversation_id": "cid123",
-            "sender_id": "user1",
+            "channel_id": "cid123",
+            "sender_nick": "user1",
             "message_id": "msg1",
             "text": {"content": "hello"}
         }"#;
@@ -265,8 +265,8 @@ mod tests {
     fn test_normalize_callback() {
         let adapter = test_adapter();
         let body = r#"{
-            "conversation_id": "cid123",
-            "sender_id": "user1",
+            "channel_id": "cid123",
+            "sender_nick": "user1",
             "message_id": "msg1",
             "text": {"content": "hello qq"}
         }"#;
@@ -284,7 +284,7 @@ mod tests {
     fn test_normalize_empty_content_fails() {
         let adapter = test_adapter();
         let body = r#"{
-            "conversation_id": "cid123",
+            "channel_id": "cid123",
             "text": {"content": "  "}
         }"#;
         let verified = adapter.verify(&make_request(body)).unwrap();

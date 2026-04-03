@@ -183,7 +183,7 @@ pub(crate) fn parse_smb_uri(uri: &str) -> Result<SmbConnInfo, String> {
 
     // share_path is "/share[/sub/path]" — extract share name and base_path
     let parts: Vec<&str> = share_path.splitn(3, '/').collect();
-    let share = if parts.len() >= 2 {
+    let share = if parts.len() >= 2 && !parts[1].is_empty() {
         parts[1].to_string()
     } else {
         return Err("SMB URI must include a share name".to_string());

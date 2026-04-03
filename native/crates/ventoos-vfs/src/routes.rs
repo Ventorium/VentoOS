@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
+use axum::extract::ws::{Message, WebSocketUpgrade};
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 
 use ventoos_core::plugin::AppPlugin;
 use ventoos_core::types::ApiResponse;
 
+use crate::archive::{ArchiveRequest, ExtractRequest};
 use crate::manager::VfsManager;
 use crate::types::{
     CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsListReq, VfsMkdirReq, VfsMount, VfsMoveReq,
@@ -50,6 +52,15 @@ impl AppPlugin for VfsPlugin {
             .route("/api/vfs/mounts/{id}/upload", post(upload_handler))
             .route("/api/vfs/mounts/{id}/stat", get(stat_handler))
             .route("/api/vfs/mounts/{id}/search", get(search_handler))
+            // Archive / extract
+            .route("/api/vfs/mounts/{id}/archive", post(archive_handler))
+            .route("/api/vfs/mounts/{id}/extract", post(extract_handler))
+            // Permissions
+            .route("/api/vfs/mounts/{id}/chmod", put(chmod_handler))
+            // Watch (WebSocket)
+            .route("/api/vfs/mounts/{id}/watch", get(watch_handler))
+            // Tail (WebSocket)
+            .route("/api/vfs/mounts/{id}/tail", get(tail_handler))
             // WebDAV server settings
             .route(
                 "/api/vfs/webdav-server/settings",
@@ -125,7 +136,7 @@ async fn test_connection_handler(
     Json(req): Json<CreateVfsMountReq>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match mgr.test_connection(&req).await {
-        Ok(_) => Json(ApiResponse::ok(
+        Ok(()) => Json(ApiResponse::ok(
             serde_json::json!({"success": true, "message": "连接成功"}),
         )),
         Err(e) => Json(ApiResponse::ok(
@@ -399,4 +410,161 @@ async fn put_webdav_settings(
 ) -> Json<ApiResponse<WebDavServerSettings>> {
     mgr.update_webdav_server_settings(settings).await;
     Json(ApiResponse::ok(mgr.webdav_server_settings().await))
+}
+
+// ─── Archive handlers ────────────────────────────────────────────────────────
+
+async fn archive_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<ArchiveRequest>,
+) -> impl IntoResponse {
+    match mgr.create_archive(&id, &body).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"archived": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn extract_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<ExtractRequest>,
+) -> impl IntoResponse {
+    match mgr.extract_archive(&id, &body).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"extracted": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── Chmod handler ───────────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct ChmodQuery {
+    path: String,
+    mode: u32,
+}
+
+async fn chmod_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<ChmodQuery>,
+) -> impl IntoResponse {
+    match mgr.chmod(&id, &body.path, body.mode).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"updated": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── Watch WebSocket handler ─────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct WatchQuery {
+    path: Option<String>,
+}
+
+async fn watch_handler(
+    ws: WebSocketUpgrade,
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Query(q): Query<WatchQuery>,
+) -> impl IntoResponse {
+    let path = q.path.unwrap_or_else(|| "/".into());
+    ws.on_upgrade(move |mut socket| async move {
+        let (handle, mut rx) = crate::watch::start_watch(
+            mgr,
+            id,
+            path,
+            std::time::Duration::from_secs(2),
+        );
+
+        loop {
+            tokio::select! {
+                Some(event) = rx.recv() => {
+                    let json = serde_json::to_string(&event).unwrap_or_default();
+                    if socket.send(Message::Text(json.into())).await.is_err() {
+                        break;
+                    }
+                }
+                msg = recv_ws_msg(&mut socket) => {
+                    match msg {
+                        Some(Ok(Message::Close(_))) | None => break,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        handle.cancel();
+    })
+}
+
+// ─── Tail WebSocket handler ──────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct TailQuery {
+    path: String,
+    lines: Option<usize>,
+}
+
+async fn tail_handler(
+    ws: WebSocketUpgrade,
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Query(q): Query<TailQuery>,
+) -> impl IntoResponse {
+    let path = q.path;
+    let initial_lines = q.lines.unwrap_or(100);
+    ws.on_upgrade(move |mut socket| async move {
+        // Get mount info for local tail
+        let Some(mount) = mgr.get_mount(&id).await else {
+            let _ = socket.send(Message::Text(r#"{"error":"Mount not found"}"#.into())).await;
+            return;
+        };
+
+        match mount.kind {
+            crate::types::VfsSourceKind::Local => {
+                match crate::tail::tail_local_file(
+                    &mount.root,
+                    &path,
+                    initial_lines,
+                    std::time::Duration::from_millis(500),
+                ) {
+                    Ok((handle, mut rx)) => {
+                        loop {
+                            tokio::select! {
+                                Some(line) = rx.recv() => {
+                                    if socket.send(Message::Text(line.into())).await.is_err() {
+                                        break;
+                                    }
+                                }
+                                msg = recv_ws_msg(&mut socket) => {
+                                    match msg {
+                                        Some(Ok(Message::Close(_))) | None => break,
+                                        _ => {}
+                                    }
+                                }
+                            }
+                        }
+                        handle.cancel();
+                    }
+                    Err(e) => {
+                        let _ = socket
+                            .send(Message::Text(format!(r#"{{"error":"{e}"}}"#).into()))
+                            .await;
+                    }
+                }
+            }
+            _ => {
+                let _ = socket
+                    .send(Message::Text(r#"{"error":"Tail only supported for local mounts"}"#.into()))
+                    .await;
+            }
+        }
+    })
+}
+
+/// Helper to receive a WebSocket message (returns None on connection close).
+async fn recv_ws_msg(
+    socket: &mut axum::extract::ws::WebSocket,
+) -> Option<Result<Message, axum::Error>> {
+    socket.recv().await
 }

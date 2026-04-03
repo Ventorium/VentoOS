@@ -1634,3 +1634,31 @@ select.vos-input {
 .ssh-table tbody tr:last-child td {
   border-bottom: none;
 }
+
+/* ---- AI Dock Icon Animations ---- */
+.vos-ai-pulse {
+  animation: vos-ai-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes vos-ai-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.vos-ai-spin {
+  animation: vos-ai-spin 1.2s linear infinite;
+}
+
+@keyframes vos-ai-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.vos-ai-error-blink {
+  animation: vos-ai-error-blink 0.6s ease-in-out infinite;
+}
+
+@keyframes vos-ai-error-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

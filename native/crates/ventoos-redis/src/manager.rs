@@ -9,8 +9,11 @@ use tracing::{debug, info, warn};
 
 use crate::resp::{self, RespValue};
 use crate::types::{
-    CreateRedisConnectionReq, PubSubMessage, RedisCommandResult, RedisConnectionConfig,
-    RedisKeyInfo, RedisKeyValue, RedisScanReq, RedisScanResult, RedisServerInfo, RedisTestResult,
+    BatchDeleteRequest, BatchExportRequest, BatchResult, BatchTtlRequest, CreateRedisConnectionReq,
+    MemoryStatsResult, MemoryUsageResult, MonitorEntry, PubSubMessage, RedisCommandResult,
+    RedisConnectionConfig, RedisInfoParsed, RedisKeyInfo, RedisKeyValue, RedisScanReq,
+    RedisScanResult, RedisServerInfo, RedisTestResult, StreamAddRequest, StreamEntry,
+    StreamGroupCreateRequest,
 };
 
 // ── Internal types ──────────────────────────────────────────
@@ -68,6 +71,10 @@ impl RedisManager {
             db: req.db.unwrap_or(0),
             group: req.group,
             ssl_enabled: req.ssl_enabled.unwrap_or(false),
+            mode: req.mode.unwrap_or_default(),
+            tls: req.tls,
+            sentinel: req.sentinel,
+            cluster: req.cluster,
         };
         self.configs.write().await.insert(id, config.clone());
         config
@@ -548,7 +555,7 @@ impl RedisManager {
         let connections = self.connections.read().await;
         let conn = connections.get(conn_id).ok_or("Not connected")?;
 
-        let resp = Self::send_command(conn, &["INFO", "server"]).await?;
+        let resp = Self::send_command(conn, &["INFO"]).await?;
         let info_str = resp.to_string_lossy();
 
         Ok(RedisServerInfo {
@@ -557,11 +564,289 @@ impl RedisManager {
                 .parse()
                 .unwrap_or(0),
             used_memory_human: extract_redis_field(&info_str, "used_memory_human"),
-            total_keys: 0,
+            total_keys: parse_keyspace_total(&info_str),
             uptime_days: extract_redis_field(&info_str, "uptime_in_days")
                 .parse()
                 .unwrap_or(0),
         })
+    }
+
+    // ── Stream operations ───────────────────────────────────
+
+    /// Read stream entries with XRANGE.
+    pub async fn stream_range(
+        &self,
+        conn_id: &str,
+        key: &str,
+        start: &str,
+        end: &str,
+        count: Option<u32>,
+    ) -> Result<Vec<StreamEntry>, String> {
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let count_str = count.unwrap_or(100).to_string();
+        let resp =
+            Self::send_command(conn, &["XRANGE", key, start, end, "COUNT", &count_str]).await?;
+
+        parse_stream_entries(resp)
+    }
+
+    /// Add a message to a stream with XADD.
+    pub async fn stream_add(
+        &self,
+        conn_id: &str,
+        key: &str,
+        req: &StreamAddRequest,
+    ) -> Result<String, String> {
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let id = req.id.as_deref().unwrap_or("*");
+        let mut args: Vec<&str> = vec!["XADD", key, id];
+        let field_strs: Vec<String> = req
+            .fields
+            .iter()
+            .flat_map(|(k, v)| vec![k.clone(), v.clone()])
+            .collect();
+        for s in &field_strs {
+            args.push(s);
+        }
+
+        let resp = Self::send_command(conn, &args).await?;
+        Ok(resp.to_string_lossy())
+    }
+
+    /// Get stream length with XLEN.
+    pub async fn stream_len(&self, conn_id: &str, key: &str) -> Result<i64, String> {
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let resp = Self::send_command(conn, &["XLEN", key]).await?;
+        Ok(resp.as_i64().unwrap_or(0))
+    }
+
+    /// Create a consumer group with XGROUP CREATE.
+    pub async fn stream_group_create(
+        &self,
+        conn_id: &str,
+        key: &str,
+        req: &StreamGroupCreateRequest,
+    ) -> Result<(), String> {
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let start_id = req.start_id.as_deref().unwrap_or("$");
+        let resp = Self::send_command(
+            conn,
+            &["XGROUP", "CREATE", key, &req.group_name, start_id, "MKSTREAM"],
+        )
+        .await?;
+        if resp.is_error() {
+            return Err(resp.to_string_lossy());
+        }
+        Ok(())
+    }
+
+    // ── Batch operations ────────────────────────────────────
+
+    /// Scan keys matching pattern and delete them.
+    pub async fn batch_delete(
+        &self,
+        conn_id: &str,
+        req: &BatchDeleteRequest,
+    ) -> Result<BatchResult, String> {
+        let keys = self.scan_all_keys(conn_id, &req.pattern).await?;
+        let deleted = self.delete_keys_batch(conn_id, &keys).await?;
+        Ok(BatchResult {
+            affected: deleted,
+            keys,
+        })
+    }
+
+    /// Scan keys matching pattern and set TTL.
+    pub async fn batch_set_ttl(
+        &self,
+        conn_id: &str,
+        req: &BatchTtlRequest,
+    ) -> Result<BatchResult, String> {
+        let keys = self.scan_all_keys(conn_id, &req.pattern).await?;
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let ttl_str = req.ttl.to_string();
+        let mut affected = 0i64;
+        for key in &keys {
+            let resp = Self::send_command(conn, &["EXPIRE", key, &ttl_str]).await?;
+            if resp.as_i64().unwrap_or(0) > 0 {
+                affected += 1;
+            }
+        }
+
+        Ok(BatchResult {
+            affected,
+            keys,
+        })
+    }
+
+    /// Scan keys matching pattern and export as JSON.
+    pub async fn batch_export(
+        &self,
+        conn_id: &str,
+        req: &BatchExportRequest,
+    ) -> Result<serde_json::Value, String> {
+        let keys = self.scan_all_keys(conn_id, &req.pattern).await?;
+        let mut result = serde_json::Map::new();
+
+        for key in &keys {
+            if let Ok(kv) = self.get_key_value(conn_id, key).await {
+                result.insert(key.clone(), kv.value);
+            }
+        }
+
+        Ok(serde_json::Value::Object(result))
+    }
+
+    /// Scan all keys matching a pattern (iterates through all cursors).
+    async fn scan_all_keys(&self, conn_id: &str, pattern: &str) -> Result<Vec<String>, String> {
+        let mut all_keys = Vec::new();
+        let mut cursor = "0".to_string();
+
+        loop {
+            let req = RedisScanReq {
+                cursor: cursor.clone(),
+                pattern: Some(pattern.to_string()),
+                count: Some(200),
+                key_type: None,
+            };
+            let result = self.scan_keys(conn_id, &req).await?;
+            for ki in &result.keys {
+                all_keys.push(ki.key.clone());
+            }
+            cursor = result.cursor;
+            if result.finished || cursor == "0" {
+                break;
+            }
+            // Safety limit
+            if all_keys.len() > 10_000 {
+                break;
+            }
+        }
+
+        Ok(all_keys)
+    }
+
+    /// Delete multiple keys.
+    async fn delete_keys_batch(&self, conn_id: &str, keys: &[String]) -> Result<i64, String> {
+        if keys.is_empty() {
+            return Ok(0);
+        }
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let mut total = 0i64;
+        for chunk in keys.chunks(100) {
+            let mut args: Vec<&str> = vec!["DEL"];
+            for key in chunk {
+                args.push(key);
+            }
+            let resp = Self::send_command(conn, &args).await?;
+            total += resp.as_i64().unwrap_or(0);
+        }
+        Ok(total)
+    }
+
+    // ── Stats / INFO ────────────────────────────────────────
+
+    /// Parse INFO command output into structured sections.
+    pub async fn info_parsed(&self, conn_id: &str) -> Result<RedisInfoParsed, String> {
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let resp = Self::send_command(conn, &["INFO"]).await?;
+        let info_str = resp.to_string_lossy();
+        Ok(parse_info_sections(&info_str))
+    }
+
+    /// Get memory usage for a single key.
+    pub async fn memory_usage(
+        &self,
+        conn_id: &str,
+        key: &str,
+    ) -> Result<MemoryUsageResult, String> {
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let resp = Self::send_command(conn, &["MEMORY", "USAGE", key]).await?;
+        let bytes = resp.as_i64().unwrap_or(-1);
+        Ok(MemoryUsageResult {
+            key: key.to_string(),
+            bytes,
+        })
+    }
+
+    /// Get global memory stats.
+    pub async fn memory_stats(&self, conn_id: &str) -> Result<MemoryStatsResult, String> {
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let resp = Self::send_command(conn, &["MEMORY", "STATS"]).await?;
+        Ok(MemoryStatsResult {
+            stats: resp.to_json(),
+        })
+    }
+
+    /// Publish a message to a channel.
+    pub async fn publish(
+        &self,
+        conn_id: &str,
+        channel: &str,
+        message: &str,
+    ) -> Result<i64, String> {
+        let connections = self.connections.read().await;
+        let conn = connections.get(conn_id).ok_or("Not connected")?;
+
+        let resp = Self::send_command(conn, &["PUBLISH", channel, message]).await?;
+        Ok(resp.as_i64().unwrap_or(0))
+    }
+
+    /// Parse a MONITOR output line into structured data.
+    pub fn parse_monitor_line(line: &str) -> MonitorEntry {
+        // MONITOR format: "1234567890.123456 [0 127.0.0.1:12345] \"SET\" \"key\" \"value\""
+        let mut timestamp = 0.0_f64;
+        let mut client = String::new();
+        let mut command = String::new();
+        let mut args = Vec::new();
+
+        let raw = line.to_string();
+
+        if let Some(space_idx) = line.find(' ') {
+            timestamp = line[..space_idx].parse().unwrap_or(0.0);
+            let rest = &line[space_idx + 1..];
+
+            if let Some(bracket_end) = rest.find(']') {
+                client = rest[1..bracket_end].to_string();
+                let cmd_part = rest[bracket_end + 2..].trim();
+
+                let parts: Vec<&str> = cmd_part.split(' ').collect();
+                for (i, part) in parts.iter().enumerate() {
+                    let cleaned = part.trim_matches('"');
+                    if i == 0 {
+                        command = cleaned.to_string();
+                    } else {
+                        args.push(cleaned.to_string());
+                    }
+                }
+            }
+        }
+
+        MonitorEntry {
+            timestamp,
+            client,
+            command,
+            args,
+            raw,
+        }
     }
 
     // ── Internal helpers ────────────────────────────────────
@@ -643,6 +928,82 @@ fn elapsed_ms(start: &Instant) -> u64 {
     u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
+/// Parse total key count from INFO keyspace section.
+fn parse_keyspace_total(info: &str) -> i64 {
+    let mut total = 0i64;
+    for line in info.lines() {
+        if line.starts_with("db") && line.contains("keys=")
+            && let Some(keys_part) = line.split("keys=").nth(1)
+                && let Some(num_str) = keys_part.split(',').next() {
+                    total += num_str.parse::<i64>().unwrap_or(0);
+                }
+    }
+    total
+}
+
+/// Parse INFO output into structured sections.
+fn parse_info_sections(info: &str) -> RedisInfoParsed {
+    let mut sections = std::collections::HashMap::new();
+    let mut current_section = String::new();
+
+    for line in info.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if line.starts_with('#') {
+            current_section = line.trim_start_matches('#').trim().to_lowercase();
+            sections
+                .entry(current_section.clone())
+                .or_insert_with(std::collections::HashMap::new);
+        } else if let Some((key, value)) = line.split_once(':')
+            && let Some(section) = sections.get_mut(&current_section) {
+                section.insert(key.to_string(), value.to_string());
+            }
+    }
+
+    RedisInfoParsed { sections }
+}
+
+/// Parse XRANGE response into stream entries.
+fn parse_stream_entries(resp: RespValue) -> Result<Vec<StreamEntry>, String> {
+    let arr = resp
+        .into_array()
+        .ok_or("Invalid stream response: expected array")?;
+
+    let mut entries = Vec::new();
+    for item in arr {
+        let entry_arr = item
+            .into_array()
+            .ok_or("Invalid stream entry: expected array")?;
+        if entry_arr.len() < 2 {
+            continue;
+        }
+
+        let id = entry_arr[0].as_str().unwrap_or("").to_string();
+        let fields_arr = entry_arr[1]
+            .clone()
+            .into_array()
+            .unwrap_or_default();
+
+        let mut fields_map = serde_json::Map::new();
+        let mut i = 0;
+        while i + 1 < fields_arr.len() {
+            let key = fields_arr[i].as_str().unwrap_or("").to_string();
+            let value = fields_arr[i + 1].to_string_lossy();
+            fields_map.insert(key, serde_json::Value::String(value));
+            i += 2;
+        }
+
+        entries.push(StreamEntry {
+            id,
+            fields: serde_json::Value::Object(fields_map),
+        });
+    }
+
+    Ok(entries)
+}
+
 impl Default for RedisManager {
     fn default() -> Self {
         Self::new()
@@ -666,6 +1027,10 @@ mod tests {
                 db: None,
                 group: None,
                 ssl_enabled: None,
+                mode: None,
+                tls: None,
+                sentinel: None,
+                cluster: None,
             })
             .await;
         assert_eq!(conn.name, "test-redis");
@@ -687,6 +1052,10 @@ mod tests {
                 db: None,
                 group: None,
                 ssl_enabled: None,
+                mode: None,
+                tls: None,
+                sentinel: None,
+                cluster: None,
             })
             .await;
         assert!(mgr.delete_connection(&conn.id).await);
@@ -706,6 +1075,10 @@ mod tests {
                 db: None,
                 group: None,
                 ssl_enabled: None,
+                mode: None,
+                tls: None,
+                sentinel: None,
+                cluster: None,
             })
             .await;
         assert_eq!(conn.port, 6379);
@@ -735,6 +1108,10 @@ mod tests {
                 db: None,
                 group: None,
                 ssl_enabled: None,
+                mode: None,
+                tls: None,
+                sentinel: None,
+                cluster: None,
             })
             .await;
         }

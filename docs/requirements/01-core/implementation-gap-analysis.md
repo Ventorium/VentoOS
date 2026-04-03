@@ -93,7 +93,6 @@
 
 | 需求 | 优先级 | 说明 |
 |------|--------|------|
-| **MongoDB、ClickHouse、TiDB 支持** | 🟠 中 | 后端类型枚举定义不完整 |
 | **Monaco Editor SQL 编辑器** | 🔴 高 | 当前用普通 textarea，缺少语法高亮、补全、多 tab |
 | **SQL 自动补全**（schema 感知） | 🔴 高 | 无 |
 | **多结果 tab** | 🟠 中 | 无 |
@@ -175,7 +174,6 @@
 | 需求 | 优先级 | 说明 |
 |------|--------|------|
 | **K8s Pod 文件系统 Provider** | 🟠 中 | 需 kubectl cp/exec tar |
-| **Teleport SSH Provider** | 🟠 中 | 依赖 Teleport 集成 |
 | **UI 拖拽跨挂载点复制/移动** | 🟠 中 | 后端流式传输已支持，UI 拖拽交互缺失 |
 | **批量压缩/解压** | 🟡 低 | 无 |
 | **权限修改（chmod）** | 🟡 低 | 无 |
@@ -184,7 +182,7 @@
 | **右键「在终端中打开」** | 🟠 中 | 无 |
 | **右键「在编辑器中打开」** | 🟡 低 | 无 |
 | **双栏对比视图** | 🟡 低 | 仅单栏 |
-| **自定义挂载别名（Alias 机制）** | 🟡 低 | 无 |
+| **自定义挂载别名（Mount/Alias 机制）** | 🟡 低 | 无 |
 | **Watch 实时变更通知** | 🟡 低 | VFS Provider 接口未实现 watch |
 
 ---
@@ -247,9 +245,6 @@
 
 | 需求 | 优先级 | 说明 |
 |------|--------|------|
-| **IndexedDB 客户端持久化** | 🟡 低 | 规范要求 IndexedDB，当前通过 SQLite 后端持久化（功能等效，架构不同） |
-| **桌面快照导出/导入（JSON）** | 🟠 中 | 无 |
-| **多显示器感知** | 🟡 低 | 无 |
 | **最小化动画（scale to Dock 位置）** | 🟠 中 | 最小化后直接隐藏，无缩放至 Dock 动画 |
 | **应用内部状态序列化与恢复** | 🟠 中 | `appState` 字段有定义，但各应用未完全实现内部状态恢复 |
 
@@ -299,7 +294,6 @@
 
 | 需求 | 优先级 | 说明 |
 |------|--------|------|
-| **K8s 资源异常自动推送**（CrashLoopBackOff、OOMKilled 等） | 🟠 中 | 无 K8s 事件监听 WebSocket |
 | **长操作完成通知**（文件传输、SQL 导出） | 🟠 中 | 传输任务队列未接入通知 |
 | **AI Agent 执行结果通知** | 🟠 中 | 无 |
 | **系统原生 Notification API** | 🟡 低 | 无 |
@@ -329,9 +323,6 @@
 | **在线壁纸库** | 🟡 低 | 无 |
 | **强调色自定义** | 🟠 中 | 仅预设 8 色，无自定义颜色选择器 |
 | **快捷键自定义 UI** | 🟠 中 | `services/keyboard` 有注册机制，但无 UI 供用户修改 |
-| **连接统一管理视图**（所有 K8s/DB/Redis/SSH 连接） | 🟠 中 | 无，各应用内独立管理 |
-| **Teleport 配置**（Proxy 地址、自动登录） | 🔴 高 | 无（Teleport 功能整体未实现） |
-| **配置导入/导出（JSON）** | 🟠 中 | 无 |
 
 ---
 
@@ -341,13 +332,8 @@
 
 | 规范要求 | 实际实现 | 评估 |
 |----------|----------|------|
-| Tailwind CSS v4 | **UnoCSS** | 功能等效，底层原子类 CSS，可接受 |
 | TanStack Query v5 | **未引入** | 数据获取用 useState + useCallback，无缓存层 |
-| TanStack Table v8 | **virtua (VList)** | 虚拟滚动已实现，但无列排序/筛选能力 |
-| IndexedDB 窗口状态持久化 | **SQLite（后端）** | 架构不同但功能等效，可接受（已有 localStorage 补充） |
 | Recharts / D3 图表 | **未引入** | DB/Redis 统计图表未实现 |
-| Immer + Zustand | **纯 Zustand** | 无 Immer，但 slice 设计清晰 |
-| Tauri v2 | **独立 Rust 二进制 + 浏览器** | 放弃原生 App 封装，缺少系统 tray、Keychain、自动更新 |
 | AI 工具集（k8s/db/redis/vfs 类） | **仅 4 个基础工具（read/write/edit/bash）** | 平台业务工具集缺失，StubToolExecutor 未接实际服务 |
 | Monaco Editor | **textarea（DB SQL）** | 编辑体验缺失，无语法高亮/补全 |
 

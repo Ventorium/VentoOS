@@ -23,6 +23,9 @@ base64 = { workspace = true }
 quick-xml = { version = "0.37", features = ["serialize"] }
 ring = "0.17"
 smolder-smb-core = "0.3"
+flate2 = "1"
+tar = "0.4"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [lints]
 workspace = true

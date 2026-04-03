@@ -753,6 +753,112 @@ impl VfsManager {
         }
     }
 
+    /// Change file permissions.
+    pub async fn chmod(&self, mount_id: &str, path: &str, mode: u32) -> Result<(), String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => crate::chmod::chmod_local(&mount.root, path, mode).await,
+            VfsSourceKind::Sftp => {
+                let sftp = self.get_sftp_for_mount(&mount).await?;
+                let root = Self::sftp_root(&mount)?;
+                crate::chmod::chmod_sftp(&sftp, &root, path, mode).await
+            }
+            _ => Err(format!(
+                "chmod not supported for {:?} provider",
+                mount.kind
+            )),
+        }
+    }
+
+    /// Create an archive from files within a mount (local only).
+    pub async fn create_archive(
+        &self,
+        mount_id: &str,
+        req: &crate::archive::ArchiveRequest,
+    ) -> Result<(), String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => {
+                let root = std::path::Path::new(&mount.root);
+                let dest = Self::resolve_local_dest(root, &req.dest)?;
+                // Run blocking archive operation in spawn_blocking
+                let root_owned = mount.root.clone();
+                let paths = req.paths.clone();
+                let format = req.format;
+                tokio::task::spawn_blocking(move || {
+                    let root_path = std::path::Path::new(&root_owned);
+                    match format {
+                        crate::archive::ArchiveFormat::TarGz => {
+                            crate::archive::create_tar_gz(root_path, &paths, &dest)
+                        }
+                        crate::archive::ArchiveFormat::Zip => {
+                            crate::archive::create_zip(root_path, &paths, &dest)
+                        }
+                    }
+                })
+                .await
+                .map_err(|e| format!("Archive task failed: {e}"))?
+            }
+            _ => Err(format!(
+                "Archive creation not supported for {:?} provider",
+                mount.kind
+            )),
+        }
+    }
+
+    /// Extract an archive within a mount (local only).
+    pub async fn extract_archive(
+        &self,
+        mount_id: &str,
+        req: &crate::archive::ExtractRequest,
+    ) -> Result<(), String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => {
+                let root = std::path::Path::new(&mount.root);
+                let archive_path = Self::resolve_local_path(root, &req.archive_path)?;
+                let dest_dir = Self::resolve_local_dest(root, &req.dest_dir)?;
+                let format = crate::archive::ArchiveFormat::from_path(&req.archive_path)
+                    .ok_or("Unknown archive format")?;
+                tokio::task::spawn_blocking(move || match format {
+                    crate::archive::ArchiveFormat::TarGz => {
+                        crate::archive::extract_tar_gz(&archive_path, &dest_dir)
+                    }
+                    crate::archive::ArchiveFormat::Zip => {
+                        crate::archive::extract_zip(&archive_path, &dest_dir)
+                    }
+                })
+                .await
+                .map_err(|e| format!("Extract task failed: {e}"))?
+            }
+            _ => Err(format!(
+                "Archive extraction not supported for {:?} provider",
+                mount.kind
+            )),
+        }
+    }
+
     /// Resolve and validate a path within the mount root, returning the canonical path.
     fn resolve_local_path(
         root: &std::path::Path,

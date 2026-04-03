@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 use tracing::info;
 
 use crate::agent::AgentRunner;
+use crate::executor::{PlatformToolExecutor, register_platform_stubs};
 use crate::guard::GuardChain;
 use crate::provider::ProviderClient;
 use crate::session::SessionStore;
@@ -31,7 +32,10 @@ pub struct AgentManager {
 
 impl AgentManager {
     pub fn new() -> Self {
-        Self::with_executor(Arc::new(StubToolExecutor))
+        let stub = Arc::new(StubToolExecutor);
+        let mut platform_executor = PlatformToolExecutor::new(stub);
+        register_platform_stubs(&mut platform_executor);
+        Self::with_executor(Arc::new(platform_executor))
     }
 
     /// Create a manager with a custom tool executor.
