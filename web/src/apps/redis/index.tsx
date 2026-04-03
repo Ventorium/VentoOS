@@ -209,32 +209,26 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
     }
   }
 
-  const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
-  const fs = {
-    background: 'var(--vos-bg-input)',
-    color: 'var(--vos-text-primary)',
-    border: '0.5px solid var(--vos-border-subtle)'
-  }
+  const fc = 'vos-input'
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
+    <div className="vos-modal-overlay">
       <div
-        className="rounded-lg p-4 flex flex-col gap-3"
-        style={{ width: 360, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+        className="vos-modal-panel"
+        style={{ width: 360 }}
       >
-        <div className="text-sm font-medium">新建 Redis 连接</div>
-        <input className={fc} style={fs} placeholder="连接名称" value={name} onChange={e => setName(e.target.value)} />
+        <div className="vos-modal-title">新建 Redis 连接</div>
+        <input className={fc} placeholder="连接名称" value={name} onChange={e => setName(e.target.value)} />
         <div className="flex gap-2">
           <input
             className={`${fc} flex-1`}
-            style={fs}
             placeholder="Host"
             value={host}
             onChange={e => setHost(e.target.value)}
           />
           <input
             className={fc}
-            style={{ ...fs, width: 70 }}
+            style={{ width: 70 }}
             placeholder="Port"
             value={port}
             onChange={e => setPort(e.target.value)}
@@ -242,26 +236,23 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
         </div>
         <input
           className={fc}
-          style={fs}
           placeholder="密码（可选）"
           type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
         />
-        <input className={fc} style={fs} placeholder="数据库 (0)" value={db} onChange={e => setDb(e.target.value)} />
+        <input className={fc} placeholder="数据库 (0)" value={db} onChange={e => setDb(e.target.value)} />
         <div className="flex justify-end gap-2 mt-1">
           <button
             type="button"
-            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+            className="vos-btn-sm vos-btn-ghost"
             onClick={onClose}
           >
             取消
           </button>
           <button
             type="button"
-            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
+            className="vos-btn-sm vos-btn-primary"
             onClick={submit}
             disabled={saving}
           >
@@ -404,7 +395,7 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
             <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
               <button
                 type="button"
-                className="bg-transparent border-none cursor-pointer p-0"
+                className="vos-btn-reset"
                 style={{ color: 'var(--vos-text-tertiary)' }}
                 onClick={() => delField(f)}
               >
@@ -502,7 +493,7 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
             <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
               <button
                 type="button"
-                className="bg-transparent border-none cursor-pointer p-0"
+                className="vos-btn-reset"
                 style={{ color: 'var(--vos-text-tertiary)' }}
                 onClick={() => delItem(v)}
               >
@@ -582,7 +573,7 @@ function SetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: strin
             {m}
             <button
               type="button"
-              className="bg-transparent border-none p-0 cursor-pointer"
+              className="vos-btn-reset"
               style={{ color: 'var(--vos-text-tertiary)', display: 'flex' }}
               onClick={() => delMember(m)}
             >
@@ -694,7 +685,7 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
             <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
               <button
                 type="button"
-                className="bg-transparent border-none cursor-pointer p-0"
+                className="vos-btn-reset"
                 style={{ color: 'var(--vos-text-tertiary)' }}
                 onClick={() => delMember(e.member)}
               >
@@ -795,7 +786,7 @@ function ValueViewer({
         )}
         <button
           type="button"
-          className="bg-transparent border-none p-0 cursor-pointer"
+          className="vos-btn-reset"
           style={{ color: 'var(--vos-text-tertiary)' }}
           onClick={handleDelete}
           title="删除 Key"
@@ -985,7 +976,7 @@ export default function RedisApp(_props: AppComponentProps) {
           <div className="flex gap-1">
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
+              className="vos-btn-reset"
               style={{ color: 'var(--vos-text-tertiary)' }}
               onClick={reload}
             >
@@ -993,7 +984,7 @@ export default function RedisApp(_props: AppComponentProps) {
             </button>
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
+              className="vos-btn-reset"
               style={{ color: 'var(--vos-accent-primary)' }}
               onClick={() => setShowForm(true)}
             >
@@ -1019,7 +1010,7 @@ export default function RedisApp(_props: AppComponentProps) {
               >
                 <button
                   type="button"
-                  className="bg-transparent border-none p-0 cursor-pointer text-inherit"
+                  className="vos-btn-reset text-inherit"
                   onClick={() => toggleConn(conn.id)}
                 >
                   {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
@@ -1043,7 +1034,7 @@ export default function RedisApp(_props: AppComponentProps) {
                   {connected ? (
                     <button
                       type="button"
-                      className="bg-transparent border-none p-0 cursor-pointer text-inherit"
+                      className="vos-btn-reset text-inherit"
                       onClick={() => disconnectFrom(conn.id)}
                     >
                       <Unplug size={10} />
@@ -1051,7 +1042,7 @@ export default function RedisApp(_props: AppComponentProps) {
                   ) : (
                     <button
                       type="button"
-                      className="bg-transparent border-none p-0 cursor-pointer text-inherit"
+                      className="vos-btn-reset text-inherit"
                       onClick={() => connectTo(conn.id)}
                     >
                       <Zap size={10} />
@@ -1059,7 +1050,7 @@ export default function RedisApp(_props: AppComponentProps) {
                   )}
                   <button
                     type="button"
-                    className="bg-transparent border-none p-0 cursor-pointer text-inherit"
+                    className="vos-btn-reset text-inherit"
                     onClick={() => deleteConn(conn.id)}
                   >
                     <Trash2 size={10} />
@@ -1113,7 +1104,7 @@ export default function RedisApp(_props: AppComponentProps) {
               </span>
               <button
                 type="button"
-                className="bg-transparent border-none p-0 cursor-pointer"
+                className="vos-btn-reset"
                 style={{ color: 'var(--vos-text-tertiary)' }}
                 onClick={() => selectedConn && scanKeys(selectedConn, pattern)}
               >
@@ -1159,7 +1150,7 @@ export default function RedisApp(_props: AppComponentProps) {
                   />
                   <button
                     type="button"
-                    className="bg-transparent border-none p-0 cursor-pointer"
+                    className="vos-btn-reset"
                     style={{ color: '#6ee7b7' }}
                     onClick={runCmd}
                   >

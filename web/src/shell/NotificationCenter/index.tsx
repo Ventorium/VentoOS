@@ -38,7 +38,7 @@ function NotifItem({ n }: { n: NotificationItem }) {
         {!n.read && (
           <button
             type="button"
-            className="bg-transparent border-none cursor-pointer p-0"
+            className="vos-btn-reset"
             style={{ color: 'var(--vos-text-tertiary)' }}
             onClick={() => markAsRead(n.id)}
           >
@@ -47,7 +47,7 @@ function NotifItem({ n }: { n: NotificationItem }) {
         )}
         <button
           type="button"
-          className="bg-transparent border-none cursor-pointer p-0"
+          className="vos-btn-reset"
           style={{ color: 'var(--vos-text-tertiary)' }}
           onClick={() => removeNotification(n.id)}
         >

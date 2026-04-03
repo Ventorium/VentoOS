@@ -33,6 +33,7 @@ function TrafficLights({
         e.stopPropagation()
         handler()
       }}
+      className="vos-flex-center"
       style={{
         width: 14,
         height: 14,
@@ -41,9 +42,6 @@ function TrafficLights({
         border: focused ? 'none' : '0.5px solid rgba(128,128,128,0.3)',
         cursor: 'pointer',
         padding: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         fontSize: 11,
         fontWeight: 800,
         color: 'rgba(0,0,0,0.55)',
@@ -60,7 +58,8 @@ function TrafficLights({
     // biome-ignore lint/a11y/noStaticElementInteractions: window control hover detection
     <div
       role="presentation"
-      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+      className="vos-flex-row"
+      style={{ gap: 6 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -107,6 +106,29 @@ export default function Window({ win, children }: { win: WindowInstance; childre
   const moveWindow = useWindowStore(s => s.moveWindow)
   const resizeWindow = useWindowStore(s => s.resizeWindow)
   const shouldRender = !win.isMinimized
+
+  // ---- Auto-reset position when title bar is off-screen ----
+  // Triggered on browser resize; if the window title bar is not visible, reposition to center.
+  useEffect(() => {
+    if (win.isMaximized || win.isMinimized) return
+    const checkBounds = () => {
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const titleBarVisible = (
+        win.x < vw - 60 &&           // enough of left edge visible
+        win.x + win.width > 60 &&    // enough of right edge visible
+        win.y >= TOPBAR_H &&         // title bar not above topbar
+        win.y < vh - 20              // title bar not below bottom
+      )
+      if (!titleBarVisible) {
+        const centeredX = Math.max(0, (vw - win.width) / 2)
+        const centeredY = Math.max(TOPBAR_H, (vh - win.height) / 2)
+        moveWindow(win.id, centeredX, centeredY)
+      }
+    }
+    window.addEventListener('resize', checkBounds)
+    return () => window.removeEventListener('resize', checkBounds)
+  }, [win.id, win.x, win.y, win.width, win.height, win.isMaximized, win.isMinimized, moveWindow])
 
   // Drag state
   const dragRef = useRef<{
@@ -338,14 +360,12 @@ export default function Window({ win, children }: { win: WindowInstance; childre
       {/* biome-ignore lint/a11y/noStaticElementInteractions: title bar is a drag handle for window movement */}
       <div
         role="presentation"
+        className="vos-flex-row"
         style={{
           height: TITLE_H,
-          display: 'flex',
-          alignItems: 'center',
           paddingLeft: 12,
           paddingRight: 12,
           flexShrink: 0,
-          // background: 'var(--vos-bg-window-title)',
           WebkitBackdropFilter: 'blur(48px)',
           borderBottom: '0.5px solid var(--vos-border-subtle)',
           cursor: isMax ? 'default' : 'grab',
@@ -361,8 +381,8 @@ export default function Window({ win, children }: { win: WindowInstance; childre
           onMaximize={() => toggleMaximize(win.id)}
         />
         <div
+          className="vos-flex-1"
           style={{
-            flex: 1,
             textAlign: 'center',
             fontSize: 13,
             fontWeight: 500,
@@ -380,11 +400,11 @@ export default function Window({ win, children }: { win: WindowInstance; childre
       </div>
 
       {/* ---- Content with virtual rendering ---- */}
-      <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div className="vos-flex-col vos-flex-1" style={{ overflow: 'auto' }}>
         {shouldRender ? (
           <Suspense
             fallback={
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="vos-flex-center" style={{ flex: 1 }}>
                 <div
                   style={{
                     width: 20,
@@ -402,14 +422,8 @@ export default function Window({ win, children }: { win: WindowInstance; childre
           </Suspense>
         ) : (
           <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--vos-text-tertiary)',
-              fontSize: 13
-            }}
+            className="vos-flex-center"
+            style={{ flex: 1, color: 'var(--vos-text-tertiary)', fontSize: 13 }}
           >
             进程已暂停
           </div>

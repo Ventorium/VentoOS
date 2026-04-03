@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { systemChannel } from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
 import { darkTheme, lightTheme, type ThemeColors } from '@/theme'
 
@@ -57,6 +58,8 @@ export function useThemeSync() {
       document.documentElement.classList.toggle('dark', resolved === 'dark')
       applyThemeVars(colors)
       setResolvedTheme(resolved)
+      // Broadcast theme change to all subscribers (apps, components)
+      systemChannel.notify('theme:changed', { mode: resolved as 'light' | 'dark' })
     }
 
     update()

@@ -32,7 +32,6 @@ function DockIcon({
   label,
   icon,
   isRunning,
-  badge,
   appId,
   onClick,
   onContextMenu,
@@ -44,7 +43,6 @@ function DockIcon({
   label: string
   icon: React.ReactNode
   isRunning?: boolean
-  badge?: number
   appId?: string
   onClick: () => void
   onContextMenu?: (e: React.MouseEvent) => void
@@ -138,40 +136,6 @@ function DockIcon({
 
       {/* Running indicator */}
       {isRunning && <div className={`vos-dock-dot ${!isHorizontal ? 'vos-dock-dot-left' : ''}`} />}
-
-      {/* Badge */}
-      {badge != null && badge > 0 && (
-        <AnimatePresence>
-          <motion.div
-            key={badge}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-            style={{
-              position: 'absolute',
-              top: -4,
-              right: -4,
-              minWidth: 18,
-              height: 18,
-              borderRadius: 9,
-              background: 'var(--vos-accent-danger, #ff3b30)',
-              color: '#fff',
-              fontSize: 10,
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 4px',
-              lineHeight: 1,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              pointerEvents: 'none',
-            }}
-          >
-            {badge > 99 ? '99+' : badge}
-          </motion.div>
-        </AnimatePresence>
-      )}
     </div>
   )
 }
@@ -277,16 +241,7 @@ export default function Dock() {
   const toggleAI = useAISidePanelStore(s => s.toggle)
   const showCtxMenu = useContextMenuStore(s => s.show)
 
-  // Compute badges: active window count per app
-  const appBadges = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const w of windows) {
-      if (!w.isMinimized) {
-        counts.set(w.appId, (counts.get(w.appId) ?? 0) + 1)
-      }
-    }
-    return counts
-  }, [windows])
+  // Compute badges: active window count per app is removed (red dot removed per design)
 
   const handleAppContextMenu = useCallback((e: React.MouseEvent, app: AppManifest) => {
     e.preventDefault()
@@ -441,7 +396,6 @@ export default function Dock() {
               label={app.name}
               icon={app.icon}
               isRunning={windows.some(w => w.appId === app.id)}
-              badge={appBadges.get(app.id)}
               appId={app.id}
               onClick={() => handleAppClick(app)}
               onContextMenu={e => handleAppContextMenu(e, app)}

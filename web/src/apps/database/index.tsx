@@ -81,30 +81,23 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
     }
   }
 
-  const fieldClass = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
-  const fieldStyle = {
-    background: 'var(--vos-bg-input)',
-    color: 'var(--vos-text-primary)',
-    border: '0.5px solid var(--vos-border-subtle)'
-  }
+  const fieldClass = 'vos-input'
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
+    <div className="vos-modal-overlay">
       <div
-        className="rounded-lg p-4 flex flex-col gap-3"
-        style={{ width: 380, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+        className="vos-modal-panel"
+        style={{ width: 380 }}
       >
-        <div className="text-sm font-medium">新建数据库连接</div>
+        <div className="vos-modal-title">新建数据库连接</div>
         <input
           className={fieldClass}
-          style={fieldStyle}
           placeholder="连接名称"
           value={name}
           onChange={e => setName(e.target.value)}
         />
         <select
           className={fieldClass}
-          style={fieldStyle}
           value={engine}
           onChange={e => setEngine(e.target.value as DbEngine)}
         >
@@ -119,21 +112,19 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
             onChange={setSqlitePath}
             placeholder="数据库文件路径"
             className={fieldClass}
-            style={fieldStyle}
           />
         ) : (
           <>
             <div className="flex gap-2">
               <input
                 className={`${fieldClass} flex-1`}
-                style={fieldStyle}
                 placeholder="Host"
                 value={host}
                 onChange={e => setHost(e.target.value)}
               />
               <input
                 className={fieldClass}
-                style={{ ...fieldStyle, width: 70 }}
+                style={{ width: 70 }}
                 placeholder="Port"
                 value={port}
                 onChange={e => setPort(e.target.value)}
@@ -141,14 +132,12 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
             </div>
             <input
               className={fieldClass}
-              style={fieldStyle}
               placeholder="Username"
               value={username}
               onChange={e => setUsername(e.target.value)}
             />
             <input
               className={fieldClass}
-              style={fieldStyle}
               placeholder="Password"
               type="password"
               value={password}
@@ -156,7 +145,6 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
             />
             <input
               className={fieldClass}
-              style={fieldStyle}
               placeholder="Database"
               value={database}
               onChange={e => setDatabase(e.target.value)}
@@ -167,8 +155,7 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+            className="vos-btn-sm vos-btn-ghost"
             onClick={testConn}
             disabled={testing}
           >
@@ -185,16 +172,14 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
         <div className="flex justify-end gap-2 mt-1">
           <button
             type="button"
-            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+            className="vos-btn-sm vos-btn-ghost"
             onClick={onClose}
           >
             取消
           </button>
           <button
             type="button"
-            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
+            className="vos-btn-sm vos-btn-primary"
             onClick={submit}
             disabled={saving}
           >
@@ -426,7 +411,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
           <div className="flex gap-1">
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
+              className="vos-btn-reset"
               style={{ color: 'var(--vos-text-tertiary)' }}
               onClick={reload}
             >
@@ -434,7 +419,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
             </button>
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
+              className="vos-btn-reset"
               style={{ color: 'var(--vos-accent-primary)' }}
               onClick={() => setShowForm(true)}
             >
@@ -458,7 +443,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
               >
                 <button
                   type="button"
-                  className="bg-transparent border-none p-0 cursor-pointer"
+                  className="vos-btn-reset"
                   style={{ color: 'var(--vos-text-tertiary)' }}
                   onClick={() => toggleConn(conn.id)}
                 >
@@ -479,7 +464,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                   {isConnected ? (
                     <button
                       type="button"
-                      className="bg-transparent border-none p-0 cursor-pointer"
+                      className="vos-btn-reset"
                       style={{ color: 'var(--vos-text-tertiary)' }}
                       title="Disconnect"
                       onClick={() => disconnectFrom(conn.id)}
@@ -489,7 +474,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                   ) : (
                     <button
                       type="button"
-                      className="bg-transparent border-none p-0 cursor-pointer"
+                      className="vos-btn-reset"
                       style={{ color: 'var(--vos-accent-primary)' }}
                       title="Connect"
                       onClick={() => connectTo(conn.id)}
@@ -499,7 +484,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                   )}
                   <button
                     type="button"
-                    className="bg-transparent border-none p-0 cursor-pointer"
+                    className="vos-btn-reset"
                     style={{ color: 'var(--vos-text-tertiary)' }}
                     title="Delete"
                     onClick={() => deleteConn(conn.id)}
@@ -730,8 +715,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 >
                   <textarea
                     ref={sqlRef}
-                    className="w-full h-full p-3 text-xs font-mono resize-none border-none outline-none"
-                    style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)' }}
+                    className="vos-textarea w-full h-full p-3 font-mono resize-none"
                     placeholder="输入 SQL 查询..."
                     value={sqlText}
                     onChange={e => setSqlText(e.target.value)}
@@ -746,8 +730,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 >
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded cursor-pointer border-none"
-                    style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
+                    className="flex items-center gap-1 vos-btn-sm vos-btn-primary"
                     onClick={executeSql}
                   >
                     <Play size={10} /> 执行

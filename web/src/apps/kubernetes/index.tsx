@@ -72,10 +72,8 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [kubeconfigInline, setKubeconfigInline] = useState<string | undefined>(undefined)
   const [context, setContext] = useState('')
   const [saving, setSaving] = useState(false)
-  const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
+  const fc = 'vos-input'
   const fs = {
-    background: 'var(--vos-bg-input)',
-    color: 'var(--vos-text-primary)',
     border: '0.5px solid var(--vos-border-subtle)'
   }
 
@@ -110,12 +108,12 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
   }
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
+    <div className="vos-modal-overlay">
       <div
-        className="rounded-lg p-4 flex flex-col gap-3"
-        style={{ width: 380, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+        className="vos-modal-panel"
+        style={{ width: 380 }}
       >
-        <div className="text-sm font-medium">添加 Kubernetes 集群</div>
+        <div className="vos-modal-title">添加 Kubernetes 集群</div>
         <input className={fc} style={fs} placeholder="集群名称" value={name} onChange={e => setName(e.target.value)} />
         <VfsPathPickerInput
           mode="file"
@@ -132,22 +130,11 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
           value={context}
           onChange={e => setContext(e.target.value)}
         />
-        <div className="flex justify-end gap-2 mt-1">
-          <button
-            type="button"
-            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
-            onClick={onClose}
-          >
+        <div className="vos-modal-footer">
+          <button type="button" className="vos-btn-sm vos-btn-ghost" onClick={onClose}>
             取消
           </button>
-          <button
-            type="button"
-            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
-            onClick={submit}
-            disabled={saving}
-          >
+          <button type="button" className="vos-btn-sm vos-btn-primary" onClick={submit} disabled={saving}>
             {saving ? '添加中…' : '添加'}
           </button>
         </div>
@@ -171,6 +158,59 @@ export default function KubernetesApp(_props: AppComponentProps) {
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
 
+  const fetchResources = useCallback(async (clusterId: string, ns: string, kind: K8sResourceKind) => {
+    setLoading(true)
+    try {
+      const r = await apiClient.getK8sResources(clusterId, kind, ns)
+      setResources(r.data)
+    } catch (e) {
+      console.error(e)
+    }
+    setLoading(false)
+  }, [])
+
+  const selectCluster = useCallback(async (id: string, ns?: string, kind?: K8sResourceKind) => {
+    setSelectedCluster(id)
+    setExpandedClusters(s => new Set(s).add(id))
+    try {
+      const r = await apiClient.getK8sNamespaces(id)
+      setNamespaces(r.data)
+      const targetNs = ns ?? r.data[0]?.name ?? 'default'
+      const targetKind = kind ?? 'pod' // Fallback to pod during selection
+      setSelectedNs(targetNs)
+      fetchResources(id, targetNs, targetKind)
+    } catch (e) {
+      console.error(e)
+    }
+  }, [fetchResources])
+
+  const pickKind = (kind: K8sResourceKind) => {
+    setSelectedKind(kind)
+    if (selectedCluster) fetchResources(selectedCluster, selectedNs, kind)
+    storage.setJSON('preferences', { cluster: selectedCluster, ns: selectedNs, kind, groups: Array.from(expandedGroups) })
+  }
+
+  const pickNs = (ns: string) => {
+    setSelectedNs(ns)
+    if (selectedCluster) fetchResources(selectedCluster, ns, selectedKind)
+    storage.setJSON('preferences', { cluster: selectedCluster, ns, kind: selectedKind, groups: Array.from(expandedGroups) })
+  }
+
+  const toggleGroup = (label: string) =>
+    setExpandedGroups(s => {
+      const n = new Set(s)
+      n.has(label) ? n.delete(label) : n.add(label)
+      storage.setJSON('preferences', { cluster: selectedCluster, ns: selectedNs, kind: selectedKind, groups: Array.from(n) })
+      return n
+    })
+
+  const toggleCluster = (id: string) =>
+    setExpandedClusters(s => {
+      const n = new Set(s)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+
   const reload = useCallback(async () => {
     try {
       const r = await apiClient.getK8sClusters()
@@ -182,76 +222,36 @@ export default function KubernetesApp(_props: AppComponentProps) {
 
   // Load persisted view preferences
   useEffect(() => {
-    storage.getJSON<{ cluster?: string; ns?: string; kind?: K8sResourceKind; groups?: string[] }>('preferences').then(prefs => {
-      if (!prefs) return
-      if (prefs.cluster) setSelectedCluster(prefs.cluster)
-      if (prefs.ns) setSelectedNs(prefs.ns)
-      if (prefs.kind) setSelectedKind(prefs.kind)
-      if (prefs.groups) setExpandedGroups(new Set(prefs.groups))
-    })
-  }, [storage])
+    let active = true
+    const init = async () => {
+      const prefs = await storage.getJSON<{ cluster?: string; ns?: string; kind?: K8sResourceKind; groups?: string[] }>('preferences')
+      if (!active) return
 
-  useEffect(() => {
-    reload()
-  }, [reload])
+      if (prefs) {
+        if (prefs.groups) setExpandedGroups(new Set(prefs.groups))
+        if (prefs.kind) setSelectedKind(prefs.kind)
+      }
 
-  const selectCluster = async (id: string) => {
-    setSelectedCluster(id)
-    setExpandedClusters(s => new Set(s).add(id))
-    storage.setJSON('preferences', { cluster: id, ns: selectedNs, kind: selectedKind, groups: [...expandedGroups] })
-    try {
-      const r = await apiClient.getK8sNamespaces(id)
-      setNamespaces(r.data)
-      const firstNs = r.data[0]?.name ?? 'default'
-      setSelectedNs(firstNs)
-      fetchResources(id, firstNs, selectedKind)
-    } catch (e) {
-      console.error(e)
+      try {
+        const r = await apiClient.getK8sClusters()
+        if (!active) return
+        setClusters(r.data)
+        
+        if (prefs?.cluster && r.data.some(c => c.id === prefs.cluster)) {
+          // Pass the kind from prefs if available
+          await selectCluster(prefs.cluster, prefs.ns, prefs.kind)
+        }
+      } catch (e) {
+        console.error('Failed to init k8s app', e)
+        // reload()  <-- Remove this to avoid infinite retry loop on network failure
+      }
     }
-  }
 
-  const fetchResources = async (clusterId: string, ns: string, kind: K8sResourceKind) => {
-    setLoading(true)
-    try {
-      const r = await apiClient.getK8sResources(clusterId, kind, ns)
-      setResources(r.data)
-    } catch (e) {
-      console.error(e)
+    init()
+    return () => {
+      active = false
     }
-    setLoading(false)
-  }
-
-  const pickKind = (kind: K8sResourceKind) => {
-    setSelectedKind(kind)
-    if (selectedCluster) fetchResources(selectedCluster, selectedNs, kind)
-    storage.setJSON('preferences', { cluster: selectedCluster, ns: selectedNs, kind, groups: [...expandedGroups] })
-  }
-
-  const pickNs = (ns: string) => {
-    setSelectedNs(ns)
-    if (selectedCluster) fetchResources(selectedCluster, ns, selectedKind)
-    storage.setJSON('preferences', { cluster: selectedCluster, ns, kind: selectedKind, groups: [...expandedGroups] })
-  }
-
-  const toggleGroup = (label: string) =>
-    setExpandedGroups(s => {
-      const n = new Set(s)
-      n.has(label) ? n.delete(label) : n.add(label)
-      storage.setJSON('preferences', { cluster: selectedCluster, ns: selectedNs, kind: selectedKind, groups: [...n] })
-      return n
-    })
-
-  const toggleCluster = (id: string) =>
-    setExpandedClusters(s => {
-      const n = new Set(s)
-      n.has(id) ? n.delete(id) : n.add(id)
-      return n
-    })
-
-  const deleteCluster = async (id: string) => {
-    await apiClient.deleteK8sCluster(id)
-    reload()
-  }
+  }, [storage, reload, selectCluster])
 
   return (
     <div className="flex h-full relative">

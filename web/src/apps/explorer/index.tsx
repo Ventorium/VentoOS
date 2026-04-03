@@ -313,10 +313,9 @@ function MountForm({
   }
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
+    <div className="vos-modal-overlay">
       <div
-        className="rounded-lg p-4 flex flex-col gap-3"
-        style={{ width: 400, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+        className="vos-modal-panel" style={{ width: 400 }}
       >
         <div className="text-sm font-medium">{isEditing ? '编辑数据源' : '添加数据源'}</div>
         <div>
@@ -649,7 +648,7 @@ function MountForm({
               {!testResult.success && (
                 <button
                   type="button"
-                  className="bg-transparent border-none cursor-pointer ml-2 p-0"
+                  className="vos-btn-reset ml-2"
                   style={{ color: 'var(--vos-text-tertiary)' }}
                   title="复制错误信息"
                   onClick={e => {
@@ -665,8 +664,8 @@ function MountForm({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-              style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)', opacity: isValid() ? 1 : 0.5 }}
+              className="vos-btn-sm vos-btn-ghost"
+              style={{ opacity: isValid() ? 1 : 0.5 }}
               onClick={handleTest}
               disabled={testing || !isValid()}
             >
@@ -674,16 +673,15 @@ function MountForm({
             </button>
             <button
               type="button"
-              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-              style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+              className="vos-btn-sm vos-btn-ghost"
               onClick={onClose}
             >
               取消
             </button>
             <button
               type="button"
-              className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-              style={{ background: 'var(--vos-accent-primary)', color: '#fff', opacity: isValid() ? 1 : 0.5 }}
+              className="vos-btn-sm vos-btn-primary"
+              style={{ opacity: isValid() ? 1 : 0.5 }}
               onClick={submit}
               disabled={saving || !isValid()}
             >
@@ -693,14 +691,14 @@ function MountForm({
         </div>
         {/* SSH Config Import Modal */}
         {sshConfigHosts && (
-          <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
+          <div className="vos-modal-overlay">
             <div
-              className="rounded-lg p-4 flex flex-col gap-3"
-              style={{ width: 420, maxHeight: 400, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+              className="vos-modal-panel"
+              style={{ width: 420, maxHeight: 400 }}
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">~/.ssh/config 可用主机</span>
-                <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => setSshConfigHosts(null)}>
+                <button type="button" className="vos-btn-reset" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => setSshConfigHosts(null)}>
                   <X size={14} />
                 </button>
               </div>
@@ -859,16 +857,15 @@ function WebDavServerPanel({
   }
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.4)' }}>
+    <div className="vos-modal-overlay">
       <div
-        className="rounded-lg p-4 flex flex-col gap-3"
-        style={{ width: 420, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+        className="vos-modal-panel" style={{ width: 420 }}
       >
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">WebDAV 服务器设置</div>
           <button
             type="button"
-            className="bg-transparent border-none cursor-pointer p-0"
+            className="vos-btn-reset"
             style={{ color: 'var(--vos-text-tertiary)' }}
             onClick={onClose}
           >
@@ -897,7 +894,7 @@ function ConfirmDialog({
   onCancel: () => void
 }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.5)' }}>
+    <div className="vos-modal-overlay">
       <div
         className="rounded-lg p-4 flex flex-col gap-4"
         style={{ width: 320, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.35)' }}
@@ -909,19 +906,14 @@ function ConfirmDialog({
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+            className="vos-btn-sm vos-btn-ghost"
             onClick={onCancel}
           >
             取消
           </button>
           <button
             type="button"
-            className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-            style={{
-              background: danger ? 'var(--vos-accent-danger)' : 'var(--vos-accent-primary)',
-              color: '#fff'
-            }}
+            className={danger ? 'vos-btn-sm vos-btn-danger' : 'vos-btn-sm vos-btn-primary'}
             onClick={onConfirm}
           >
             {confirmLabel}
@@ -1260,18 +1252,16 @@ function ExplorerSettingsDialog({
 }) {
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center z-50"
-      style={{ background: 'rgba(0,0,0,0.4)' }}
+      className="vos-modal-overlay"
       onClick={onClose}
     >
       <div
-        className="rounded-lg p-4 flex flex-col gap-3"
-        style={{ width: 420, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+        className="vos-modal-panel" style={{ width: 420 }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold" style={{ color: 'var(--vos-text-primary)' }}>偏好设置</span>
-          <button type="button" className="bg-transparent border-none cursor-pointer p-0" style={{ color: 'var(--vos-text-tertiary)' }} onClick={onClose}>
+          <button type="button" className="vos-btn-reset" style={{ color: 'var(--vos-text-tertiary)' }} onClick={onClose}>
             <X size={14} />
           </button>
         </div>
@@ -1369,7 +1359,7 @@ function FileInfoPanel({
         <span className="text-xs font-medium truncate">{node.name}</span>
         <button
           type="button"
-          className="bg-transparent border-none cursor-pointer p-0"
+          className="vos-btn-reset"
           style={{ color: 'var(--vos-text-tertiary)' }}
           onClick={onClose}
         >
@@ -2782,22 +2772,15 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {/* New folder overlay */}
       {newFolderState.visible && (
         <div
-          className="absolute inset-0 flex items-center justify-center z-50"
-          style={{ background: 'rgba(0,0,0,0.4)' }}
+          className="vos-modal-overlay"
         >
           <div
-            className="rounded-lg p-4 flex flex-col gap-3"
-            style={{ width: 320, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+            className="vos-modal-panel" style={{ width: 320 }}
           >
             <div className="text-sm font-medium">新建文件夹</div>
             <input
               autoFocus
-              className="w-full text-xs px-2 py-1.5 rounded border-none outline-none"
-              style={{
-                background: 'var(--vos-bg-input)',
-                color: 'var(--vos-text-primary)',
-                border: '0.5px solid var(--vos-border-subtle)'
-              }}
+              className="vos-input"
               placeholder="文件夹名称"
               value={newFolderState.name}
               onChange={e => setNewFolderState(prev => ({ ...prev, name: e.target.value }))}
@@ -2809,20 +2792,15 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                className="vos-btn-sm vos-btn-ghost"
                 onClick={() => setNewFolderState({ visible: false, colPath: '', name: '' })}
               >
                 取消
               </button>
               <button
                 type="button"
-                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-                style={{
-                  background: 'var(--vos-accent-primary)',
-                  color: '#fff',
-                  opacity: newFolderState.name.trim() ? 1 : 0.5
-                }}
+                className="vos-btn-sm vos-btn-primary"
+                style={{ opacity: newFolderState.name.trim() ? 1 : 0.5 }}
                 disabled={!newFolderState.name.trim()}
                 onClick={handleNewFolder}
               >
@@ -2836,22 +2814,15 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {/* New file overlay */}
       {newFileState.visible && (
         <div
-          className="absolute inset-0 flex items-center justify-center z-50"
-          style={{ background: 'rgba(0,0,0,0.4)' }}
+          className="vos-modal-overlay"
         >
           <div
-            className="rounded-lg p-4 flex flex-col gap-3"
-            style={{ width: 320, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.25)' }}
+            className="vos-modal-panel" style={{ width: 320 }}
           >
             <div className="text-sm font-medium">新建文件</div>
             <input
               autoFocus
-              className="w-full text-xs px-2 py-1.5 rounded border-none outline-none"
-              style={{
-                background: 'var(--vos-bg-input)',
-                color: 'var(--vos-text-primary)',
-                border: '0.5px solid var(--vos-border-subtle)'
-              }}
+              className="vos-input"
               placeholder="文件名称（如 notes.txt）"
               value={newFileState.name}
               onChange={e => setNewFileState(prev => ({ ...prev, name: e.target.value }))}
@@ -2863,20 +2834,15 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                className="vos-btn-sm vos-btn-ghost"
                 onClick={() => setNewFileState({ visible: false, dirPath: '', name: '' })}
               >
                 取消
               </button>
               <button
                 type="button"
-                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-                style={{
-                  background: 'var(--vos-accent-primary)',
-                  color: '#fff',
-                  opacity: newFileState.name.trim() ? 1 : 0.5
-                }}
+                className="vos-btn-sm vos-btn-primary"
+                style={{ opacity: newFileState.name.trim() ? 1 : 0.5 }}
                 disabled={!newFileState.name.trim()}
                 onClick={handleNewFile}
               >
@@ -2899,13 +2865,11 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       {/* Open-with dialog */}
       {openWithState.visible && openWithState.node && selectedMount && (
         <div
-          className="absolute inset-0 flex items-center justify-center z-50"
-          style={{ background: 'rgba(0,0,0,0.45)' }}
+          className="vos-modal-overlay"
           onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
         >
           <div
-            className="rounded-lg p-4 flex flex-col gap-3"
-            style={{ width: 320, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.3)' }}
+            className="vos-modal-panel" style={{ width: 320 }}
             onClick={e => e.stopPropagation()}
           >
             <div className="text-sm font-medium">选择打开方式</div>
@@ -2947,8 +2911,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             <div className="flex justify-end">
               <button
                 type="button"
-                className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
-                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                className="vos-btn-sm vos-btn-ghost"
                 onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
               >
                 取消
@@ -2982,7 +2945,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           <div className="flex gap-1">
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
+              className="vos-btn-reset"
               style={{ color: 'var(--vos-text-tertiary)' }}
               onClick={reload}
               title="刷新"
@@ -2991,7 +2954,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             </button>
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
+              className="vos-btn-reset"
               style={{ color: 'var(--vos-accent-primary)' }}
               onClick={() => setShowForm(true)}
             >
@@ -3026,7 +2989,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               <span className="flex-1 truncate">{m.name}</span>
               <button
                 type="button"
-                className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer text-inherit"
+                className="hidden group-hover:block vos-btn-reset text-inherit"
                 onClick={e => {
                   e.stopPropagation()
                   setEditingMount(m)
@@ -3036,7 +2999,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               </button>
               <button
                 type="button"
-                className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer text-inherit"
+                className="hidden group-hover:block vos-btn-reset text-inherit"
                 onClick={e => {
                   e.stopPropagation()
                   deleteMount(m.id)
@@ -3069,7 +3032,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               {/* Back button */}
               <button
                 type="button"
-                className="bg-transparent border-none cursor-pointer p-0"
+                className="vos-btn-reset"
                 style={{ color: columns.length > 1 ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)' }}
                 disabled={columns.length <= 1}
                 onClick={() => {
@@ -3150,7 +3113,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               </div>
               <button
                 type="button"
-                className="bg-transparent border-none cursor-pointer p-0"
+                className="vos-btn-reset"
                 style={{ color: 'var(--vos-accent-primary)' }}
                 onClick={async () => {
                   if (!selectedMount || columns.length === 0) return

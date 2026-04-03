@@ -96,7 +96,7 @@ describe('Dock Component', () => {
     expect(document.querySelector('.vos-dock-icon')).toBeTruthy()
   })
 
-  it('should show badge when app has active windows', async () => {
+  it('should show running indicator when app has active windows', async () => {
     const apps = new Map<string, AppManifest>()
     apps.set('k8s', mockApp('k8s', 'Kubernetes', { multiWindow: true }))
     useAppStore.setState({ apps })
@@ -110,11 +110,13 @@ describe('Dock Component', () => {
     })
 
     await renderDock()
-    // Badge should show "2"
-    expect(screen.getByText('2')).toBeInTheDocument()
+    // Badge was removed; instead running indicator should be present (running dot)
+    expect(document.querySelector('.vos-dock-icon')).toBeInTheDocument()
+    // No numeric badge text
+    expect(document.querySelectorAll('.vos-dock-icon').length).toBeGreaterThan(0)
   })
 
-  it('should not count minimized windows in badge', async () => {
+  it('should not show numeric badge for minimized windows', async () => {
     const apps = new Map<string, AppManifest>()
     apps.set('k8s', mockApp('k8s', 'Kubernetes', { multiWindow: true }))
     useAppStore.setState({ apps })
@@ -128,9 +130,9 @@ describe('Dock Component', () => {
     })
 
     await renderDock()
-    // Badge should show "1" (only non-minimized counted)
-    const badges = screen.queryAllByText('1')
-    expect(badges.length).toBeGreaterThan(0)
+    // Badges are removed from the dock; no numeric text should appear
+    expect(screen.queryByText('2')).not.toBeInTheDocument()
+    expect(document.querySelector('.vos-dock-icon')).toBeInTheDocument()
   })
 
   it('should show minimized window thumbnails', async () => {

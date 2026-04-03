@@ -36,7 +36,7 @@ function TaskRow({ task }: { task: TaskItem }) {
       </div>
       <button
         type="button"
-        className="bg-transparent border-none cursor-pointer p-0 flex-shrink-0"
+        className="vos-btn-reset flex-shrink-0"
         style={{ color: 'var(--vos-text-tertiary)' }}
         onClick={() => removeTask(task.id)}
       >

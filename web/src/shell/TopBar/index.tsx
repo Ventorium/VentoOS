@@ -235,7 +235,7 @@ function MenuBarLeft({
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
+    <div className="flex items-center gap-0.5 h-full">
       <button type="button" className="vos-topbar-btn vos-topbar-logo" onClick={openLogoMenu} title="VentoOS">
         <BrandLogo size={18} />
       </button>
@@ -306,7 +306,7 @@ function MenuBarRight() {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+    <div className="flex items-center h-full">
       {/* App tray icons */}
       {trays.map(({ appId, config }) => (
         <button

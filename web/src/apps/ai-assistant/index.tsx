@@ -330,7 +330,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
           <div className="flex items-center gap-1">
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
+              className="vos-btn-reset"
               style={{ color: 'var(--vos-text-tertiary)' }}
               onClick={() => openWindow('settings', { appState: { category: 'ai' } })}
               title="AI 设置"
@@ -339,7 +339,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
             </button>
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
+              className="vos-btn-reset"
               style={{ color: 'var(--vos-accent-primary)' }}
               onClick={newSession}
               title="New Session"
@@ -360,7 +360,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
             </span>
             <button
               type="button"
-              className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer"
+              className="hidden group-hover:block vos-btn-reset"
               style={{ color: 'var(--vos-text-tertiary)' }}
               onClick={() => void deleteSession(session.id)}
             >
@@ -379,7 +379,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
           <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-1.5 rounded-lg"
+              className="vos-btn-reset p-1.5 rounded-lg"
               style={{ color: 'var(--vos-text-tertiary)' }}
               onClick={() => openWindow('settings', { appState: { category: 'ai' } })}
               title="AI 设置"

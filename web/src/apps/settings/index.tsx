@@ -322,30 +322,18 @@ const panelBorder = '0.5px solid var(--vos-border-subtle)'
 
 function AIFieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="text-[11px] font-medium" style={{ color: 'var(--vos-text-tertiary)' }}>
+    <label className="text-[11px] font-medium vos-text-tertiary">
       {children}
     </label>
   )
 }
 
 function AITextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className="w-full text-xs rounded-lg px-2 py-1.5 border-none outline-none"
-      style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)' }}
-    />
-  )
+  return <input {...props} className={`vos-input ${props.className ?? ''}`} />
 }
 
 function AITextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className="w-full text-xs rounded-lg px-2 py-2 border-none outline-none"
-      style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)', resize: 'vertical' }}
-    />
-  )
+  return <textarea {...props} className={`vos-textarea ${props.className ?? ''}`} />
 }
 
 function AISelect({
@@ -363,8 +351,7 @@ function AISelect({
     <select
       value={value ?? ''}
       onChange={e => onChange(e.target.value)}
-      className="w-full text-xs rounded-lg px-2 py-1.5 border-none outline-none"
-      style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)' }}
+      className="vos-select"
     >
       <option value="">{placeholder ?? '请选择'}</option>
       {options.map(o => (
@@ -385,17 +372,12 @@ function AIBtn({
   tone?: 'default' | 'primary' | 'danger'
   disabled?: boolean
 }) {
-  const palette =
-    tone === 'primary'
-      ? { background: 'var(--vos-accent-primary)', color: '#fff' }
-      : tone === 'danger'
-        ? { background: 'rgba(255,59,48,0.14)', color: '#ff3b30' }
-        : { background: 'var(--vos-bg-input)', color: 'var(--vos-text-secondary)' }
+  const cls = tone === 'primary' ? 'vos-btn-sm vos-btn-primary' : tone === 'danger' ? 'vos-btn-sm vos-btn-danger' : 'vos-btn-sm vos-btn-ghost'
   return (
     <button
       type="button"
-      className="text-[11px] px-2.5 py-1.5 rounded-lg border-none cursor-pointer"
-      style={{ ...palette, opacity: disabled ? 0.5 : 1 }}
+      className={cls}
+      style={{ opacity: disabled ? 0.5 : 1 }}
       onClick={onClick}
       disabled={disabled}
     >
@@ -915,19 +897,10 @@ export default function SettingsApp(_props: { windowId: string; processId: numbe
   const Panel = PANELS[activeCategory]
 
   return (
-    <div style={{ display: 'flex', height: '100%' }}>
+    <div className="vos-flex-row" style={{ height: '100%', alignItems: 'stretch' }}>
       {/* Sidebar */}
       <div className="vos-settings-sidebar">
-        <div
-          style={{
-            padding: '12px 8px 8px',
-            fontSize: 11,
-            fontWeight: 600,
-            color: 'var(--vos-text-tertiary)',
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase'
-          }}
-        >
+        <div className="vos-label" style={{ padding: '12px 8px 8px' }}>
           设置
         </div>
 
@@ -957,7 +930,7 @@ export default function SettingsApp(_props: { windowId: string; processId: numbe
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div className="vos-flex-1" style={{ overflow: 'auto' }}>
         <Panel />
       </div>
     </div>
