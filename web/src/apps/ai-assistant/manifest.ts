@@ -28,8 +28,8 @@ export const aiAssistantManifest: AppManifest = {
   description: 'AI-powered assistant for infrastructure operations',
   icon: React.createElement(AIAssistantIcon),
   multiWindow: false,
-  defaultSize: { width: 480, height: 640 },
-  minSize: { width: 360, height: 480 },
+  defaultSize: { width: 680, height: 640 },
+  minSize: { width: 480, height: 480 },
   permissions: ['network', 'notifications', 'ipc'],
   component: () => import('./index')
 }

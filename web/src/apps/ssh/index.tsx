@@ -40,7 +40,7 @@ import {
   type SshServer
 } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
-import WebShell from '@/shell/WebShell'
+import { openWindow } from '@/kernel'
 
 type TabId = 'servers' | 'port-mappings' | 'exposures'
 
@@ -95,7 +95,8 @@ function ServersTab() {
   const [showForm, setShowForm] = useState(false)
   const [testing, setTesting] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; msg: string } | null>(null)
-  const [openShell, setOpenShell] = useState<SshServer | null>(null)
+  const [passwordPrompt, setPasswordPrompt] = useState<{ server: SshServer; pw: string } | null>(null)
+  const [savingPw, setSavingPw] = useState(false)
   const [importingConfig, setImportingConfig] = useState(false)
   const [sshConfigHosts, setSshConfigHosts] = useState<SshConfigHost[] | null>(null)
 
@@ -116,6 +117,45 @@ function ServersTab() {
   async function handleDelete(id: string) {
     await api.deleteSshServer(id)
     load()
+  }
+
+  function handleOpenShell(srv: SshServer) {
+    const hasCredential =
+      srv.auth_method.type === 'private_key' ||
+      (srv.auth_method.type === 'password' && srv.auth_method.credential_id)
+    if (!hasCredential) {
+      // Password auth with no stored password — prompt user
+      setPasswordPrompt({ server: srv, pw: '' })
+      return
+    }
+    openWindow('terminal', {
+      title: `SSH: ${srv.name}`,
+      width: 780,
+      height: 520,
+      appState: { sshTarget: srv.id, sshName: srv.name }
+    })
+  }
+
+  async function handleSavePasswordAndOpen() {
+    if (!passwordPrompt) return
+    setSavingPw(true)
+    try {
+      await api.updateSshServer(passwordPrompt.server.id, { password: passwordPrompt.pw })
+      const updated = await api.getSshServers()
+      setServers(updated.data)
+      const srv = updated.data.find(s => s.id === passwordPrompt.server.id) ?? passwordPrompt.server
+      setPasswordPrompt(null)
+      openWindow('terminal', {
+        title: `SSH: ${srv.name}`,
+        width: 780,
+        height: 520,
+        appState: { sshTarget: srv.id, sshName: srv.name }
+      })
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingPw(false)
+    }
   }
 
   async function handleTest(id: string) {
@@ -228,7 +268,7 @@ function ServersTab() {
                 {testing === srv.id ? <Loader2 size={13} className="vos-spin" /> : <Activity size={13} />}
                 测试
               </button>
-              <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={() => setOpenShell(srv)}>
+              <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={() => handleOpenShell(srv)}>
                 <Terminal size={13} /> 打开 Shell
               </button>
               <DelBtn onConfirm={() => handleDelete(srv.id)} />
@@ -302,7 +342,54 @@ function ServersTab() {
         </div>
       )}
 
-      {openShell && <ShellModal server={openShell} onClose={() => setOpenShell(null)} />}
+      {passwordPrompt && (
+        <div className="vos-modal-overlay" onClick={() => setPasswordPrompt(null)}>
+          <motion.div
+            className="vos-modal"
+            style={{ maxWidth: 380 }}
+            initial={{ scale: 0.93, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="vos-modal-header">
+              <Key size={14} />
+              <span>输入连接密码</span>
+              <button type="button" className="vos-icon-btn" onClick={() => setPasswordPrompt(null)}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="vos-modal-body">
+              <p style={{ fontSize: 13, color: 'var(--vos-text-secondary)', marginBottom: 12 }}>
+                服务器 <strong>{passwordPrompt.server.name}</strong> 尚未存储密码，请输入连接密码。
+              </p>
+              <div className="vos-form-row">
+                <label>密码</label>
+                <input
+                  className="vos-input"
+                  type="password"
+                  autoFocus
+                  placeholder="••••••••"
+                  value={passwordPrompt.pw}
+                  onChange={e => setPasswordPrompt(prev => prev ? { ...prev, pw: e.target.value } : null)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSavePasswordAndOpen() }}
+                />
+              </div>
+            </div>
+            <div className="vos-modal-footer">
+              <button type="button" className="vos-btn" onClick={() => setPasswordPrompt(null)}>取消</button>
+              <button
+                type="button"
+                className="vos-btn vos-btn-primary"
+                onClick={handleSavePasswordAndOpen}
+                disabled={savingPw || !passwordPrompt.pw}
+              >
+                {savingPw ? <Loader2 size={14} className="vos-spin" /> : <Terminal size={14} />}
+                连接
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

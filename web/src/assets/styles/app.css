@@ -264,6 +264,12 @@ body,
   opacity: 0.7;
 }
 
+/* Running dot on left side of icon for vertical dock */
+.vos-dock-dot-left {
+  margin-top: 0;
+  margin-left: 4px;
+}
+
 .vos-dock-tooltip {
   position: absolute;
   bottom: calc(100% + 8px);
@@ -280,6 +286,14 @@ body,
   pointer-events: none;
   border: 0.5px solid var(--vos-border-default);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1;
+}
+
+/* Tooltip for vertical (left) dock — appears to the right of the icon */
+.vos-dock-tooltip-left {
+  bottom: unset;
+  left: unset;
+  transform: translateY(-50%);
 }
 
 .vos-dock-separator {
@@ -1160,6 +1174,9 @@ body,
 }
 .dock-icon-ssh {
   background: linear-gradient(145deg, #0891b2 0%, #0e7490 100%);
+}
+.dock-icon-terminal {
+  background: linear-gradient(145deg, #1c1c1e 0%, #2c2c2e 100%);
 }
 .dock-icon-default {
   background: linear-gradient(145deg, #4b5563 0%, #1f2937 100%);

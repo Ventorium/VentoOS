@@ -315,13 +315,16 @@ impl SshInfoProvider for SshManager {
                         SshAuthMethod::PrivateKey { key_path: Some(path), .. } => {
                             let key_pem = tokio::fs::read_to_string(path)
                                 .await
-                                .map_err(|e| format!("Failed to read key file {path}: {e}"))?;
+                                .map_err(|e| format!("无法读取密钥文件 {path}: {e}"))?;
                             SshAuth::PrivateKey {
                                 key_pem,
                                 passphrase: None,
                             }
                         }
-                        _ => return Err("No credentials stored for this SSH server".into()),
+                        SshAuthMethod::Password { .. } => {
+                            return Err("密码认证未配置，请在 SSH 管理中编辑此服务器并设置连接密码".into());
+                        }
+                        SshAuthMethod::PrivateKey { .. } => return Err("未找到此 SSH 服务器的认证凭据，请检查服务器配置".into()),
                     }
                 }
             };

@@ -3,16 +3,18 @@
  *
  * Each tab runs an independent WebShell (xterm.js + WebSocket).
  * Supports: add/close tabs, rename tabs, font size adjustment.
+ * When opened via SSH app, accepts sshTarget in appState.
  */
 import { Minus, Plus, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { useAppStorage } from '@/kernel'
+import { useAppStorage, useWindowStore } from '@/kernel'
 
 const WebShell = lazy(() => import('@/shell/WebShell'))
 
 interface Tab {
   id: string
   title: string
+  target: string
 }
 
 let tabCounter = 0
@@ -22,9 +24,16 @@ function nextTabId() {
 
 export default function TerminalApp(_props: { windowId: string; processId: number }) {
   const storage = useAppStorage('terminal')
+  // Check if opened from SSH app with a target
+  const win = useWindowStore(s => s.windows.find(w => w.id === _props.windowId))
+  const sshTarget = win?.appState?.sshTarget as string | undefined
+  const sshName = win?.appState?.sshName as string | undefined
+
   const [tabs, setTabs] = useState<Tab[]>(() => {
     const id = nextTabId()
-    return [{ id, title: 'Shell 1' }]
+    const title = sshName ? `SSH: ${sshName}` : 'Shell 1'
+    const target = sshTarget ?? 'local'
+    return [{ id, title, target }]
   })
   const [activeTab, setActiveTab] = useState(tabs[0].id)
   const [fontSize, setFontSize] = useState(13)
@@ -41,7 +50,7 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
   const addTab = useCallback(() => {
     const id = nextTabId()
     const num = tabs.length + 1
-    const tab: Tab = { id, title: `Shell ${num}` }
+    const tab: Tab = { id, title: `Shell ${num}`, target: 'local' }
     setTabs(prev => [...prev, tab])
     setActiveTab(id)
   }, [tabs.length])
@@ -201,7 +210,7 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
                 </div>
               }
             >
-              <WebShell target="local" />
+              <WebShell target={tab.target} />
             </Suspense>
           </div>
         ))}

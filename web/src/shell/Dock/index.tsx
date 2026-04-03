@@ -30,7 +30,8 @@ function DockIcon({
   onContextMenu,
   mouseX,
   iconSize,
-  magnification
+  magnification,
+  isHorizontal
 }: {
   label: string
   icon: React.ReactNode
@@ -40,6 +41,7 @@ function DockIcon({
   mouseX: ReturnType<typeof useMotionValue<number>>
   iconSize: number
   magnification: boolean
+  isHorizontal: boolean
 }) {
   const ref = useRef<HTMLButtonElement>(null)
   const [hovered, setHovered] = useState(false)
@@ -48,7 +50,7 @@ function DockIcon({
   const distance = useTransform(mouseX, val => {
     if (!ref.current) return 999
     const rect = ref.current.getBoundingClientRect()
-    const center = rect.left + rect.width / 2
+    const center = isHorizontal ? rect.left + rect.width / 2 : rect.top + rect.height / 2
     return Math.abs(val - center)
   })
 
@@ -57,10 +59,15 @@ function DockIcon({
     { stiffness: 350, damping: 30, mass: 0.5 }
   )
 
-  const y = useSpring(useTransform(distance, [0, 40, 80], magnification ? [-14, -4, 0] : [0, 0, 0]), {
-    stiffness: 350,
-    damping: 30
-  })
+  // Vertical spring: moves up for bottom dock, moves right for left dock
+  const y = useSpring(
+    useTransform(distance, [0, 40, 80], isHorizontal && magnification ? [-14, -4, 0] : [0, 0, 0]),
+    { stiffness: 350, damping: 30 }
+  )
+  const x = useSpring(
+    useTransform(distance, [0, 40, 80], !isHorizontal && magnification ? [14, 4, 0] : [0, 0, 0]),
+    { stiffness: 350, damping: 30 }
+  )
 
   function handleClick() {
     if (!isRunning) {
@@ -71,14 +78,14 @@ function DockIcon({
   }
 
   return (
-    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ position: 'relative', display: 'flex', flexDirection: isHorizontal ? 'column' : 'row', alignItems: 'center' }}>
       {/* Tooltip */}
       {hovered && (
         <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="vos-dock-tooltip"
-          style={{ bottom: iconSize + 14 }}
+          initial={{ opacity: 0, y: isHorizontal ? 4 : 0, x: isHorizontal ? 0 : -4 }}
+          animate={{ opacity: 1, y: 0, x: 0 }}
+          className={`vos-dock-tooltip ${!isHorizontal ? 'vos-dock-tooltip-left' : ''}`}
+          style={isHorizontal ? { bottom: iconSize + 14 } : { left: iconSize + 12, top: '50%' }}
         >
           {label}
         </motion.div>
@@ -88,7 +95,7 @@ function DockIcon({
         ref={ref}
         type="button"
         className="vos-dock-icon"
-        style={{ scale, y, width: iconSize, height: iconSize }}
+        style={{ scale, y, x, width: iconSize, height: iconSize }}
         onClick={handleClick}
         onContextMenu={onContextMenu}
         onMouseEnter={() => setHovered(true)}
@@ -105,8 +112,7 @@ function DockIcon({
       </motion.button>
 
       {/* Running indicator */}
-
-      {isRunning && <div className="vos-dock-dot" />}
+      {isRunning && <div className={`vos-dock-dot ${!isHorizontal ? 'vos-dock-dot-left' : ''}`} />}
     </div>
   )
 }
@@ -295,6 +301,7 @@ export default function Dock() {
               mouseX={mouseX}
               iconSize={iconSize}
               magnification={magnification}
+              isHorizontal={isHorizontal}
             />
           ))}
 
@@ -308,6 +315,7 @@ export default function Dock() {
             mouseX={mouseX}
             iconSize={iconSize}
             magnification={magnification}
+            isHorizontal={isHorizontal}
           />
         </div>
       </div>

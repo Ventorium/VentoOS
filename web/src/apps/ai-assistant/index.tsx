@@ -1,132 +1,32 @@
 import {
   Bot,
-  CheckCircle2,
   ChevronDown,
   Cpu,
   Loader2,
   MessageSquare,
   Plus,
-  Radio,
   Send,
   Settings,
-  Shield,
   Sparkles,
   Terminal,
   Trash2,
   User,
   Wand2,
-  Wrench,
-  X,
-  XCircle
+  Wrench
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AgentConfig,
   AgentProfile,
-  AgentToolPolicyMode,
-  ChannelConfig,
-  ChannelKind,
   ChatSession,
   ProviderConfig,
-  ProviderProbeResult,
-  ProviderTemplate,
   StreamEvent
 } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
-import { useAppStorage } from '@/kernel'
-
-type SettingsTab = 'providers' | 'agents' | 'runtime' | 'channels'
-
-export interface ProviderDraft extends ProviderConfig {}
-
-export interface AgentProfileDraft extends AgentProfile {}
+import { openWindow, useAppStorage } from '@/kernel'
 
 const panelBorder = '0.5px solid var(--vos-border-subtle)'
-
-export function draftFromTemplate(template: ProviderTemplate): ProviderDraft {
-  return {
-    id: '',
-    name: template.name,
-    provider_type: template.provider_type,
-    vendor: template.vendor,
-    api_key: '',
-    base_url: template.base_url,
-    default_model: template.default_model,
-    enabled: true,
-    capabilities: template.capabilities
-  }
-}
-
-export function createEmptyCustomProfile(): AgentProfileDraft {
-  return {
-    id: '',
-    name: '自定义 Agent',
-    description: '配置自己的行为约束、工具和默认模型。',
-    preset_kind: 'custom',
-    is_builtin: false,
-    system_prompt: 'You are a custom VentoOS agent. Be precise, safe, and action-oriented.',
-    behavior: {
-      require_impact_for_destructive: true,
-      read_only_mode: false,
-      concise_output: true,
-      extra_rules: []
-    },
-    tool_config: {
-      mode: 'all',
-      enabled_tools: ['read', 'write', 'edit', 'bash'],
-      allow_bash: true
-    },
-    default_provider_id: undefined,
-    default_model: undefined,
-    temperature: 0.2,
-    max_tokens: 1024,
-    reasoning_mode: 'off'
-  }
-}
-
-function SectionTitle({ title, meta }: { title: string; meta?: string }) {
-  return (
-    <div className="mb-2">
-      <div className="text-xs font-medium" style={{ color: 'var(--vos-text-secondary)' }}>
-        {title}
-      </div>
-      {meta && (
-        <div className="text-[11px] mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>
-          {meta}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="text-[11px] font-medium" style={{ color: 'var(--vos-text-tertiary)' }}>
-      {children}
-    </label>
-  )
-}
-
-function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className="w-full text-xs rounded-lg px-2 py-1.5 border-none outline-none"
-      style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)' }}
-    />
-  )
-}
-
-function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className="w-full text-xs rounded-lg px-2 py-2 border-none outline-none"
-      style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)', resize: 'vertical' }}
-    />
-  )
-}
 
 function SelectInput({
   value,
@@ -146,44 +46,13 @@ function SelectInput({
       className="w-full text-xs rounded-lg px-2 py-1.5 border-none outline-none"
       style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)' }}
     >
-      <option value="">{placeholder ?? 'Select'}</option>
+      <option value="">{placeholder ?? '请选择'}</option>
       {options.map(option => (
         <option key={option.value} value={option.value}>
           {option.label}
         </option>
       ))}
     </select>
-  )
-}
-
-function TinyButton({
-  children,
-  onClick,
-  tone = 'default',
-  disabled = false
-}: {
-  children: React.ReactNode
-  onClick?: () => void
-  tone?: 'default' | 'primary' | 'danger'
-  disabled?: boolean
-}) {
-  const palette =
-    tone === 'primary'
-      ? { background: 'var(--vos-accent-primary)', color: '#fff' }
-      : tone === 'danger'
-        ? { background: 'rgba(255,59,48,0.14)', color: '#ff3b30' }
-        : { background: 'var(--vos-bg-input)', color: 'var(--vos-text-secondary)' }
-
-  return (
-    <button
-      type="button"
-      className="text-[11px] px-2.5 py-1.5 rounded-lg border-none cursor-pointer"
-      style={{ ...palette, opacity: disabled ? 0.5 : 1 }}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {children}
-    </button>
   )
 }
 
@@ -302,870 +171,6 @@ function ToolCallEvent({ event }: { event: StreamEvent }) {
   return null
 }
 
-function ProviderSettings({
-  providers,
-  templates,
-  config,
-  onReload,
-  onConfigReload
-}: {
-  providers: ProviderConfig[]
-  templates: ProviderTemplate[]
-  config: AgentConfig | null
-  onReload: () => Promise<void>
-  onConfigReload: () => Promise<void>
-}) {
-  const [draft, setDraft] = useState<ProviderDraft>(() =>
-    templates[0] ? draftFromTemplate(templates[0]) : draftFromTemplate({
-      vendor: 'open_ai',
-      provider_type: 'native',
-      name: 'OpenAI',
-      base_url: 'https://api.openai.com/v1',
-      default_model: 'gpt-4o-mini',
-      requires_api_key: true,
-      capabilities: {
-        supports_streaming: true,
-        supports_tools: true,
-        supports_reasoning_control: true,
-        supports_connection_test: true,
-        supports_model_fetch: false
-      }
-    })
-  )
-  const [saving, setSaving] = useState(false)
-  const [probeResult, setProbeResult] = useState<ProviderProbeResult | null>(null)
-  const [probeLoading, setProbeLoading] = useState(false)
-
-  useEffect(() => {
-    if (templates.length > 0 && !draft.vendor) {
-      setDraft(draftFromTemplate(templates[0]))
-    }
-  }, [templates, draft.vendor])
-
-  const applyTemplate = (vendor: string) => {
-    const template = templates.find(item => item.vendor === vendor)
-    if (!template) return
-    setDraft(current => ({
-      ...draftFromTemplate(template),
-      id: current.id,
-      api_key: current.api_key
-    }))
-    setProbeResult(null)
-  }
-
-  const handleSave = async () => {
-    if (!draft.name || !draft.base_url || !draft.default_model) return
-    setSaving(true)
-    try {
-      await apiClient.createAgentProvider(draft)
-      setDraft(templates[0] ? draftFromTemplate(templates[0]) : createEmptyProvider())
-      await onReload()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleProbe = async () => {
-    setProbeLoading(true)
-    try {
-      const response = await apiClient.testAgentProvider({
-        provider: draft,
-        prompt: '1+1=?',
-        max_tokens: 1,
-        reasoning_mode: 'off',
-        timeout_ms: 15000
-      })
-      setProbeResult(response.data)
-    } finally {
-      setProbeLoading(false)
-    }
-  }
-
-  const handleSetDefault = async (providerId: string) => {
-    if (!config) return
-    await apiClient.updateAgentConfig({ ...config, default_provider_id: providerId })
-    await onConfigReload()
-  }
-
-  return (
-    <div className="flex gap-4 h-full">
-      <div className="w-[48%] overflow-auto">
-        <SectionTitle title="Provider Inventory" meta="原生 provider 与 OpenAI-compatible provider 都在这里统一管理。" />
-        <div className="space-y-2">
-          {providers.map(provider => (
-            <div key={provider.id} className="rounded-xl p-3" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-sm font-medium" style={{ color: 'var(--vos-text-primary)' }}>
-                    {provider.name}
-                  </div>
-                  <div className="text-[11px] mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>
-                    {provider.vendor} · {provider.default_model}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <TinyButton onClick={() => setDraft(provider)}>Load</TinyButton>
-                  <TinyButton onClick={() => handleSetDefault(provider.id)} tone="primary">
-                    Default
-                  </TinyButton>
-                  <TinyButton tone="danger" onClick={() => apiClient.deleteAgentProvider(provider.id).then(onReload)}>
-                    Delete
-                  </TinyButton>
-                </div>
-              </div>
-              <div className="text-[11px] mt-2" style={{ color: 'var(--vos-text-tertiary)' }}>
-                {provider.base_url} · Key: {provider.api_key}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto">
-        <SectionTitle title="Provider Editor" meta="支持官方模板、地址确认、最小探针测试。OpenAI-compatible 主要差异就是 base_url。" />
-        <div className="space-y-3 rounded-xl p-3" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>Template</FieldLabel>
-              <SelectInput
-                value={draft.vendor}
-                onChange={applyTemplate}
-                options={templates.map(template => ({
-                  value: template.vendor,
-                  label: `${template.name} (${template.provider_type})`
-                }))}
-              />
-            </div>
-            <div>
-              <FieldLabel>Name</FieldLabel>
-              <TextInput value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>Base URL</FieldLabel>
-              <TextInput value={draft.base_url} onChange={e => setDraft({ ...draft, base_url: e.target.value })} />
-            </div>
-            <div>
-              <FieldLabel>Default Model</FieldLabel>
-              <TextInput
-                value={draft.default_model}
-                onChange={e => setDraft({ ...draft, default_model: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>Provider Type</FieldLabel>
-              <TextInput value={draft.provider_type} readOnly />
-            </div>
-            <div>
-              <FieldLabel>API Key</FieldLabel>
-              <TextInput
-                type="password"
-                value={draft.api_key}
-                onChange={e => setDraft({ ...draft, api_key: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <TinyButton tone="primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Provider'}
-            </TinyButton>
-            <TinyButton onClick={handleProbe} disabled={probeLoading}>
-              {probeLoading ? 'Testing...' : 'Probe 1+1'}
-            </TinyButton>
-          </div>
-
-          {probeResult && (
-            <div className="rounded-xl p-3" style={{ background: 'var(--vos-bg-input)' }}>
-              <div className="flex items-center gap-2 text-sm">
-                {probeResult.success ? (
-                  <CheckCircle2 size={15} style={{ color: '#34c759' }} />
-                ) : (
-                  <XCircle size={15} style={{ color: '#ff3b30' }} />
-                )}
-                <span style={{ color: 'var(--vos-text-primary)' }}>{probeResult.message}</span>
-              </div>
-              <div className="text-[11px] mt-2" style={{ color: 'var(--vos-text-tertiary)' }}>
-                {probeResult.provider_name} · {probeResult.model} · {probeResult.latency_ms}ms
-                {probeResult.status_code ? ` · HTTP ${probeResult.status_code}` : ''}
-              </div>
-              {probeResult.response_preview && (
-                <div className="text-xs mt-2" style={{ color: 'var(--vos-text-secondary)' }}>
-                  Preview: {probeResult.response_preview}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AgentSettings({
-  profiles,
-  providers,
-  onReload
-}: {
-  profiles: AgentProfile[]
-  providers: ProviderConfig[]
-  onReload: () => Promise<void>
-}) {
-  const [draft, setDraft] = useState<AgentProfileDraft>(createEmptyCustomProfile())
-
-  const providerOptions = providers.map(provider => ({
-    value: provider.id,
-    label: `${provider.name} · ${provider.default_model}`
-  }))
-
-  const handleSave = async () => {
-    if (!draft.name || !draft.system_prompt) return
-    if (draft.id) {
-      await apiClient.updateAgentProfile(draft.id, draft)
-    } else {
-      await apiClient.createAgentProfile(draft)
-    }
-    await onReload()
-  }
-
-  return (
-    <div className="flex gap-4 h-full">
-      <div className="w-[44%] overflow-auto">
-        <SectionTitle title="Agent Profiles" meta="内置 4 个常用预设，并支持自定义复制与编辑。" />
-        <div className="space-y-2">
-          <TinyButton tone="primary" onClick={() => setDraft(createEmptyCustomProfile())}>
-            New Custom Agent
-          </TinyButton>
-          {profiles.map(profile => (
-            <div key={profile.id} className="rounded-xl p-3" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-sm font-medium" style={{ color: 'var(--vos-text-primary)' }}>
-                    {profile.name}
-                  </div>
-                  <div className="text-[11px] mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>
-                    {profile.preset_kind} {profile.is_builtin ? '· preset' : '· custom'}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <TinyButton onClick={() => setDraft({ ...profile })}>Edit</TinyButton>
-                  {!profile.is_builtin && (
-                    <TinyButton tone="danger" onClick={() => apiClient.deleteAgentProfile(profile.id).then(onReload)}>
-                      Delete
-                    </TinyButton>
-                  )}
-                </div>
-              </div>
-              <div className="text-[11px] mt-2" style={{ color: 'var(--vos-text-tertiary)' }}>
-                {profile.description}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto">
-        <SectionTitle title="Agent Editor" meta="配置行为约束、工具策略、系统提示词、默认模型与推理强度。" />
-        <div className="rounded-xl p-3 space-y-3" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>Name</FieldLabel>
-              <TextInput value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
-            </div>
-            <div>
-              <FieldLabel>Description</FieldLabel>
-              <TextInput
-                value={draft.description}
-                onChange={e => setDraft({ ...draft, description: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <FieldLabel>Default Provider</FieldLabel>
-              <SelectInput
-                value={draft.default_provider_id}
-                onChange={value => setDraft({ ...draft, default_provider_id: value || undefined })}
-                options={providerOptions}
-                placeholder="Inherit"
-              />
-            </div>
-            <div>
-              <FieldLabel>Default Model</FieldLabel>
-              <TextInput
-                value={draft.default_model ?? ''}
-                onChange={e => setDraft({ ...draft, default_model: e.target.value || undefined })}
-              />
-            </div>
-            <div>
-              <FieldLabel>Reasoning Mode</FieldLabel>
-              <SelectInput
-                value={draft.reasoning_mode}
-                onChange={value => setDraft({ ...draft, reasoning_mode: value as AgentProfile['reasoning_mode'] })}
-                options={[
-                  { value: 'off', label: 'Off' },
-                  { value: 'low', label: 'Low' },
-                  { value: 'medium', label: 'Medium' },
-                  { value: 'high', label: 'High' }
-                ]}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <FieldLabel>Temperature</FieldLabel>
-              <TextInput
-                type="number"
-                value={String(draft.temperature)}
-                onChange={e => setDraft({ ...draft, temperature: Number(e.target.value) || 0 })}
-              />
-            </div>
-            <div>
-              <FieldLabel>Max Tokens</FieldLabel>
-              <TextInput
-                type="number"
-                value={String(draft.max_tokens)}
-                onChange={e => setDraft({ ...draft, max_tokens: Number(e.target.value) || 1 })}
-              />
-            </div>
-            <div>
-              <FieldLabel>Tool Policy</FieldLabel>
-              <SelectInput
-                value={draft.tool_config.mode}
-                onChange={value =>
-                  setDraft({
-                    ...draft,
-                    tool_config: { ...draft.tool_config, mode: value as AgentToolPolicyMode }
-                  })
-                }
-                options={[
-                  { value: 'all', label: 'All Tools' },
-                  { value: 'allow_list', label: 'Allow List' },
-                  { value: 'disabled', label: 'Disabled' }
-                ]}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.behavior.require_impact_for_destructive}
-                onChange={e =>
-                  setDraft({
-                    ...draft,
-                    behavior: { ...draft.behavior, require_impact_for_destructive: e.target.checked }
-                  })
-                }
-              />
-              Destructive impact warning
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.behavior.read_only_mode}
-                onChange={e =>
-                  setDraft({
-                    ...draft,
-                    behavior: { ...draft.behavior, read_only_mode: e.target.checked }
-                  })
-                }
-              />
-              Read-only mode
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={draft.tool_config.allow_bash}
-                onChange={e =>
-                  setDraft({
-                    ...draft,
-                    tool_config: { ...draft.tool_config, allow_bash: e.target.checked }
-                  })
-                }
-              />
-              Allow bash
-            </label>
-          </div>
-
-          <div>
-            <FieldLabel>Enabled Tools</FieldLabel>
-            <TextInput
-              value={draft.tool_config.enabled_tools.join(', ')}
-              onChange={e =>
-                setDraft({
-                  ...draft,
-                  tool_config: {
-                    ...draft.tool_config,
-                    enabled_tools: e.target.value
-                      .split(',')
-                      .map(item => item.trim())
-                      .filter(Boolean)
-                  }
-                })
-              }
-            />
-          </div>
-
-          <div>
-            <FieldLabel>System Prompt</FieldLabel>
-            <TextArea
-              rows={6}
-              value={draft.system_prompt}
-              onChange={e => setDraft({ ...draft, system_prompt: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <FieldLabel>Extra Rules</FieldLabel>
-            <TextArea
-              rows={3}
-              value={draft.behavior.extra_rules.join('\n')}
-              onChange={e =>
-                setDraft({
-                  ...draft,
-                  behavior: {
-                    ...draft.behavior,
-                    extra_rules: e.target.value
-                      .split('\n')
-                      .map(item => item.trim())
-                      .filter(Boolean)
-                  }
-                })
-              }
-            />
-          </div>
-
-          <TinyButton tone="primary" onClick={handleSave}>
-            Save Agent
-          </TinyButton>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function RuntimeSettings({
-  config,
-  profiles,
-  providers,
-  onReload
-}: {
-  config: AgentConfig | null
-  profiles: AgentProfile[]
-  providers: ProviderConfig[]
-  onReload: () => Promise<void>
-}) {
-  const [draft, setDraft] = useState<AgentConfig | null>(config)
-
-  useEffect(() => {
-    setDraft(config)
-  }, [config])
-
-  if (!draft) {
-    return <div className="text-sm" style={{ color: 'var(--vos-text-tertiary)' }}>Loading runtime config…</div>
-  }
-
-  return (
-    <div className="max-w-[760px] rounded-xl p-4" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
-      <SectionTitle title="Runtime Defaults" meta="设置全局默认 provider、默认 agent、默认系统提示词和 agent loop 上限。" />
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <FieldLabel>Default Provider</FieldLabel>
-          <SelectInput
-            value={draft.default_provider_id}
-            onChange={value => setDraft({ ...draft, default_provider_id: value || undefined })}
-            options={providers.map(provider => ({ value: provider.id, label: provider.name }))}
-            placeholder="Unset"
-          />
-        </div>
-        <div>
-          <FieldLabel>Default Agent</FieldLabel>
-          <SelectInput
-            value={draft.default_agent_profile_id}
-            onChange={value => setDraft({ ...draft, default_agent_profile_id: value || undefined })}
-            options={profiles.map(profile => ({ value: profile.id, label: profile.name }))}
-            placeholder="Unset"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 mt-3">
-        <div>
-          <FieldLabel>Default Model</FieldLabel>
-          <TextInput
-            value={draft.default_model ?? ''}
-            onChange={e => setDraft({ ...draft, default_model: e.target.value || undefined })}
-          />
-        </div>
-        <div>
-          <FieldLabel>Max Iterations</FieldLabel>
-          <TextInput
-            type="number"
-            value={String(draft.max_iterations)}
-            onChange={e => setDraft({ ...draft, max_iterations: Number(e.target.value) || 1 })}
-          />
-        </div>
-      </div>
-      <div className="mt-3">
-        <FieldLabel>Default System Prompt</FieldLabel>
-        <TextArea
-          rows={6}
-          value={draft.default_system_prompt}
-          onChange={e => setDraft({ ...draft, default_system_prompt: e.target.value })}
-        />
-      </div>
-      <label className="flex items-center gap-2 text-xs mt-3" style={{ color: 'var(--vos-text-secondary)' }}>
-        <input
-          type="checkbox"
-          checked={draft.tools_enabled}
-          onChange={e => setDraft({ ...draft, tools_enabled: e.target.checked })}
-        />
-        Enable tools globally
-      </label>
-      <div className="mt-3">
-        <TinyButton
-          tone="primary"
-          onClick={() => apiClient.updateAgentConfig(draft).then(onReload)}
-        >
-          Save Runtime Config
-        </TinyButton>
-      </div>
-    </div>
-  )
-}
-
-const CHANNEL_KIND_LABELS: Record<ChannelKind, string> = {
-  qq: 'QQ',
-  ding_talk: '钉钉',
-  feishu: '飞书',
-  we_com: '企业微信',
-  telegram: 'Telegram'
-}
-
-const CHANNEL_KIND_OPTIONS: { value: ChannelKind; label: string }[] = [
-  { value: 'qq', label: 'QQ' },
-  { value: 'ding_talk', label: '钉钉' },
-  { value: 'feishu', label: '飞书' },
-  { value: 'we_com', label: '企业微信' },
-  { value: 'telegram', label: 'Telegram' }
-]
-
-function createEmptyChannel(): Omit<ChannelConfig, 'id'> & { id: string } {
-  return {
-    id: '',
-    name: '',
-    kind: 'telegram',
-    enabled: true,
-    default_agent_profile_id: undefined,
-    auto_route_agent: true,
-    webhook_url: undefined,
-    bot_user_id: undefined,
-    credentials: {}
-  }
-}
-
-function ChannelCredentialFields({
-  kind,
-  credentials,
-  onChange
-}: {
-  kind: ChannelKind
-  credentials: Record<string, unknown>
-  onChange: (creds: Record<string, unknown>) => void
-}) {
-  const field = (key: string, label: string, placeholder?: string) => (
-    <div key={key}>
-      <FieldLabel>{label}</FieldLabel>
-      <TextInput
-        value={String(credentials[key] ?? '')}
-        placeholder={placeholder}
-        onChange={e => onChange({ ...credentials, [key]: e.target.value })}
-      />
-    </div>
-  )
-
-  if (kind === 'telegram') {
-    return <>{field('token', 'Bot Token', 'Bot Token from @BotFather')}</>
-  }
-  if (kind === 'ding_talk') {
-    return (
-      <>
-        {field('app_key', 'App Key')}
-        {field('app_secret', 'App Secret')}
-      </>
-    )
-  }
-  if (kind === 'feishu') {
-    return (
-      <>
-        {field('app_id', 'App ID')}
-        {field('app_secret', 'App Secret')}
-      </>
-    )
-  }
-  if (kind === 'we_com') {
-    return (
-      <>
-        {field('corp_id', 'Corp ID')}
-        {field('corp_secret', 'Corp Secret')}
-        {field('agent_id', 'Agent ID')}
-      </>
-    )
-  }
-  if (kind === 'qq') {
-    return (
-      <>
-        {field('app_id', 'App ID')}
-        {field('app_secret', 'App Secret')}
-      </>
-    )
-  }
-  return null
-}
-
-function ChannelsPanel({
-  channels,
-  profiles,
-  onReload
-}: {
-  channels: ChannelConfig[]
-  profiles: AgentProfile[]
-  onReload: () => Promise<void>
-}) {
-  const [draft, setDraft] = useState<ReturnType<typeof createEmptyChannel>>(createEmptyChannel())
-
-  const handleSave = async () => {
-    if (!draft.name || !draft.kind) return
-    if (draft.id) {
-      await apiClient.agentUpdateChannel(draft.id, draft)
-    } else {
-      await apiClient.agentCreateChannel(draft)
-    }
-    setDraft(createEmptyChannel())
-    await onReload()
-  }
-
-  return (
-    <div className="flex gap-4 h-full">
-      <div className="w-[44%] overflow-auto">
-        <SectionTitle title="Channel Integrations" meta="配置外部机器人渠道，将 AI Agent 接入 IM 平台。" />
-        <div className="space-y-2">
-          <TinyButton tone="primary" onClick={() => setDraft(createEmptyChannel())}>
-            New Channel
-          </TinyButton>
-          {channels.map(channel => (
-            <div
-              key={channel.id}
-              className="rounded-xl p-3 cursor-pointer"
-              style={{
-                background: draft.id === channel.id ? 'var(--vos-bg-active)' : 'var(--vos-bg-surface)',
-                border: panelBorder
-              }}
-              onClick={() => setDraft({ ...channel })}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-sm font-medium" style={{ color: 'var(--vos-text-primary)' }}>
-                    {channel.name}
-                  </div>
-                  <div className="text-[11px] mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>
-                    {CHANNEL_KIND_LABELS[channel.kind]} · {channel.enabled ? 'enabled' : 'disabled'}
-                  </div>
-                </div>
-                <TinyButton
-                  tone="danger"
-                  onClick={e => {
-                    e.stopPropagation()
-                    apiClient.agentDeleteChannel(channel.id).then(onReload)
-                  }}
-                >
-                  Delete
-                </TinyButton>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto rounded-xl p-4 space-y-3" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
-        <SectionTitle title={draft.id ? 'Edit Channel' : 'New Channel'} />
-        <div>
-          <FieldLabel>Name</FieldLabel>
-          <TextInput
-            value={draft.name}
-            placeholder="Channel name"
-            onChange={e => setDraft({ ...draft, name: e.target.value })}
-          />
-        </div>
-        <div>
-          <FieldLabel>Platform</FieldLabel>
-          <SelectInput
-            value={draft.kind}
-            onChange={value => setDraft({ ...draft, kind: (value || 'telegram') as ChannelKind, credentials: {} })}
-            options={CHANNEL_KIND_OPTIONS}
-          />
-        </div>
-        <div>
-          <FieldLabel>Default Agent</FieldLabel>
-          <SelectInput
-            value={draft.default_agent_profile_id}
-            onChange={value => setDraft({ ...draft, default_agent_profile_id: value || undefined })}
-            options={profiles.map(p => ({ value: p.id, label: p.name }))}
-            placeholder="Unset"
-          />
-        </div>
-        {(draft.kind === 'ding_talk' || draft.kind === 'qq') && (
-          <div>
-            <FieldLabel>Webhook URL</FieldLabel>
-            <TextInput
-              value={draft.webhook_url ?? ''}
-              placeholder="https://..."
-              onChange={e => setDraft({ ...draft, webhook_url: e.target.value || undefined })}
-            />
-          </div>
-        )}
-        <ChannelCredentialFields
-          kind={draft.kind}
-          credentials={draft.credentials as Record<string, unknown>}
-          onChange={creds => setDraft({ ...draft, credentials: creds })}
-        />
-        <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
-          <input
-            type="checkbox"
-            checked={draft.enabled}
-            onChange={e => setDraft({ ...draft, enabled: e.target.checked })}
-          />
-          Enabled
-        </label>
-        <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
-          <input
-            type="checkbox"
-            checked={draft.auto_route_agent}
-            onChange={e => setDraft({ ...draft, auto_route_agent: e.target.checked })}
-          />
-          Auto-route to default agent
-        </label>
-        <TinyButton tone="primary" onClick={handleSave}>
-          {draft.id ? 'Save Channel' : 'Create Channel'}
-        </TinyButton>
-      </div>
-    </div>
-  )
-}
-
-function SettingsPanel({
-  tab,
-  onTabChange,
-  onClose,
-  providers,
-  templates,
-  profiles,
-  channels,
-  config,
-  onReloadProviders,
-  onReloadProfiles,
-  onReloadConfig,
-  onReloadChannels
-}: {
-  tab: SettingsTab
-  onTabChange: (tab: SettingsTab) => void
-  onClose: () => void
-  providers: ProviderConfig[]
-  templates: ProviderTemplate[]
-  profiles: AgentProfile[]
-  channels: ChannelConfig[]
-  config: AgentConfig | null
-  onReloadProviders: () => Promise<void>
-  onReloadProfiles: () => Promise<void>
-  onReloadConfig: () => Promise<void>
-  onReloadChannels: () => Promise<void>
-}) {
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center px-4 py-3 gap-3 flex-shrink-0" style={{ borderBottom: panelBorder }}>
-        <Settings size={15} style={{ color: 'var(--vos-text-tertiary)' }} />
-        <span className="text-sm font-medium flex-1">AI Control Center</span>
-        <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'var(--vos-bg-input)' }}>
-          {[
-            { key: 'providers', label: 'Providers', icon: Cpu },
-            { key: 'agents', label: 'Agents', icon: Bot },
-            { key: 'runtime', label: 'Runtime', icon: Shield },
-            { key: 'channels', label: 'Channels', icon: Radio }
-          ].map(item => {
-            const Icon = item.icon
-            const active = tab === item.key
-            return (
-              <button
-                key={item.key}
-                type="button"
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border-none cursor-pointer"
-                style={{
-                  background: active ? 'var(--vos-accent-primary)' : 'transparent',
-                  color: active ? '#fff' : 'var(--vos-text-secondary)'
-                }}
-                onClick={() => onTabChange(item.key as SettingsTab)}
-              >
-                <Icon size={12} />
-                {item.label}
-              </button>
-            )
-          })}
-        </div>
-        <button
-          type="button"
-          className="bg-transparent border-none cursor-pointer p-0"
-          style={{ color: 'var(--vos-text-tertiary)' }}
-          onClick={onClose}
-        >
-          <X size={15} />
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-auto p-4">
-        {tab === 'providers' && (
-          <ProviderSettings
-            providers={providers}
-            templates={templates}
-            config={config}
-            onReload={onReloadProviders}
-            onConfigReload={onReloadConfig}
-          />
-        )}
-        {tab === 'agents' && (
-          <AgentSettings profiles={profiles} providers={providers} onReload={onReloadProfiles} />
-        )}
-        {tab === 'runtime' && (
-          <RuntimeSettings config={config} profiles={profiles} providers={providers} onReload={onReloadConfig} />
-        )}
-        {tab === 'channels' && (
-          <ChannelsPanel channels={channels} profiles={profiles} onReload={onReloadChannels} />
-        )}
-      </div>
-    </div>
-  )
-}
-
-function createEmptyProvider(): ProviderDraft {
-  return {
-    id: '',
-    name: '',
-    provider_type: 'native',
-    vendor: 'open_ai',
-    api_key: '',
-    base_url: '',
-    default_model: '',
-    enabled: true
-  }
-}
-
 export default function AIAssistantApp(_props: AppComponentProps) {
   const storage = useAppStorage('ai-assistant')
   const [sessions, setSessions] = useState<ChatSession[]>([])
@@ -1175,12 +180,8 @@ export default function AIAssistantApp(_props: AppComponentProps) {
   const [toolEvents, setToolEvents] = useState<StreamEvent[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>('providers')
   const [providers, setProviders] = useState<ProviderConfig[]>([])
-  const [templates, setTemplates] = useState<ProviderTemplate[]>([])
   const [profiles, setProfiles] = useState<AgentProfile[]>([])
-  const [channels, setChannels] = useState<ChannelConfig[]>([])
   const [config, setConfig] = useState<AgentConfig | null>(null)
   const [selectedAgentId, setSelectedAgentId] = useState<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -1207,12 +208,8 @@ export default function AIAssistantApp(_props: AppComponentProps) {
   }, [])
 
   const loadProviders = useCallback(async () => {
-    const [providerResponse, templateResponse] = await Promise.all([
-      apiClient.getAgentProviders(),
-      apiClient.getAgentProviderTemplates()
-    ])
-    setProviders(providerResponse.data)
-    setTemplates(templateResponse.data)
+    const response = await apiClient.getAgentProviders()
+    setProviders(response.data)
   }, [])
 
   const loadProfiles = useCallback(async () => {
@@ -1226,14 +223,9 @@ export default function AIAssistantApp(_props: AppComponentProps) {
     setSelectedAgentId(response.data.default_agent_profile_id ?? '')
   }, [])
 
-  const loadChannels = useCallback(async () => {
-    const response = await apiClient.agentListChannels()
-    setChannels(response.data)
-  }, [])
-
   useEffect(() => {
-    void Promise.all([loadSessions(), loadProviders(), loadProfiles(), loadConfig(), loadChannels()])
-  }, [loadSessions, loadProviders, loadProfiles, loadConfig, loadChannels])
+    void Promise.all([loadSessions(), loadProviders(), loadProfiles(), loadConfig()])
+  }, [loadSessions, loadProviders, loadProfiles, loadConfig])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -1325,25 +317,6 @@ export default function AIAssistantApp(_props: AppComponentProps) {
     }
   }
 
-  if (showSettings) {
-    return (
-      <SettingsPanel
-        tab={settingsTab}
-        onTabChange={setSettingsTab}
-        onClose={() => setShowSettings(false)}
-        providers={providers}
-        templates={templates}
-        profiles={profiles}
-        channels={channels}
-        config={config}
-        onReloadProviders={loadProviders}
-        onReloadProfiles={loadProfiles}
-        onReloadConfig={loadConfig}
-        onReloadChannels={loadChannels}
-      />
-    )
-  }
-
   return (
     <div className="flex h-full">
       <div
@@ -1352,18 +325,15 @@ export default function AIAssistantApp(_props: AppComponentProps) {
       >
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-xs font-medium" style={{ color: 'var(--vos-text-tertiary)' }}>
-            SESSIONS
+            会话
           </span>
           <div className="flex items-center gap-1">
             <button
               type="button"
               className="bg-transparent border-none cursor-pointer p-0"
               style={{ color: 'var(--vos-text-tertiary)' }}
-              onClick={() => {
-                setSettingsTab('providers')
-                setShowSettings(true)
-              }}
-              title="Settings"
+              onClick={() => openWindow('settings', { appState: { category: 'ai' } })}
+              title="AI 设置"
             >
               <Settings size={13} />
             </button>
@@ -1404,18 +374,15 @@ export default function AIAssistantApp(_props: AppComponentProps) {
         <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ borderBottom: panelBorder }}>
           <div className="flex items-center gap-2">
             <Wand2 size={16} style={{ color: 'var(--vos-accent-primary)' }} />
-            <span className="text-sm font-medium">AI Assistant</span>
+            <span className="text-sm font-medium">AI 助手</span>
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
               className="bg-transparent border-none cursor-pointer p-1.5 rounded-lg"
               style={{ color: 'var(--vos-text-tertiary)' }}
-              onClick={() => {
-                setSettingsTab('providers')
-                setShowSettings(true)
-              }}
-              title="Settings"
+              onClick={() => openWindow('settings', { appState: { category: 'ai' } })}
+              title="AI 设置"
             >
               <Settings size={15} />
             </button>
@@ -1430,7 +397,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
                   value: profile.id,
                   label: profile.name
                 }))}
-                placeholder="Choose Agent"
+                placeholder="选择 Agent"
               />
             </div>
             <div
@@ -1438,14 +405,14 @@ export default function AIAssistantApp(_props: AppComponentProps) {
               style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-tertiary)' }}
             >
               <Cpu size={12} />
-              {activeProvider ? activeProvider.name : 'No default provider'}
+              {activeProvider ? activeProvider.name : '未配置 Provider'}
             </div>
             <div
               className="flex items-center gap-1.5 text-[11px] px-2 py-1.5 rounded-lg"
               style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-tertiary)' }}
             >
               <Bot size={12} />
-              {activeProfile ? activeProfile.name : 'No agent'}
+              {activeProfile ? activeProfile.name : '未选择 Agent'}
             </div>
           </div>
         </div>
@@ -1522,7 +489,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
                 type="text"
                 className="w-full text-sm bg-transparent border-none outline-none rounded-lg px-3 py-2"
                 style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)' }}
-                placeholder={providers.length === 0 ? 'Configure a provider first...' : 'Ask anything…'}
+                placeholder={providers.length === 0 ? '请先在系统设置中配置 Provider...' : '输入消息…'}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && void handleSend()}
@@ -1531,11 +498,11 @@ export default function AIAssistantApp(_props: AppComponentProps) {
               <div className="flex items-center gap-4 mt-2 text-[11px]" style={{ color: 'var(--vos-text-tertiary)' }}>
                 <span className="flex items-center gap-1">
                   <Bot size={11} />
-                  {activeProfile?.description ?? 'Select an agent profile'}
+                  {activeProfile?.description ?? '请选择 Agent Profile'}
                 </span>
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1 cursor-pointer hover:opacity-80" onClick={() => openWindow('settings', { appState: { category: 'ai' } })}>
                   <ChevronDown size={11} />
-                  Runtime defaults come from Provider / Agent settings
+                  运行时默认值来自 Provider / Agent 设置
                 </span>
               </div>
             </div>
