@@ -15,8 +15,10 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronRight, File, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { LocalFsNode, VfsMount, VfsNode } from '@/infra/api'
+import type { LocalFsNode } from '@/infra/api'
+import type { VfsMount, VfsNode } from '@/apps/explorer/api'
 import { apiClient } from '@/infra/api'
+import { vfsApi } from '@/apps/explorer/api'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -449,7 +451,7 @@ function VfsFilePickerModal({
   // Load mounts on open
   // biome-ignore lint/correctness/useExhaustiveDependencies: selectMount intentionally omitted; should run once
   useEffect(() => {
-    apiClient
+    vfsApi
       .getVfsMounts()
       .then(r => {
         setMounts(r.data)
@@ -469,7 +471,7 @@ function VfsFilePickerModal({
     setLoading(true)
     setNodes([])
     try {
-      const r = await apiClient.listVfsDir(mountId, path)
+      const r = await vfsApi.listVfsDir(mountId, path)
       const sorted = [...r.data].sort((a, b) => {
         if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1
         return a.name.localeCompare(b.name)
@@ -505,7 +507,7 @@ function VfsFilePickerModal({
       // For remote files, fetch content for inline use
       setFetchingContent(true)
       try {
-        const blob = await apiClient.readVfsFileRaw(selectedMount.id, finalPath)
+        const blob = await vfsApi.readVfsFileRaw(selectedMount.id, finalPath)
         onConfirm({
           path: `vfs://${selectedMount.id}${finalPath}`,
           mountId: selectedMount.id,

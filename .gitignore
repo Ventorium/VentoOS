@@ -31,4 +31,4 @@ pnpm-debug.log*
 .repos
 .superpowers
 
-storage
+native/storage/

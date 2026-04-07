@@ -17,10 +17,10 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VList } from 'virtua'
 import { AppLayout, AppSidebar, EmptyState, FormInput, Modal, SectionHeader, Spinner } from '@/components'
-import type { CreateRedisConnectionReq, RedisConnectionConfig, RedisKeyInfo, RedisKeyValue } from '@/infra/api'
-import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { useAppStorage } from '@/kernel'
+import type { CreateRedisConnectionReq, RedisConnectionConfig, RedisKeyInfo, RedisKeyValue } from './api'
+import { redisApi } from './api'
 
 // ─── Trie Tree for key grouping ────────────────────────────────────────────
 
@@ -200,7 +200,7 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
         password: password || undefined,
         db: Number(db)
       }
-      const res = await apiClient.createRedisConnection(body)
+      const res = await redisApi.createRedisConnection(body)
       onCreated(res.data)
     } catch (e) {
       console.error(e)
@@ -251,7 +251,7 @@ function StringViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: st
   const save = async () => {
     setSaving(true)
     try {
-      await apiClient.executeRedisCommand(connId, `SET ${kv.key} ${draft}`)
+      await redisApi.executeRedisCommand(connId, `SET ${kv.key} ${draft}`)
       setEditing(false)
       onRefresh()
     } catch (e) {
@@ -310,14 +310,14 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   const [adding, setAdding] = useState(false)
 
   const delField = async (field: string) => {
-    await apiClient.executeRedisCommand(connId, `HDEL ${kv.key} ${field}`)
+    await redisApi.executeRedisCommand(connId, `HDEL ${kv.key} ${field}`)
     onRefresh()
   }
   const addField = async () => {
     if (!newField) return
     setAdding(true)
     try {
-      await apiClient.executeRedisCommand(connId, `HSET ${kv.key} ${newField} ${newVal}`)
+      await redisApi.executeRedisCommand(connId, `HSET ${kv.key} ${newField} ${newVal}`)
       setNewField('')
       setNewVal('')
       onRefresh()
@@ -404,14 +404,14 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   const [adding, setAdding] = useState(false)
 
   const delItem = async (val: string) => {
-    await apiClient.executeRedisCommand(connId, `LREM ${kv.key} 1 ${val}`)
+    await redisApi.executeRedisCommand(connId, `LREM ${kv.key} 1 ${val}`)
     onRefresh()
   }
   const addItem = async () => {
     if (!newItem) return
     setAdding(true)
     try {
-      await apiClient.executeRedisCommand(connId, `RPUSH ${kv.key} ${newItem}`)
+      await redisApi.executeRedisCommand(connId, `RPUSH ${kv.key} ${newItem}`)
       setNewItem('')
       onRefresh()
     } catch (e) {
@@ -487,14 +487,14 @@ function SetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: strin
   const [adding, setAdding] = useState(false)
 
   const delMember = async (m: string) => {
-    await apiClient.executeRedisCommand(connId, `SREM ${kv.key} ${m}`)
+    await redisApi.executeRedisCommand(connId, `SREM ${kv.key} ${m}`)
     onRefresh()
   }
   const addMember = async () => {
     if (!newMember) return
     setAdding(true)
     try {
-      await apiClient.executeRedisCommand(connId, `SADD ${kv.key} ${newMember}`)
+      await redisApi.executeRedisCommand(connId, `SADD ${kv.key} ${newMember}`)
       setNewMember('')
       onRefresh()
     } catch (e) {
@@ -576,14 +576,14 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   const [adding, setAdding] = useState(false)
 
   const delMember = async (m: string) => {
-    await apiClient.executeRedisCommand(connId, `ZREM ${kv.key} ${m}`)
+    await redisApi.executeRedisCommand(connId, `ZREM ${kv.key} ${m}`)
     onRefresh()
   }
   const addMember = async () => {
     if (!newMember) return
     setAdding(true)
     try {
-      await apiClient.executeRedisCommand(connId, `ZADD ${kv.key} ${newScore} ${newMember}`)
+      await redisApi.executeRedisCommand(connId, `ZADD ${kv.key} ${newScore} ${newMember}`)
       setNewMember('')
       setNewScore('0')
       onRefresh()
@@ -673,7 +673,7 @@ function ValueViewer({
   onRefresh: () => void
 }) {
   const handleDelete = async () => {
-    await apiClient.deleteRedisKey(connId, kv.key)
+    await redisApi.deleteRedisKey(connId, kv.key)
     onDeleted()
   }
 
@@ -780,7 +780,7 @@ export default function RedisApp(_props: AppComponentProps) {
 
   const reload = useCallback(async () => {
     try {
-      const r = await apiClient.getRedisConnections()
+      const r = await redisApi.getRedisConnections()
       setConnections(r.data)
     } catch (e) {
       console.error(e)
@@ -793,7 +793,7 @@ export default function RedisApp(_props: AppComponentProps) {
 
   const connectTo = async (id: string) => {
     try {
-      await apiClient.connectRedis(id)
+      await redisApi.connectRedis(id)
       setConnectedIds(s => new Set(s).add(id))
       setExpandedConns(s => new Set(s).add(id))
       setSelectedConn(id)
@@ -804,7 +804,7 @@ export default function RedisApp(_props: AppComponentProps) {
   }
 
   const disconnectFrom = async (id: string) => {
-    await apiClient.disconnectRedis(id)
+    await redisApi.disconnectRedis(id)
     setConnectedIds(s => {
       const n = new Set(s)
       n.delete(id)
@@ -818,7 +818,7 @@ export default function RedisApp(_props: AppComponentProps) {
   }
 
   const deleteConn = async (id: string) => {
-    await apiClient.deleteRedisConnection(id)
+    await redisApi.deleteRedisConnection(id)
     reload()
   }
 
@@ -831,7 +831,7 @@ export default function RedisApp(_props: AppComponentProps) {
       let allKeys: RedisKeyInfo[] = []
       let finished = false
       while (!finished && allKeys.length < 1000) {
-        const r = await apiClient.scanRedisKeys(connId, cursor, pat, 200)
+        const r = await redisApi.scanRedisKeys(connId, cursor, pat, 200)
         allKeys = [...allKeys, ...r.data.keys]
         cursor = r.data.cursor
         finished = r.data.finished || cursor === '0'
@@ -846,7 +846,7 @@ export default function RedisApp(_props: AppComponentProps) {
   const selectKey = async (connId: string, key: string) => {
     setLoading(true)
     try {
-      const r = await apiClient.getRedisKey(connId, key)
+      const r = await redisApi.getRedisKey(connId, key)
       setSelectedKey(r.data)
     } catch (e) {
       console.error(e)
@@ -865,7 +865,7 @@ export default function RedisApp(_props: AppComponentProps) {
   const runCmd = async () => {
     if (!selectedConn || !cliInput.trim()) return
     try {
-      const r = await apiClient.executeRedisCommand(selectedConn, cliInput)
+      const r = await redisApi.executeRedisCommand(selectedConn, cliInput)
       const result = typeof r.data.result === 'string' ? r.data.result : JSON.stringify(r.data.result, null, 2)
       setCliHistory(h => {
         const next = [...h, { cmd: cliInput, result }]

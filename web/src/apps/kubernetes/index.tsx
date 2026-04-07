@@ -13,12 +13,12 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { AppLayout, AppSidebar, EmptyState, FormInput, Modal, SectionHeader, Spinner } from '@/components'
-import type { CreateK8sClusterReq, K8sCluster, K8sNamespace, K8sResource, K8sResourceKind } from '@/infra/api'
-import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { useAppStorage } from '@/kernel'
 import type { VfsPickerResult } from '@/shell/FilePicker'
 import { VfsPathPickerInput } from '@/shell/FilePicker'
+import type { CreateK8sClusterReq, K8sCluster, K8sNamespace, K8sResource, K8sResourceKind } from './api'
+import { k8sApi } from './api'
 
 const RESOURCE_GROUPS: { label: string; icon: React.ReactNode; kinds: { kind: K8sResourceKind; label: string }[] }[] = [
   {
@@ -94,7 +94,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
         kubeconfig_inline: kubeconfigInline || undefined,
         context_name: context || undefined
       }
-      const res = await apiClient.createK8sCluster(body)
+      const res = await k8sApi.createK8sCluster(body)
       onCreated(res.data)
     } catch (e) {
       console.error(e)
@@ -162,7 +162,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
   const fetchResources = useCallback(async (clusterId: string, ns: string, kind: K8sResourceKind) => {
     setLoading(true)
     try {
-      const r = await apiClient.getK8sResources(clusterId, kind, ns)
+      const r = await k8sApi.getK8sResources(clusterId, kind, ns)
       setResources(r.data)
     } catch (e) {
       console.error(e)
@@ -174,7 +174,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
     setNsLoading(true)
     setNsError(null)
     try {
-      const r = await apiClient.getK8sNamespaces(clusterId)
+      const r = await k8sApi.getK8sNamespaces(clusterId)
       const data = r.data ?? []
       setNamespaces(data)
       return data
@@ -244,7 +244,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
 
   const reload = useCallback(async () => {
     try {
-      const r = await apiClient.getK8sClusters()
+      const r = await k8sApi.getK8sClusters()
       setClusters(r.data)
     } catch (e) {
       console.error(e)
@@ -254,7 +254,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
   const deleteCluster = useCallback(
     async (id: string) => {
       try {
-        await apiClient.deleteK8sCluster(id)
+        await k8sApi.deleteK8sCluster(id)
         setClusters(p => p.filter(c => c.id !== id))
         if (selectedCluster === id) {
           setSelectedCluster(null)
@@ -282,7 +282,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
       }
 
       try {
-        const r = await apiClient.getK8sClusters()
+        const r = await k8sApi.getK8sClusters()
         if (!active) return
         setClusters(r.data)
 
@@ -369,31 +369,26 @@ export default function KubernetesApp(_props: AppComponentProps) {
                   </button>
                 </div>
                 {/* Namespace sub-items */}
-                {isExpanded &&
-                  isActive &&
-                  nsLoading && (
-                    <div className="text-[10px] pl-8 py-1" style={{ color: 'var(--vos-text-tertiary)' }}>
-                      加载命名空间中…
+                {isExpanded && isActive && nsLoading && (
+                  <div className="text-[10px] pl-8 py-1" style={{ color: 'var(--vos-text-tertiary)' }}>
+                    加载命名空间中…
+                  </div>
+                )}
+                {isExpanded && isActive && !nsLoading && nsError && (
+                  <div className="pl-8 py-1">
+                    <div className="text-[10px]" style={{ color: '#ef4444' }}>
+                      {nsError}
                     </div>
-                  )}
-                {isExpanded &&
-                  isActive &&
-                  !nsLoading &&
-                  nsError && (
-                    <div className="pl-8 py-1">
-                      <div className="text-[10px]" style={{ color: '#ef4444' }}>
-                        {nsError}
-                      </div>
-                      <button
-                        type="button"
-                        className="text-[10px] bg-transparent border-none cursor-pointer p-0"
-                        style={{ color: 'var(--vos-accent-primary)' }}
-                        onClick={() => selectedCluster && fetchNamespaces(selectedCluster)}
-                      >
-                        重试
-                      </button>
-                    </div>
-                  )}
+                    <button
+                      type="button"
+                      className="text-[10px] bg-transparent border-none cursor-pointer p-0"
+                      style={{ color: 'var(--vos-accent-primary)' }}
+                      onClick={() => selectedCluster && fetchNamespaces(selectedCluster)}
+                    >
+                      重试
+                    </button>
+                  </div>
+                )}
                 {isExpanded &&
                   isActive &&
                   !nsLoading &&

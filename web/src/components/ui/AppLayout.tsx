@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 export interface AppLayoutProps {
   sidebar: ReactNode
   children: ReactNode
-  /** Extra overlay content (modals, etc.) */
   overlay?: ReactNode
 }
 

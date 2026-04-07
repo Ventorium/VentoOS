@@ -10,7 +10,7 @@
  *   // Or with change handler:
  *   useAppTheme((mode) => { setEditorTheme(mode === 'dark' ? 'vs-dark' : 'vs') })
  */
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { systemChannel } from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
 

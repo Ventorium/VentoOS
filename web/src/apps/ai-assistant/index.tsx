@@ -15,10 +15,10 @@ import {
   Wrench
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AgentConfig, AgentProfile, ChatSession, ProviderConfig, StreamEvent } from '@/infra/api'
-import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow, useAppStorage } from '@/kernel'
+import type { AgentConfig, AgentProfile, ChatSession, ProviderConfig, StreamEvent } from './api'
+import { agentApi } from './api'
 
 const panelBorder = '0.5px solid var(--vos-border-subtle)'
 
@@ -197,22 +197,22 @@ export default function AIAssistantApp(_props: AppComponentProps) {
   )
 
   const loadSessions = useCallback(async () => {
-    const response = await apiClient.getAgentSessions()
+    const response = await agentApi.getAgentSessions()
     setSessions(response.data)
   }, [])
 
   const loadProviders = useCallback(async () => {
-    const response = await apiClient.getAgentProviders()
+    const response = await agentApi.getAgentProviders()
     setProviders(response.data)
   }, [])
 
   const loadProfiles = useCallback(async () => {
-    const response = await apiClient.getAgentProfiles()
+    const response = await agentApi.getAgentProfiles()
     setProfiles(response.data)
   }, [])
 
   const loadConfig = useCallback(async () => {
-    const response = await apiClient.getAgentConfig()
+    const response = await agentApi.getAgentConfig()
     setConfig(response.data)
     setSelectedAgentId(response.data.default_agent_profile_id ?? '')
   }, [])
@@ -229,7 +229,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
     setCurrentSession(id)
     setStreamingContent('')
     setToolEvents([])
-    const response = await apiClient.getAgentSession(id)
+    const response = await agentApi.getAgentSession(id)
     setMessages(response.data.messages)
     setSelectedAgentId(response.data.agent_profile_id ?? config?.default_agent_profile_id ?? '')
   }
@@ -242,7 +242,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
   }
 
   const deleteSession = async (id: string) => {
-    await apiClient.deleteAgentSession(id)
+    await agentApi.deleteAgentSession(id)
     if (currentSession === id) {
       newSession()
     }
@@ -263,7 +263,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
       let sessionId = currentSession
       const nextEvents: StreamEvent[] = []
 
-      for await (const event of apiClient.agentChatStream({
+      for await (const event of agentApi.agentChatStream({
         message: text,
         session_id: currentSession ?? undefined,
         agent_profile_id: selectedAgentId || undefined

@@ -17,8 +17,8 @@ import { XMarkdown } from '@ant-design/x-markdown'
 import { FileText, Loader2, Pause, Pencil, Play, Save, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { VfsFileContent, VfsNode } from '@/infra/api'
-import { apiClient } from '@/infra/api'
+import type { VfsFileContent, VfsNode } from '@/apps/explorer/api'
+import { vfsApi } from '@/apps/explorer/api'
 import type { AppComponentProps } from '@/kernel'
 import { useWindow, useWindowActions } from '@/kernel'
 
@@ -442,7 +442,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
     let cleanup: (() => void) | null = null
 
     if (isImage || isPdf || isVideo || isAudio) {
-      apiClient
+      vfsApi
         .readVfsFileRaw(mountId, node.path)
         .then(blob => {
           const url = URL.createObjectURL(blob)
@@ -452,12 +452,12 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
         .catch(e => setError(e instanceof Error ? e.message : '加载失败'))
         .finally(() => setLoading(false))
     } else if (isText) {
-      apiClient
+      vfsApi
         .readVfsFile(mountId, node.path, 4 * 1024 * 1024)
         .then(r => {
           if (r.data.is_binary) {
             // Reload as raw for hex viewer
-            apiClient
+            vfsApi
               .readVfsFileRaw(mountId, node.path)
               .then(async blob => {
                 const buf = await blob.arrayBuffer()
@@ -477,7 +477,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
         })
     } else {
       // Unknown / binary
-      apiClient
+      vfsApi
         .readVfsFileRaw(mountId, node.path)
         .then(async blob => {
           const buf = await blob.arrayBuffer()
@@ -496,7 +496,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
     if (!mountId || !node) return
     setSaving(true)
     try {
-      await apiClient.writeVfsFile(mountId, node.path, editContent)
+      await vfsApi.writeVfsFile(mountId, node.path, editContent)
       setEditing(false)
       setTextContent(prev => (prev ? { ...prev, content: editContent } : prev))
     } catch (e) {

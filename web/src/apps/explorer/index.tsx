@@ -36,23 +36,16 @@ import {
   ConfirmDialog as SharedConfirmDialog,
   Spinner
 } from '@/components'
-import type {
-  CreateVfsMountReq,
-  SshConfigHost,
-  SshKeyFile,
-  VfsFileContent,
-  VfsMount,
-  VfsNode,
-  VfsSourceKind,
-  WebDavServerSettings
-} from '@/infra/api'
-import { apiClient } from '@/infra/api'
 import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
 import { getAppsForFile, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage } from '@/kernel'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { PathPickerInput } from '@/shell/FilePicker'
+import type { SshConfigHost, SshKeyFile } from '../ssh/api'
+import { sshApi } from '../ssh/api'
+import type { CreateVfsMountReq, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from './api'
+import { vfsApi } from './api'
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent)
 
@@ -262,7 +255,7 @@ function MountForm({
   const handleImportSshConfig = async () => {
     setImportingConfig(true)
     try {
-      const res = await apiClient.getSshConfigHosts()
+      const res = await sshApi.getSshConfigHosts()
       setSshConfigHosts(res.data)
     } catch (e) {
       console.error(e)
@@ -285,7 +278,7 @@ function MountForm({
 
   const handleBrowseSshKeys = async () => {
     try {
-      const res = await apiClient.getSshKeyFiles()
+      const res = await sshApi.getSshKeyFiles()
       setSshKeyFiles(res.data)
     } catch (e) {
       console.error(e)
@@ -297,7 +290,7 @@ function MountForm({
     setTesting(true)
     setTestResult(null)
     try {
-      const res = await apiClient.testVfsMountConnection({ name: name || 'test', kind, root: buildRoot() })
+      const res = await vfsApi.testVfsMountConnection({ name: name || 'test', kind, root: buildRoot() })
       setTestResult(res.data)
     } catch (e) {
       setTestResult({ success: false, message: e instanceof Error ? e.message : '测试失败' })
@@ -312,10 +305,10 @@ function MountForm({
     try {
       const body: CreateVfsMountReq = { name, kind, root: buildRoot() }
       if (isEditing && mountToEdit) {
-        const res = await apiClient.updateVfsMount(mountToEdit.id, body)
+        const res = await vfsApi.updateVfsMount(mountToEdit.id, body)
         onUpdated?.(res.data)
       } else {
-        const res = await apiClient.createVfsMount(body)
+        const res = await vfsApi.createVfsMount(body)
         onCreated?.(res.data)
       }
     } catch (e) {
@@ -1558,7 +1551,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
   const handleSave = async () => {
     setSaving(true)
     try {
-      await apiClient.writeVfsFile(mountId, node.path, editContent)
+      await vfsApi.writeVfsFile(mountId, node.path, editContent)
       setEditing(false)
       setContent(prev => (prev ? { ...prev, content: editContent } : prev))
     } catch (e) {
@@ -1594,7 +1587,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
         canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob failed'))), mimeType, 0.95)
       })
       const file = new File([newBlob], node.name, { type: mimeType })
-      await apiClient.uploadVfsFile(mountId, node.path, file)
+      await vfsApi.uploadVfsFile(mountId, node.path, file)
       const newUrl = URL.createObjectURL(newBlob)
       setBlobUrl(prev => {
         if (prev) URL.revokeObjectURL(prev)
@@ -1973,12 +1966,12 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount-once
   const reload = useCallback(async () => {
     try {
-      const r = await apiClient.getVfsMounts()
+      const r = await vfsApi.getVfsMounts()
       let mountList = r.data
       // Auto-create "本机" mount at home dir if no local mounts exist
       if (!mountList.some(m => m.kind === 'local')) {
         try {
-          const res = await apiClient.createVfsMount({ name: '本机', kind: 'local', root: '~' })
+          const res = await vfsApi.createVfsMount({ name: '本机', kind: 'local', root: '~' })
           mountList = [...mountList, res.data]
         } catch (_e) {
           /* ignore if creation fails */
@@ -2015,7 +2008,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
 
   const loadColumn = async (mountId: string, path: string): Promise<VfsNode[]> => {
     try {
-      const r = await apiClient.listVfsDir(mountId, path, showHidden)
+      const r = await vfsApi.listVfsDir(mountId, path, showHidden)
       return r.data
     } catch (e) {
       console.error(e)
@@ -2059,11 +2052,11 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     try {
       if (srcMountId && srcMountId !== selectedMount) {
         // Cross-mount: read from source, upload to destination
-        const blob = await apiClient.readVfsFileRaw(srcMountId, srcPath)
+        const blob = await vfsApi.readVfsFileRaw(srcMountId, srcPath)
         const file = new File([blob], fileName)
-        await apiClient.uploadVfsFile(selectedMount, dest, file)
+        await vfsApi.uploadVfsFile(selectedMount, dest, file)
       } else {
-        await apiClient.moveVfsFile(selectedMount, srcPath, dest)
+        await vfsApi.moveVfsFile(selectedMount, srcPath, dest)
       }
       // Refresh affected columns
       setColumns(prev =>
@@ -2123,7 +2116,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     } else {
       setSelectedNode(entry)
       try {
-        const r = await apiClient.readVfsFile(selectedMount, entry.path)
+        const r = await vfsApi.readVfsFile(selectedMount, entry.path)
         setPreview(r.data)
       } catch (e) {
         console.error(e)
@@ -2132,7 +2125,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   }
 
   const deleteMount = async (id: string) => {
-    await apiClient.deleteVfsMount(id)
+    await vfsApi.deleteVfsMount(id)
     if (selectedMount === id) {
       setSelectedMount(null)
       setColumns([])
@@ -2242,16 +2235,16 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         const dest = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`
         if (item.mountId !== selectedMount) {
           // Cross-mount: read from source, upload to destination
-          const blob = await apiClient.readVfsFileRaw(item.mountId, item.node.path)
+          const blob = await vfsApi.readVfsFileRaw(item.mountId, item.node.path)
           const file = new File([blob], fileName)
-          await apiClient.uploadVfsFile(selectedMount, dest, file)
+          await vfsApi.uploadVfsFile(selectedMount, dest, file)
           if (clipboard.operation === 'cut') {
-            await apiClient.deleteVfs(item.mountId, item.node.path)
+            await vfsApi.deleteVfs(item.mountId, item.node.path)
           }
         } else if (clipboard.operation === 'copy') {
-          await apiClient.copyVfsFile(item.mountId, item.node.path, dest)
+          await vfsApi.copyVfsFile(item.mountId, item.node.path, dest)
         } else {
-          await apiClient.moveVfsFile(item.mountId, item.node.path, dest)
+          await vfsApi.moveVfsFile(item.mountId, item.node.path, dest)
         }
       }
       if (clipboard.operation === 'cut') {
@@ -2279,7 +2272,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         setConfirmState(s => ({ ...s, visible: false }))
         try {
           for (const entry of entries) {
-            await apiClient.deleteVfs(selectedMount, entry.path)
+            await vfsApi.deleteVfs(selectedMount, entry.path)
           }
           clearMultiSelect()
           await refreshColumn(activeColumn)
@@ -2309,7 +2302,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       return
     }
     try {
-      await apiClient.moveVfsFile(selectedMount, renamingPath, newPath)
+      await vfsApi.moveVfsFile(selectedMount, renamingPath, newPath)
       setRenamingPath(null)
       await refreshColumn(activeColumn)
     } catch (e) {
@@ -2323,7 +2316,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     const dirPath =
       newFolderState.colPath === '/' ? `/${newFolderState.name}` : `${newFolderState.colPath}/${newFolderState.name}`
     try {
-      await apiClient.mkdirVfs(selectedMount, dirPath)
+      await vfsApi.mkdirVfs(selectedMount, dirPath)
       setNewFolderState({ visible: false, colPath: '', name: '' })
       const targetColIdx = columns.findIndex(c => c.path === newFolderState.colPath)
       if (targetColIdx >= 0) {
@@ -2339,7 +2332,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     const filePath =
       newFileState.dirPath === '/' ? `/${newFileState.name}` : `${newFileState.dirPath}/${newFileState.name}`
     try {
-      await apiClient.writeVfsFile(selectedMount, filePath, '')
+      await vfsApi.writeVfsFile(selectedMount, filePath, '')
       setNewFileState({ visible: false, dirPath: '', name: '' })
       const targetColIdx = columns.findIndex(c => c.path === newFileState.dirPath)
       if (targetColIdx >= 0) {
@@ -2365,7 +2358,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         const file = files[i]
         const filePath = tPath === '/' ? `/${file.name}` : `${tPath}/${file.name}`
         taskService.updateTask(taskId, 'running', Math.round((i / files.length) * 100))
-        await apiClient.uploadVfsFile(selectedMount, filePath, file)
+        await vfsApi.uploadVfsFile(selectedMount, filePath, file)
       }
       taskService.updateTask(taskId, 'success', 100)
       const targetColIdx = columns.findIndex(c => c.path === tPath)
@@ -2531,7 +2524,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             onConfirm: async () => {
               setConfirmState(s => ({ ...s, visible: false }))
               try {
-                await apiClient.deleteVfs(selectedMount, entry.path)
+                await vfsApi.deleteVfs(selectedMount, entry.path)
                 clearMultiSelect()
                 refreshColumn(colIdx)
               } catch (err) {

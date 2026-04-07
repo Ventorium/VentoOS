@@ -5,7 +5,7 @@
  */
 
 import { create } from 'zustand'
-import type { VfsNode } from '@/infra/api'
+import type { VfsNode } from '@/apps/explorer/api'
 
 export interface VfsClipboard {
   items: Array<{ mountId: string; node: VfsNode }>

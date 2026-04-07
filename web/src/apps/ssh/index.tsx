@@ -6,6 +6,7 @@
  *  2. 端口映射   — CRUD, 启动/停止
  *  3. 服务暴露   — CRUD, 启动/停止
  */
+import './styles.css'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Activity,
@@ -28,8 +29,10 @@ import {
   Zap
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import type { AppComponentProps } from '@/kernel'
+import { openWindow } from '@/kernel'
 import {
-  apiClient as api,
+  sshApi as api,
   type CreatePortMappingReq,
   type CreateServiceExposureReq,
   type CreateSshServerReq,
@@ -38,9 +41,7 @@ import {
   type SshConfigHost,
   type SshKeyFile,
   type SshServer
-} from '@/infra/api'
-import type { AppComponentProps } from '@/kernel'
-import { openWindow } from '@/kernel'
+} from './api'
 
 type TabId = 'servers' | 'port-mappings' | 'exposures'
 

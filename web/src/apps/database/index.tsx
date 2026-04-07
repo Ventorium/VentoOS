@@ -14,6 +14,9 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { VList } from 'virtua'
 import { AppLayout, AppSidebar, EmptyState, FormInput, FormSelect, Modal, SectionHeader, Spinner } from '@/components'
+import type { AppComponentProps } from '@/kernel'
+import { useAppStorage } from '@/kernel'
+import { PathPickerInput } from '@/shell/FilePicker'
 import type {
   ColumnInfo,
   CreateDbConnectionReq,
@@ -23,11 +26,8 @@ import type {
   QueryResult,
   SchemaInfo,
   TableStructure
-} from '@/infra/api'
-import { apiClient } from '@/infra/api'
-import type { AppComponentProps } from '@/kernel'
-import { useAppStorage } from '@/kernel'
-import { PathPickerInput } from '@/shell/FilePicker'
+} from './api'
+import { dbApi } from './api'
 
 // ─── Connection form dialog ────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
     if (!name) return
     setSaving(true)
     try {
-      const res = await apiClient.createDbConnection(buildReqBody())
+      const res = await dbApi.createDbConnection(buildReqBody())
       onCreated(res.data)
     } catch (e) {
       console.error(e)
@@ -72,7 +72,7 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
     setTesting(true)
     setTestResult(null)
     try {
-      const res = await apiClient.testDbConnectionInline(buildReqBody())
+      const res = await dbApi.testDbConnectionInline(buildReqBody())
       setTestResult(res.data)
     } catch (e) {
       setTestResult({ success: false, message: String(e) })
@@ -180,7 +180,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
 
   const reload = useCallback(async () => {
     try {
-      const res = await apiClient.getDbConnections()
+      const res = await dbApi.getDbConnections()
       setConnections(res.data)
     } catch (e) {
       console.error(e)
@@ -193,9 +193,9 @@ export default function DatabaseApp(_props: AppComponentProps) {
 
   const connectTo = async (id: string) => {
     try {
-      await apiClient.connectDb(id)
+      await dbApi.connectDb(id)
       setConnectedIds(s => new Set(s).add(id))
-      const res = await apiClient.getDbSchemas(id)
+      const res = await dbApi.getDbSchemas(id)
       setSchemas(prev => ({ ...prev, [id]: res.data }))
       setExpandedConns(s => new Set(s).add(id))
     } catch (e) {
@@ -205,7 +205,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
 
   const disconnectFrom = async (id: string) => {
     try {
-      await apiClient.disconnectDb(id)
+      await dbApi.disconnectDb(id)
       setConnectedIds(s => {
         const n = new Set(s)
         n.delete(id)
@@ -222,7 +222,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
   }
 
   const deleteConn = async (id: string) => {
-    await apiClient.deleteDbConnection(id)
+    await dbApi.deleteDbConnection(id)
     reload()
   }
 
@@ -232,8 +232,8 @@ export default function DatabaseApp(_props: AppComponentProps) {
     setLoading(true)
     try {
       const [structRes, dataRes] = await Promise.all([
-        apiClient.getDbTableStructure(connId, table),
-        apiClient.getDbTableData(connId, table, 1, pageSize)
+        dbApi.getDbTableStructure(connId, table),
+        dbApi.getDbTableData(connId, table, 1, pageSize)
       ])
       setTableStructure(structRes.data)
       setTableData(dataRes.data)
@@ -248,7 +248,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
     setCurrentPage(page)
     setLoading(true)
     try {
-      const res = await apiClient.getDbTableData(selectedTable.connId, selectedTable.table, page, pageSize)
+      const res = await dbApi.getDbTableData(selectedTable.connId, selectedTable.table, page, pageSize)
       setTableData(res.data)
     } catch (e) {
       console.error(e)
@@ -260,7 +260,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
     if (!selectedTable || !sqlText.trim()) return
     setLoading(true)
     try {
-      const res = await apiClient.executeDbSql(selectedTable.connId, sqlText)
+      const res = await dbApi.executeDbSql(selectedTable.connId, sqlText)
       setSqlResult(res.data)
       setRightTab('sql')
       storage.setJSON('preferences', { rightTab: 'sql' })

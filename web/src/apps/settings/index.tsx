@@ -30,8 +30,8 @@ import type {
   ProviderConfig,
   ProviderProbeResult,
   ProviderTemplate
-} from '@/infra/api'
-import { apiClient } from '@/infra/api'
+} from '@/apps/ai-assistant/api'
+import { agentApi } from '@/apps/ai-assistant/api'
 import { useWindowStore } from '@/kernel'
 import { useNotificationStore } from '@/services/notification'
 import { type ThemeMode, useSettingsStore } from '@/services/settings'
@@ -438,7 +438,7 @@ function AIProviderSettings({
     if (!draft.name || !draft.base_url || !draft.default_model) return
     setSaving(true)
     try {
-      await apiClient.createAgentProvider(draft as ProviderConfig)
+      await agentApi.createAgentProvider(draft as ProviderConfig)
       setDraft(
         templates[0]
           ? {
@@ -485,13 +485,13 @@ function AIProviderSettings({
                   <AIBtn
                     onClick={() => {
                       if (!config) return
-                      apiClient.updateAgentConfig({ ...config, default_provider_id: p.id }).then(onConfigReload)
+                      agentApi.updateAgentConfig({ ...config, default_provider_id: p.id }).then(onConfigReload)
                     }}
                     tone="primary"
                   >
                     默认
                   </AIBtn>
-                  <AIBtn tone="danger" onClick={() => apiClient.deleteAgentProvider(p.id).then(onReload)}>
+                  <AIBtn tone="danger" onClick={() => agentApi.deleteAgentProvider(p.id).then(onReload)}>
                     删除
                   </AIBtn>
                 </div>
@@ -563,7 +563,7 @@ function AIProviderSettings({
               onClick={async () => {
                 setProbeLoading(true)
                 try {
-                  const r = await apiClient.testAgentProvider({
+                  const r = await agentApi.testAgentProvider({
                     provider: draft as ProviderConfig,
                     prompt: '1+1=?',
                     max_tokens: 1,
@@ -656,7 +656,7 @@ function AIAgentSettings({
                 <div className="flex gap-1.5">
                   <AIBtn onClick={() => setDraft({ ...p })}>编辑</AIBtn>
                   {!p.is_builtin && (
-                    <AIBtn tone="danger" onClick={() => apiClient.deleteAgentProfile(p.id).then(onReload)}>
+                    <AIBtn tone="danger" onClick={() => agentApi.deleteAgentProfile(p.id).then(onReload)}>
                       删除
                     </AIBtn>
                   )}
@@ -796,8 +796,8 @@ function AIAgentSettings({
           <AIBtn
             tone="primary"
             onClick={async () => {
-              if (draft.id) await apiClient.updateAgentProfile(draft.id, draft)
-              else await apiClient.createAgentProfile(draft)
+              if (draft.id) await agentApi.updateAgentProfile(draft.id, draft)
+              else await agentApi.createAgentProfile(draft)
               await onReload()
             }}
           >
@@ -893,7 +893,7 @@ function AIRuntimeSettings({
         />
         全局启用工具调用
       </label>
-      <AIBtn tone="primary" onClick={() => apiClient.updateAgentConfig(draft).then(onReload)}>
+      <AIBtn tone="primary" onClick={() => agentApi.updateAgentConfig(draft).then(onReload)}>
         保存运行时配置
       </AIBtn>
     </div>
@@ -958,7 +958,7 @@ function AIChannelSettings({
                   tone="danger"
                   onClick={e => {
                     e.stopPropagation()
-                    apiClient.agentDeleteChannel(c.id).then(onReload)
+                    agentApi.agentDeleteChannel(c.id).then(onReload)
                   }}
                 >
                   删除
@@ -1070,8 +1070,8 @@ function AIChannelSettings({
         <AIBtn
           tone="primary"
           onClick={async () => {
-            if (draft.id) await apiClient.agentUpdateChannel(draft.id, draft)
-            else await apiClient.agentCreateChannel(draft)
+            if (draft.id) await agentApi.agentUpdateChannel(draft.id, draft)
+            else await agentApi.agentCreateChannel(draft)
             setDraft(emptyDraft)
             await onReload()
           }}
@@ -1094,18 +1094,18 @@ function AIPanel() {
   const [config, setConfig] = useState<AgentConfig | null>(null)
 
   const loadProviders = useCallback(async () => {
-    const [pr, tr] = await Promise.all([apiClient.getAgentProviders(), apiClient.getAgentProviderTemplates()])
+    const [pr, tr] = await Promise.all([agentApi.getAgentProviders(), agentApi.getAgentProviderTemplates()])
     setProviders(pr.data)
     setTemplates(tr.data)
   }, [])
   const loadProfiles = useCallback(async () => {
-    setProfiles((await apiClient.getAgentProfiles()).data)
+    setProfiles((await agentApi.getAgentProfiles()).data)
   }, [])
   const loadConfig = useCallback(async () => {
-    setConfig((await apiClient.getAgentConfig()).data)
+    setConfig((await agentApi.getAgentConfig()).data)
   }, [])
   const loadChannels = useCallback(async () => {
-    setChannels((await apiClient.agentListChannels()).data)
+    setChannels((await agentApi.agentListChannels()).data)
   }, [])
 
   useEffect(() => {

@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, MessageSquare, Plus, Send, Sparkles, Trash2, User, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AgentMessage, ChatSession } from '@/infra/api'
-import { apiClient } from '@/infra/api'
+import type { AgentMessage, ChatSession } from '@/apps/ai-assistant/api'
+import { agentApi } from '@/apps/ai-assistant/api'
 import { tokens } from '@/theme'
 import { useAISidePanelStore } from './store'
 
@@ -21,7 +21,7 @@ export default function AISidePanel() {
 
   const loadSessions = useCallback(async () => {
     try {
-      const r = await apiClient.getAgentSessions()
+      const r = await agentApi.getAgentSessions()
       setSessions(r.data)
     } catch (e) {
       console.error(e)
@@ -40,7 +40,7 @@ export default function AISidePanel() {
     setCurrentSession(id)
     setShowSessions(false)
     try {
-      const r = await apiClient.getAgentSession(id)
+      const r = await agentApi.getAgentSession(id)
       setMessages(r.data.messages)
     } catch (e) {
       console.error(e)
@@ -54,7 +54,7 @@ export default function AISidePanel() {
   }
 
   const deleteSession = async (id: string) => {
-    await apiClient.deleteAgentSession(id)
+    await agentApi.deleteAgentSession(id)
     if (currentSession === id) {
       setCurrentSession(null)
       setMessages([])
@@ -75,7 +75,7 @@ export default function AISidePanel() {
     setMessages(prev => [...prev, userMsg])
 
     try {
-      const r = await apiClient.agentChat({ message: text, session_id: currentSession ?? undefined })
+      const r = await agentApi.agentChat({ message: text, session_id: currentSession ?? undefined })
       setMessages(prev => [...prev, r.data.message])
       if (!currentSession && r.data.session_id) {
         setCurrentSession(r.data.session_id)
