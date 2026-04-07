@@ -31,7 +31,7 @@ export default function ImageUpload({ images, onChange, disabled }: ImageUploadP
       const base64Images = await Promise.all(imageFiles.map(fileToBase64))
       onChange([...images, ...base64Images])
     },
-    [images, onChange],
+    [images, onChange]
   )
 
   const handleDrop = useCallback(
@@ -41,7 +41,7 @@ export default function ImageUpload({ images, onChange, disabled }: ImageUploadP
       const files = Array.from(e.dataTransfer.files)
       void addImages(files)
     },
-    [addImages],
+    [addImages]
   )
 
   const handleDragOver = useCallback((e: DragEvent) => {
@@ -59,14 +59,14 @@ export default function ImageUpload({ images, onChange, disabled }: ImageUploadP
       void addImages(files)
       if (inputRef.current) inputRef.current.value = ''
     },
-    [addImages],
+    [addImages]
   )
 
   const removeImage = useCallback(
     (index: number) => {
       onChange(images.filter((_, i) => i !== index))
     },
-    [images, onChange],
+    [images, onChange]
   )
 
   return (
@@ -91,18 +91,13 @@ export default function ImageUpload({ images, onChange, disabled }: ImageUploadP
       )}
 
       {/* Drop zone / button */}
-      <div
-        className="inline-flex"
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-      >
+      <div className="inline-flex" onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}>
         <button
           type="button"
           className="flex items-center justify-center w-7 h-7 rounded-lg border-none cursor-pointer"
           style={{
             background: isDragging ? 'var(--vos-bg-item-hover)' : 'transparent',
-            color: 'var(--vos-text-tertiary)',
+            color: 'var(--vos-text-tertiary)'
           }}
           onClick={() => inputRef.current?.click()}
           disabled={disabled}
@@ -110,14 +105,7 @@ export default function ImageUpload({ images, onChange, disabled }: ImageUploadP
         >
           <ImagePlus size={14} />
         </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={handleFileSelect}
-        />
+        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
       </div>
     </div>
   )

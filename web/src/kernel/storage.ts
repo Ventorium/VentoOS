@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 /**
  * App Storage — per-app namespaced localStorage wrapper.
  *
@@ -31,14 +33,13 @@ export function createAppStorage(appId: string): AppStorageAPI {
     },
     async remove(key: string): Promise<void> {
       localStorage.removeItem(prefix(appId, key))
-    },
+    }
   }
 }
 
 /** React hook — returns a stable reference for the given app. */
 export function useAppStorage(appId: string): AppStorageAPI {
-  // Intentionally no state: the storage object is a stable wrapper.
-  // Consumers call getJSON/setJSON imperatively (already wrapped in
-  // useEffect / event handlers), so no re-render trigger is needed.
-  return createAppStorage(appId)
+  // Memoize to keep the same reference across renders so consumers can safely
+  // include it in useEffect dependency arrays without triggering infinite loops.
+  return useMemo(() => createAppStorage(appId), [appId])
 }

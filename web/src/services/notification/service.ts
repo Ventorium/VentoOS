@@ -26,7 +26,7 @@ function maybeSendNativeNotification(item: NotificationItem): void {
   try {
     new Notification(item.title, {
       body: item.message,
-      tag: item.id,
+      tag: item.id
     })
   } catch {
     // Silently fail — some environments don't support Notification constructor
@@ -80,23 +80,19 @@ export const notificationService = {
       message,
       level,
       source,
-      dedupKey: `task-${taskName}-${source}`,
+      dedupKey: `task-${taskName}-${source}`
     })
   },
 
   /** Notify AI agent tool execution result */
-  notifyAIResult(opts: {
-    toolName: string
-    resultSummary: string
-    success: boolean
-  }): string {
+  notifyAIResult(opts: { toolName: string; resultSummary: string; success: boolean }): string {
     const { toolName, resultSummary, success } = opts
     return notificationService.add({
       title: `AI 工具: ${toolName}`,
       message: resultSummary,
       level: success ? 'info' : 'warning',
       source: 'ai',
-      dedupKey: `ai-tool-${toolName}`,
+      dedupKey: `ai-tool-${toolName}`
     })
   },
 

@@ -4,7 +4,6 @@ import {
   Database,
   Folder,
   Key,
-  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VList } from 'virtua'
+import { AppLayout, AppSidebar, EmptyState, FormInput, Modal, SectionHeader, Spinner } from '@/components'
 import type { CreateRedisConnectionReq, RedisConnectionConfig, RedisKeyInfo, RedisKeyValue } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
@@ -209,58 +209,36 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
     }
   }
 
-  const fc = 'vos-input'
-
   return (
-    <div className="vos-modal-overlay">
-      <div
-        className="vos-modal-panel"
-        style={{ width: 360 }}
-      >
-        <div className="vos-modal-title">新建 Redis 连接</div>
-        <input className={fc} placeholder="连接名称" value={name} onChange={e => setName(e.target.value)} />
-        <div className="flex gap-2">
-          <input
-            className={`${fc} flex-1`}
-            placeholder="Host"
-            value={host}
-            onChange={e => setHost(e.target.value)}
-          />
-          <input
-            className={fc}
-            style={{ width: 70 }}
-            placeholder="Port"
-            value={port}
-            onChange={e => setPort(e.target.value)}
-          />
-        </div>
-        <input
-          className={fc}
-          placeholder="密码（可选）"
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-        />
-        <input className={fc} placeholder="数据库 (0)" value={db} onChange={e => setDb(e.target.value)} />
-        <div className="flex justify-end gap-2 mt-1">
-          <button
-            type="button"
-            className="vos-btn-sm vos-btn-ghost"
-            onClick={onClose}
-          >
+    <Modal
+      open={true}
+      onClose={onClose}
+      title="新建 Redis 连接"
+      width={360}
+      footer={
+        <>
+          <button type="button" className="vos-btn vos-btn-sm" onClick={onClose}>
             取消
           </button>
-          <button
-            type="button"
-            className="vos-btn-sm vos-btn-primary"
-            onClick={submit}
-            disabled={saving}
-          >
+          <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={submit} disabled={saving}>
             {saving ? '创建中…' : '创建'}
           </button>
-        </div>
+        </>
+      }
+    >
+      <FormInput placeholder="连接名称" value={name} onChange={e => setName(e.target.value)} />
+      <div className="flex gap-2">
+        <FormInput className="flex-1" placeholder="Host" value={host} onChange={e => setHost(e.target.value)} />
+        <FormInput style={{ width: 70 }} placeholder="Port" value={port} onChange={e => setPort(e.target.value)} />
       </div>
-    </div>
+      <FormInput
+        placeholder="密码（可选）"
+        type="password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+      />
+      <FormInput placeholder="数据库 (0)" value={db} onChange={e => setDb(e.target.value)} />
+    </Modal>
   )
 }
 
@@ -286,13 +264,7 @@ function StringViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: st
     return (
       <div className="flex-1 flex flex-col p-3 gap-2">
         <textarea
-          className="flex-1 text-xs font-mono p-2 rounded resize-none"
-          style={{
-            background: 'var(--vos-bg-input)',
-            color: 'var(--vos-text-primary)',
-            border: '0.5px solid var(--vos-border-subtle)',
-            outline: 'none'
-          }}
+          className="vos-input vos-input-sm font-mono flex-1 resize-none"
           value={draft}
           onChange={e => setDraft(e.target.value)}
         />
@@ -336,16 +308,6 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   const [newField, setNewField] = useState('')
   const [newVal, setNewVal] = useState('')
   const [adding, setAdding] = useState(false)
-  const inS = {
-    background: 'var(--vos-bg-input)',
-    color: 'var(--vos-text-primary)',
-    border: '0.5px solid var(--vos-border-subtle)',
-    outline: 'none',
-    borderRadius: 4,
-    padding: '2px 6px',
-    fontSize: 11,
-    fontFamily: 'monospace'
-  }
 
   const delField = async (field: string) => {
     await apiClient.executeRedisCommand(connId, `HDEL ${kv.key} ${field}`)
@@ -409,14 +371,16 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
         className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
         style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
       >
-        <input
-          style={{ ...inS, flex: '0 0 120px' }}
+        <FormInput
+          className="font-mono"
+          style={{ flex: '0 0 120px', fontSize: 11 }}
           placeholder="Field"
           value={newField}
           onChange={e => setNewField(e.target.value)}
         />
-        <input
-          style={{ ...inS, flex: 1 }}
+        <FormInput
+          className="font-mono"
+          style={{ flex: 1, fontSize: 11 }}
           placeholder="Value"
           value={newVal}
           onChange={e => setNewVal(e.target.value)}
@@ -438,17 +402,6 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   const items = useMemo(() => (kv.value as string[]) ?? [], [kv.value])
   const [newItem, setNewItem] = useState('')
   const [adding, setAdding] = useState(false)
-  const inS = {
-    background: 'var(--vos-bg-input)',
-    color: 'var(--vos-text-primary)',
-    border: '0.5px solid var(--vos-border-subtle)',
-    outline: 'none',
-    borderRadius: 4,
-    padding: '2px 6px',
-    fontSize: 11,
-    fontFamily: 'monospace',
-    flex: 1 as const
-  }
 
   const delItem = async (val: string) => {
     await apiClient.executeRedisCommand(connId, `LREM ${kv.key} 1 ${val}`)
@@ -507,8 +460,9 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
         className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
         style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
       >
-        <input
-          style={inS}
+        <FormInput
+          className="font-mono"
+          style={{ flex: 1, fontSize: 11 }}
           placeholder="新元素 (追加到末尾)"
           value={newItem}
           onChange={e => setNewItem(e.target.value)}
@@ -531,17 +485,6 @@ function SetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: strin
   const members = useMemo(() => (kv.value as string[]) ?? [], [kv.value])
   const [newMember, setNewMember] = useState('')
   const [adding, setAdding] = useState(false)
-  const inS = {
-    background: 'var(--vos-bg-input)',
-    color: 'var(--vos-text-primary)',
-    border: '0.5px solid var(--vos-border-subtle)',
-    outline: 'none',
-    borderRadius: 4,
-    padding: '2px 6px',
-    fontSize: 11,
-    fontFamily: 'monospace',
-    flex: 1 as const
-  }
 
   const delMember = async (m: string) => {
     await apiClient.executeRedisCommand(connId, `SREM ${kv.key} ${m}`)
@@ -591,8 +534,9 @@ function SetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: strin
         className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
         style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
       >
-        <input
-          style={inS}
+        <FormInput
+          className="font-mono"
+          style={{ flex: 1, fontSize: 11 }}
           placeholder="新成员"
           value={newMember}
           onChange={e => setNewMember(e.target.value)}
@@ -630,16 +574,6 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   const [newMember, setNewMember] = useState('')
   const [newScore, setNewScore] = useState('0')
   const [adding, setAdding] = useState(false)
-  const inS = {
-    background: 'var(--vos-bg-input)',
-    color: 'var(--vos-text-primary)',
-    border: '0.5px solid var(--vos-border-subtle)',
-    outline: 'none',
-    borderRadius: 4,
-    padding: '2px 6px',
-    fontSize: 11,
-    fontFamily: 'monospace'
-  }
 
   const delMember = async (m: string) => {
     await apiClient.executeRedisCommand(connId, `ZREM ${kv.key} ${m}`)
@@ -699,14 +633,16 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
         className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
         style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
       >
-        <input
-          style={{ ...inS, width: 70 }}
+        <FormInput
+          className="font-mono"
+          style={{ width: 70, fontSize: 11 }}
           placeholder="Score"
           value={newScore}
           onChange={e => setNewScore(e.target.value)}
         />
-        <input
-          style={{ ...inS, flex: 1 }}
+        <FormInput
+          className="font-mono"
+          style={{ flex: 1, fontSize: 11 }}
           placeholder="Member"
           value={newMember}
           onChange={e => setNewMember(e.target.value)}
@@ -953,132 +889,119 @@ export default function RedisApp(_props: AppComponentProps) {
     })
 
   return (
-    <div className="flex h-full relative">
-      {showForm && (
-        <ConnForm
-          onClose={() => setShowForm(false)}
-          onCreated={c => {
-            setConnections(p => [...p, c])
-            setShowForm(false)
-          }}
-        />
-      )}
-
-      {/* Sidebar — connections */}
-      <div
-        className="flex flex-col flex-shrink-0 overflow-auto"
-        style={{ width: 180, borderRight: '0.5px solid var(--vos-border-subtle)' }}
-      >
-        <div className="px-3 pt-3 pb-2 flex items-center justify-between">
-          <span className="text-[10px] font-semibold tracking-wider" style={{ color: 'var(--vos-text-tertiary)' }}>
-            连接
-          </span>
-          <div className="flex gap-1">
-            <button
-              type="button"
-              className="vos-btn-reset"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-              onClick={reload}
-            >
-              <RefreshCw size={11} />
-            </button>
-            <button
-              type="button"
-              className="vos-btn-reset"
-              style={{ color: 'var(--vos-accent-primary)' }}
-              onClick={() => setShowForm(true)}
-            >
-              <Plus size={13} />
-            </button>
-          </div>
-        </div>
-
-        {connections.map(conn => {
-          const connected = connectedIds.has(conn.id)
-          const expanded = expandedConns.has(conn.id)
-          const isActive = selectedConn === conn.id
-          return (
-            <div key={conn.id}>
-              <div
-                className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs group"
-                style={{
-                  background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
-                  color: isActive ? '#fff' : 'var(--vos-text-primary)',
-                  borderRadius: 4,
-                  margin: '1px 4px'
-                }}
-              >
+    <AppLayout
+      sidebar={
+        <AppSidebar width={180}>
+          <SectionHeader
+            title="连接"
+            actions={
+              <>
                 <button
                   type="button"
-                  className="vos-btn-reset text-inherit"
-                  onClick={() => toggleConn(conn.id)}
+                  className="vos-btn-reset"
+                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  onClick={reload}
                 >
-                  {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                  <RefreshCw size={11} />
                 </button>
-                <Database
-                  size={12}
-                  style={{
-                    color: isActive ? '#fff' : connected ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)',
-                    flexShrink: 0
-                  }}
-                />
-                <span
-                  className="flex-1 truncate"
-                  onClick={() =>
-                    connected ? (setSelectedConn(conn.id), scanKeys(conn.id, pattern)) : connectTo(conn.id)
-                  }
+                <button
+                  type="button"
+                  className="vos-btn-reset"
+                  style={{ color: 'var(--vos-accent-primary)' }}
+                  onClick={() => setShowForm(true)}
                 >
-                  {conn.name}
-                </span>
-                <span className="hidden group-hover:flex gap-0.5">
-                  {connected ? (
-                    <button
-                      type="button"
-                      className="vos-btn-reset text-inherit"
-                      onClick={() => disconnectFrom(conn.id)}
-                    >
-                      <Unplug size={10} />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="vos-btn-reset text-inherit"
-                      onClick={() => connectTo(conn.id)}
-                    >
-                      <Zap size={10} />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="vos-btn-reset text-inherit"
-                    onClick={() => deleteConn(conn.id)}
-                  >
-                    <Trash2 size={10} />
-                  </button>
-                </span>
-              </div>
-              {expanded && connected && (
+                  <Plus size={13} />
+                </button>
+              </>
+            }
+          />
+
+          {connections.map(conn => {
+            const connected = connectedIds.has(conn.id)
+            const expanded = expandedConns.has(conn.id)
+            const isActive = selectedConn === conn.id
+            return (
+              <div key={conn.id}>
                 <div
-                  className="text-[10px] px-2 py-0.5 ml-6"
-                  style={{ color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--vos-text-tertiary)' }}
+                  className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs group"
+                  style={{
+                    background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
+                    color: isActive ? '#fff' : 'var(--vos-text-primary)',
+                    borderRadius: 4,
+                    margin: '1px 4px'
+                  }}
                 >
-                  {conn.host}:{conn.port} db{conn.db}
+                  <button type="button" className="vos-btn-reset text-inherit" onClick={() => toggleConn(conn.id)}>
+                    {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                  </button>
+                  <Database
+                    size={12}
+                    style={{
+                      color: isActive ? '#fff' : connected ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)',
+                      flexShrink: 0
+                    }}
+                  />
+                  <span
+                    className="flex-1 truncate"
+                    onClick={() =>
+                      connected ? (setSelectedConn(conn.id), scanKeys(conn.id, pattern)) : connectTo(conn.id)
+                    }
+                  >
+                    {conn.name}
+                  </span>
+                  <span className="hidden group-hover:flex gap-0.5">
+                    {connected ? (
+                      <button
+                        type="button"
+                        className="vos-btn-reset text-inherit"
+                        onClick={() => disconnectFrom(conn.id)}
+                      >
+                        <Unplug size={10} />
+                      </button>
+                    ) : (
+                      <button type="button" className="vos-btn-reset text-inherit" onClick={() => connectTo(conn.id)}>
+                        <Zap size={10} />
+                      </button>
+                    )}
+                    <button type="button" className="vos-btn-reset text-inherit" onClick={() => deleteConn(conn.id)}>
+                      <Trash2 size={10} />
+                    </button>
+                  </span>
                 </div>
-              )}
+                {expanded && connected && (
+                  <div
+                    className="text-[10px] px-2 py-0.5 ml-6"
+                    style={{ color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--vos-text-tertiary)' }}
+                  >
+                    {conn.host}:{conn.port} db{conn.db}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+          {connections.length === 0 && (
+            <div
+              className="flex-1 flex items-center justify-center text-xs"
+              style={{ color: 'var(--vos-text-tertiary)' }}
+            >
+              无连接
             </div>
-          )
-        })}
-
-        {connections.length === 0 && (
-          <div
-            className="flex-1 flex items-center justify-center text-xs"
-            style={{ color: 'var(--vos-text-tertiary)' }}
-          >
-            无连接
-          </div>
-        )}
-      </div>
-
+          )}
+        </AppSidebar>
+      }
+      overlay={
+        showForm ? (
+          <ConnForm
+            onClose={() => setShowForm(false)}
+            onCreated={c => {
+              setConnections(p => [...p, c])
+              setShowForm(false)
+            }}
+          />
+        ) : undefined
+      }
+    >
       {/* Right panel */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {selectedConn && connectedIds.has(selectedConn) ? (
@@ -1148,12 +1071,7 @@ export default function RedisApp(_props: AppComponentProps) {
                     }}
                     placeholder="输入 Redis 命令..."
                   />
-                  <button
-                    type="button"
-                    className="vos-btn-reset"
-                    style={{ color: '#6ee7b7' }}
-                    onClick={runCmd}
-                  >
+                  <button type="button" className="vos-btn-reset" style={{ color: '#6ee7b7' }} onClick={runCmd}>
                     <Send size={12} />
                   </button>
                 </div>
@@ -1168,7 +1086,7 @@ export default function RedisApp(_props: AppComponentProps) {
                 >
                   {loading && keys.length === 0 && (
                     <div className="flex items-center justify-center py-4">
-                      <Loader2 size={16} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+                      <Spinner size={16} />
                     </div>
                   )}
                   <div className="flex-1 overflow-auto py-1">
@@ -1214,19 +1132,9 @@ export default function RedisApp(_props: AppComponentProps) {
             )}
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <Database size={48} style={{ color: 'var(--vos-text-tertiary)', margin: '0 auto 12px' }} />
-              <div className="text-sm" style={{ color: 'var(--vos-text-secondary)' }}>
-                Redis 管理
-              </div>
-              <div className="text-xs mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>
-                选择左侧连接或创建新连接
-              </div>
-            </div>
-          </div>
+          <EmptyState icon={<Database size={48} />} title="Redis 管理" description="选择左侧连接或创建新连接" />
         )}
       </div>
-    </div>
+    </AppLayout>
   )
 }

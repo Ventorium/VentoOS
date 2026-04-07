@@ -177,13 +177,7 @@ export default function LoginScreen() {
               disabled={loading}
               aria-label={mode === 'setup' ? '确认设置密码' : '解锁'}
             >
-              {loading ? (
-                <Loader2 size={16} className="vos-spin" />
-              ) : mode === 'setup' ? (
-                '确认'
-              ) : (
-                '解锁'
-              )}
+              {loading ? <Loader2 size={16} className="vos-spin" /> : mode === 'setup' ? '确认' : '解锁'}
             </button>
           </form>
         </motion.div>

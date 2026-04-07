@@ -14,7 +14,7 @@
  */
 
 import { XMarkdown } from '@ant-design/x-markdown'
-import { FileText, Loader2, Pencil, Pause, Play, Save, Volume2, VolumeX, X } from 'lucide-react'
+import { FileText, Loader2, Pause, Pencil, Play, Save, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { VfsFileContent, VfsNode } from '@/infra/api'
@@ -57,16 +57,79 @@ const MD_EXTS = new Set(['md', 'markdown'])
 const VIDEO_EXTS = new Set(['mp4', 'webm', 'ogg', 'ogv', 'mov', 'avi', 'mkv', 'm4v', '3gp', 'flv'])
 const AUDIO_EXTS = new Set(['mp3', 'wav', 'ogg', 'oga', 'flac', 'aac', 'm4a', 'opus', 'wma', 'weba'])
 const CODE_EXTS = new Set([
-  'js', 'ts', 'jsx', 'tsx', 'json', 'yaml', 'yml', 'toml',
-  'rs', 'go', 'py', 'sh', 'bash', 'zsh', 'css', 'html', 'xml', 'sql', 'env'
+  'js',
+  'ts',
+  'jsx',
+  'tsx',
+  'json',
+  'yaml',
+  'yml',
+  'toml',
+  'rs',
+  'go',
+  'py',
+  'sh',
+  'bash',
+  'zsh',
+  'css',
+  'html',
+  'xml',
+  'sql',
+  'env'
 ])
 const TEXT_EXTS = new Set([
-  'txt', 'md', 'markdown', 'log', 'csv', 'tsv', 'ini', 'conf', 'cfg',
-  'toml', 'yaml', 'yml', 'xml', 'html', 'htm', 'css', 'less', 'scss',
-  'js', 'jsx', 'ts', 'tsx', 'json', 'jsonc', 'rs', 'py', 'go', 'java',
-  'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'rb', 'sh', 'bash', 'zsh', 'fish',
-  'ps1', 'bat', 'cmd', 'sql', 'graphql', 'proto', 'diff', 'patch',
-  'gitignore', 'dockerfile', 'makefile', 'license', 'readme'
+  'txt',
+  'md',
+  'markdown',
+  'log',
+  'csv',
+  'tsv',
+  'ini',
+  'conf',
+  'cfg',
+  'toml',
+  'yaml',
+  'yml',
+  'xml',
+  'html',
+  'htm',
+  'css',
+  'less',
+  'scss',
+  'js',
+  'jsx',
+  'ts',
+  'tsx',
+  'json',
+  'jsonc',
+  'rs',
+  'py',
+  'go',
+  'java',
+  'c',
+  'cpp',
+  'h',
+  'hpp',
+  'cs',
+  'php',
+  'rb',
+  'sh',
+  'bash',
+  'zsh',
+  'fish',
+  'ps1',
+  'bat',
+  'cmd',
+  'sql',
+  'graphql',
+  'proto',
+  'diff',
+  'patch',
+  'gitignore',
+  'dockerfile',
+  'makefile',
+  'license',
+  'readme'
 ])
 
 function isTextFile(name: string): boolean {
@@ -89,10 +152,13 @@ function ImageViewer({ src }: { src: string }) {
     setScale(s => Math.max(0.1, Math.min(10, s - e.deltaY * 0.001)))
   }, [])
 
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
-    dragging.current = true
-    start.current = { mx: e.clientX, my: e.clientY, px: pos.x, py: pos.y }
-  }, [pos])
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      dragging.current = true
+      start.current = { mx: e.clientX, my: e.clientY, px: pos.x, py: pos.y }
+    },
+    [pos]
+  )
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!dragging.current) return
@@ -102,7 +168,9 @@ function ImageViewer({ src }: { src: string }) {
     })
   }, [])
 
-  const onMouseUp = useCallback(() => { dragging.current = false }, [])
+  const onMouseUp = useCallback(() => {
+    dragging.current = false
+  }, [])
 
   return (
     <div
@@ -127,11 +195,16 @@ function ImageViewer({ src }: { src: string }) {
           transition: dragging.current ? 'none' : 'transform 0.05s ease',
           userSelect: 'none'
         }}
-        onDoubleClick={() => { setScale(1); setPos({ x: 0, y: 0 }) }}
+        onDoubleClick={() => {
+          setScale(1)
+          setPos({ x: 0, y: 0 })
+        }}
       />
       {/* scale badge */}
-      <div className="absolute bottom-2 right-3 text-[11px] px-2 py-0.5 rounded"
-        style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', pointerEvents: 'none' }}>
+      <div
+        className="absolute bottom-2 right-3 text-[11px] px-2 py-0.5 rounded"
+        style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', pointerEvents: 'none' }}
+      >
         {Math.round(scale * 100)}%
       </div>
     </div>
@@ -157,8 +230,13 @@ function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
   function togglePlay() {
     const el = mediaRef.current
     if (!el) return
-    if (el.paused) { el.play().catch(() => {}); setPlaying(true) }
-    else { el.pause(); setPlaying(false) }
+    if (el.paused) {
+      el.play().catch(() => {})
+      setPlaying(true)
+    } else {
+      el.pause()
+      setPlaying(false)
+    }
   }
 
   function toggleMute() {
@@ -195,7 +273,18 @@ function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: type === 'video' ? '#000' : 'var(--vos-bg-base)', flexDirection: 'column', gap: 0 }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        height: '100%',
+        background: type === 'video' ? '#000' : 'var(--vos-bg-base)',
+        flexDirection: 'column',
+        gap: 0
+      }}
+    >
       {type === 'video' && (
         // biome-ignore lint/a11y/useMediaCaption: file viewer
         <video
@@ -266,7 +355,10 @@ function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
             onChange={e => {
               const v = Number(e.target.value)
               setVolume(v)
-              if (mediaRef.current) { mediaRef.current.volume = v; mediaRef.current.muted = v === 0 }
+              if (mediaRef.current) {
+                mediaRef.current.volume = v
+                mediaRef.current.muted = v === 0
+              }
               setMuted(v === 0)
             }}
           />
@@ -395,7 +487,9 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
         .finally(() => setLoading(false))
     }
 
-    return () => { cleanup?.() }
+    return () => {
+      cleanup?.()
+    }
   }, [mountId, node?.path])
 
   const handleSave = useCallback(async () => {
@@ -446,8 +540,10 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
         </span>
 
         {/* Edit / Save buttons for text files */}
-        {isText && textContent && !textContent.is_binary && (
-          editing ? (
+        {isText &&
+          textContent &&
+          !textContent.is_binary &&
+          (editing ? (
             <>
               <button
                 type="button"
@@ -463,7 +559,10 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
                 type="button"
                 className="vos-btn"
                 style={{ fontSize: 11, padding: '2px 8px' }}
-                onClick={() => { setEditing(false); setEditContent(textContent.content) }}
+                onClick={() => {
+                  setEditing(false)
+                  setEditContent(textContent.content)
+                }}
               >
                 <X size={11} />
               </button>
@@ -478,8 +577,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
               <Pencil size={11} />
               编辑
             </button>
-          )
-        )}
+          ))}
       </div>
 
       {/* ── Content area ── */}
@@ -497,9 +595,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
         )}
 
         {/* Image */}
-        {!loading && !error && isImage && blobUrl && (
-          <ImageViewer src={blobUrl} />
-        )}
+        {!loading && !error && isImage && blobUrl && <ImageViewer src={blobUrl} />}
 
         {/* PDF */}
         {!loading && !error && isPdf && blobUrl && (
@@ -511,21 +607,14 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
         )}
 
         {/* Video */}
-        {!loading && !error && isVideo && blobUrl && (
-          <MediaPlayer src={blobUrl} type="video" />
-        )}
+        {!loading && !error && isVideo && blobUrl && <MediaPlayer src={blobUrl} type="video" />}
 
         {/* Audio */}
-        {!loading && !error && isAudio && blobUrl && (
-          <MediaPlayer src={blobUrl} type="audio" />
-        )}
+        {!loading && !error && isAudio && blobUrl && <MediaPlayer src={blobUrl} type="audio" />}
 
         {/* Markdown */}
         {!loading && !error && isMd && textContent && !textContent.is_binary && !editing && (
-          <div
-            className="w-full h-full overflow-auto p-6"
-            style={{ color: 'var(--vos-text-primary)' }}
-          >
+          <div className="w-full h-full overflow-auto p-6" style={{ color: 'var(--vos-text-primary)' }}>
             <XMarkdown>{textContent.content}</XMarkdown>
           </div>
         )}
@@ -567,7 +656,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
             style={{
               background: 'var(--vos-bg-editor, var(--vos-bg-base))',
               color: 'var(--vos-text-primary)',
-              fontFamily: (isCode || isMd) ? 'var(--vos-font-mono, monospace)' : 'inherit',
+              fontFamily: isCode || isMd ? 'var(--vos-font-mono, monospace)' : 'inherit',
               lineHeight: 1.7,
               tabSize: 2
             }}
@@ -588,9 +677,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
           style={{ borderTop: '0.5px solid var(--vos-border-subtle)', color: 'var(--vos-text-tertiary)' }}
         >
           {textContent && <span>{fmtSize(textContent.size)}</span>}
-          {!textContent && node.size !== undefined && node.size !== null && (
-            <span>{fmtSize(node.size)}</span>
-          )}
+          {!textContent && node.size !== undefined && node.size !== null && <span>{fmtSize(node.size)}</span>}
           {node.modified && <span>{new Date(node.modified).toLocaleString()}</span>}
         </div>
       )}

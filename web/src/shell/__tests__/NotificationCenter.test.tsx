@@ -1,22 +1,29 @@
-import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import type React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useNotificationStore, type NotificationItem } from '@/services/notification'
-import React from 'react'
+import { type NotificationItem, useNotificationStore } from '@/services/notification'
 
 // Mock framer-motion
 vi.mock('framer-motion', () => {
   const actual = {
-    motion: new Proxy({}, {
-      get: (_target, prop) => {
-        const { forwardRef } = require('react')
-        return forwardRef((props: Record<string, unknown>, ref: unknown) => {
-          const { children, animate, initial, exit, transition, whileHover, whileTap, variants, ...rest } = props
-          const Tag = prop as string
-          return <Tag ref={ref} {...rest}>{children}</Tag>
-        })
+    motion: new Proxy(
+      {},
+      {
+        get: (_target, prop) => {
+          const { forwardRef } = require('react')
+          return forwardRef((props: Record<string, unknown>, ref: unknown) => {
+            const { children, animate, initial, exit, transition, whileHover, whileTap, variants, ...rest } = props
+            const Tag = prop as string
+            return (
+              <Tag ref={ref} {...rest}>
+                {children}
+              </Tag>
+            )
+          })
+        }
       }
-    }),
-    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    ),
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>
   }
   return actual
 })
@@ -25,8 +32,8 @@ vi.mock('@/theme', () => ({
   tokens: {
     topBar: { height: 36 },
     radius: { panel: 12 },
-    shadow: { overlay: 'none' },
-  },
+    shadow: { overlay: 'none' }
+  }
 }))
 
 function makeNotif(overrides: Partial<NotificationItem> = {}): NotificationItem {
@@ -37,7 +44,7 @@ function makeNotif(overrides: Partial<NotificationItem> = {}): NotificationItem 
     level: 'info',
     read: false,
     createdAt: Date.now(),
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -167,8 +174,8 @@ describe('NotificationCenter Component', () => {
       panelOpen: true,
       notifications: [
         makeNotif({ id: 'n1', title: 'Deploy Complete', message: 'Pod deployed successfully' }),
-        makeNotif({ id: 'n2', title: 'Error Detected', message: 'Connection failed', level: 'error' }),
-      ],
+        makeNotif({ id: 'n2', title: 'Error Detected', message: 'Connection failed', level: 'error' })
+      ]
     })
     await renderNotificationCenter()
     expect(screen.getByText('Deploy Complete')).toBeInTheDocument()
@@ -187,7 +194,7 @@ describe('NotificationCenter Component', () => {
   it('should clear all notifications when Clear is clicked', async () => {
     useNotificationStore.setState({
       panelOpen: true,
-      notifications: [makeNotif({ id: 'n1', title: 'Test' })],
+      notifications: [makeNotif({ id: 'n1', title: 'Test' })]
     })
     await renderNotificationCenter()
     fireEvent.click(screen.getByText('Clear'))
@@ -197,10 +204,7 @@ describe('NotificationCenter Component', () => {
   it('should mark all as read when Mark all read is clicked', async () => {
     useNotificationStore.setState({
       panelOpen: true,
-      notifications: [
-        makeNotif({ id: 'n1', read: false }),
-        makeNotif({ id: 'n2', read: false }),
-      ],
+      notifications: [makeNotif({ id: 'n1', read: false }), makeNotif({ id: 'n2', read: false })]
     })
     await renderNotificationCenter()
     fireEvent.click(screen.getByText('Mark all read'))

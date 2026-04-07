@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use smolder_core::facade::{Client, Share};
 use smolder_core::auth::NtlmCredentials;
+use smolder_proto::smb::smb2::GlobalCapabilities;
 use tokio::sync::Mutex;
 use tracing::debug;
 
@@ -54,6 +55,11 @@ impl SmbClientPool {
                 if info.username.is_empty() { "guest" } else { &info.username },
                 &info.password,
             ))
+            // Use empty capabilities for maximum server compatibility.
+            // Advertising ENCRYPTION (or even LEASING) can trigger negotiate
+            // context rejection on some NAS/Windows Home servers with
+            // STATUS_INVALID_PARAMETER (0xc000000d).
+            .with_capabilities(GlobalCapabilities::empty())
             .build()
             .map_err(|e| format!("SMB client build failed: {e}"))?;
 
@@ -420,6 +426,36 @@ pub(crate) async fn copy_file(
 ) -> Result<(), String> {
     let data = read_file_raw(pool, mount_id, src_vfs_path).await?;
     upload_file(pool, mount_id, dest_vfs_path, &data).await
+}
+
+/// Quick TCP reachability probe for an SMB URI.
+/// Works with or without a share name — just verifies the server is listening on port 445.
+pub(crate) async fn probe_server(uri: &str) -> Result<(), String> {
+    let stripped = uri
+        .strip_prefix("smb://")
+        .ok_or_else(|| format!("Not an smb:// URI: {uri}"))?;
+    // Authority is everything before the first '/' (if any)
+    let authority = match stripped.find('/') {
+        Some(idx) => &stripped[..idx],
+        None => stripped,
+    };
+    // Strip userinfo (user:pass@)
+    let hostport = match authority.rfind('@') {
+        Some(idx) => &authority[idx + 1..],
+        None => authority,
+    };
+    // Split host:port
+    let (host, port) = match hostport.rfind(':') {
+        Some(idx) => {
+            let p: u16 = hostport[idx + 1..].parse().unwrap_or(445);
+            (&hostport[..idx], p)
+        }
+        None => (hostport, 445u16),
+    };
+    tokio::net::TcpStream::connect(format!("{host}:{port}"))
+        .await
+        .map(|_| ())
+        .map_err(|e| format!("SMB server not reachable at {host}:{port}: {e}"))
 }
 
 /// Get file/directory metadata via SMB.

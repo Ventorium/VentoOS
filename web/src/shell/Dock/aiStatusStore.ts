@@ -14,5 +14,5 @@ interface AIStatusStore {
 
 export const useAIStatusStore = create<AIStatusStore>(set => ({
   status: 'idle',
-  setStatus: (status) => set({ status }),
+  setStatus: status => set({ status })
 }))

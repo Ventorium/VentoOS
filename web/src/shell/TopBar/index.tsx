@@ -9,16 +9,16 @@ import { Bell, BellOff, Info, Loader2, Moon, Sparkles, Sun } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import BrandLogo from '@/components/BrandLogo'
 import { apiClient } from '@/infra/api'
+import type { AppMenuEntry } from '@/kernel'
 import {
   closeAllWindows as closeAllWindowsFn,
   useActiveAppMenus,
   useAllTrays,
   useAppStore,
-  useWindowStore,
+  useWindowStore
 } from '@/kernel'
-import type { AppMenuEntry } from '@/kernel'
-import type { AppMenuGroup } from '@/kernel/apps/menu'
 import type { AppManifest } from '@/kernel/apps/manifest'
+import type { AppMenuGroup } from '@/kernel/apps/menu'
 import { useAuthStore } from '@/services/auth'
 import { useNotificationStore } from '@/services/notification'
 import { useSettingsStore } from '@/services/settings'
@@ -51,22 +51,32 @@ function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void 
         onClick={e => e.stopPropagation()}
       >
         <div style={{ padding: '24px 24px 20px', textAlign: 'center' }}>
-          <div style={{
-            width: 64,
-            height: 64,
-            borderRadius: 14,
-            margin: '0 auto 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden'
-          }}>
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 14,
+              margin: '0 auto 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden'
+            }}
+          >
             {app.icon ?? '📦'}
           </div>
           <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--vos-text-primary)' }}>{app.name}</div>
           <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>版本 {app.version}</div>
           {app.description && (
-            <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 10, lineHeight: 1.6, padding: '0 8px' }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: 'var(--vos-text-secondary)',
+                marginTop: 10,
+                lineHeight: 1.6,
+                padding: '0 8px'
+              }}
+            >
               {app.description}
             </div>
           )}
@@ -142,7 +152,7 @@ function toContextMenuItems(entries: AppMenuEntry[]): import('@/shell/ContextMen
         shortcut: item.shortcut,
         disabled: item.disabled,
         danger: item.danger,
-        action: item.action,
+        action: item.action
       }
       if (item.children && item.children.length > 0) {
         result.submenu = toContextMenuItems(item.children)
@@ -169,7 +179,7 @@ function buildAppNameMenu(opts: {
     id: 'about-app',
     label: `关于 ${app.name}`,
     icon: <Info size={14} />,
-    action: () => aboutApp(app),
+    action: () => aboutApp(app)
   }
 
   if (appMenu) {
@@ -190,7 +200,7 @@ function buildAppNameMenu(opts: {
       id: 'quit-app',
       label: `退出 ${app.name}`,
       danger: true,
-      action: () => closeAllWindowsFn(),
+      action: () => closeAllWindowsFn()
     }
   )
   return result
@@ -245,11 +255,15 @@ function MenuBarLeft({
           className="vos-topbar-btn vos-topbar-appname"
           onClick={e => {
             const rect = e.currentTarget.getBoundingClientRect()
-            showCtxMenu(rect.left, rect.bottom + 2, buildAppNameMenu({
-              app: activeApp,
-              aboutApp: onAboutApp,
-              appMenu,
-            }))
+            showCtxMenu(
+              rect.left,
+              rect.bottom + 2,
+              buildAppNameMenu({
+                app: activeApp,
+                aboutApp: onAboutApp,
+                appMenu
+              })
+            )
           }}
         >
           {activeApp.name}

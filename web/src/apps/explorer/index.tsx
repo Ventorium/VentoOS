@@ -13,10 +13,9 @@ import {
   Globe,
   HardDrive,
   Key,
-  Loader2,
   Monitor,
-  Pencil,
   PanelRight,
+  Pencil,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -26,11 +25,30 @@ import {
   X
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CreateVfsMountReq, SshConfigHost, SshKeyFile, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from '@/infra/api'
+import {
+  AppLayout,
+  AppSidebar,
+  EmptyState,
+  FormInput,
+  FormSelect,
+  Modal,
+  SectionHeader,
+  ConfirmDialog as SharedConfirmDialog,
+  Spinner
+} from '@/components'
+import type {
+  CreateVfsMountReq,
+  SshConfigHost,
+  SshKeyFile,
+  VfsFileContent,
+  VfsMount,
+  VfsNode,
+  VfsSourceKind,
+  WebDavServerSettings
+} from '@/infra/api'
 import { apiClient } from '@/infra/api'
-import type { AppComponentProps, AppManifest } from '@/kernel'
+import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
 import { getAppsForFile, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage } from '@/kernel'
-import type { AppMenuGroup } from '@/kernel'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -89,7 +107,9 @@ function parseMountFields(mount: { kind: VfsSourceKind; root: string }) {
       result.password = decodeURIComponent(url.password)
       result.basePath = url.pathname || '/'
     }
-  } catch { /* ignore parse errors */ }
+  } catch {
+    /* ignore parse errors */
+  }
   return result
 }
 
@@ -162,13 +182,6 @@ function MountForm({
     } else {
       setHost(trimmed)
     }
-  }
-
-  const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
-  const fs = {
-    background: 'var(--vos-bg-input)',
-    color: 'var(--vos-text-primary)',
-    border: '0.5px solid var(--vos-border-subtle)'
   }
 
   const validateName = (v: string): string | null => {
@@ -314,15 +327,26 @@ function MountForm({
 
   return (
     <div className="vos-modal-overlay">
-      <div
-        className="vos-modal-panel" style={{ width: 400 }}
-      >
+      <div className="vos-modal-panel" style={{ width: 400 }}>
         <div className="text-sm font-medium">{isEditing ? '编辑数据源' : '添加数据源'}</div>
         <div>
-          <input className={fc} style={fs} placeholder="名称" value={name} onChange={e => handleNameChange(e.target.value)} />
-          {nameError && <div className="text-xs mt-0.5" style={{ color: 'var(--vos-accent-danger)' }}>{nameError}</div>}
+          <input
+            className="vos-input vos-input-sm"
+            placeholder="名称"
+            value={name}
+            onChange={e => handleNameChange(e.target.value)}
+          />
+          {nameError && (
+            <div className="text-xs mt-0.5" style={{ color: 'var(--vos-accent-danger)' }}>
+              {nameError}
+            </div>
+          )}
         </div>
-        <select className={fc} style={fs} value={kind} onChange={e => setKind(e.target.value as VfsSourceKind)}>
+        <select
+          className="vos-input vos-input-sm"
+          value={kind}
+          onChange={e => setKind(e.target.value as VfsSourceKind)}
+        >
           <option value="local">本地磁盘</option>
           <option value="sftp">SFTP</option>
           <option value="ftp">FTP</option>
@@ -338,8 +362,7 @@ function MountForm({
             value={localPath}
             onChange={setLocalPath}
             placeholder="选择目录"
-            className={fc}
-            style={fs}
+            className="vos-input vos-input-sm"
           />
         )}
 
@@ -351,26 +374,30 @@ function MountForm({
                 <button
                   type="button"
                   className="text-xs px-2 py-1 rounded cursor-pointer border-none"
-                  style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-secondary)', opacity: importingConfig ? 0.5 : 1 }}
+                  style={{
+                    background: 'var(--vos-bg-item-hover)',
+                    color: 'var(--vos-text-secondary)',
+                    opacity: importingConfig ? 0.5 : 1
+                  }}
                   onClick={handleImportSshConfig}
                   disabled={importingConfig}
                 >
-                  {importingConfig ? <Loader2 size={11} className="inline-block animate-spin" /> : <Download size={11} className="inline-block mr-1" />}
-                  从 ~/.ssh/config 导入
+                  {importingConfig ? <Spinner size={11} /> : <Download size={11} className="inline-block mr-1" />}从
+                  ~/.ssh/config 导入
                 </button>
               </div>
             )}
             <div className="flex gap-2">
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 placeholder="主机地址"
                 value={host}
                 onChange={e => setHost(e.target.value)}
               />
               <input
-                className={fc}
-                style={{ ...fs, width: 72 }}
+                className="vos-input vos-input-sm"
+                style={{ width: 72 }}
                 placeholder={kind === 'sftp' ? '22' : '21'}
                 value={port}
                 onChange={e => setPort(e.target.value)}
@@ -378,8 +405,8 @@ function MountForm({
             </div>
             <div className="flex gap-2">
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 placeholder="用户名（可选）"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
@@ -402,7 +429,8 @@ function MountForm({
                     type="button"
                     className="text-xs px-2 py-1.5 rounded cursor-pointer border-none"
                     style={{
-                      background: authMethod === 'private_key' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-item-hover)',
+                      background:
+                        authMethod === 'private_key' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-item-hover)',
                       color: authMethod === 'private_key' ? '#fff' : 'var(--vos-text-secondary)',
                       flex: 1
                     }}
@@ -413,8 +441,8 @@ function MountForm({
                 </div>
               ) : (
                 <input
-                  className={fc}
-                  style={{ ...fs, flex: 1 }}
+                  className="vos-input vos-input-sm"
+                  style={{ flex: 1 }}
                   type="password"
                   placeholder="密码（可选）"
                   value={password}
@@ -424,8 +452,7 @@ function MountForm({
             </div>
             {kind === 'sftp' && authMethod === 'password' && (
               <input
-                className={fc}
-                style={fs}
+                className="vos-input vos-input-sm"
                 type="password"
                 placeholder="密码"
                 value={password}
@@ -436,8 +463,8 @@ function MountForm({
               <>
                 <div className="flex gap-2">
                   <input
-                    className={fc}
-                    style={{ ...fs, flex: 1 }}
+                    className="vos-input vos-input-sm"
+                    style={{ flex: 1 }}
                     placeholder="私钥路径（如 ~/.ssh/id_rsa）"
                     value={privateKeyPath}
                     onChange={e => setPrivateKeyPath(e.target.value)}
@@ -452,28 +479,41 @@ function MountForm({
                   </button>
                 </div>
                 {sshKeyFiles && (
-                  <div className="rounded overflow-hidden" style={{ maxHeight: 120, overflow: 'auto', border: '0.5px solid var(--vos-border-subtle)' }}>
+                  <div
+                    className="rounded overflow-hidden"
+                    style={{ maxHeight: 120, overflow: 'auto', border: '0.5px solid var(--vos-border-subtle)' }}
+                  >
                     {sshKeyFiles.filter(f => !f.is_public).length === 0 && (
-                      <div className="text-xs px-2 py-1.5" style={{ color: 'var(--vos-text-tertiary)' }}>未发现私钥文件</div>
+                      <div className="text-xs px-2 py-1.5" style={{ color: 'var(--vos-text-tertiary)' }}>
+                        未发现私钥文件
+                      </div>
                     )}
-                    {sshKeyFiles.filter(f => !f.is_public).map(f => (
-                      <button
-                        key={f.path}
-                        type="button"
-                        className="w-full text-left text-xs px-2 py-1 cursor-pointer border-none"
-                        style={{ background: 'transparent', color: 'var(--vos-text-primary)' }}
-                        onMouseOver={e => { (e.target as HTMLElement).style.background = 'var(--vos-bg-item-hover)' }}
-                        onMouseOut={e => { (e.target as HTMLElement).style.background = 'transparent' }}
-                        onClick={() => { setPrivateKeyPath(f.path); setSshKeyFiles(null) }}
-                      >
-                        {f.name}
-                      </button>
-                    ))}
+                    {sshKeyFiles
+                      .filter(f => !f.is_public)
+                      .map(f => (
+                        <button
+                          key={f.path}
+                          type="button"
+                          className="w-full text-left text-xs px-2 py-1 cursor-pointer border-none"
+                          style={{ background: 'transparent', color: 'var(--vos-text-primary)' }}
+                          onMouseOver={e => {
+                            ;(e.target as HTMLElement).style.background = 'var(--vos-bg-item-hover)'
+                          }}
+                          onMouseOut={e => {
+                            ;(e.target as HTMLElement).style.background = 'transparent'
+                          }}
+                          onClick={() => {
+                            setPrivateKeyPath(f.path)
+                            setSshKeyFiles(null)
+                          }}
+                        >
+                          {f.name}
+                        </button>
+                      ))}
                   </div>
                 )}
                 <input
-                  className={fc}
-                  style={fs}
+                  className="vos-input vos-input-sm"
                   placeholder="私钥密码（如有）"
                   type="password"
                   value={privateKeyPassphrase}
@@ -482,8 +522,7 @@ function MountForm({
               </>
             )}
             <input
-              className={fc}
-              style={fs}
+              className="vos-input vos-input-sm"
               placeholder="基础路径（如 /home/user）"
               value={basePath}
               onChange={e => setBasePath(e.target.value)}
@@ -496,38 +535,37 @@ function MountForm({
           <>
             <div className="flex gap-2">
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 placeholder="主机地址"
                 value={host}
                 onChange={e => setHost(e.target.value)}
               />
               <input
-                className={fc}
-                style={{ ...fs, width: 72 }}
+                className="vos-input vos-input-sm"
+                style={{ width: 72 }}
                 placeholder="445"
                 value={smbPort}
                 onChange={e => setSmbPort(e.target.value)}
               />
             </div>
             <input
-              className={fc}
-              style={fs}
+              className="vos-input vos-input-sm"
               placeholder="共享名称（可选，留空则列出所有共享）"
               value={share}
               onChange={e => setShare(e.target.value)}
             />
             <div className="flex gap-2">
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 placeholder="用户名（可选）"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
               />
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 type="password"
                 placeholder="密码（可选）"
                 value={password}
@@ -541,16 +579,15 @@ function MountForm({
         {kind === 's3' && (
           <>
             <input
-              className={fc}
-              style={fs}
+              className="vos-input vos-input-sm"
               placeholder="Bucket 名称"
               value={bucket}
               onChange={e => setBucket(e.target.value)}
             />
             <div className="flex gap-2">
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 placeholder="Region（如 us-east-1）"
                 value={region}
                 onChange={e => setRegion(e.target.value)}
@@ -558,15 +595,15 @@ function MountForm({
             </div>
             <div className="flex gap-2">
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 placeholder="Access Key"
                 value={accessKey}
                 onChange={e => setAccessKey(e.target.value)}
               />
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 type="password"
                 placeholder="Secret Key"
                 value={secretKey}
@@ -574,8 +611,7 @@ function MountForm({
               />
             </div>
             <input
-              className={fc}
-              style={fs}
+              className="vos-input vos-input-sm"
               placeholder="自定义 Endpoint（可选，兼容 MinIO 等）"
               value={endpoint}
               onChange={e => setEndpoint(e.target.value)}
@@ -592,15 +628,15 @@ function MountForm({
             </label>
             <div className="flex gap-2">
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 placeholder="主机地址或完整 URL（如 https://example.com/dav/）"
                 value={host}
                 onChange={e => handleWebDavHostChange(e.target.value)}
               />
               <input
-                className={fc}
-                style={{ ...fs, width: 72 }}
+                className="vos-input vos-input-sm"
+                style={{ width: 72 }}
                 placeholder={useHttps ? '443' : '80'}
                 value={port}
                 onChange={e => setPort(e.target.value)}
@@ -608,15 +644,15 @@ function MountForm({
             </div>
             <div className="flex gap-2">
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 placeholder="用户名（可选）"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
               />
               <input
-                className={fc}
-                style={{ ...fs, flex: 1 }}
+                className="vos-input vos-input-sm"
+                style={{ flex: 1 }}
                 type="password"
                 placeholder="密码（可选）"
                 value={password}
@@ -624,8 +660,7 @@ function MountForm({
               />
             </div>
             <input
-              className={fc}
-              style={fs}
+              className="vos-input vos-input-sm"
               placeholder="基础路径（如 /remote.php/dav/files/admin/）"
               value={basePath}
               onChange={e => setBasePath(e.target.value)}
@@ -671,11 +706,7 @@ function MountForm({
             >
               {testing ? '测试中…' : '测试连接'}
             </button>
-            <button
-              type="button"
-              className="vos-btn-sm vos-btn-ghost"
-              onClick={onClose}
-            >
+            <button type="button" className="vos-btn-sm vos-btn-ghost" onClick={onClose}>
               取消
             </button>
             <button
@@ -685,26 +716,30 @@ function MountForm({
               onClick={submit}
               disabled={saving || !isValid()}
             >
-              {saving ? (isEditing ? '保存中…' : '添加中…') : (isEditing ? '保存' : '添加')}
+              {saving ? (isEditing ? '保存中…' : '添加中…') : isEditing ? '保存' : '添加'}
             </button>
           </div>
         </div>
         {/* SSH Config Import Modal */}
         {sshConfigHosts && (
           <div className="vos-modal-overlay">
-            <div
-              className="vos-modal-panel"
-              style={{ width: 420, maxHeight: 400 }}
-            >
+            <div className="vos-modal-panel" style={{ width: 420, maxHeight: 400 }}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">~/.ssh/config 可用主机</span>
-                <button type="button" className="vos-btn-reset" style={{ color: 'var(--vos-text-tertiary)' }} onClick={() => setSshConfigHosts(null)}>
+                <button
+                  type="button"
+                  className="vos-btn-reset"
+                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  onClick={() => setSshConfigHosts(null)}
+                >
                   <X size={14} />
                 </button>
               </div>
               <div className="overflow-auto flex-1" style={{ gap: 4, display: 'flex', flexDirection: 'column' }}>
                 {sshConfigHosts.length === 0 && (
-                  <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>未发现 SSH Host 配置</div>
+                  <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                    未发现 SSH Host 配置
+                  </div>
                 )}
                 {sshConfigHosts.map(h => (
                   <div
@@ -714,14 +749,17 @@ function MountForm({
                     onClick={() => handleImportSshHost(h)}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>{h.alias}</span>
+                      <span className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+                        {h.alias}
+                      </span>
                       <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
                         {h.hostname ?? ''} {h.user ? `(${h.user})` : ''}
                       </span>
                     </div>
                     {h.identity_file && (
                       <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
-                        <Key size={9} className="inline mr-0.5" />{h.identity_file}
+                        <Key size={9} className="inline mr-0.5" />
+                        {h.identity_file}
                       </div>
                     )}
                   </div>
@@ -757,22 +795,24 @@ function WebDavServerPanel({
 
   const saveSettings = (next: WebDavServerSettings) => {
     setSettings(next)
-    apiClient.updateWebDavServerSettings(next)
-      .then(r => { setSettings(r.data); setSaved(true); setTimeout(() => setSaved(false), 1500) })
+    apiClient
+      .updateWebDavServerSettings(next)
+      .then(r => {
+        setSettings(r.data)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 1500)
+      })
       .catch(console.error)
   }
 
-  const fc = 'w-full text-xs px-2 py-1.5 rounded border-none outline-none'
-  const fs = {
-    background: 'var(--vos-bg-input)',
-    color: 'var(--vos-text-primary)',
-    border: '0.5px solid var(--vos-border-subtle)'
-  }
-
   useEffect(() => {
-    apiClient.getWebDavServerSettings().then(r => {
-      setSettings(r.data)
-    }).catch(() => {}).finally(() => setLoading(false))
+    apiClient
+      .getWebDavServerSettings()
+      .then(r => {
+        setSettings(r.data)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const toggleMount = (id: string) => {
@@ -788,7 +828,7 @@ function WebDavServerPanel({
     <>
       {loading ? (
         <div className="flex items-center justify-center py-4">
-          <Loader2 size={16} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+          <Spinner size={16} />
         </div>
       ) : (
         <>
@@ -805,15 +845,15 @@ function WebDavServerPanel({
             <>
               <div className="flex gap-2">
                 <input
-                  className={fc}
-                  style={{ ...fs, flex: 1 }}
+                  className="vos-input vos-input-sm"
+                  style={{ flex: 1 }}
                   placeholder="访问用户名（留空则无需认证）"
                   value={settings.username}
                   onChange={e => saveSettings({ ...settings, username: e.target.value })}
                 />
                 <input
-                  className={fc}
-                  style={{ ...fs, flex: 1 }}
+                  className="vos-input vos-input-sm"
+                  style={{ flex: 1 }}
                   type="password"
                   placeholder="访问密码"
                   value={settings.password}
@@ -827,10 +867,16 @@ function WebDavServerPanel({
                 </div>
                 <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
                   {mounts.length === 0 && (
-                    <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>暂无存储源</div>
+                    <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                      暂无存储源
+                    </div>
                   )}
                   {mounts.map(m => (
-                    <label key={m.id} className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+                    <label
+                      key={m.id}
+                      className="flex items-center gap-2 text-xs"
+                      style={{ color: 'var(--vos-text-primary)' }}
+                    >
                       <input
                         type="checkbox"
                         checked={settings.exposed_mounts.includes(m.id)}
@@ -845,7 +891,9 @@ function WebDavServerPanel({
           )}
 
           {saved && (
-            <div className="text-xs text-right" style={{ color: 'var(--vos-accent-primary)' }}>已保存</div>
+            <div className="text-xs text-right" style={{ color: 'var(--vos-accent-primary)' }}>
+              已保存
+            </div>
           )}
         </>
       )}
@@ -858,9 +906,7 @@ function WebDavServerPanel({
 
   return (
     <div className="vos-modal-overlay">
-      <div
-        className="vos-modal-panel" style={{ width: 420 }}
-      >
+      <div className="vos-modal-panel" style={{ width: 420 }}>
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">WebDAV 服务器设置</div>
           <button
@@ -873,52 +919,6 @@ function WebDavServerPanel({
           </button>
         </div>
         {content}
-      </div>
-    </div>
-  )
-}
-
-// ─── Confirm Dialog ────────────────────────────────────────────────────────
-
-function ConfirmDialog({
-  message,
-  confirmLabel = '删除',
-  danger = true,
-  onConfirm,
-  onCancel
-}: {
-  message: string
-  confirmLabel?: string
-  danger?: boolean
-  onConfirm: () => void
-  onCancel: () => void
-}) {
-  return (
-    <div className="vos-modal-overlay">
-      <div
-        className="rounded-lg p-4 flex flex-col gap-4"
-        style={{ width: 320, background: 'var(--vos-bg-surface)', boxShadow: '0 8px 32px rgba(0,0,0,.35)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="text-sm leading-relaxed" style={{ color: 'var(--vos-text-primary)' }}>
-          {message}
-        </div>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            className="vos-btn-sm vos-btn-ghost"
-            onClick={onCancel}
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            className={danger ? 'vos-btn-sm vos-btn-danger' : 'vos-btn-sm vos-btn-primary'}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </button>
-        </div>
       </div>
     </div>
   )
@@ -1095,7 +1095,7 @@ function ColumnView({
           >
             {col.loading ? (
               <div className="flex-1 flex items-center justify-center">
-                <Loader2 size={14} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+                <Spinner size={14} />
               </div>
             ) : col.entries.length === 0 ? (
               <div
@@ -1105,7 +1105,13 @@ function ColumnView({
                 空目录
               </div>
             ) : (
-              <div className="flex-1 overflow-auto" ref={el => { if (el) colScrollRefs.current.set(colIdx, el); else colScrollRefs.current.delete(colIdx) }}>
+              <div
+                className="flex-1 overflow-auto"
+                ref={el => {
+                  if (el) colScrollRefs.current.set(colIdx, el)
+                  else colScrollRefs.current.delete(colIdx)
+                }}
+              >
                 {col.entries.map(entry => {
                   const isPrimary = col.selected === entry.name
                   const isMulti = colSelected?.has(entry.name) ?? false
@@ -1251,54 +1257,44 @@ function ExplorerSettingsDialog({
   onClose: () => void
 }) {
   return (
-    <div
-      className="vos-modal-overlay"
-      onClick={onClose}
-    >
-      <div
-        className="vos-modal-panel" style={{ width: 420 }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold" style={{ color: 'var(--vos-text-primary)' }}>偏好设置</span>
-          <button type="button" className="vos-btn-reset" style={{ color: 'var(--vos-text-tertiary)' }} onClick={onClose}>
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* Hidden files toggle */}
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs" style={{ color: 'var(--vos-text-primary)' }}>显示隐藏文件</span>
-          <button
-            type="button"
-            className="rounded-full border-none cursor-pointer p-0"
+    <Modal open={true} onClose={onClose} title="偏好设置" width={420}>
+      {/* Hidden files toggle */}
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+          显示隐藏文件
+        </span>
+        <button
+          type="button"
+          className="rounded-full border-none cursor-pointer p-0"
+          style={{
+            width: 36,
+            height: 20,
+            borderRadius: 10,
+            background: showHidden ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)',
+            position: 'relative',
+            transition: 'background 0.2s'
+          }}
+          onClick={onToggleHidden}
+        >
+          <span
             style={{
-              width: 36, height: 20, borderRadius: 10,
-              background: showHidden ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)',
-              position: 'relative', transition: 'background 0.2s'
+              position: 'absolute',
+              top: 2,
+              left: showHidden ? 18 : 2,
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              background: '#fff',
+              transition: 'left 0.2s'
             }}
-            onClick={onToggleHidden}
-          >
-            <span
-              style={{
-                position: 'absolute', top: 2,
-                left: showHidden ? 18 : 2,
-                width: 16, height: 16, borderRadius: '50%',
-                background: '#fff', transition: 'left 0.2s'
-              }}
-            />
-          </button>
-        </div>
-
-        {/* WebDAV server settings */}
-        <div style={{ borderTop: '0.5px solid var(--vos-border-subtle)', margin: '4px 0' }} />
-        <WebDavServerPanel
-          mounts={mounts}
-          onClose={onClose}
-          embedded
-        />
+          />
+        </button>
       </div>
-    </div>
+
+      {/* WebDAV server settings */}
+      <div style={{ borderTop: '0.5px solid var(--vos-border-subtle)', margin: '4px 0' }} />
+      <WebDavServerPanel mounts={mounts} onClose={onClose} embedded />
+    </Modal>
   )
 }
 
@@ -1357,12 +1353,7 @@ function FileInfoPanel({
         style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
       >
         <span className="text-xs font-medium truncate">{node.name}</span>
-        <button
-          type="button"
-          className="vos-btn-reset"
-          style={{ color: 'var(--vos-text-tertiary)' }}
-          onClick={onClose}
-        >
+        <button type="button" className="vos-btn-reset" style={{ color: 'var(--vos-text-tertiary)' }} onClick={onClose}>
           <X size={12} />
         </button>
       </div>
@@ -1405,7 +1396,7 @@ function FileInfoPanel({
               style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 4 }}
             />
           ) : (
-            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+            <Spinner size={14} />
           )}
         </div>
       )}
@@ -1598,14 +1589,17 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
       if (fH) ctx.scale(-1, 1)
       if (fV) ctx.scale(1, -1)
       ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2)
-      const mimeType = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : 'image/png'
+      const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png'
       const newBlob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), mimeType, 0.95)
+        canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob failed'))), mimeType, 0.95)
       })
       const file = new File([newBlob], node.name, { type: mimeType })
       await apiClient.uploadVfsFile(mountId, node.path, file)
       const newUrl = URL.createObjectURL(newBlob)
-      setBlobUrl(prev => { if (prev) URL.revokeObjectURL(prev); return newUrl })
+      setBlobUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev)
+        return newUrl
+      })
       setImgRotation(0)
       setImgFlipH(false)
       setImgFlipV(false)
@@ -1710,7 +1704,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
               >
                 <FlipVertical2 size={12} />
               </button>
-              {saving && <Loader2 size={12} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />}
+              {saving && <Spinner size={12} />}
             </>
           )}
           {!node.is_dir &&
@@ -1760,13 +1754,16 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
         <div className="flex-1 overflow-hidden relative">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 size={20} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+              <Spinner size={20} />
             </div>
           )}
 
           {!loading && error && (
             <div className="p-6 flex flex-col gap-2">
-              <div className="text-xs" style={{ color: 'var(--vos-accent-danger)', userSelect: 'text', wordBreak: 'break-all' }}>
+              <div
+                className="text-xs"
+                style={{ color: 'var(--vos-accent-danger)', userSelect: 'text', wordBreak: 'break-all' }}
+              >
                 加载失败：{error}
               </div>
               <button
@@ -1965,9 +1962,9 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         items: [
           { id: 'preferences', label: '偏好设置', action: () => setShowExplorerSettings(true) },
           { type: 'separator' },
-          { id: 'new-window', label: '新建窗口', action: () => openWindow('explorer') },
-        ],
-      },
+          { id: 'new-window', label: '新建窗口', action: () => openWindow('explorer') }
+        ]
+      }
     ]
     registerAppMenus('explorer', menus)
     return () => unregisterAppMenus('explorer')
@@ -2732,296 +2729,291 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   const currentPath = columns.length > 0 ? columns[columns.length - 1].path : '/'
 
   return (
-    <div ref={containerRef} className="flex h-full relative" tabIndex={-1} style={{ outline: 'none' }}>
-      {showForm && (
-        <MountForm
-          onClose={() => setShowForm(false)}
-          onCreated={m => {
-            setMounts(p => [...p, m])
-            setShowForm(false)
-            reload()
-          }}
-        />
-      )}
-
-      {editingMount && (
-        <MountForm
-          mountToEdit={editingMount}
-          onClose={() => setEditingMount(null)}
-          onUpdated={m => {
-            setMounts(p => p.map(x => (x.id === m.id ? m : x)))
-            setEditingMount(null)
-            reload()
-          }}
-        />
-      )}
-
-      {showExplorerSettings && (
-        <ExplorerSettingsDialog
-          mounts={mounts.map(m => ({ id: m.id, name: m.name }))}
-          showHidden={showHidden}
-          onToggleHidden={() => setShowHidden(v => {
-            const next = !v
-            storage.setJSON('preferences', { showHidden: next })
-            return next
-          })}
-          onClose={() => setShowExplorerSettings(false)}
-        />
-      )}
-
-      {/* New folder overlay */}
-      {newFolderState.visible && (
-        <div
-          className="vos-modal-overlay"
-        >
-          <div
-            className="vos-modal-panel" style={{ width: 320 }}
-          >
-            <div className="text-sm font-medium">新建文件夹</div>
-            <input
-              autoFocus
-              className="vos-input"
-              placeholder="文件夹名称"
-              value={newFolderState.name}
-              onChange={e => setNewFolderState(prev => ({ ...prev, name: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleNewFolder()
-                if (e.key === 'Escape') setNewFolderState({ visible: false, colPath: '', name: '' })
-              }}
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="vos-btn-sm vos-btn-ghost"
-                onClick={() => setNewFolderState({ visible: false, colPath: '', name: '' })}
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                className="vos-btn-sm vos-btn-primary"
-                style={{ opacity: newFolderState.name.trim() ? 1 : 0.5 }}
-                disabled={!newFolderState.name.trim()}
-                onClick={handleNewFolder}
-              >
-                创建
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New file overlay */}
-      {newFileState.visible && (
-        <div
-          className="vos-modal-overlay"
-        >
-          <div
-            className="vos-modal-panel" style={{ width: 320 }}
-          >
-            <div className="text-sm font-medium">新建文件</div>
-            <input
-              autoFocus
-              className="vos-input"
-              placeholder="文件名称（如 notes.txt）"
-              value={newFileState.name}
-              onChange={e => setNewFileState(prev => ({ ...prev, name: e.target.value }))}
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleNewFile()
-                if (e.key === 'Escape') setNewFileState({ visible: false, dirPath: '', name: '' })
-              }}
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="vos-btn-sm vos-btn-ghost"
-                onClick={() => setNewFileState({ visible: false, dirPath: '', name: '' })}
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                className="vos-btn-sm vos-btn-primary"
-                style={{ opacity: newFileState.name.trim() ? 1 : 0.5 }}
-                disabled={!newFileState.name.trim()}
-                onClick={handleNewFile}
-              >
-                创建
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm dialog */}
-      {confirmState.visible && (
-        <ConfirmDialog
-          message={confirmState.message}
-          onConfirm={confirmState.onConfirm}
-          onCancel={() => setConfirmState(s => ({ ...s, visible: false }))}
-        />
-      )}
-
-      {/* Open-with dialog */}
-      {openWithState.visible && openWithState.node && selectedMount && (
-        <div
-          className="vos-modal-overlay"
-          onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
-        >
-          <div
-            className="vos-modal-panel" style={{ width: 320 }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="text-sm font-medium">选择打开方式</div>
-            <div className="text-xs truncate" style={{ color: 'var(--vos-text-tertiary)' }}>
-              {openWithState.node.name}
-            </div>
-            <div className="flex flex-col gap-1">
-              {openWithState.apps.map(app => (
+    <AppLayout
+      sidebar={
+        <AppSidebar width={180}>
+          <SectionHeader
+            title="存储源"
+            actions={
+              <>
                 <button
-                  key={app.id}
                   type="button"
-                  className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
-                  style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
-                  onClick={() => {
-                    setOpenWithState({ visible: false, node: null, apps: [] })
-                    openWindow(app.id)
+                  className="vos-btn-reset"
+                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  onClick={reload}
+                  title="刷新"
+                >
+                  <RefreshCw size={11} />
+                </button>
+                <button
+                  type="button"
+                  className="vos-btn-reset"
+                  style={{ color: 'var(--vos-accent-primary)' }}
+                  onClick={() => setShowForm(true)}
+                >
+                  <Plus size={13} />
+                </button>
+              </>
+            }
+          />
+
+          {mounts.map(m => {
+            const KindIcon = kindMeta[m.kind]?.icon ?? HardDrive
+            const isActive = selectedMount === m.id
+            return (
+              // Use div+role="button" instead of <button> to avoid nesting
+              // a <button> (delete) inside another <button> (select)
+              <div
+                key={m.id}
+                role="button"
+                tabIndex={0}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group"
+                style={{
+                  background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
+                  color: isActive ? '#fff' : 'var(--vos-text-primary)',
+                  borderRadius: 4,
+                  margin: '1px 4px'
+                }}
+                onClick={() => selectMount(m.id)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') selectMount(m.id)
+                }}
+              >
+                <KindIcon size={13} style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+                <span className="flex-1 truncate">{m.name}</span>
+                <button
+                  type="button"
+                  className="hidden group-hover:block vos-btn-reset text-inherit"
+                  onClick={e => {
+                    e.stopPropagation()
+                    setEditingMount(m)
                   }}
                 >
-                  <span className="font-medium">{app.name}</span>
-                  {app.description && (
-                    <span style={{ color: 'var(--vos-text-tertiary)' }} className="truncate">{app.description}</span>
-                  )}
+                  <Settings size={10} />
                 </button>
-              ))}
-              <button
-                type="button"
-                className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
-                style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
-                onClick={() => {
-                  const n = openWithState.node!
-                  setOpenWithState({ visible: false, node: null, apps: [] })
-                  handleOpenViewer(selectedMount, n)
-                }}
-              >
-                <span className="font-medium">文件查看器</span>
-                <span style={{ color: 'var(--vos-text-tertiary)' }}>文本 / 图片预览</span>
-              </button>
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                className="vos-btn-sm vos-btn-ghost"
-                onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Hidden file input for upload */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={e => {
-          if (e.target.files) handleUpload(e.target.files)
-          e.target.value = ''
-        }}
-      />
-
-      {/* Sidebar — mount sources */}
-      <div
-        className="flex flex-col flex-shrink-0 overflow-auto"
-        style={{ width: 180, borderRight: '0.5px solid var(--vos-border-subtle)' }}
-      >
-        <div className="px-3 pt-3 pb-2 flex items-center justify-between">
-          <span className="text-[10px] font-semibold tracking-wider" style={{ color: 'var(--vos-text-tertiary)' }}>
-            存储源
-          </span>
-          <div className="flex gap-1">
-            <button
-              type="button"
-              className="vos-btn-reset"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-              onClick={reload}
-              title="刷新"
-            >
-              <RefreshCw size={11} />
-            </button>
-            <button
-              type="button"
-              className="vos-btn-reset"
-              style={{ color: 'var(--vos-accent-primary)' }}
-              onClick={() => setShowForm(true)}
-            >
-              <Plus size={13} />
-            </button>
-          </div>
-        </div>
-
-        {mounts.map(m => {
-          const KindIcon = kindMeta[m.kind]?.icon ?? HardDrive
-          const isActive = selectedMount === m.id
-          return (
-            // Use div+role="button" instead of <button> to avoid nesting
-            // a <button> (delete) inside another <button> (select)
+                <button
+                  type="button"
+                  className="hidden group-hover:block vos-btn-reset text-inherit"
+                  onClick={e => {
+                    e.stopPropagation()
+                    deleteMount(m.id)
+                  }}
+                >
+                  <Trash2 size={10} />
+                </button>
+              </div>
+            )
+          })}
+          {mounts.length === 0 && (
             <div
-              key={m.id}
-              role="button"
-              tabIndex={0}
-              className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group"
-              style={{
-                background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
-                color: isActive ? '#fff' : 'var(--vos-text-primary)',
-                borderRadius: 4,
-                margin: '1px 4px'
-              }}
-              onClick={() => selectMount(m.id)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') selectMount(m.id)
-              }}
+              className="flex-1 flex items-center justify-center text-xs"
+              style={{ color: 'var(--vos-text-tertiary)' }}
             >
-              <KindIcon size={13} style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }} />
-              <span className="flex-1 truncate">{m.name}</span>
-              <button
-                type="button"
-                className="hidden group-hover:block vos-btn-reset text-inherit"
-                onClick={e => {
-                  e.stopPropagation()
-                  setEditingMount(m)
-                }}
-              >
-                <Settings size={10} />
-              </button>
-              <button
-                type="button"
-                className="hidden group-hover:block vos-btn-reset text-inherit"
-                onClick={e => {
-                  e.stopPropagation()
-                  deleteMount(m.id)
-                }}
-              >
-                <Trash2 size={10} />
-              </button>
+              无存储源
             </div>
-          )
-        })}
-        {mounts.length === 0 && (
-          <div
-            className="flex-1 flex items-center justify-center text-xs"
-            style={{ color: 'var(--vos-text-tertiary)' }}
-          >
-            无存储源
-          </div>
-        )}
-      </div>
+          )}
+        </AppSidebar>
+      }
+      overlay={
+        <>
+          {showForm && (
+            <MountForm
+              onClose={() => setShowForm(false)}
+              onCreated={m => {
+                setMounts(p => [...p, m])
+                setShowForm(false)
+                reload()
+              }}
+            />
+          )}
 
-      {/* Main area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+          {editingMount && (
+            <MountForm
+              mountToEdit={editingMount}
+              onClose={() => setEditingMount(null)}
+              onUpdated={m => {
+                setMounts(p => p.map(x => (x.id === m.id ? m : x)))
+                setEditingMount(null)
+                reload()
+              }}
+            />
+          )}
+
+          {showExplorerSettings && (
+            <ExplorerSettingsDialog
+              mounts={mounts.map(m => ({ id: m.id, name: m.name }))}
+              showHidden={showHidden}
+              onToggleHidden={() =>
+                setShowHidden(v => {
+                  const next = !v
+                  storage.setJSON('preferences', { showHidden: next })
+                  return next
+                })
+              }
+              onClose={() => setShowExplorerSettings(false)}
+            />
+          )}
+
+          {/* New folder overlay */}
+          {newFolderState.visible && (
+            <div className="vos-modal-overlay">
+              <div className="vos-modal-panel" style={{ width: 320 }}>
+                <div className="text-sm font-medium">新建文件夹</div>
+                <input
+                  autoFocus
+                  className="vos-input"
+                  placeholder="文件夹名称"
+                  value={newFolderState.name}
+                  onChange={e => setNewFolderState(prev => ({ ...prev, name: e.target.value }))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleNewFolder()
+                    if (e.key === 'Escape') setNewFolderState({ visible: false, colPath: '', name: '' })
+                  }}
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="vos-btn-sm vos-btn-ghost"
+                    onClick={() => setNewFolderState({ visible: false, colPath: '', name: '' })}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="vos-btn-sm vos-btn-primary"
+                    style={{ opacity: newFolderState.name.trim() ? 1 : 0.5 }}
+                    disabled={!newFolderState.name.trim()}
+                    onClick={handleNewFolder}
+                  >
+                    创建
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* New file overlay */}
+          {newFileState.visible && (
+            <div className="vos-modal-overlay">
+              <div className="vos-modal-panel" style={{ width: 320 }}>
+                <div className="text-sm font-medium">新建文件</div>
+                <input
+                  autoFocus
+                  className="vos-input"
+                  placeholder="文件名称（如 notes.txt）"
+                  value={newFileState.name}
+                  onChange={e => setNewFileState(prev => ({ ...prev, name: e.target.value }))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleNewFile()
+                    if (e.key === 'Escape') setNewFileState({ visible: false, dirPath: '', name: '' })
+                  }}
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="vos-btn-sm vos-btn-ghost"
+                    onClick={() => setNewFileState({ visible: false, dirPath: '', name: '' })}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="vos-btn-sm vos-btn-primary"
+                    style={{ opacity: newFileState.name.trim() ? 1 : 0.5 }}
+                    disabled={!newFileState.name.trim()}
+                    onClick={handleNewFile}
+                  >
+                    创建
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Confirm dialog */}
+          <SharedConfirmDialog
+            open={confirmState.visible}
+            onClose={() => setConfirmState(s => ({ ...s, visible: false }))}
+            onConfirm={confirmState.onConfirm}
+            title="确认操作"
+            danger
+          >
+            {confirmState.message}
+          </SharedConfirmDialog>
+
+          {/* Open-with dialog */}
+          {openWithState.visible && openWithState.node && selectedMount && (
+            <div
+              className="vos-modal-overlay"
+              onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
+            >
+              <div className="vos-modal-panel" style={{ width: 320 }} onClick={e => e.stopPropagation()}>
+                <div className="text-sm font-medium">选择打开方式</div>
+                <div className="text-xs truncate" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  {openWithState.node.name}
+                </div>
+                <div className="flex flex-col gap-1">
+                  {openWithState.apps.map(app => (
+                    <button
+                      key={app.id}
+                      type="button"
+                      className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
+                      style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                      onClick={() => {
+                        setOpenWithState({ visible: false, node: null, apps: [] })
+                        openWindow(app.id)
+                      }}
+                    >
+                      <span className="font-medium">{app.name}</span>
+                      {app.description && (
+                        <span style={{ color: 'var(--vos-text-tertiary)' }} className="truncate">
+                          {app.description}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
+                    style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                    onClick={() => {
+                      const n = openWithState.node!
+                      setOpenWithState({ visible: false, node: null, apps: [] })
+                      handleOpenViewer(selectedMount, n)
+                    }}
+                  >
+                    <span className="font-medium">文件查看器</span>
+                    <span style={{ color: 'var(--vos-text-tertiary)' }}>文本 / 图片预览</span>
+                  </button>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="vos-btn-sm vos-btn-ghost"
+                    onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Hidden file input for upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={e => {
+              if (e.target.files) handleUpload(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        </>
+      }
+    >
+      <div ref={containerRef} className="flex h-full" tabIndex={-1} style={{ outline: 'none' }}>
         {selectedMount ? (
           <>
             {/* Path bar / Menubar */}
@@ -3177,6 +3169,6 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           </div>
         )}
       </div>
-    </div>
+    </AppLayout>
   )
 }

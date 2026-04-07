@@ -65,7 +65,7 @@ export const useMenuStore = create<MenuStoreState>((set, get) => ({
 
   getAllTrays() {
     return [...get().trays.entries()].map(([appId, config]) => ({ appId, config }))
-  },
+  }
 }))
 
 // ─── Convenience functions ─────────────────────────────────────────────────

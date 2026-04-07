@@ -1,6 +1,7 @@
 mod migrations;
 pub mod settings;
 pub mod storage;
+pub mod vfs_mounts;
 pub mod window_state;
 
 use std::path::Path;
@@ -11,6 +12,7 @@ use tracing::info;
 
 pub use settings::SettingsManager;
 pub use storage::StorageManager;
+pub use vfs_mounts::{PersistedVfsMount, VfsMountStore};
 pub use window_state::WindowStateManager;
 
 /// The database manager handles `SQLite` persistence.

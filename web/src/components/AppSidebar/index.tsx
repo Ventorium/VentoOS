@@ -13,10 +13,10 @@
  * Designed for multi-source apps: Explorer, K8s, Redis, Database
  */
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import type { ReactNode } from 'react'
-import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import type { ContextMenuItems } from '@/shell/ContextMenu/store'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -56,15 +56,7 @@ export interface AppSidebarProps {
 
 // ─── ActivityButton ─────────────────────────────────────────────────────────
 
-function ActivityButton({
-  item,
-  isActive,
-  onClick,
-}: {
-  item: ActivityItem
-  isActive: boolean
-  onClick: () => void
-}) {
+function ActivityButton({ item, isActive, onClick }: { item: ActivityItem; isActive: boolean; onClick: () => void }) {
   const showCtxMenu = useContextMenuStore(s => s.show)
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -83,7 +75,7 @@ function ActivityButton({
         onClick={onClick}
         onContextMenu={handleContextMenu}
         style={{
-          position: 'relative',
+          position: 'relative'
         }}
       >
         {item.icon}
@@ -99,7 +91,7 @@ function ActivityButton({
               bottom: '20%',
               width: 2,
               borderRadius: 1,
-              background: 'var(--vos-accent-primary)',
+              background: 'var(--vos-accent-primary)'
             }}
           />
         )}
@@ -122,7 +114,7 @@ function ActivityButton({
               alignItems: 'center',
               justifyContent: 'center',
               padding: '0 3px',
-              lineHeight: 1,
+              lineHeight: 1
             }}
           >
             {item.badge > 99 ? '99+' : item.badge}
@@ -144,7 +136,7 @@ export function AppSidebar({
   panelCollapsed = false,
   activityBarHeader,
   activityBarFooter,
-  panelHeader,
+  panelHeader
 }: AppSidebarProps) {
   const showPanel = !panelCollapsed && activeId != null && panelContent != null
 
@@ -154,14 +146,12 @@ export function AppSidebar({
         display: 'flex',
         flexDirection: 'row',
         height: '100%',
-        flexShrink: 0,
+        flexShrink: 0
       }}
     >
       {/* Activity Bar */}
       <div className="vos-activity-bar" style={{ width: 40 }}>
-        {activityBarHeader && (
-          <div style={{ marginBottom: 4 }}>{activityBarHeader}</div>
-        )}
+        {activityBarHeader && <div style={{ marginBottom: 4 }}>{activityBarHeader}</div>}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, paddingTop: 4 }}>
           {activities.map(item => (
@@ -174,9 +164,7 @@ export function AppSidebar({
           ))}
         </div>
 
-        {activityBarFooter && (
-          <div style={{ marginTop: 4 }}>{activityBarFooter}</div>
-        )}
+        {activityBarFooter && <div style={{ marginTop: 4 }}>{activityBarFooter}</div>}
       </div>
 
       {/* Panel Sidebar */}
@@ -194,7 +182,7 @@ export function AppSidebar({
               borderRight: '0.5px solid var(--vos-border-subtle)',
               display: 'flex',
               flexDirection: 'column',
-              height: '100%',
+              height: '100%'
             }}
           >
             <div
@@ -203,15 +191,11 @@ export function AppSidebar({
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
-                overflow: 'hidden',
+                overflow: 'hidden'
               }}
             >
-              {panelHeader && (
-                <div className="vos-panel-header">{panelHeader}</div>
-              )}
-              <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-                {panelContent}
-              </div>
+              {panelHeader && <div className="vos-panel-header">{panelHeader}</div>}
+              <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>{panelContent}</div>
             </div>
           </motion.div>
         )}

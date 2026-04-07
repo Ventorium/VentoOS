@@ -9,7 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 ventoos-core = { workspace = true }
-ventoos-connection = { workspace = true }
+ventoos-ssh = { workspace = true }
 ventoos-task = { workspace = true }
 ventoos-persist = { workspace = true }
 ventoos-k8s = { workspace = true }

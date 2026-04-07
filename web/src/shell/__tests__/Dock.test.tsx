@@ -1,29 +1,38 @@
-import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useWindowStore } from '@/kernel/window/store'
-import { useAppStore } from '@/kernel/apps/store'
 import type { AppManifest } from '@/kernel/apps/manifest'
+import { useAppStore } from '@/kernel/apps/store'
+import { useWindowStore } from '@/kernel/window/store'
 import { useAIStatusStore } from '@/shell/Dock/aiStatusStore'
 import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
-import React from 'react'
 
 // Mock framer-motion
 vi.mock('framer-motion', () => {
   const actual = {
-    motion: new Proxy({}, {
-      get: (_target, prop) => {
-        const { forwardRef } = require('react')
-        return forwardRef((props: Record<string, unknown>, ref: unknown) => {
-          const { children, animate, initial, exit, transition, whileHover, whileTap, variants, style, ...rest } = props
-          const Tag = prop as string
-          return <Tag ref={ref} style={style} {...rest}>{children}</Tag>
-        })
+    motion: new Proxy(
+      {},
+      {
+        get: (_target, prop) => {
+          const { forwardRef } = require('react')
+          return forwardRef((props: Record<string, unknown>, ref: unknown) => {
+            const { children, animate, initial, exit, transition, whileHover, whileTap, variants, style, ...rest } =
+              props
+            const Tag = prop as string
+            return (
+              <Tag ref={ref} style={style} {...rest}>
+                {children}
+              </Tag>
+            )
+          })
+        }
       }
-    }),
+    ),
     AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     useMotionValue: (initial: number) => ({ get: () => initial, set: vi.fn() }),
     useSpring: (val: unknown) => val,
-    useTransform: (_val: unknown, _input: unknown, output?: unknown) => (output ? { get: () => (output as number[])[2] } : { get: () => 0 }),
+    useTransform: (_val: unknown, _input: unknown, output?: unknown) =>
+      output ? { get: () => (output as number[])[2] } : { get: () => 0 }
   }
   return actual
 })
@@ -31,8 +40,8 @@ vi.mock('framer-motion', () => {
 vi.mock('@/infra/api', () => ({
   apiClient: {
     saveWindowSettings: vi.fn().mockResolvedValue({}),
-    getWindowSettings: vi.fn().mockResolvedValue({ data: [] }),
-  },
+    getWindowSettings: vi.fn().mockResolvedValue({ data: [] })
+  }
 }))
 
 vi.mock('@/infra/logger', () => ({
@@ -40,8 +49,8 @@ vi.mock('@/infra/logger', () => ({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn(),
-  }),
+    debug: vi.fn()
+  })
 }))
 
 const mockApp = (id: string, name: string, overrides?: Partial<AppManifest>): AppManifest => ({
@@ -52,7 +61,7 @@ const mockApp = (id: string, name: string, overrides?: Partial<AppManifest>): Ap
   icon: React.createElement('span', { 'data-testid': `icon-${id}` }, name[0]),
   multiWindow: false,
   component: () => Promise.resolve({ default: () => null as unknown as React.ReactElement }),
-  ...overrides,
+  ...overrides
 })
 
 describe('Dock Component', () => {
@@ -103,10 +112,34 @@ describe('Dock Component', () => {
 
     useWindowStore.setState({
       windows: [
-        { id: 'w1', appId: 'k8s', title: 'K8s 1', x: 100, y: 100, width: 800, height: 600, zIndex: 1, isMaximized: false, isMinimized: false, isFocused: true },
-        { id: 'w2', appId: 'k8s', title: 'K8s 2', x: 150, y: 150, width: 800, height: 600, zIndex: 2, isMaximized: false, isMinimized: false, isFocused: false },
+        {
+          id: 'w1',
+          appId: 'k8s',
+          title: 'K8s 1',
+          x: 100,
+          y: 100,
+          width: 800,
+          height: 600,
+          zIndex: 1,
+          isMaximized: false,
+          isMinimized: false,
+          isFocused: true
+        },
+        {
+          id: 'w2',
+          appId: 'k8s',
+          title: 'K8s 2',
+          x: 150,
+          y: 150,
+          width: 800,
+          height: 600,
+          zIndex: 2,
+          isMaximized: false,
+          isMinimized: false,
+          isFocused: false
+        }
       ],
-      nextZIndex: 3,
+      nextZIndex: 3
     })
 
     await renderDock()
@@ -123,10 +156,34 @@ describe('Dock Component', () => {
 
     useWindowStore.setState({
       windows: [
-        { id: 'w1', appId: 'k8s', title: 'K8s 1', x: 100, y: 100, width: 800, height: 600, zIndex: 1, isMaximized: false, isMinimized: false, isFocused: true },
-        { id: 'w2', appId: 'k8s', title: 'K8s 2', x: 150, y: 150, width: 800, height: 600, zIndex: 2, isMaximized: false, isMinimized: true, isFocused: false },
+        {
+          id: 'w1',
+          appId: 'k8s',
+          title: 'K8s 1',
+          x: 100,
+          y: 100,
+          width: 800,
+          height: 600,
+          zIndex: 1,
+          isMaximized: false,
+          isMinimized: false,
+          isFocused: true
+        },
+        {
+          id: 'w2',
+          appId: 'k8s',
+          title: 'K8s 2',
+          x: 150,
+          y: 150,
+          width: 800,
+          height: 600,
+          zIndex: 2,
+          isMaximized: false,
+          isMinimized: true,
+          isFocused: false
+        }
       ],
-      nextZIndex: 3,
+      nextZIndex: 3
     })
 
     await renderDock()
@@ -142,9 +199,21 @@ describe('Dock Component', () => {
 
     useWindowStore.setState({
       windows: [
-        { id: 'w1', appId: 'k8s', title: 'Minimized K8s', x: 100, y: 100, width: 800, height: 600, zIndex: 1, isMaximized: false, isMinimized: true, isFocused: false },
+        {
+          id: 'w1',
+          appId: 'k8s',
+          title: 'Minimized K8s',
+          x: 100,
+          y: 100,
+          width: 800,
+          height: 600,
+          zIndex: 1,
+          isMaximized: false,
+          isMinimized: true,
+          isFocused: false
+        }
       ],
-      nextZIndex: 2,
+      nextZIndex: 2
     })
 
     await renderDock()
@@ -177,7 +246,7 @@ describe('Dock Position Store', () => {
   beforeEach(() => {
     useDockPositionStore.setState({
       iconRects: new Map(),
-      thumbnailAreaRect: null,
+      thumbnailAreaRect: null
     })
   })
 
@@ -197,6 +266,11 @@ describe('Dock Position Store', () => {
   it('should fall back to thumbnail area rect', () => {
     const store = useDockPositionStore.getState()
     store.setThumbnailAreaRect({ x: 200, y: 500, width: 100, height: 48 })
-    expect(useDockPositionStore.getState().getTargetRect('unknown-app')).toEqual({ x: 200, y: 500, width: 100, height: 48 })
+    expect(useDockPositionStore.getState().getTargetRect('unknown-app')).toEqual({
+      x: 200,
+      y: 500,
+      width: 100,
+      height: 48
+    })
   })
 })

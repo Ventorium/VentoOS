@@ -11,7 +11,7 @@ import { useMenuStore } from './menu-store'
 const EMPTY_MENUS: AppMenuGroup[] = []
 
 const selectAppMenus = (appId: string | null) => (state: { menus: Map<string, AppMenuGroup[]> }) =>
-  appId ? state.menus.get(appId) ?? EMPTY_MENUS : EMPTY_MENUS
+  appId ? (state.menus.get(appId) ?? EMPTY_MENUS) : EMPTY_MENUS
 
 /** Menus registered for a specific app */
 export function useAppMenus(appId: string | null): AppMenuGroup[] {

@@ -12,6 +12,35 @@ pub enum VfsSourceKind {
     WebDav,
 }
 
+impl VfsSourceKind {
+    /// Serialize as a lowercase string for DB storage (matches serde rename_all).
+    pub fn as_db_str(self) -> &'static str {
+        match self {
+            VfsSourceKind::Local => "local",
+            VfsSourceKind::Sftp => "sftp",
+            VfsSourceKind::Ftp => "ftp",
+            VfsSourceKind::Smb => "smb",
+            VfsSourceKind::S3 => "s3",
+            VfsSourceKind::WebDav => "webdav",
+        }
+    }
+}
+
+impl std::str::FromStr for VfsSourceKind {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "local" => Ok(VfsSourceKind::Local),
+            "sftp" => Ok(VfsSourceKind::Sftp),
+            "ftp" => Ok(VfsSourceKind::Ftp),
+            "smb" => Ok(VfsSourceKind::Smb),
+            "s3" => Ok(VfsSourceKind::S3),
+            "webdav" => Ok(VfsSourceKind::WebDav),
+            other => Err(format!("Unknown VFS kind: {other}")),
+        }
+    }
+}
+
 /// Settings for the built-in WebDAV server that exposes mounts to external clients.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebDavServerSettings {

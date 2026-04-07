@@ -100,10 +100,7 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar */}
-      <div
-        className="flex items-center h-8 flex-shrink-0 overflow-x-auto"
-        style={{ borderBottom: '1px solid #333' }}
-      >
+      <div className="flex items-center h-8 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid #333' }}>
         {tabs.map(tab => {
           const isActive = tab.id === activeTab
           const isEditing = editingRef.current === tab.id

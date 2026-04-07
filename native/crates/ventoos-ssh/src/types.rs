@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::types::Id;
+use ventoos_core::types::Id;
 
 /// SSH server definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,7 +188,7 @@ pub enum WebShellTarget {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::new_id;
+    use ventoos_core::types::new_id;
 
     #[test]
     fn test_ssh_server_serialization() {

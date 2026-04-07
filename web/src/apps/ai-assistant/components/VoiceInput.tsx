@@ -68,7 +68,7 @@ export default function VoiceInput({ onTranscript, disabled }: VoiceInputProps) 
       className="flex items-center justify-center w-7 h-7 rounded-lg border-none cursor-pointer"
       style={{
         background: isListening ? 'rgba(255,59,48,0.15)' : 'transparent',
-        color: isListening ? '#ff3b30' : 'var(--vos-text-tertiary)',
+        color: isListening ? '#ff3b30' : 'var(--vos-text-tertiary)'
       }}
       onClick={toggleListening}
       disabled={disabled}

@@ -231,7 +231,7 @@ async fn test_protected_route_without_token_returns_401() {
 
     // Try to access protected route without token
     let req = Request::builder()
-        .uri("/api/connections")
+        .uri("/api/tasks")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
@@ -243,7 +243,7 @@ async fn test_protected_route_with_valid_token() {
     let app = build_app();
     let token = setup_auth(&app).await;
 
-    let req = authed_request(Method::GET, "/api/connections", &token);
+    let req = authed_request(Method::GET, "/api/tasks", &token);
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -259,7 +259,7 @@ async fn test_auth_logout_invalidates_token() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     // Token should now be invalid
-    let req = authed_request(Method::GET, "/api/connections", &token);
+    let req = authed_request(Method::GET, "/api/tasks", &token);
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
@@ -286,7 +286,7 @@ async fn test_auth_change_password_valid() {
     assert_eq!(json["success"], true);
 
     // Old token should be invalidated
-    let req = authed_request(Method::GET, "/api/connections", &_token);
+    let req = authed_request(Method::GET, "/api/tasks", &_token);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 
@@ -317,202 +317,6 @@ async fn test_auth_change_password_wrong_current() {
 
     let json = body_json(resp).await;
     assert_eq!(json["success"], false);
-}
-
-// ===========================================================================
-//  CONNECTIONS
-// ===========================================================================
-
-#[tokio::test]
-async fn test_connections_list_empty() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    let req = authed_request(Method::GET, "/api/connections", &token);
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let json = body_json(resp).await;
-    assert_eq!(json["success"], true);
-    assert_eq!(json["data"], json!([]));
-}
-
-#[tokio::test]
-async fn test_connections_create() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    let body = json!({
-        "name": "My PostgreSQL",
-        "connection_type": "postgre_sql",
-        "host": "localhost",
-        "port": 5432,
-        "username": "admin",
-        "database": "mydb"
-    });
-    let req = authed_json_request(Method::POST, "/api/connections", &token, body);
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::CREATED);
-
-    let json = body_json(resp).await;
-    assert_eq!(json["success"], true);
-    assert_eq!(json["data"]["name"], "My PostgreSQL");
-    assert!(json["data"]["id"].as_str().is_some());
-}
-
-#[tokio::test]
-async fn test_connections_get_by_id() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    // Create
-    let body = json!({
-        "name": "Test Conn",
-        "connection_type": "redis",
-        "host": "redis.local",
-        "port": 6379
-    });
-    let req = authed_json_request(Method::POST, "/api/connections", &token, body);
-    let resp = app.clone().oneshot(req).await.unwrap();
-    let json = body_json(resp).await;
-    let id = json["data"]["id"].as_str().unwrap();
-
-    // Get by ID
-    let req = authed_request(Method::GET, &format!("/api/connections/{id}"), &token);
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let json = body_json(resp).await;
-    assert_eq!(json["data"]["name"], "Test Conn");
-}
-
-#[tokio::test]
-async fn test_connections_update() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    // Create
-    let body = json!({
-        "name": "Before",
-        "connection_type": "ssh",
-        "host": "host1"
-    });
-    let req = authed_json_request(Method::POST, "/api/connections", &token, body);
-    let resp = app.clone().oneshot(req).await.unwrap();
-    let json = body_json(resp).await;
-    let id = json["data"]["id"].as_str().unwrap();
-
-    // Update
-    let update = json!({"name": "After", "host": "host2"});
-    let req = authed_json_request(
-        Method::PUT,
-        &format!("/api/connections/{id}"),
-        &token,
-        update,
-    );
-    let resp = app.clone().oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let json = body_json(resp).await;
-    assert_eq!(json["data"]["name"], "After");
-}
-
-#[tokio::test]
-async fn test_connections_delete() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    // Create
-    let body = json!({"name": "ToDelete", "connection_type": "my_sql", "host": "localhost"});
-    let req = authed_json_request(Method::POST, "/api/connections", &token, body);
-    let resp = app.clone().oneshot(req).await.unwrap();
-    let json = body_json(resp).await;
-    let id = json["data"]["id"].as_str().unwrap();
-
-    // Delete
-    let req = authed_request(Method::DELETE, &format!("/api/connections/{id}"), &token);
-    let resp = app.clone().oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let json = body_json(resp).await;
-    assert_eq!(json["data"]["deleted"], true);
-}
-
-#[tokio::test]
-async fn test_connections_get_deleted_returns_404() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    // Create then delete
-    let body = json!({"name": "Gone", "connection_type": "redis"});
-    let req = authed_json_request(Method::POST, "/api/connections", &token, body);
-    let resp = app.clone().oneshot(req).await.unwrap();
-    let json = body_json(resp).await;
-    let id = json["data"]["id"].as_str().unwrap();
-
-    let req = authed_request(Method::DELETE, &format!("/api/connections/{id}"), &token);
-    app.clone().oneshot(req).await.unwrap();
-
-    // Get deleted
-    let req = authed_request(Method::GET, &format!("/api/connections/{id}"), &token);
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn test_connections_test() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    // Create
-    let body = json!({
-        "name": "TestConn",
-        "connection_type": "postgre_sql",
-        "host": "localhost",
-        "port": 5432
-    });
-    let req = authed_json_request(Method::POST, "/api/connections", &token, body);
-    let resp = app.clone().oneshot(req).await.unwrap();
-    let json = body_json(resp).await;
-    let id = json["data"]["id"].as_str().unwrap();
-
-    // Test connection
-    let req = authed_request(Method::POST, &format!("/api/connections/{id}/test"), &token);
-    let resp = app.oneshot(req).await.unwrap();
-    // Should return some result (either success or failure, but not 404)
-    let json = body_json(resp).await;
-    assert_eq!(json["success"], true);
-}
-
-#[tokio::test]
-async fn test_connections_different_types() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    let types = vec![
-        ("pg", "postgre_sql"),
-        ("my", "my_sql"),
-        ("rd", "redis"),
-        ("k8s", "kubernetes"),
-        ("ssh", "ssh"),
-    ];
-
-    for (name, conn_type) in &types {
-        let body = json!({
-            "name": name,
-            "connection_type": conn_type,
-        });
-        let req = authed_json_request(Method::POST, "/api/connections", &token, body);
-        let resp = app.clone().oneshot(req).await.unwrap();
-        assert_eq!(resp.status(), StatusCode::CREATED, "failed for type {conn_type}");
-    }
-
-    // List all
-    let req = authed_request(Method::GET, "/api/connections", &token);
-    let resp = app.oneshot(req).await.unwrap();
-    let json = body_json(resp).await;
-    let list = json["data"].as_array().unwrap();
-    assert_eq!(list.len(), types.len());
 }
 
 // ===========================================================================
@@ -819,7 +623,7 @@ async fn test_notifications_list_empty() {
 }
 
 // ===========================================================================
-//  SSH SERVERS
+//  SSH SERVERS (served via SshPlugin)
 // ===========================================================================
 
 #[tokio::test]
@@ -940,6 +744,17 @@ async fn test_ssh_servers_delete() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
+#[tokio::test]
+async fn test_ssh_server_get_nonexistent() {
+    let app = build_app();
+    let token = setup_auth(&app).await;
+
+    let fake_id = "00000000-0000-0000-0000-000000000099";
+    let req = authed_request(Method::GET, &format!("/api/ssh/servers/{fake_id}"), &token);
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
 // ===========================================================================
 //  PROCESSES
 // ===========================================================================
@@ -950,6 +765,38 @@ async fn test_processes_list_empty() {
     let token = setup_auth(&app).await;
 
     let req = authed_request(Method::GET, "/api/processes", &token);
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let json = body_json(resp).await;
+    assert_eq!(json["success"], true);
+    assert_eq!(json["data"], json!([]));
+}
+
+// ===========================================================================
+//  PORT MAPPINGS & SERVICE EXPOSURES (served via SshPlugin)
+// ===========================================================================
+
+#[tokio::test]
+async fn test_port_mappings_list_empty() {
+    let app = build_app();
+    let token = setup_auth(&app).await;
+
+    let req = authed_request(Method::GET, "/api/port-mappings", &token);
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let json = body_json(resp).await;
+    assert_eq!(json["success"], true);
+    assert_eq!(json["data"], json!([]));
+}
+
+#[tokio::test]
+async fn test_service_exposures_list_empty() {
+    let app = build_app();
+    let token = setup_auth(&app).await;
+
+    let req = authed_request(Method::GET, "/api/service-exposures", &token);
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -998,7 +845,7 @@ async fn test_full_auth_flow() {
     let token = json["data"]["token"].as_str().unwrap().to_string();
 
     // 4. Access protected API
-    let req = authed_request(Method::GET, "/api/connections", &token);
+    let req = authed_request(Method::GET, "/api/tasks", &token);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -1008,68 +855,69 @@ async fn test_full_auth_flow() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     // 6. Verify token is now invalid
-    let req = authed_request(Method::GET, "/api/connections", &token);
+    let req = authed_request(Method::GET, "/api/tasks", &token);
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
-async fn test_full_connection_lifecycle() {
+async fn test_full_ssh_server_lifecycle() {
     let app = build_app();
     let token = setup_auth(&app).await;
 
     // Create
     let body = json!({
-        "name": "Lifecycle DB",
-        "connection_type": "postgre_sql",
-        "host": "db.local",
-        "port": 5432
+        "name": "Lifecycle Server",
+        "host": "ssh.prod.local",
+        "port": 22,
+        "username": "deploy",
+        "auth_method": {"type": "password"}
     });
-    let req = authed_json_request(Method::POST, "/api/connections", &token, body);
+    let req = authed_json_request(Method::POST, "/api/ssh/servers", &token, body);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
     let json = body_json(resp).await;
     let id = json["data"]["id"].as_str().unwrap().to_string();
 
     // Read
-    let req = authed_request(Method::GET, &format!("/api/connections/{id}"), &token);
+    let req = authed_request(Method::GET, &format!("/api/ssh/servers/{id}"), &token);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let json = body_json(resp).await;
-    assert_eq!(json["data"]["name"], "Lifecycle DB");
+    assert_eq!(json["data"]["name"], "Lifecycle Server");
 
     // Update
-    let update = json!({"name": "Updated DB", "port": 5433});
+    let update = json!({"name": "Updated Server", "port": 2222});
     let req = authed_json_request(
         Method::PUT,
-        &format!("/api/connections/{id}"),
+        &format!("/api/ssh/servers/{id}"),
         &token,
         update,
     );
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let json = body_json(resp).await;
-    assert_eq!(json["data"]["name"], "Updated DB");
+    assert_eq!(json["data"]["name"], "Updated Server");
 
     // Verify in list
-    let req = authed_request(Method::GET, "/api/connections", &token);
+    let req = authed_request(Method::GET, "/api/ssh/servers", &token);
     let resp = app.clone().oneshot(req).await.unwrap();
     let json = body_json(resp).await;
-    let conns = json["data"].as_array().unwrap();
-    assert_eq!(conns.len(), 1);
+    let servers = json["data"].as_array().unwrap();
+    assert_eq!(servers.len(), 1);
 
     // Delete
-    let req = authed_request(Method::DELETE, &format!("/api/connections/{id}"), &token);
+    let req = authed_request(Method::DELETE, &format!("/api/ssh/servers/{id}"), &token);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
     // Verify deleted
-    let req = authed_request(Method::GET, &format!("/api/connections/{id}"), &token);
+    let req = authed_request(Method::GET, &format!("/api/ssh/servers/{id}"), &token);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 
     // Verify empty list
-    let req = authed_request(Method::GET, "/api/connections", &token);
+    let req = authed_request(Method::GET, "/api/ssh/servers", &token);
     let resp = app.oneshot(req).await.unwrap();
     let json = body_json(resp).await;
     assert_eq!(json["data"], json!([]));
@@ -1117,22 +965,24 @@ async fn test_full_task_lifecycle() {
 }
 
 #[tokio::test]
-async fn test_multiple_concurrent_requests() {
+async fn test_multiple_concurrent_ssh_server_creates() {
     let app = build_app();
     let token = setup_auth(&app).await;
 
-    // Fire multiple connection creations concurrently
+    // Fire multiple SSH server creations concurrently
     let mut handles = Vec::new();
     for i in 0..5 {
         let app_clone = app.clone();
         let token_clone = token.clone();
         let handle = tokio::spawn(async move {
             let body = json!({
-                "name": format!("conn-{i}"),
-                "connection_type": "redis",
-                "host": format!("redis-{i}.local"),
+                "name": format!("server-{i}"),
+                "host": format!("ssh-{i}.local"),
+                "port": 22,
+                "username": "root",
+                "auth_method": {"type": "password"}
             });
-            let req = authed_json_request(Method::POST, "/api/connections", &token_clone, body);
+            let req = authed_json_request(Method::POST, "/api/ssh/servers", &token_clone, body);
             let resp = app_clone.oneshot(req).await.unwrap();
             assert_eq!(resp.status(), StatusCode::CREATED);
         });
@@ -1144,11 +994,11 @@ async fn test_multiple_concurrent_requests() {
     }
 
     // Verify all created
-    let req = authed_request(Method::GET, "/api/connections", &token);
+    let req = authed_request(Method::GET, "/api/ssh/servers", &token);
     let resp = app.oneshot(req).await.unwrap();
     let json = body_json(resp).await;
-    let conns = json["data"].as_array().unwrap();
-    assert_eq!(conns.len(), 5);
+    let servers = json["data"].as_array().unwrap();
+    assert_eq!(servers.len(), 5);
 }
 
 // ===========================================================================
@@ -1200,31 +1050,9 @@ async fn test_protected_route_with_invalid_token() {
         .unwrap();
     app.clone().oneshot(req).await.unwrap();
 
-    let req = authed_request(Method::GET, "/api/connections", "invalid-token-value");
+    let req = authed_request(Method::GET, "/api/tasks", "invalid-token-value");
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
-}
-
-#[tokio::test]
-async fn test_connection_get_nonexistent_id() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    let fake_id = "00000000-0000-0000-0000-000000000099";
-    let req = authed_request(Method::GET, &format!("/api/connections/{fake_id}"), &token);
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn test_connection_delete_nonexistent_id() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    let fake_id = "00000000-0000-0000-0000-000000000099";
-    let req = authed_request(Method::DELETE, &format!("/api/connections/{fake_id}"), &token);
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -1239,23 +1067,12 @@ async fn test_storage_get_nonexistent_key() {
 }
 
 #[tokio::test]
-async fn test_ssh_server_get_nonexistent() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    let fake_id = "00000000-0000-0000-0000-000000000099";
-    let req = authed_request(Method::GET, &format!("/api/ssh/servers/{fake_id}"), &token);
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
 async fn test_auth_before_setup_allows_protected_routes() {
     // Before any password is set, auth middleware skips authentication
     let app = build_app();
 
     let req = Request::builder()
-        .uri("/api/connections")
+        .uri("/api/tasks")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
@@ -1274,34 +1091,6 @@ async fn test_health_check_has_version() {
     let resp = app.oneshot(req).await.unwrap();
     let json = body_json(resp).await;
     assert!(json["data"]["version"].is_string());
-}
-
-#[tokio::test]
-async fn test_port_mappings_list_empty() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    let req = authed_request(Method::GET, "/api/port-mappings", &token);
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let json = body_json(resp).await;
-    assert_eq!(json["success"], true);
-    assert_eq!(json["data"], json!([]));
-}
-
-#[tokio::test]
-async fn test_service_exposures_list_empty() {
-    let app = build_app();
-    let token = setup_auth(&app).await;
-
-    let req = authed_request(Method::GET, "/api/service-exposures", &token);
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let json = body_json(resp).await;
-    assert_eq!(json["success"], true);
-    assert_eq!(json["data"], json!([]));
 }
 
 #[tokio::test]

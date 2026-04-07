@@ -1,8 +1,8 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import TopBar from '@/shell/TopBar'
-import LoginScreen from '@/shell/LoginScreen'
 import { useAuthStore } from '@/services/auth'
+import LoginScreen from '@/shell/LoginScreen'
+import TopBar from '@/shell/TopBar'
 
 describe('branding surfaces', () => {
   beforeEach(() => {

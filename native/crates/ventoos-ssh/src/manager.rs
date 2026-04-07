@@ -3,13 +3,14 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use tokio::sync::RwLock;
-use ventoos_core::ssh::{
+use ventoos_core::types::{Id, new_id};
+use ventoos_vfs::sftp::{SshAuth, SshConnInfo, SshInfoProvider};
+
+use crate::types::{
     CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest, PortMapping,
     PortMappingStatus, ServiceExposure, ServiceExposureStatus, SshAuthMethod, SshServer,
     SshServerStatus, UpdateSshServerRequest,
 };
-use ventoos_core::types::{Id, new_id};
-use ventoos_vfs::sftp::{SshAuth, SshConnInfo, SshInfoProvider};
 
 /// Stored credential for an SSH server.
 #[derive(Debug, Clone)]
@@ -349,7 +350,7 @@ pub struct SshServerTestResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ventoos_core::ssh::{ServiceSourceType, SshAuthMethod};
+    use crate::types::{ServiceSourceType, SshAuthMethod};
 
     #[tokio::test]
     async fn test_create_and_list_servers() {

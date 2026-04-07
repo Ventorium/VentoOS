@@ -1,6 +1,6 @@
+import copyToClipboard from 'copy-to-clipboard'
 import { Check, Copy } from 'lucide-react'
 import { useCallback, useState } from 'react'
-import copyToClipboard from 'copy-to-clipboard'
 
 interface CodeBlockProps {
   children: string
@@ -54,7 +54,7 @@ export default function CodeBlock({ children, language, showLineNumbers = true }
                     minWidth: 28,
                     color: 'var(--vos-text-tertiary)',
                     borderRight: '0.5px solid var(--vos-border-subtle)',
-                    opacity: 0.5,
+                    opacity: 0.5
                   }}
                 >
                   {i + 1}

@@ -15,7 +15,7 @@ const RISK_COLORS: Record<string, string> = {
   low: 'var(--vos-text-secondary)',
   medium: '#f5a623',
   high: '#ff3b30',
-  critical: '#ff3b30',
+  critical: '#ff3b30'
 }
 
 export default function ConfirmDialog({
@@ -25,7 +25,7 @@ export default function ConfirmDialog({
   riskLevel,
   onApprove,
   onDeny,
-  timeoutSecs = 30,
+  timeoutSecs = 30
 }: ConfirmDialogProps) {
   const [countdown, setCountdown] = useState(timeoutSecs)
   const [expanded, setExpanded] = useState(false)
@@ -115,7 +115,7 @@ export default function ConfirmDialog({
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-all',
               maxHeight: 200,
-              overflow: 'auto',
+              overflow: 'auto'
             }}
           >
             {parsedArgs}
@@ -143,7 +143,7 @@ export default function ConfirmDialog({
             style={{
               background: 'transparent',
               color: 'var(--vos-text-secondary)',
-              border: '0.5px solid var(--vos-border-subtle)',
+              border: '0.5px solid var(--vos-border-subtle)'
             }}
             onClick={handleDeny}
           >

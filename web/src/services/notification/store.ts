@@ -54,7 +54,7 @@ let _notifCounter = 0
 const EMPTY_FILTER: NotificationFilter = {
   levels: [],
   sources: [],
-  dateRange: null,
+  dateRange: null
 }
 
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
@@ -132,13 +132,10 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   getFilteredNotifications() {
     const { notifications, filter } = get()
     return filterNotifications(notifications, filter)
-  },
+  }
 }))
 
-export function filterNotifications(
-  notifications: NotificationItem[],
-  filter: NotificationFilter
-): NotificationItem[] {
+export function filterNotifications(notifications: NotificationItem[], filter: NotificationFilter): NotificationItem[] {
   return notifications.filter(n => {
     if (filter.levels.length > 0 && !filter.levels.includes(n.level)) return false
     if (filter.sources.length > 0 && (!n.source || !filter.sources.includes(n.source))) return false

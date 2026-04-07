@@ -1,13 +1,11 @@
 use chrono::Utc;
 use serde_json::json;
 use ventoos_core::auth::*;
-use ventoos_core::connection::*;
 use ventoos_core::error::*;
 use ventoos_core::notification::*;
 use ventoos_core::process::*;
 use ventoos_core::resource::*;
 use ventoos_core::session::*;
-use ventoos_core::ssh::*;
 use ventoos_core::task::*;
 use ventoos_core::types::*;
 use ventoos_core::window::*;
@@ -69,285 +67,6 @@ fn auth_login_request_empty_password() {
     let json = serde_json::to_string(&req).unwrap();
     let de: LoginRequest = serde_json::from_str(&json).unwrap();
     assert!(de.password.is_empty());
-}
-
-// ─── Connection types ───────────────────────────────────────────────
-
-#[test]
-fn connection_type_all_variants_roundtrip() {
-    let variants = [
-        ConnectionType::Kubernetes,
-        ConnectionType::Teleport,
-        ConnectionType::PostgreSql,
-        ConnectionType::MySql,
-        ConnectionType::Sqlite,
-        ConnectionType::Redis,
-        ConnectionType::Ssh,
-        ConnectionType::Sftp,
-        ConnectionType::Ftp,
-        ConnectionType::Smb,
-        ConnectionType::S3,
-    ];
-    for variant in &variants {
-        let json = serde_json::to_string(variant).unwrap();
-        let de: ConnectionType = serde_json::from_str(&json).unwrap();
-        assert_eq!(&de, variant);
-    }
-}
-
-#[test]
-fn connection_type_snake_case_serialization() {
-    assert_eq!(
-        serde_json::to_string(&ConnectionType::PostgreSql).unwrap(),
-        "\"postgre_sql\""
-    );
-    assert_eq!(
-        serde_json::to_string(&ConnectionType::MySql).unwrap(),
-        "\"my_sql\""
-    );
-    assert_eq!(
-        serde_json::to_string(&ConnectionType::S3).unwrap(),
-        "\"s3\""
-    );
-    assert_eq!(
-        serde_json::to_string(&ConnectionType::Kubernetes).unwrap(),
-        "\"kubernetes\""
-    );
-}
-
-#[test]
-fn connection_status_all_variants_roundtrip() {
-    let variants = [
-        ConnectionStatus::Draft,
-        ConnectionStatus::Testing,
-        ConnectionStatus::Available,
-        ConnectionStatus::Expired,
-        ConnectionStatus::Reconnecting,
-        ConnectionStatus::AuthFailed,
-        ConnectionStatus::NetworkError,
-        ConnectionStatus::PermissionDenied,
-        ConnectionStatus::ResourceNotFound,
-    ];
-    for variant in &variants {
-        let json = serde_json::to_string(variant).unwrap();
-        let de: ConnectionStatus = serde_json::from_str(&json).unwrap();
-        assert_eq!(&de, variant);
-    }
-}
-
-#[test]
-fn connection_full_roundtrip_postgresql() {
-    let now = Utc::now();
-    let conn = Connection {
-        id: new_id(),
-        name: "prod-pg-primary".to_string(),
-        connection_type: ConnectionType::PostgreSql,
-        group: Some("production".to_string()),
-        tags: vec!["database".to_string(), "critical".to_string()],
-        favorite: true,
-        host: Some("pg-primary.internal.example.com".to_string()),
-        port: Some(5432),
-        username: Some("app_user".to_string()),
-        credential_id: Some(new_id()),
-        database: Some("ventoos_production".to_string()),
-        tunnel: TunnelType::None,
-        status: ConnectionStatus::Available,
-        is_temporary: false,
-        source_resource_id: None,
-        extra: json!({"ssl_mode": "require", "pool_size": 10}),
-        created_at: now,
-        updated_at: now,
-        last_used_at: Some(now),
-    };
-    let json = serde_json::to_string(&conn).unwrap();
-    let de: Connection = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.name, "prod-pg-primary");
-    assert_eq!(de.connection_type, ConnectionType::PostgreSql);
-    assert_eq!(de.port, Some(5432));
-    assert!(de.favorite);
-    assert_eq!(de.tags.len(), 2);
-}
-
-#[test]
-fn connection_with_ssh_tunnel() {
-    let tunnel = TunnelType::Ssh(SshTunnelConfig {
-        host: "bastion.example.com".to_string(),
-        port: 22,
-        username: "jump_user".to_string(),
-        credential_id: Some(new_id()),
-    });
-    let json = serde_json::to_string(&tunnel).unwrap();
-    let de: TunnelType = serde_json::from_str(&json).unwrap();
-    if let TunnelType::Ssh(cfg) = de {
-        assert_eq!(cfg.host, "bastion.example.com");
-        assert_eq!(cfg.port, 22);
-        assert_eq!(cfg.username, "jump_user");
-        assert!(cfg.credential_id.is_some());
-    } else {
-        panic!("expected TunnelType::Ssh");
-    }
-}
-
-#[test]
-fn connection_with_http_tunnel() {
-    let tunnel = TunnelType::Http(HttpTunnelConfig {
-        proxy_url: "http://proxy.corp.example.com:8080".to_string(),
-        credential_id: None,
-    });
-    let json = serde_json::to_string(&tunnel).unwrap();
-    let de: TunnelType = serde_json::from_str(&json).unwrap();
-    if let TunnelType::Http(cfg) = de {
-        assert_eq!(cfg.proxy_url, "http://proxy.corp.example.com:8080");
-        assert!(cfg.credential_id.is_none());
-    } else {
-        panic!("expected TunnelType::Http");
-    }
-}
-
-#[test]
-fn connection_kubernetes_type() {
-    let now = Utc::now();
-    let conn = Connection {
-        id: new_id(),
-        name: "k8s-staging".to_string(),
-        connection_type: ConnectionType::Kubernetes,
-        group: Some("infra".to_string()),
-        tags: vec!["k8s".to_string()],
-        favorite: false,
-        host: Some("https://k8s-api.staging.example.com:6443".to_string()),
-        port: Some(6443),
-        username: None,
-        credential_id: Some(new_id()),
-        database: None,
-        tunnel: TunnelType::None,
-        status: ConnectionStatus::Draft,
-        is_temporary: false,
-        source_resource_id: None,
-        extra: json!({"context": "staging-cluster", "namespace": "default"}),
-        created_at: now,
-        updated_at: now,
-        last_used_at: None,
-    };
-    let json = serde_json::to_string(&conn).unwrap();
-    let de: Connection = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.connection_type, ConnectionType::Kubernetes);
-    assert_eq!(de.status, ConnectionStatus::Draft);
-}
-
-#[test]
-fn connection_redis_s3_mysql_roundtrip() {
-    for (ct, host, port, db) in [
-        (
-            ConnectionType::Redis,
-            "redis-cluster.example.com",
-            6379u16,
-            None,
-        ),
-        (
-            ConnectionType::S3,
-            "s3.amazonaws.com",
-            443,
-            Some("my-bucket"),
-        ),
-        (
-            ConnectionType::MySql,
-            "mysql.internal.example.com",
-            3306,
-            Some("app_db"),
-        ),
-    ] {
-        let now = Utc::now();
-        let conn = Connection {
-            id: new_id(),
-            name: format!("test-{:?}", ct),
-            connection_type: ct.clone(),
-            group: None,
-            tags: vec![],
-            favorite: false,
-            host: Some(host.to_string()),
-            port: Some(port),
-            username: None,
-            credential_id: None,
-            database: db.map(String::from),
-            tunnel: TunnelType::None,
-            status: ConnectionStatus::Testing,
-            is_temporary: true,
-            source_resource_id: None,
-            extra: serde_json::Value::Null,
-            created_at: now,
-            updated_at: now,
-            last_used_at: None,
-        };
-        let json = serde_json::to_string(&conn).unwrap();
-        let de: Connection = serde_json::from_str(&json).unwrap();
-        assert_eq!(de.connection_type, ct);
-        assert_eq!(de.port, Some(port));
-    }
-}
-
-#[test]
-fn create_connection_request_minimal() {
-    let req = CreateConnectionRequest {
-        name: "temp-sqlite".to_string(),
-        connection_type: ConnectionType::Sqlite,
-        group: None,
-        tags: None,
-        host: None,
-        port: None,
-        username: None,
-        credential_id: None,
-        database: Some("/var/lib/ventoos/app.db".to_string()),
-        tunnel: None,
-        extra: None,
-    };
-    let json = serde_json::to_string(&req).unwrap();
-    let de: CreateConnectionRequest = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.name, "temp-sqlite");
-    assert_eq!(de.connection_type, ConnectionType::Sqlite);
-}
-
-#[test]
-fn update_connection_request_partial() {
-    let req = UpdateConnectionRequest {
-        name: Some("renamed-connection".to_string()),
-        group: None,
-        tags: Some(vec!["updated".to_string()]),
-        favorite: Some(true),
-        host: None,
-        port: None,
-        username: None,
-        credential_id: None,
-        database: None,
-        tunnel: None,
-        extra: None,
-    };
-    let json = serde_json::to_string(&req).unwrap();
-    let de: UpdateConnectionRequest = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.name.unwrap(), "renamed-connection");
-    assert_eq!(de.favorite, Some(true));
-}
-
-#[test]
-fn connection_test_result_success_and_failure() {
-    let success = ConnectionTestResult {
-        success: true,
-        message: "Connected to pg-primary.internal.example.com:5432".to_string(),
-        latency_ms: Some(12),
-    };
-    let json = serde_json::to_string(&success).unwrap();
-    let de: ConnectionTestResult = serde_json::from_str(&json).unwrap();
-    assert!(de.success);
-    assert_eq!(de.latency_ms, Some(12));
-
-    let failure = ConnectionTestResult {
-        success: false,
-        message: "Connection refused: host unreachable".to_string(),
-        latency_ms: None,
-    };
-    let json = serde_json::to_string(&failure).unwrap();
-    let de: ConnectionTestResult = serde_json::from_str(&json).unwrap();
-    assert!(!de.success);
-    assert!(de.latency_ms.is_none());
 }
 
 // ─── Error ──────────────────────────────────────────────────────────
@@ -625,215 +344,6 @@ fn session_full_roundtrip() {
     assert_eq!(de.metadata["refresh_count"], 3);
 }
 
-// ─── SSH ────────────────────────────────────────────────────────────
-
-#[test]
-fn ssh_auth_method_password() {
-    let method = SshAuthMethod::Password {
-        credential_id: Some(new_id()),
-    };
-    let json = serde_json::to_string(&method).unwrap();
-    assert!(json.contains("\"type\":\"password\""));
-    let de: SshAuthMethod = serde_json::from_str(&json).unwrap();
-    if let SshAuthMethod::Password { credential_id } = de {
-        assert!(credential_id.is_some());
-    } else {
-        panic!("expected Password variant");
-    }
-}
-
-#[test]
-fn ssh_auth_method_private_key() {
-    let method = SshAuthMethod::PrivateKey {
-        key_path: Some("/home/deploy/.ssh/id_ed25519".to_string()),
-        credential_id: Some(new_id()),
-        passphrase_credential_id: Some(new_id()),
-    };
-    let json = serde_json::to_string(&method).unwrap();
-    assert!(json.contains("\"type\":\"private_key\""));
-    let de: SshAuthMethod = serde_json::from_str(&json).unwrap();
-    if let SshAuthMethod::PrivateKey {
-        key_path,
-        credential_id,
-        passphrase_credential_id,
-    } = de
-    {
-        assert_eq!(key_path.unwrap(), "/home/deploy/.ssh/id_ed25519");
-        assert!(credential_id.is_some());
-        assert!(passphrase_credential_id.is_some());
-    } else {
-        panic!("expected PrivateKey variant");
-    }
-}
-
-#[test]
-fn ssh_server_status_all_variants() {
-    let variants = [
-        SshServerStatus::Disconnected,
-        SshServerStatus::Connecting,
-        SshServerStatus::Connected,
-        SshServerStatus::Error,
-    ];
-    for v in &variants {
-        let json = serde_json::to_string(v).unwrap();
-        let de: SshServerStatus = serde_json::from_str(&json).unwrap();
-        assert_eq!(&de, v);
-    }
-}
-
-#[test]
-fn ssh_server_full_roundtrip() {
-    let server = SshServer {
-        id: new_id(),
-        name: "production-bastion".to_string(),
-        host: "bastion.prod.example.com".to_string(),
-        port: 22,
-        username: "deploy".to_string(),
-        auth_method: SshAuthMethod::PrivateKey {
-            key_path: Some("/opt/keys/deploy_key".to_string()),
-            credential_id: None,
-            passphrase_credential_id: None,
-        },
-        group: Some("production".to_string()),
-        tags: vec!["bastion".to_string(), "jump-host".to_string()],
-        status: SshServerStatus::Connected,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-        last_connected_at: Some(Utc::now()),
-    };
-    let json = serde_json::to_string(&server).unwrap();
-    let de: SshServer = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.name, "production-bastion");
-    assert_eq!(de.host, "bastion.prod.example.com");
-    assert_eq!(de.port, 22);
-    assert_eq!(de.status, SshServerStatus::Connected);
-    assert_eq!(de.tags.len(), 2);
-}
-
-#[test]
-fn port_mapping_roundtrip() {
-    let pm = PortMapping {
-        id: new_id(),
-        name: "pg-tunnel".to_string(),
-        ssh_server_id: new_id(),
-        remote_host: "10.0.1.50".to_string(),
-        remote_port: 5432,
-        local_port: 15432,
-        status: PortMappingStatus::Active,
-        created_at: Utc::now(),
-    };
-    let json = serde_json::to_string(&pm).unwrap();
-    let de: PortMapping = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.name, "pg-tunnel");
-    assert_eq!(de.remote_port, 5432);
-    assert_eq!(de.local_port, 15432);
-    assert_eq!(de.status, PortMappingStatus::Active);
-}
-
-#[test]
-fn port_mapping_status_all_variants() {
-    let variants = [
-        PortMappingStatus::Stopped,
-        PortMappingStatus::Starting,
-        PortMappingStatus::Active,
-        PortMappingStatus::Error,
-    ];
-    for v in &variants {
-        let json = serde_json::to_string(v).unwrap();
-        let de: PortMappingStatus = serde_json::from_str(&json).unwrap();
-        assert_eq!(&de, v);
-    }
-}
-
-#[test]
-fn service_exposure_roundtrip() {
-    let se = ServiceExposure {
-        id: new_id(),
-        name: "grafana-public".to_string(),
-        source_type: ServiceSourceType::Ssh,
-        ssh_server_id: Some(new_id()),
-        source_host: "127.0.0.1".to_string(),
-        source_port: 3000,
-        public_port: 9090,
-        basic_auth_enabled: true,
-        basic_auth_username: Some("viewer".to_string()),
-        basic_auth_credential_id: Some(new_id()),
-        status: ServiceExposureStatus::Active,
-        created_at: Utc::now(),
-    };
-    let json = serde_json::to_string(&se).unwrap();
-    let de: ServiceExposure = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.name, "grafana-public");
-    assert_eq!(de.source_type, ServiceSourceType::Ssh);
-    assert_eq!(de.source_port, 3000);
-    assert_eq!(de.public_port, 9090);
-    assert!(de.basic_auth_enabled);
-}
-
-#[test]
-fn service_source_type_all_variants() {
-    let variants = [ServiceSourceType::Local, ServiceSourceType::Ssh];
-    for v in &variants {
-        let json = serde_json::to_string(v).unwrap();
-        let de: ServiceSourceType = serde_json::from_str(&json).unwrap();
-        assert_eq!(&de, v);
-    }
-}
-
-#[test]
-fn service_exposure_status_all_variants() {
-    let variants = [
-        ServiceExposureStatus::Stopped,
-        ServiceExposureStatus::Starting,
-        ServiceExposureStatus::Active,
-        ServiceExposureStatus::Error,
-    ];
-    for v in &variants {
-        let json = serde_json::to_string(v).unwrap();
-        let de: ServiceExposureStatus = serde_json::from_str(&json).unwrap();
-        assert_eq!(&de, v);
-    }
-}
-
-#[test]
-fn webshell_target_local() {
-    let target = WebShellTarget::Local;
-    let json = serde_json::to_string(&target).unwrap();
-    assert!(json.contains("\"type\":\"local\""));
-    let de: WebShellTarget = serde_json::from_str(&json).unwrap();
-    assert!(matches!(de, WebShellTarget::Local));
-}
-
-#[test]
-fn webshell_target_ssh() {
-    let server_id = new_id();
-    let target = WebShellTarget::Ssh { server_id };
-    let json = serde_json::to_string(&target).unwrap();
-    assert!(json.contains("\"type\":\"ssh\""));
-    let de: WebShellTarget = serde_json::from_str(&json).unwrap();
-    if let WebShellTarget::Ssh {
-        server_id: de_id, ..
-    } = de
-    {
-        assert_eq!(de_id, server_id);
-    } else {
-        panic!("expected Ssh variant");
-    }
-}
-
-#[test]
-fn webshell_request_roundtrip() {
-    let req = WebShellRequest {
-        target: WebShellTarget::Local,
-        cols: Some(120),
-        rows: Some(40),
-    };
-    let json = serde_json::to_string(&req).unwrap();
-    let de: WebShellRequest = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.cols, Some(120));
-    assert_eq!(de.rows, Some(40));
-}
-
 // ─── Task ───────────────────────────────────────────────────────────
 
 #[test]
@@ -1053,29 +563,27 @@ fn pagination_custom_values() {
 }
 
 #[test]
-fn paginated_response_with_connections() {
+fn paginated_response_with_tasks() {
     let now = Utc::now();
-    let items: Vec<Connection> = (0..3)
-        .map(|i| Connection {
+    let items: Vec<Task> = (0..3)
+        .map(|i| Task {
             id: new_id(),
-            name: format!("conn-{}", i),
-            connection_type: ConnectionType::Redis,
-            group: None,
-            tags: vec![],
-            favorite: false,
-            host: Some(format!("redis-{}.example.com", i)),
-            port: Some(6379),
-            username: None,
-            credential_id: None,
-            database: None,
-            tunnel: TunnelType::None,
-            status: ConnectionStatus::Available,
-            is_temporary: false,
-            source_resource_id: None,
-            extra: serde_json::Value::Null,
+            name: format!("task-{}", i),
+            description: None,
+            status: if i == 0 { TaskStatus::Success } else { TaskStatus::Running },
+            priority: TaskPriority::Normal,
+            risk_level: RiskLevel::None,
+            source: TaskSource::User,
+            progress: Some(0.5),
+            parent_task_id: None,
+            connection_id: None,
+            resource_id: None,
+            result: None,
+            error: None,
             created_at: now,
             updated_at: now,
-            last_used_at: None,
+            started_at: None,
+            completed_at: None,
         })
         .collect();
 
@@ -1086,13 +594,13 @@ fn paginated_response_with_connections() {
         page_size: 3,
     };
     let json = serde_json::to_string(&resp).unwrap();
-    let de: PaginatedResponse<Connection> = serde_json::from_str(&json).unwrap();
+    let de: PaginatedResponse<Task> = serde_json::from_str(&json).unwrap();
     assert_eq!(de.items.len(), 3);
     assert_eq!(de.total, 25);
     assert_eq!(de.page, 1);
     assert_eq!(de.page_size, 3);
-    assert_eq!(de.items[0].name, "conn-0");
-    assert_eq!(de.items[2].name, "conn-2");
+    assert_eq!(de.items[0].name, "task-0");
+    assert_eq!(de.items[2].name, "task-2");
 }
 
 #[test]
@@ -1268,79 +776,20 @@ fn ws_server_app_message_serialize() {
 // ─── Edge cases ─────────────────────────────────────────────────────
 
 #[test]
-fn edge_case_special_characters_in_names() {
-    let conn = CreateConnectionRequest {
+fn edge_case_special_characters_in_task_names() {
+    let task = CreateTaskRequest {
         name: "prod/pg (主数据库) — André's server <&>".to_string(),
-        connection_type: ConnectionType::PostgreSql,
-        group: Some("生产环境/数据库".to_string()),
-        tags: Some(vec![
-            "中文标签".to_string(),
-            "emoji-🚀".to_string(),
-            "back\\slash".to_string(),
-        ]),
-        host: Some("db.例え.jp".to_string()),
-        port: Some(5432),
-        username: Some("user@domain".to_string()),
-        credential_id: None,
-        database: Some("db-with-dashes_and_underscores".to_string()),
-        tunnel: None,
-        extra: Some(json!({"note": "contains \"quotes\" and\nnewlines"})),
+        description: Some("emoji-🚀 back\\slash".to_string()),
+        priority: Some(TaskPriority::High),
+        risk_level: Some(RiskLevel::Critical),
+        source: TaskSource::User,
+        parent_task_id: None,
+        connection_id: None,
+        resource_id: None,
     };
-    let json = serde_json::to_string(&conn).unwrap();
-    let de: CreateConnectionRequest = serde_json::from_str(&json).unwrap();
+    let json = serde_json::to_string(&task).unwrap();
+    let de: CreateTaskRequest = serde_json::from_str(&json).unwrap();
     assert_eq!(de.name, "prod/pg (主数据库) — André's server <&>");
-    assert_eq!(de.tags.unwrap()[1], "emoji-🚀");
-}
-
-#[test]
-fn edge_case_max_u16_port() {
-    let req = CreateConnectionRequest {
-        name: "max-port".to_string(),
-        connection_type: ConnectionType::Redis,
-        group: None,
-        tags: None,
-        host: Some("localhost".to_string()),
-        port: Some(u16::MAX),
-        username: None,
-        credential_id: None,
-        database: None,
-        tunnel: None,
-        extra: None,
-    };
-    let json = serde_json::to_string(&req).unwrap();
-    let de: CreateConnectionRequest = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.port, Some(u16::MAX));
-}
-
-#[test]
-fn edge_case_empty_tags_and_strings() {
-    let now = Utc::now();
-    let conn = Connection {
-        id: new_id(),
-        name: String::new(),
-        connection_type: ConnectionType::Ftp,
-        group: Some(String::new()),
-        tags: vec![],
-        favorite: false,
-        host: Some(String::new()),
-        port: Some(0),
-        username: Some(String::new()),
-        credential_id: None,
-        database: None,
-        tunnel: TunnelType::None,
-        status: ConnectionStatus::Draft,
-        is_temporary: false,
-        source_resource_id: None,
-        extra: serde_json::Value::Null,
-        created_at: now,
-        updated_at: now,
-        last_used_at: None,
-    };
-    let json = serde_json::to_string(&conn).unwrap();
-    let de: Connection = serde_json::from_str(&json).unwrap();
-    assert!(de.name.is_empty());
-    assert_eq!(de.port, Some(0));
-    assert!(de.tags.is_empty());
 }
 
 #[test]
@@ -1439,80 +888,4 @@ fn api_response_with_paginated_tasks() {
     assert_eq!(data.page, 3);
     assert_eq!(data.items[0].status, TaskStatus::Success);
     assert_eq!(data.items[1].status, TaskStatus::Failed);
-}
-
-#[test]
-fn create_ssh_server_request_roundtrip() {
-    let req = CreateSshServerRequest {
-        name: "staging-web-01".to_string(),
-        host: "10.20.30.40".to_string(),
-        port: Some(2222),
-        username: "admin".to_string(),
-        auth_method: SshAuthMethod::Password {
-            credential_id: None,
-        },
-        group: Some("staging".to_string()),
-        tags: Some(vec!["web".to_string(), "nginx".to_string()]),
-        password: Some("temp-password-for-creation".to_string()),
-        private_key: None,
-    };
-    let json = serde_json::to_string(&req).unwrap();
-    let de: CreateSshServerRequest = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.name, "staging-web-01");
-    assert_eq!(de.port, Some(2222));
-}
-
-#[test]
-fn update_ssh_server_request_partial() {
-    let req = UpdateSshServerRequest {
-        name: None,
-        host: Some("new-host.example.com".to_string()),
-        port: Some(22),
-        username: None,
-        auth_method: None,
-        group: None,
-        tags: None,
-        password: None,
-        private_key: None,
-    };
-    let json = serde_json::to_string(&req).unwrap();
-    let de: UpdateSshServerRequest = serde_json::from_str(&json).unwrap();
-    assert!(de.name.is_none());
-    assert_eq!(de.host.unwrap(), "new-host.example.com");
-}
-
-#[test]
-fn create_service_exposure_request_roundtrip() {
-    let req = CreateServiceExposureRequest {
-        name: "dev-api-expose".to_string(),
-        source_type: ServiceSourceType::Local,
-        ssh_server_id: None,
-        source_host: "127.0.0.1".to_string(),
-        source_port: 8080,
-        public_port: 18080,
-        basic_auth_enabled: false,
-        basic_auth_username: None,
-        basic_auth_password: None,
-    };
-    let json = serde_json::to_string(&req).unwrap();
-    let de: CreateServiceExposureRequest = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.name, "dev-api-expose");
-    assert_eq!(de.source_type, ServiceSourceType::Local);
-    assert!(!de.basic_auth_enabled);
-}
-
-#[test]
-fn create_port_mapping_request_roundtrip() {
-    let req = CreatePortMappingRequest {
-        name: "mysql-tunnel-staging".to_string(),
-        ssh_server_id: new_id(),
-        remote_host: "mysql.staging.internal".to_string(),
-        remote_port: 3306,
-        local_port: 13306,
-    };
-    let json = serde_json::to_string(&req).unwrap();
-    let de: CreatePortMappingRequest = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.name, "mysql-tunnel-staging");
-    assert_eq!(de.remote_port, 3306);
-    assert_eq!(de.local_port, 13306);
 }

@@ -28,10 +28,12 @@ async fn main() -> Result<()> {
     // Determine data directory
     let data_dir = dirs_data_dir();
     std::fs::create_dir_all(&data_dir)?;
-    let db_path = data_dir.join("system.db");
+    let system_dir = data_dir.join("system");
+    std::fs::create_dir_all(&system_dir)?;
+    let db_path = system_dir.join("system.db");
 
     // Initialize state
-    let state = AppState::new(&db_path, &data_dir)?;
+    let state = AppState::new(&db_path, &data_dir).await?;
     info!("Data directory: {}, database: {}", data_dir.display(), db_path.display());
 
     // Build router

@@ -15,13 +15,7 @@ import {
   Wrench
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  AgentConfig,
-  AgentProfile,
-  ChatSession,
-  ProviderConfig,
-  StreamEvent
-} from '@/infra/api'
+import type { AgentConfig, AgentProfile, ChatSession, ProviderConfig, StreamEvent } from '@/infra/api'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow, useAppStorage } from '@/kernel'
@@ -319,10 +313,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
 
   return (
     <div className="flex h-full">
-      <div
-        className="flex flex-col flex-shrink-0 overflow-auto"
-        style={{ width: 220, borderRight: panelBorder }}
-      >
+      <div className="flex flex-col flex-shrink-0 overflow-auto" style={{ width: 220, borderRight: panelBorder }}>
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-xs font-medium" style={{ color: 'var(--vos-text-tertiary)' }}>
             会话
@@ -417,9 +408,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
           </div>
         </div>
 
-        <div
-          className="flex-1 overflow-auto px-4 py-3"
-        >
+        <div className="flex-1 overflow-auto px-4 py-3">
           {messages.length === 0 && !streamingContent && (
             <div className="flex-1 flex items-center justify-center h-full">
               <div className="text-center max-w-[520px]">
@@ -500,7 +489,10 @@ export default function AIAssistantApp(_props: AppComponentProps) {
                   <Bot size={11} />
                   {activeProfile?.description ?? '请选择 Agent Profile'}
                 </span>
-                <span className="flex items-center gap-1 cursor-pointer hover:opacity-80" onClick={() => openWindow('settings', { appState: { category: 'ai' } })}>
+                <span
+                  className="flex items-center gap-1 cursor-pointer hover:opacity-80"
+                  onClick={() => openWindow('settings', { appState: { category: 'ai' } })}
+                >
                   <ChevronDown size={11} />
                   运行时默认值来自 Provider / Agent 设置
                 </span>

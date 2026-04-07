@@ -114,12 +114,11 @@ export default function Window({ win, children }: { win: WindowInstance; childre
     const checkBounds = () => {
       const vw = window.innerWidth
       const vh = window.innerHeight
-      const titleBarVisible = (
-        win.x < vw - 60 &&           // enough of left edge visible
-        win.x + win.width > 60 &&    // enough of right edge visible
-        win.y >= TOPBAR_H &&         // title bar not above topbar
-        win.y < vh - 20              // title bar not below bottom
-      )
+      const titleBarVisible =
+        win.x < vw - 60 && // enough of left edge visible
+        win.x + win.width > 60 && // enough of right edge visible
+        win.y >= TOPBAR_H && // title bar not above topbar
+        win.y < vh - 20 // title bar not below bottom
       if (!titleBarVisible) {
         const centeredX = Math.max(0, (vw - win.width) / 2)
         const centeredY = Math.max(TOPBAR_H, (vh - win.height) / 2)
@@ -305,24 +304,32 @@ export default function Window({ win, children }: { win: WindowInstance; childre
           scale: 0.1,
           x: targetCenterX - centerX,
           y: targetCenterY - centerY,
-          transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] },
+          transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] }
         })
       } else {
         controls.start({
-          opacity: 0, scale: 0.88, y: 40,
-          transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] },
+          opacity: 0,
+          scale: 0.88,
+          y: 40,
+          transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] }
         })
       }
     } else if (!win.isMinimized && wasMinimized) {
       // Restoring: animate from Dock back to position
       controls.start({
-        opacity: 1, scale: 1, x: 0, y: 0,
-        transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] },
+        opacity: 1,
+        scale: 1,
+        x: 0,
+        y: 0,
+        transition: { duration: 0.3, ease: [0.32, 0.72, 0, 1] }
       })
     } else if (!win.isMinimized) {
       controls.start({
-        opacity: 1, scale: 1, x: 0, y: 0,
-        transition: { duration: 0.22, ease: [0.32, 0.72, 0, 1] },
+        opacity: 1,
+        scale: 1,
+        x: 0,
+        y: 0,
+        transition: { duration: 0.22, ease: [0.32, 0.72, 0, 1] }
       })
     }
   }, [win.isMinimized, controls, dockTarget])
@@ -421,10 +428,7 @@ export default function Window({ win, children }: { win: WindowInstance; childre
             {children}
           </Suspense>
         ) : (
-          <div
-            className="vos-flex-center"
-            style={{ flex: 1, color: 'var(--vos-text-tertiary)', fontSize: 13 }}
-          >
+          <div className="vos-flex-center" style={{ flex: 1, color: 'var(--vos-text-tertiary)', fontSize: 13 }}>
             进程已暂停
           </div>
         )}

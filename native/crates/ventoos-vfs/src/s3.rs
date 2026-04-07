@@ -33,6 +33,8 @@ pub(crate) struct S3Config {
     pub region: String,
     /// Use path-style access (e.g., for `MinIO`).
     pub path_style: bool,
+    /// Whether to use TLS (false when endpoint scheme is http://).
+    pub use_tls: bool,
 }
 
 impl S3Config {
@@ -82,6 +84,7 @@ impl S3Config {
         let mut path_style = false;
         let mut endpoint_from_query: Option<String> = None;
         let mut port_from_query: Option<u16> = None;
+        let mut endpoint_is_http = false;
         for pair in query.split('&').filter(|s| !s.is_empty()) {
             if let Some((k, v)) = pair.split_once('=') {
                 let v = urlpercent_decode(v);
@@ -89,16 +92,20 @@ impl S3Config {
                     "region" => region = v,
                     "endpoint" => {
                         // Strip scheme, extract host and optional port
-                        let ep = v
-                            .strip_prefix("https://")
-                            .or_else(|| v.strip_prefix("http://"))
-                            .unwrap_or(&v);
+                        let (ep, is_http) = if let Some(s) = v.strip_prefix("http://") {
+                            (s.to_string(), true)
+                        } else if let Some(s) = v.strip_prefix("https://") {
+                            (s.to_string(), false)
+                        } else {
+                            (v.to_string(), false)
+                        };
                         let ep = ep.trim_end_matches('/');
                         let (ep_host, ep_port) = ep.split_once(':').unwrap_or((ep, ""));
                         if let Ok(p) = ep_port.parse::<u16>() {
                             port_from_query = Some(p);
                         }
                         endpoint_from_query = Some(ep_host.to_string());
+                        endpoint_is_http = is_http;
                     }
                     "path_style" if v == "true" || v == "1" => path_style = true,
                     _ => {}
@@ -115,18 +122,20 @@ impl S3Config {
         // • If an `endpoint` query param is provided AND bucket_prefix is empty,
         //   the URI is in the bucket-as-host format: s3://key:secret@bucket?endpoint=...
         // • Otherwise it's the classical format:    s3://key:secret@endpoint/bucket
-        let (endpoint, port, bucket) = if let Some(ep) = endpoint_from_query {
+        let (endpoint, port, bucket, use_tls) = if let Some(ep) = endpoint_from_query {
             if bucket_from_path.is_empty() {
                 // Rclone / R2-style: host == bucket, endpoint comes from query
-                let p = port_from_query.unwrap_or(443);
-                (ep, p, host.to_string())
+                let p = port_from_query.unwrap_or(if endpoint_is_http { 80 } else { 443 });
+                (ep, p, host.to_string(), !endpoint_is_http)
             } else {
                 // endpoint given explicitly but bucket is also in path — prefer path
                 let p = port_from_query.unwrap_or(port_from_host);
-                (ep, p, bucket_from_path.to_string())
+                (ep, p, bucket_from_path.to_string(), !endpoint_is_http)
             }
         } else {
-            (host.to_string(), port_from_host, bucket_from_path.to_string())
+            // No explicit endpoint — infer TLS from port (80 = plain HTTP)
+            let tls = port_from_host != 80;
+            (host.to_string(), port_from_host, bucket_from_path.to_string(), tls)
         };
 
         if bucket.is_empty() {
@@ -148,6 +157,7 @@ impl S3Config {
             prefix,
             region,
             path_style,
+            use_tls,
         })
     }
 
@@ -343,30 +353,30 @@ struct HttpResponse {
 
 /// Make a single HTTPS/HTTP request and return the status + body bytes.
 async fn https_request(
-    host: &str,
+    connect_host: &str,
+    http_host: &str,
     port: u16,
+    use_tls: bool,
     method: &str,
     path_query: &str,
     headers: &[(String, String)],
     body: &[u8],
 ) -> Result<HttpResponse, String> {
-    let tcp = TcpStream::connect(format!("{host}:{port}"))
+    let tcp = TcpStream::connect(format!("{connect_host}:{port}"))
         .await
-        .map_err(|e| format!("TCP connect {host}:{port}: {e}"))?;
-
-    let use_tls = port != 80;
+        .map_err(|e| format!("TCP connect {connect_host}:{port}: {e}"))?;
     let mut response_bytes = Vec::new();
 
     if use_tls {
         let connector = tls_connector();
-        let server_name = rustls::pki_types::ServerName::try_from(host.to_owned())
-            .map_err(|e| format!("Invalid TLS server name '{host}': {e}"))?;
+        let server_name = rustls::pki_types::ServerName::try_from(connect_host.to_owned())
+            .map_err(|e| format!("Invalid TLS server name '{connect_host}': {e}"))?;
         let mut tls = connector
             .connect(server_name, tcp)
             .await
-            .map_err(|e| format!("TLS handshake with {host}: {e}"))?;
+            .map_err(|e| format!("TLS handshake with {connect_host}: {e}"))?;
 
-        let req_bytes = build_http11_request(method, host, path_query, headers, body);
+        let req_bytes = build_http11_request(method, http_host, path_query, headers, body);
         tls.write_all(&req_bytes)
             .await
             .map_err(|e| format!("Write error: {e}"))?;
@@ -376,7 +386,7 @@ async fn https_request(
             .map_err(|e| format!("Read error: {e}"))?;
     } else {
         let mut stream = tcp;
-        let req_bytes = build_http11_request(method, host, path_query, headers, body);
+        let req_bytes = build_http11_request(method, http_host, path_query, headers, body);
         stream
             .write_all(&req_bytes)
             .await
@@ -502,6 +512,16 @@ fn xml_first(xml: &str, tag: &str) -> Option<String> {
 
 // ─── S3 operations ───────────────────────────────────────────────────────────
 
+/// Sort query string parameters alphabetically (required by AWS SigV4 canonical query).
+fn sort_query_params(query: &str) -> String {
+    if query.is_empty() {
+        return String::new();
+    }
+    let mut pairs: Vec<&str> = query.split('&').filter(|s| !s.is_empty()).collect();
+    pairs.sort_unstable();
+    pairs.join("&")
+}
+
 /// Current UTC datetime in AWS format "20240115T103000Z" and date "20240115".
 fn aws_datetime() -> (String, String) {
     let now = chrono::Utc::now();
@@ -530,17 +550,33 @@ impl S3Client {
         body: &[u8],
     ) -> Result<HttpResponse, String> {
         let (datetime, _) = aws_datetime();
-        let host = self.cfg.request_host();
+        let connect_host = self.cfg.request_host();
+        // SigV4 canonical host must include port for non-standard ports
+        let is_standard_port = (self.cfg.use_tls && self.cfg.port == 443)
+            || (!self.cfg.use_tls && self.cfg.port == 80);
+        let http_host = if is_standard_port {
+            connect_host.clone()
+        } else {
+            format!("{}:{}", connect_host, self.cfg.port)
+        };
         let path = self.cfg.base_path(key);
-        let path_query = if query.is_empty() {
+        // SigV4 canonical query string must be sorted alphabetically by key
+        let canonical_query = sort_query_params(query);
+        let path_query = if canonical_query.is_empty() {
             path.clone()
         } else {
-            format!("{path}?{query}")
+            format!("{path}?{canonical_query}")
         };
 
-        let auth_headers =
-            self.sig
-                .sign(&datetime, method, &host, &path, query, extra_headers, body);
+        let auth_headers = self.sig.sign(
+            &datetime,
+            method,
+            &http_host,
+            &path,
+            &canonical_query,
+            extra_headers,
+            body,
+        );
 
         let mut all_headers = auth_headers;
         for (k, v) in extra_headers {
@@ -548,8 +584,10 @@ impl S3Client {
         }
 
         https_request(
-            &host,
+            &connect_host,
+            &http_host,
             self.cfg.port,
+            self.cfg.use_tls,
             method,
             &path_query,
             &all_headers,

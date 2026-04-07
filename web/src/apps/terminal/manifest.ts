@@ -1,5 +1,5 @@
-import React from 'react'
 import { TerminalSquare } from 'lucide-react'
+import React from 'react'
 import type { AppManifest } from '@/kernel'
 
 function TerminalIcon() {

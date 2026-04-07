@@ -51,5 +51,5 @@ export const useDockPositionStore = create<DockPositionStore>((set, get) => ({
 
   getTargetRect(appId) {
     return get().iconRects.get(appId) ?? get().thumbnailAreaRect
-  },
+  }
 }))

@@ -2,7 +2,7 @@
 members = [
     "crates/ventoos-server",
     "crates/ventoos-core",
-    "crates/ventoos-connection",
+    "crates/ventoos-ssh",
     "crates/ventoos-k8s",
     "crates/ventoos-db",
     "crates/ventoos-redis",
@@ -80,7 +80,7 @@ mime_guess = "2"
 
 # Internal crates
 ventoos-core = { path = "crates/ventoos-core" }
-ventoos-connection = { path = "crates/ventoos-connection" }
+ventoos-ssh = { path = "crates/ventoos-ssh" }
 ventoos-k8s = { path = "crates/ventoos-k8s" }
 ventoos-db = { path = "crates/ventoos-db" }
 ventoos-redis = { path = "crates/ventoos-redis" }

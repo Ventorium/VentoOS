@@ -33,7 +33,10 @@ export function getAllApps(): AppManifest[] {
 /** Get all apps that declare a file association for a given extension */
 export function getAppsForFile(ext: string): AppManifest[] {
   const lower = ext.toLowerCase()
-  return useAppStore.getState().getAllApps().filter(a => a.fileAssociations?.includes(lower))
+  return useAppStore
+    .getState()
+    .getAllApps()
+    .filter(a => a.fileAssociations?.includes(lower))
 }
 
 // ─── Lazy component cache ──────────────────────────────────────────────────

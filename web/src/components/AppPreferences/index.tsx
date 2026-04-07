@@ -14,9 +14,9 @@
  *   </AppPreferencesSheet>
  */
 import { AnimatePresence, motion } from 'framer-motion'
+import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -41,18 +41,14 @@ export interface AppPreferencesProps {
 function PrefNavItem({
   category,
   isActive,
-  onClick,
+  onClick
 }: {
   category: PreferenceCategory
   isActive: boolean
   onClick: () => void
 }) {
   return (
-    <button
-      type="button"
-      className={`vos-settings-nav-item ${isActive ? 'active' : ''}`}
-      onClick={onClick}
-    >
+    <button type="button" className={`vos-settings-nav-item ${isActive ? 'active' : ''}`} onClick={onClick}>
       {category.icon && (
         <span style={{ width: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           {category.icon}
@@ -75,7 +71,7 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
         display: 'flex',
         height: '100%',
         background: 'var(--vos-bg-window)',
-        overflow: 'hidden',
+        overflow: 'hidden'
       }}
     >
       {/* Sidebar */}
@@ -87,7 +83,7 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
           display: 'flex',
           flexDirection: 'column',
           padding: '8px',
-          overflowY: 'auto',
+          overflowY: 'auto'
         }}
       >
         <div
@@ -97,19 +93,14 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
             color: 'var(--vos-text-tertiary)',
             textTransform: 'uppercase',
             letterSpacing: '0.06em',
-            padding: '4px 8px 8px',
+            padding: '4px 8px 8px'
           }}
         >
           {appName} 偏好设置
         </div>
 
         {categories.map(cat => (
-          <PrefNavItem
-            key={cat.id}
-            category={cat}
-            isActive={activeId === cat.id}
-            onClick={() => setActiveId(cat.id)}
-          />
+          <PrefNavItem key={cat.id} category={cat} isActive={activeId === cat.id} onClick={() => setActiveId(cat.id)} />
         ))}
       </div>
 
@@ -125,7 +116,7 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
               transition={{ duration: 0.15, ease: [0.32, 0.72, 0, 1] }}
               style={{
                 height: '100%',
-                overflowY: 'auto',
+                overflowY: 'auto'
               }}
             >
               {activeCategory.content}
@@ -140,13 +131,7 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
 // ─── PreferenceSection ────────────────────────────────────────────────────────
 
 /** Wraps a section of preference content with standard padding and title. */
-export function PreferenceSection({
-  title,
-  children,
-}: {
-  title?: string
-  children: ReactNode
-}) {
+export function PreferenceSection({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <div className="vos-settings-content">
       {title && <h2 className="vos-settings-section-title">{title}</h2>}
@@ -158,13 +143,7 @@ export function PreferenceSection({
 // ─── PreferenceGroup ─────────────────────────────────────────────────────────
 
 /** A labeled group within a preference section. */
-export function PreferenceGroup({
-  label,
-  children,
-}: {
-  label?: string
-  children: ReactNode
-}) {
+export function PreferenceGroup({ label, children }: { label?: string; children: ReactNode }) {
   return (
     <div className="vos-settings-group">
       {label && <label className="vos-settings-label">{label}</label>}
@@ -179,7 +158,7 @@ export function PreferenceGroup({
 export function PreferenceRow({
   label,
   description,
-  children,
+  children
 }: {
   label: string
   description?: string
@@ -208,7 +187,7 @@ export function PreferenceInput(props: React.InputHTMLAttributes<HTMLInputElemen
       className={`vos-input ${props.className ?? ''}`}
       style={{
         border: '0.5px solid var(--vos-border-subtle)',
-        ...props.style,
+        ...props.style
       }}
     />
   )
@@ -239,7 +218,9 @@ export function PreferenceSelect({
     >
       {placeholder && <option value="">{placeholder}</option>}
       {options.map(o => (
-        <option key={o.value} value={o.value}>{o.label}</option>
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
       ))}
     </select>
   )
@@ -251,7 +232,7 @@ export function PreferenceSelect({
 export function PreferenceToggle({
   checked,
   onChange,
-  label,
+  label
 }: {
   checked: boolean
   onChange: (v: boolean) => void
@@ -308,7 +289,7 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
               inset: 0,
               background: 'rgba(0,0,0,0.35)',
               backdropFilter: 'blur(4px)',
-              zIndex: 100,
+              zIndex: 100
             }}
             onClick={onClose}
           />
@@ -326,7 +307,7 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
               alignItems: 'center',
               justifyContent: 'center',
               zIndex: 101,
-              pointerEvents: 'none',
+              pointerEvents: 'none'
             }}
           >
             <div
@@ -344,7 +325,7 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
                 boxShadow: '0 24px 72px rgba(0,0,0,0.35), 0 6px 20px rgba(0,0,0,0.18)',
                 display: 'flex',
                 flexDirection: 'column',
-                pointerEvents: 'all',
+                pointerEvents: 'all'
               }}
             >
               {/* Mini title bar */}
@@ -356,7 +337,7 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
                   justifyContent: 'space-between',
                   padding: '0 12px',
                   borderBottom: '0.5px solid var(--vos-border-subtle)',
-                  flexShrink: 0,
+                  flexShrink: 0
                 }}
               >
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
@@ -370,7 +351,7 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
                     width: 22,
                     height: 22,
                     borderRadius: 6,
-                    color: 'var(--vos-text-tertiary)',
+                    color: 'var(--vos-text-tertiary)'
                   }}
                 >
                   <X size={13} />
@@ -400,6 +381,6 @@ export function useAppPreferences() {
     open,
     openPreferences: () => setOpen(true),
     closePreferences: () => setOpen(false),
-    togglePreferences: () => setOpen(v => !v),
+    togglePreferences: () => setOpen(v => !v)
   }
 }

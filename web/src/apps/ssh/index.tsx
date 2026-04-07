@@ -47,19 +47,17 @@ type TabId = 'servers' | 'port-mappings' | 'exposures'
 /* ─── Status Badge ─────────────────────────────────────────── */
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { color: string; icon: React.ReactNode }> = {
-    connected: { color: '#22c55e', icon: <CheckCircle2 size={11} /> },
-    active: { color: '#22c55e', icon: <CheckCircle2 size={11} /> },
-    connecting: { color: '#f59e0b', icon: <Loader2 size={11} className="vos-spin" /> },
-    starting: { color: '#f59e0b', icon: <Loader2 size={11} className="vos-spin" /> },
-    disconnected: { color: '#6b7280', icon: <Circle size={11} /> },
-    stopped: { color: '#6b7280', icon: <Circle size={11} /> },
-    error: { color: '#ef4444', icon: <AlertCircle size={11} /> }
+    connected: { color: 'var(--vos-accent-success)', icon: <CheckCircle2 size={11} /> },
+    active: { color: 'var(--vos-accent-success)', icon: <CheckCircle2 size={11} /> },
+    connecting: { color: 'var(--vos-accent-warning)', icon: <Loader2 size={11} className="vos-spin" /> },
+    starting: { color: 'var(--vos-accent-warning)', icon: <Loader2 size={11} className="vos-spin" /> },
+    disconnected: { color: 'var(--vos-text-tertiary)', icon: <Circle size={11} /> },
+    stopped: { color: 'var(--vos-text-tertiary)', icon: <Circle size={11} /> },
+    error: { color: 'var(--vos-accent-danger)', icon: <AlertCircle size={11} /> }
   }
   const s = map[status] ?? map.disconnected
   return (
-    <span
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: s.color, fontSize: 11, fontWeight: 500 }}
-    >
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-medium" style={{ color: s.color }}>
       {s.icon} {status}
     </span>
   )
@@ -121,8 +119,7 @@ function ServersTab() {
 
   function handleOpenShell(srv: SshServer) {
     const hasCredential =
-      srv.auth_method.type === 'private_key' ||
-      (srv.auth_method.type === 'password' && srv.auth_method.credential_id)
+      srv.auth_method.type === 'private_key' || (srv.auth_method.type === 'password' && srv.auth_method.credential_id)
     if (!hasCredential) {
       // Password auth with no stored password — prompt user
       setPasswordPrompt({ server: srv, pw: '' })
@@ -370,13 +367,17 @@ function ServersTab() {
                   autoFocus
                   placeholder="••••••••"
                   value={passwordPrompt.pw}
-                  onChange={e => setPasswordPrompt(prev => prev ? { ...prev, pw: e.target.value } : null)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSavePasswordAndOpen() }}
+                  onChange={e => setPasswordPrompt(prev => (prev ? { ...prev, pw: e.target.value } : null))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSavePasswordAndOpen()
+                  }}
                 />
               </div>
             </div>
             <div className="vos-modal-footer">
-              <button type="button" className="vos-btn" onClick={() => setPasswordPrompt(null)}>取消</button>
+              <button type="button" className="vos-btn" onClick={() => setPasswordPrompt(null)}>
+                取消
+              </button>
               <button
                 type="button"
                 className="vos-btn vos-btn-primary"
@@ -985,12 +986,18 @@ function ExposuresTab({ servers }: { servers: SshServer[] }) {
               <td>
                 {e.basic_auth_enabled ? (
                   <span
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#f59e0b', fontSize: 11 }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 3,
+                      color: 'var(--vos-accent-warning)',
+                      fontSize: 11
+                    }}
                   >
                     <Shield size={11} /> 已启用
                   </span>
                 ) : (
-                  <span style={{ fontSize: 11, color: '#6b7280' }}>无</span>
+                  <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>无</span>
                 )}
               </td>
               <td>

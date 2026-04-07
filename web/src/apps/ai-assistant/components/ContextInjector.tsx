@@ -16,7 +16,7 @@ const CONTEXT_TYPES = [
   { type: 'k8s' as const, icon: Server, label: '发送 K8s YAML' },
   { type: 'sql' as const, icon: Database, label: '发送 SQL 结果' },
   { type: 'file' as const, icon: FileText, label: '发送文件内容' },
-  { type: 'terminal' as const, icon: Terminal, label: '发送终端输出' },
+  { type: 'terminal' as const, icon: Terminal, label: '发送终端输出' }
 ]
 
 export default function ContextInjector({ onInject, disabled }: ContextInjectorProps) {
@@ -37,7 +37,7 @@ export default function ContextInjector({ onInject, disabled }: ContextInjectorP
       onInject(item)
       setPendingContexts(prev => prev.filter(c => c !== item))
     },
-    [onInject],
+    [onInject]
   )
 
   const requestContext = useCallback(
@@ -49,10 +49,10 @@ export default function ContextInjector({ onInject, disabled }: ContextInjectorP
       onInject({
         type,
         label: `[${type.toUpperCase()}] 上下文`,
-        content: `/* 请从 ${type} 应用发送当前内容 */`,
+        content: `/* 请从 ${type} 应用发送当前内容 */`
       })
     },
-    [onInject],
+    [onInject]
   )
 
   return (

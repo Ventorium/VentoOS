@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useThemeSync } from '@/hooks/useTheme'
 import { wsClient } from '@/infra/ws'
 import { useWindowStore } from '@/kernel'
@@ -21,6 +21,7 @@ import WindowManager from '@/shell/WindowManager'
 function App() {
   useThemeSync()
   const { token, locked, setInitialized } = useAuthStore()
+  const [checking, setChecking] = useState(true)
 
   // On mount: check auth status from backend, auto-unlock if token is valid
   useEffect(() => {
@@ -46,8 +47,19 @@ function App() {
       .catch(() => {
         // Backend not reachable — still show UI
       })
+      .finally(() => {
+        setChecking(false)
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  if (checking) {
+    return (
+      <div className="vos-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="vos-loading-spinner" />
+      </div>
+    )
+  }
 
   const showLockScreen = locked || !token
 

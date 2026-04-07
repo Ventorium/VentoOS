@@ -1,27 +1,34 @@
-import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { AppManifest } from '@/kernel/apps/manifest'
 import { useAppStore } from '@/kernel/apps/store'
 import { useWindowStore } from '@/kernel/window/store'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
-import type { AppManifest } from '@/kernel/apps/manifest'
-import React from 'react'
 
 vi.mock('framer-motion', () => {
   const actual = {
-    motion: new Proxy({}, {
-      get: (_target, prop) => {
-        const { forwardRef } = require('react')
-        return forwardRef((props: Record<string, unknown>, ref: unknown) => {
-          const { children, animate, initial, exit, transition, whileHover, whileTap, variants, ...rest } = props
-          const Tag = prop as string
-          return <Tag ref={ref} {...rest}>{children}</Tag>
-        })
+    motion: new Proxy(
+      {},
+      {
+        get: (_target, prop) => {
+          const { forwardRef } = require('react')
+          return forwardRef((props: Record<string, unknown>, ref: unknown) => {
+            const { children, animate, initial, exit, transition, whileHover, whileTap, variants, ...rest } = props
+            const Tag = prop as string
+            return (
+              <Tag ref={ref} {...rest}>
+                {children}
+              </Tag>
+            )
+          })
+        }
       }
-    }),
+    ),
     AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     useMotionValue: (initial: number) => ({ get: () => initial, set: vi.fn() }),
     useSpring: (val: unknown) => val,
-    useTransform: () => ({ get: () => 0 }),
+    useTransform: () => ({ get: () => 0 })
   }
   return actual
 })
@@ -30,8 +37,8 @@ vi.mock('@/infra/api', () => ({
   apiClient: {
     saveWindowSettings: vi.fn().mockResolvedValue({}),
     getWindowSettings: vi.fn().mockResolvedValue({ data: [] }),
-    createProcess: vi.fn().mockResolvedValue({ data: { pid: 1 } }),
-  },
+    createProcess: vi.fn().mockResolvedValue({ data: { pid: 1 } })
+  }
 }))
 
 vi.mock('@/infra/logger', () => ({
@@ -39,8 +46,8 @@ vi.mock('@/infra/logger', () => ({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn(),
-  }),
+    debug: vi.fn()
+  })
 }))
 
 const mockApp = (id: string, name: string, description?: string): AppManifest => ({
@@ -51,7 +58,7 @@ const mockApp = (id: string, name: string, description?: string): AppManifest =>
   icon: React.createElement('span', { 'data-testid': `icon-${id}` }, name[0]),
   description,
   multiWindow: false,
-  component: () => Promise.resolve({ default: () => null as unknown as React.ReactElement }),
+  component: () => Promise.resolve({ default: () => null as unknown as React.ReactElement })
 })
 
 describe('Launchpad Store', () => {

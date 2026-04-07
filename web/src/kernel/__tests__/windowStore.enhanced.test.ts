@@ -6,8 +6,8 @@ import type { WindowInstance } from '../window/types'
 vi.mock('@/infra/api', () => ({
   apiClient: {
     saveWindowSettings: vi.fn().mockResolvedValue({}),
-    getWindowSettings: vi.fn().mockResolvedValue({ data: [] }),
-  },
+    getWindowSettings: vi.fn().mockResolvedValue({ data: [] })
+  }
 }))
 
 vi.mock('@/infra/logger', () => ({
@@ -15,8 +15,8 @@ vi.mock('@/infra/logger', () => ({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn(),
-  }),
+    debug: vi.fn()
+  })
 }))
 
 function makeWin(overrides: Partial<WindowInstance> = {}): WindowInstance {
@@ -33,7 +33,7 @@ function makeWin(overrides: Partial<WindowInstance> = {}): WindowInstance {
     isMaximized: false,
     isMinimized: false,
     isFocused: true,
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -201,7 +201,7 @@ describe('WindowStore — Enhanced Tests', () => {
       activeTab: 'connections',
       expandedNodes: ['node-1', 'node-2'],
       scrollPosition: 450,
-      filters: { status: 'active', search: 'test' },
+      filters: { status: 'active', search: 'test' }
     }
     useWindowStore.getState().updateAppState('w1', complexState)
     const restored = useWindowStore.getState().getWindow('w1')!.appState

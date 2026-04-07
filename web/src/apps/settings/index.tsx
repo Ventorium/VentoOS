@@ -4,7 +4,7 @@
  * macOS-style settings with sidebar categories and content panels.
  * Categories: Appearance, Desktop & Dock, Notifications, AI, General
  */
-import React, { useCallback, useEffect, useState } from 'react'
+
 import {
   Bell,
   Bot,
@@ -19,6 +19,8 @@ import {
   Sparkles,
   XCircle
 } from 'lucide-react'
+import type React from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type {
   AgentConfig,
   AgentProfile,
@@ -75,7 +77,7 @@ function AppearancePanel() {
       {/* Theme mode */}
       <div className="vos-settings-group">
         <label className="vos-settings-label">主题模式</label>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div className="flex gap-3">
           {themes.map(t => (
             <button
               key={t.value}
@@ -93,7 +95,7 @@ function AppearancePanel() {
       {/* Accent color */}
       <div className="vos-settings-group">
         <label className="vos-settings-label">强调色</label>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="flex gap-2 items-center">
           {accentColors.map(color => (
             <button
               key={color}
@@ -122,7 +124,7 @@ function AppearancePanel() {
       {/* Wallpaper */}
       <div className="vos-settings-group">
         <label className="vos-settings-label">桌面背景</label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        <div className="grid grid-cols-3 gap-2">
           {gradientWallpapers.map((g, i) => (
             <button
               key={i}
@@ -158,7 +160,7 @@ function DesktopPanel() {
 
       <div className="vos-settings-group">
         <label className="vos-settings-label">Dock大小</label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="flex items-center gap-3">
           <input
             type="range"
             min={32}
@@ -167,13 +169,15 @@ function DesktopPanel() {
             onChange={e => setDockSize(Number(e.target.value))}
             className="vos-settings-slider"
           />
-          <span style={{ fontSize: 13, color: 'var(--vos-text-secondary)', minWidth: 30 }}>{dockSize}px</span>
+          <span className="text-[13px] min-w-[30px]" style={{ color: 'var(--vos-text-secondary)' }}>
+            {dockSize}px
+          </span>
         </div>
       </div>
 
       <div className="vos-settings-group">
         <label className="vos-settings-label">Dock位置</label>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="flex gap-2">
           {(['bottom', 'left'] as const).map(pos => (
             <button
               key={pos}
@@ -190,8 +194,10 @@ function DesktopPanel() {
       <div className="vos-settings-group">
         <div className="vos-settings-toggle-row">
           <div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>放大效果</div>
-            <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)' }}>鼠标悬停时放大Dock图标</div>
+            <div className="text-sm font-medium">放大效果</div>
+            <div className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+              鼠标悬停时放大Dock图标
+            </div>
           </div>
           <button
             type="button"
@@ -207,8 +213,10 @@ function DesktopPanel() {
       <div className="vos-settings-group">
         <div className="vos-settings-toggle-row">
           <div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>自动隐藏</div>
-            <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)' }}>鼠标移到底部时显示Dock</div>
+            <div className="text-sm font-medium">自动隐藏</div>
+            <div className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+              鼠标移到底部时显示Dock
+            </div>
           </div>
           <button
             type="button"
@@ -236,8 +244,10 @@ function NotificationsPanel() {
       <div className="vos-settings-group">
         <div className="vos-settings-toggle-row">
           <div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>勿扰模式</div>
-            <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)' }}>暂停所有通知横幅</div>
+            <div className="text-sm font-medium">勿扰模式</div>
+            <div className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+              暂停所有通知横幅
+            </div>
           </div>
           <button
             type="button"
@@ -250,9 +260,11 @@ function NotificationsPanel() {
         </div>
       </div>
 
-      <div className="vos-settings-group" style={{ opacity: 0.5 }}>
+      <div className="vos-settings-group opacity-50">
         <label className="vos-settings-label">应用通知（即将推出）</label>
-        <p style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>即将支持每个应用的通知权限控制。</p>
+        <p className="text-[13px]" style={{ color: 'var(--vos-text-secondary)' }}>
+          即将支持每个应用的通知权限控制。
+        </p>
       </div>
     </div>
   )
@@ -266,26 +278,12 @@ function GeneralPanel() {
 
       <div className="vos-settings-group">
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            padding: '16px',
-            background: 'var(--vos-bg-surface)',
-            borderRadius: 8,
-            border: '0.5px solid var(--vos-border-default)'
-          }}
+          className="flex items-center gap-4 p-4 rounded-lg"
+          style={{ background: 'var(--vos-bg-surface)', border: '0.5px solid var(--vos-border-default)' }}
         >
           <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, #1a1a2e, #0f3460)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="w-14 h-14 rounded-xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #1a1a2e, #0f3460)' }}
           >
             <svg width="30" height="30" viewBox="0 0 16 16" fill="white">
               <circle cx="8" cy="4.5" r="2.5" />
@@ -293,9 +291,11 @@ function GeneralPanel() {
             </svg>
           </div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>VentoOS</div>
-            <div style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>版本 0.1.0</div>
-            <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)', marginTop: 2 }}>
+            <div className="font-semibold text-[15px]">VentoOS</div>
+            <div className="text-[13px]" style={{ color: 'var(--vos-text-secondary)' }}>
+              版本 0.1.0
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
               本地优先 · 运维基础设施管理平台
             </div>
           </div>
@@ -321,11 +321,7 @@ function GeneralPanel() {
 const panelBorder = '0.5px solid var(--vos-border-subtle)'
 
 function AIFieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="text-[11px] font-medium vos-text-tertiary">
-      {children}
-    </label>
-  )
+  return <label className="text-[11px] font-medium vos-text-tertiary">{children}</label>
 }
 
 function AITextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
@@ -348,14 +344,12 @@ function AISelect({
   placeholder?: string
 }) {
   return (
-    <select
-      value={value ?? ''}
-      onChange={e => onChange(e.target.value)}
-      className="vos-select"
-    >
+    <select value={value ?? ''} onChange={e => onChange(e.target.value)} className="vos-select">
       <option value="">{placeholder ?? '请选择'}</option>
       {options.map(o => (
-        <option key={o.value} value={o.value}>{o.label}</option>
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
       ))}
     </select>
   )
@@ -372,15 +366,14 @@ function AIBtn({
   tone?: 'default' | 'primary' | 'danger'
   disabled?: boolean
 }) {
-  const cls = tone === 'primary' ? 'vos-btn-sm vos-btn-primary' : tone === 'danger' ? 'vos-btn-sm vos-btn-danger' : 'vos-btn-sm vos-btn-ghost'
+  const cls =
+    tone === 'primary'
+      ? 'vos-btn-sm vos-btn-primary'
+      : tone === 'danger'
+        ? 'vos-btn-sm vos-btn-danger'
+        : 'vos-btn-sm vos-btn-ghost'
   return (
-    <button
-      type="button"
-      className={cls}
-      style={{ opacity: disabled ? 0.5 : 1 }}
-      onClick={onClick}
-      disabled={disabled}
-    >
+    <button type="button" className={`${cls} ${disabled ? 'opacity-50' : ''}`} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   )
@@ -411,7 +404,15 @@ function AIProviderSettings({
           enabled: true,
           capabilities: templates[0].capabilities
         }
-      : { name: '', provider_type: 'native', vendor: 'open_ai', api_key: '', base_url: '', default_model: '', enabled: true }
+      : {
+          name: '',
+          provider_type: 'native',
+          vendor: 'open_ai',
+          api_key: '',
+          base_url: '',
+          default_model: '',
+          enabled: true
+        }
   )
   const [saving, setSaving] = useState(false)
   const [probeResult, setProbeResult] = useState<ProviderProbeResult | null>(null)
@@ -421,9 +422,14 @@ function AIProviderSettings({
     const t = templates.find(item => item.vendor === vendor)
     if (!t) return
     setDraft(cur => ({
-      name: t.name, provider_type: t.provider_type, vendor: t.vendor,
-      api_key: cur.api_key ?? '', base_url: t.base_url,
-      default_model: t.default_model, enabled: true, capabilities: t.capabilities
+      name: t.name,
+      provider_type: t.provider_type,
+      vendor: t.vendor,
+      api_key: cur.api_key ?? '',
+      base_url: t.base_url,
+      default_model: t.default_model,
+      enabled: true,
+      capabilities: t.capabilities
     }))
     setProbeResult(null)
   }
@@ -433,31 +439,61 @@ function AIProviderSettings({
     setSaving(true)
     try {
       await apiClient.createAgentProvider(draft as ProviderConfig)
-      setDraft(templates[0] ? { name: templates[0].name, vendor: templates[0].vendor, api_key: '', base_url: templates[0].base_url, default_model: templates[0].default_model, provider_type: templates[0].provider_type, enabled: true } : {})
+      setDraft(
+        templates[0]
+          ? {
+              name: templates[0].name,
+              vendor: templates[0].vendor,
+              api_key: '',
+              base_url: templates[0].base_url,
+              default_model: templates[0].default_model,
+              provider_type: templates[0].provider_type,
+              enabled: true
+            }
+          : {}
+      )
       await onReload()
-    } finally { setSaving(false) }
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="flex gap-3 h-full">
-      <div style={{ width: '38%', overflow: 'auto', flexShrink: 0 }}>
-        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>已配置的 Provider</div>
+      <div className="w-[38%] overflow-auto flex-shrink-0">
+        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>
+          已配置的 Provider
+        </div>
         <div className="space-y-2">
           {providers.map(p => (
-            <div key={p.id} className="rounded-xl p-2.5" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
+            <div
+              key={p.id}
+              className="rounded-xl p-2.5"
+              style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}
+            >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>{p.name}</div>
+                  <div className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+                    {p.name}
+                  </div>
                   <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
                     {p.vendor} · {p.default_model}
                   </div>
                 </div>
                 <div className="flex gap-1.5">
                   <AIBtn onClick={() => setDraft(p)}>编辑</AIBtn>
-                  <AIBtn onClick={() => { if (!config) return; apiClient.updateAgentConfig({ ...config, default_provider_id: p.id }).then(onConfigReload) }} tone="primary">
+                  <AIBtn
+                    onClick={() => {
+                      if (!config) return
+                      apiClient.updateAgentConfig({ ...config, default_provider_id: p.id }).then(onConfigReload)
+                    }}
+                    tone="primary"
+                  >
                     默认
                   </AIBtn>
-                  <AIBtn tone="danger" onClick={() => apiClient.deleteAgentProvider(p.id).then(onReload)}>删除</AIBtn>
+                  <AIBtn tone="danger" onClick={() => apiClient.deleteAgentProvider(p.id).then(onReload)}>
+                    删除
+                  </AIBtn>
                 </div>
               </div>
               <div className="text-[10px] mt-1.5" style={{ color: 'var(--vos-text-tertiary)' }}>
@@ -468,8 +504,13 @@ function AIProviderSettings({
         </div>
       </div>
       <div className="flex-1 overflow-auto">
-        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>编辑 / 新建 Provider</div>
-        <div className="space-y-2.5 rounded-xl p-3" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
+        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>
+          编辑 / 新建 Provider
+        </div>
+        <div
+          className="space-y-2.5 rounded-xl p-3"
+          style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}
+        >
           <div className="grid grid-cols-2 gap-2">
             <div>
               <AIFieldLabel>模板</AIFieldLabel>
@@ -487,11 +528,17 @@ function AIProviderSettings({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <AIFieldLabel>接口地址</AIFieldLabel>
-              <AITextInput value={draft.base_url ?? ''} onChange={e => setDraft({ ...draft, base_url: e.target.value })} />
+              <AITextInput
+                value={draft.base_url ?? ''}
+                onChange={e => setDraft({ ...draft, base_url: e.target.value })}
+              />
             </div>
             <div>
               <AIFieldLabel>默认模型</AIFieldLabel>
-              <AITextInput value={draft.default_model ?? ''} onChange={e => setDraft({ ...draft, default_model: e.target.value })} />
+              <AITextInput
+                value={draft.default_model ?? ''}
+                onChange={e => setDraft({ ...draft, default_model: e.target.value })}
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -501,29 +548,46 @@ function AIProviderSettings({
             </div>
             <div>
               <AIFieldLabel>API 密钥</AIFieldLabel>
-              <AITextInput type="password" value={draft.api_key ?? ''} onChange={e => setDraft({ ...draft, api_key: e.target.value })} />
+              <AITextInput
+                type="password"
+                value={draft.api_key ?? ''}
+                onChange={e => setDraft({ ...draft, api_key: e.target.value })}
+              />
             </div>
           </div>
           <div className="flex gap-2">
             <AIBtn tone="primary" onClick={handleSave} disabled={saving}>
               {saving ? '保存中...' : '保存 Provider'}
             </AIBtn>
-            <AIBtn onClick={async () => {
-              setProbeLoading(true)
-              try {
-                const r = await apiClient.testAgentProvider({ provider: draft as ProviderConfig, prompt: '1+1=?', max_tokens: 1, reasoning_mode: 'off', timeout_ms: 15000 })
-                setProbeResult(r.data)
-              } finally { setProbeLoading(false) }
-            }} disabled={probeLoading}>
+            <AIBtn
+              onClick={async () => {
+                setProbeLoading(true)
+                try {
+                  const r = await apiClient.testAgentProvider({
+                    provider: draft as ProviderConfig,
+                    prompt: '1+1=?',
+                    max_tokens: 1,
+                    reasoning_mode: 'off',
+                    timeout_ms: 15000
+                  })
+                  setProbeResult(r.data)
+                } finally {
+                  setProbeLoading(false)
+                }
+              }}
+              disabled={probeLoading}
+            >
               {probeLoading ? '测试中...' : '连通性测试'}
             </AIBtn>
           </div>
           {probeResult && (
             <div className="rounded-xl p-2.5" style={{ background: 'var(--vos-bg-input)' }}>
               <div className="flex items-center gap-2 text-xs">
-                {probeResult.success
-                  ? <CheckCircle2 size={13} style={{ color: '#34c759' }} />
-                  : <XCircle size={13} style={{ color: '#ff3b30' }} />}
+                {probeResult.success ? (
+                  <CheckCircle2 size={13} style={{ color: '#34c759' }} />
+                ) : (
+                  <XCircle size={13} style={{ color: '#ff3b30' }} />
+                )}
                 <span style={{ color: 'var(--vos-text-primary)' }}>{probeResult.message}</span>
               </div>
               <div className="text-[10px] mt-1.5" style={{ color: 'var(--vos-text-tertiary)' }}>
@@ -537,36 +601,64 @@ function AIProviderSettings({
   )
 }
 
-function AIAgentSettings({ profiles, providers, onReload }: { profiles: AgentProfile[], providers: ProviderConfig[], onReload: () => Promise<void> }) {
+function AIAgentSettings({
+  profiles,
+  providers,
+  onReload
+}: {
+  profiles: AgentProfile[]
+  providers: ProviderConfig[]
+  onReload: () => Promise<void>
+}) {
   const emptyDraft: AgentProfile = {
-    id: '', name: '自定义 Agent', description: '', preset_kind: 'custom', is_builtin: false,
+    id: '',
+    name: '自定义 Agent',
+    description: '',
+    preset_kind: 'custom',
+    is_builtin: false,
     system_prompt: 'You are a custom VentoOS agent.',
     behavior: { require_impact_for_destructive: true, read_only_mode: false, concise_output: true, extra_rules: [] },
     tool_config: { mode: 'all', enabled_tools: ['read', 'write', 'edit', 'bash'], allow_bash: true },
-    default_provider_id: undefined, default_model: undefined,
-    temperature: 0.2, max_tokens: 1024, reasoning_mode: 'off'
+    default_provider_id: undefined,
+    default_model: undefined,
+    temperature: 0.2,
+    max_tokens: 1024,
+    reasoning_mode: 'off'
   }
   const [draft, setDraft] = useState<AgentProfile>(emptyDraft)
 
   return (
     <div className="flex gap-3 h-full">
-      <div style={{ width: '38%', overflow: 'auto', flexShrink: 0 }}>
-        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>Agent 列表</div>
+      <div className="w-[38%] overflow-auto flex-shrink-0">
+        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>
+          Agent 列表
+        </div>
         <div className="space-y-2">
-          <AIBtn tone="primary" onClick={() => setDraft(emptyDraft)}>+ 新建自定义 Agent</AIBtn>
+          <AIBtn tone="primary" onClick={() => setDraft(emptyDraft)}>
+            + 新建自定义 Agent
+          </AIBtn>
           {profiles.map(p => (
-            <div key={p.id} className="rounded-xl p-2.5" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
+            <div
+              key={p.id}
+              className="rounded-xl p-2.5"
+              style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}
+            >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>{p.name}</div>
+                  <div className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+                    {p.name}
+                  </div>
                   <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
-                    {p.preset_kind}{p.is_builtin ? ' · 内置' : ' · 自定义'}
+                    {p.preset_kind}
+                    {p.is_builtin ? ' · 内置' : ' · 自定义'}
                   </div>
                 </div>
                 <div className="flex gap-1.5">
                   <AIBtn onClick={() => setDraft({ ...p })}>编辑</AIBtn>
                   {!p.is_builtin && (
-                    <AIBtn tone="danger" onClick={() => apiClient.deleteAgentProfile(p.id).then(onReload)}>删除</AIBtn>
+                    <AIBtn tone="danger" onClick={() => apiClient.deleteAgentProfile(p.id).then(onReload)}>
+                      删除
+                    </AIBtn>
                   )}
                 </div>
               </div>
@@ -575,8 +667,13 @@ function AIAgentSettings({ profiles, providers, onReload }: { profiles: AgentPro
         </div>
       </div>
       <div className="flex-1 overflow-auto">
-        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>编辑 Agent</div>
-        <div className="rounded-xl p-3 space-y-2.5" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
+        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>
+          编辑 Agent
+        </div>
+        <div
+          className="rounded-xl p-3 space-y-2.5"
+          style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}
+        >
           <div className="grid grid-cols-2 gap-2">
             <div>
               <AIFieldLabel>名称</AIFieldLabel>
@@ -584,7 +681,10 @@ function AIAgentSettings({ profiles, providers, onReload }: { profiles: AgentPro
             </div>
             <div>
               <AIFieldLabel>描述</AIFieldLabel>
-              <AITextInput value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} />
+              <AITextInput
+                value={draft.description}
+                onChange={e => setDraft({ ...draft, description: e.target.value })}
+              />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -599,7 +699,10 @@ function AIAgentSettings({ profiles, providers, onReload }: { profiles: AgentPro
             </div>
             <div>
               <AIFieldLabel>默认模型</AIFieldLabel>
-              <AITextInput value={draft.default_model ?? ''} onChange={e => setDraft({ ...draft, default_model: e.target.value || undefined })} />
+              <AITextInput
+                value={draft.default_model ?? ''}
+                onChange={e => setDraft({ ...draft, default_model: e.target.value || undefined })}
+              />
             </div>
             <div>
               <AIFieldLabel>推理强度</AIFieldLabel>
@@ -618,17 +721,27 @@ function AIAgentSettings({ profiles, providers, onReload }: { profiles: AgentPro
           <div className="grid grid-cols-3 gap-2">
             <div>
               <AIFieldLabel>温度</AIFieldLabel>
-              <AITextInput type="number" value={String(draft.temperature)} onChange={e => setDraft({ ...draft, temperature: Number(e.target.value) || 0 })} />
+              <AITextInput
+                type="number"
+                value={String(draft.temperature)}
+                onChange={e => setDraft({ ...draft, temperature: Number(e.target.value) || 0 })}
+              />
             </div>
             <div>
               <AIFieldLabel>最大 Token 数</AIFieldLabel>
-              <AITextInput type="number" value={String(draft.max_tokens)} onChange={e => setDraft({ ...draft, max_tokens: Number(e.target.value) || 1 })} />
+              <AITextInput
+                type="number"
+                value={String(draft.max_tokens)}
+                onChange={e => setDraft({ ...draft, max_tokens: Number(e.target.value) || 1 })}
+              />
             </div>
             <div>
               <AIFieldLabel>工具策略</AIFieldLabel>
               <AISelect
                 value={draft.tool_config.mode}
-                onChange={v => setDraft({ ...draft, tool_config: { ...draft.tool_config, mode: v as AgentToolPolicyMode } })}
+                onChange={v =>
+                  setDraft({ ...draft, tool_config: { ...draft.tool_config, mode: v as AgentToolPolicyMode } })
+                }
                 options={[
                   { value: 'all', label: '全部工具' },
                   { value: 'allow_list', label: '白名单' },
@@ -639,45 +752,94 @@ function AIAgentSettings({ profiles, providers, onReload }: { profiles: AgentPro
           </div>
           <div className="grid grid-cols-3 gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
             <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={draft.behavior.require_impact_for_destructive}
-                onChange={e => setDraft({ ...draft, behavior: { ...draft.behavior, require_impact_for_destructive: e.target.checked } })} />
+              <input
+                type="checkbox"
+                checked={draft.behavior.require_impact_for_destructive}
+                onChange={e =>
+                  setDraft({
+                    ...draft,
+                    behavior: { ...draft.behavior, require_impact_for_destructive: e.target.checked }
+                  })
+                }
+              />
               危险操作确认
             </label>
             <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={draft.behavior.read_only_mode}
-                onChange={e => setDraft({ ...draft, behavior: { ...draft.behavior, read_only_mode: e.target.checked } })} />
+              <input
+                type="checkbox"
+                checked={draft.behavior.read_only_mode}
+                onChange={e =>
+                  setDraft({ ...draft, behavior: { ...draft.behavior, read_only_mode: e.target.checked } })
+                }
+              />
               只读模式
             </label>
             <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={draft.tool_config.allow_bash}
-                onChange={e => setDraft({ ...draft, tool_config: { ...draft.tool_config, allow_bash: e.target.checked } })} />
+              <input
+                type="checkbox"
+                checked={draft.tool_config.allow_bash}
+                onChange={e =>
+                  setDraft({ ...draft, tool_config: { ...draft.tool_config, allow_bash: e.target.checked } })
+                }
+              />
               允许执行 Bash
             </label>
           </div>
           <div>
             <AIFieldLabel>系统提示词</AIFieldLabel>
-            <AITextArea rows={5} value={draft.system_prompt} onChange={e => setDraft({ ...draft, system_prompt: e.target.value })} />
+            <AITextArea
+              rows={5}
+              value={draft.system_prompt}
+              onChange={e => setDraft({ ...draft, system_prompt: e.target.value })}
+            />
           </div>
-          <AIBtn tone="primary" onClick={async () => {
-            if (draft.id) await apiClient.updateAgentProfile(draft.id, draft)
-            else await apiClient.createAgentProfile(draft)
-            await onReload()
-          }}>保存 Agent</AIBtn>
+          <AIBtn
+            tone="primary"
+            onClick={async () => {
+              if (draft.id) await apiClient.updateAgentProfile(draft.id, draft)
+              else await apiClient.createAgentProfile(draft)
+              await onReload()
+            }}
+          >
+            保存 Agent
+          </AIBtn>
         </div>
       </div>
     </div>
   )
 }
 
-function AIRuntimeSettings({ config, profiles, providers, onReload }: { config: AgentConfig | null, profiles: AgentProfile[], providers: ProviderConfig[], onReload: () => Promise<void> }) {
+function AIRuntimeSettings({
+  config,
+  profiles,
+  providers,
+  onReload
+}: {
+  config: AgentConfig | null
+  profiles: AgentProfile[]
+  providers: ProviderConfig[]
+  onReload: () => Promise<void>
+}) {
   const [draft, setDraft] = useState<AgentConfig | null>(config)
-  useEffect(() => { setDraft(config) }, [config])
+  useEffect(() => {
+    setDraft(config)
+  }, [config])
 
-  if (!draft) return <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>加载中…</div>
+  if (!draft)
+    return (
+      <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+        加载中…
+      </div>
+    )
 
   return (
-    <div className="max-w-[640px] rounded-xl p-3 space-y-2.5" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
-      <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>全局运行时配置</div>
+    <div
+      className="max-w-[640px] rounded-xl p-3 space-y-2.5"
+      style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}
+    >
+      <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>
+        全局运行时配置
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <AIFieldLabel>默认 Provider</AIFieldLabel>
@@ -701,22 +863,39 @@ function AIRuntimeSettings({ config, profiles, providers, onReload }: { config: 
       <div className="grid grid-cols-2 gap-2">
         <div>
           <AIFieldLabel>默认模型</AIFieldLabel>
-          <AITextInput value={draft.default_model ?? ''} onChange={e => setDraft({ ...draft, default_model: e.target.value || undefined })} />
+          <AITextInput
+            value={draft.default_model ?? ''}
+            onChange={e => setDraft({ ...draft, default_model: e.target.value || undefined })}
+          />
         </div>
         <div>
           <AIFieldLabel>最大迭代次数</AIFieldLabel>
-          <AITextInput type="number" value={String(draft.max_iterations)} onChange={e => setDraft({ ...draft, max_iterations: Number(e.target.value) || 1 })} />
+          <AITextInput
+            type="number"
+            value={String(draft.max_iterations)}
+            onChange={e => setDraft({ ...draft, max_iterations: Number(e.target.value) || 1 })}
+          />
         </div>
       </div>
       <div>
         <AIFieldLabel>默认系统提示词</AIFieldLabel>
-        <AITextArea rows={4} value={draft.default_system_prompt} onChange={e => setDraft({ ...draft, default_system_prompt: e.target.value })} />
+        <AITextArea
+          rows={4}
+          value={draft.default_system_prompt}
+          onChange={e => setDraft({ ...draft, default_system_prompt: e.target.value })}
+        />
       </div>
       <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
-        <input type="checkbox" checked={draft.tools_enabled} onChange={e => setDraft({ ...draft, tools_enabled: e.target.checked })} />
+        <input
+          type="checkbox"
+          checked={draft.tools_enabled}
+          onChange={e => setDraft({ ...draft, tools_enabled: e.target.checked })}
+        />
         全局启用工具调用
       </label>
-      <AIBtn tone="primary" onClick={() => apiClient.updateAgentConfig(draft).then(onReload)}>保存运行时配置</AIBtn>
+      <AIBtn tone="primary" onClick={() => apiClient.updateAgentConfig(draft).then(onReload)}>
+        保存运行时配置
+      </AIBtn>
     </div>
   )
 }
@@ -729,18 +908,45 @@ const CHANNEL_KIND_LABELS: Record<ChannelKind, string> = {
   telegram: 'Telegram'
 }
 
-function AIChannelSettings({ channels, profiles, onReload }: { channels: ChannelConfig[], profiles: AgentProfile[], onReload: () => Promise<void> }) {
-  const emptyDraft: ChannelConfig = { id: '', name: '', kind: 'telegram', enabled: true, auto_route_agent: true, credentials: {} }
+function AIChannelSettings({
+  channels,
+  profiles,
+  onReload
+}: {
+  channels: ChannelConfig[]
+  profiles: AgentProfile[]
+  onReload: () => Promise<void>
+}) {
+  const emptyDraft: ChannelConfig = {
+    id: '',
+    name: '',
+    kind: 'telegram',
+    enabled: true,
+    auto_route_agent: true,
+    credentials: {}
+  }
   const [draft, setDraft] = useState<ChannelConfig>(emptyDraft)
 
   return (
     <div className="flex gap-3 h-full">
-      <div style={{ width: '38%', overflow: 'auto', flexShrink: 0 }}>
-        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>已接入的渠道</div>
+      <div className="w-[38%] overflow-auto flex-shrink-0">
+        <div className="text-xs font-medium mb-2" style={{ color: 'var(--vos-text-secondary)' }}>
+          已接入的渠道
+        </div>
         <div className="space-y-2">
-          <AIBtn tone="primary" onClick={() => setDraft(emptyDraft)}>+ 新建渠道</AIBtn>
+          <AIBtn tone="primary" onClick={() => setDraft(emptyDraft)}>
+            + 新建渠道
+          </AIBtn>
           {channels.map(c => (
-            <div key={c.id} className="rounded-xl p-2.5 cursor-pointer" style={{ background: draft.id === c.id ? 'var(--vos-bg-active)' : 'var(--vos-bg-surface)', border: panelBorder }} onClick={() => setDraft({ ...c })}>
+            <div
+              key={c.id}
+              className="rounded-xl p-2.5 cursor-pointer"
+              style={{
+                background: draft.id === c.id ? 'var(--vos-bg-active)' : 'var(--vos-bg-surface)',
+                border: panelBorder
+              }}
+              onClick={() => setDraft({ ...c })}
+            >
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-xs font-medium">{c.name}</div>
@@ -748,14 +954,27 @@ function AIChannelSettings({ channels, profiles, onReload }: { channels: Channel
                     {CHANNEL_KIND_LABELS[c.kind]} · {c.enabled ? '已启用' : '已禁用'}
                   </div>
                 </div>
-                <AIBtn tone="danger" onClick={e => { e.stopPropagation(); apiClient.agentDeleteChannel(c.id).then(onReload) }}>删除</AIBtn>
+                <AIBtn
+                  tone="danger"
+                  onClick={e => {
+                    e.stopPropagation()
+                    apiClient.agentDeleteChannel(c.id).then(onReload)
+                  }}
+                >
+                  删除
+                </AIBtn>
               </div>
             </div>
           ))}
         </div>
       </div>
-      <div className="flex-1 overflow-auto rounded-xl p-3 space-y-2.5" style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}>
-        <div className="text-xs font-medium" style={{ color: 'var(--vos-text-secondary)' }}>{draft.id ? '编辑渠道' : '新建渠道'}</div>
+      <div
+        className="flex-1 overflow-auto rounded-xl p-3 space-y-2.5"
+        style={{ background: 'var(--vos-bg-surface)', border: panelBorder }}
+      >
+        <div className="text-xs font-medium" style={{ color: 'var(--vos-text-secondary)' }}>
+          {draft.id ? '编辑渠道' : '新建渠道'}
+        </div>
         <div>
           <AIFieldLabel>名称</AIFieldLabel>
           <AITextInput value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
@@ -786,35 +1005,79 @@ function AIChannelSettings({ channels, profiles, onReload }: { channels: Channel
         {draft.kind === 'telegram' && (
           <div>
             <AIFieldLabel>Bot Token</AIFieldLabel>
-            <AITextInput value={String(draft.credentials?.token ?? '')} onChange={e => setDraft({ ...draft, credentials: { ...draft.credentials, token: e.target.value } })} />
+            <AITextInput
+              value={String(draft.credentials?.token ?? '')}
+              onChange={e => setDraft({ ...draft, credentials: { ...draft.credentials, token: e.target.value } })}
+            />
           </div>
         )}
         {draft.kind === 'ding_talk' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><AIFieldLabel>App Key</AIFieldLabel><AITextInput value={String(draft.credentials?.app_key ?? '')} onChange={e => setDraft({ ...draft, credentials: { ...draft.credentials, app_key: e.target.value } })} /></div>
-            <div><AIFieldLabel>App Secret</AIFieldLabel><AITextInput value={String(draft.credentials?.app_secret ?? '')} onChange={e => setDraft({ ...draft, credentials: { ...draft.credentials, app_secret: e.target.value } })} /></div>
+            <div>
+              <AIFieldLabel>App Key</AIFieldLabel>
+              <AITextInput
+                value={String(draft.credentials?.app_key ?? '')}
+                onChange={e => setDraft({ ...draft, credentials: { ...draft.credentials, app_key: e.target.value } })}
+              />
+            </div>
+            <div>
+              <AIFieldLabel>App Secret</AIFieldLabel>
+              <AITextInput
+                value={String(draft.credentials?.app_secret ?? '')}
+                onChange={e =>
+                  setDraft({ ...draft, credentials: { ...draft.credentials, app_secret: e.target.value } })
+                }
+              />
+            </div>
           </div>
         )}
         {draft.kind === 'feishu' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><AIFieldLabel>App ID</AIFieldLabel><AITextInput value={String(draft.credentials?.app_id ?? '')} onChange={e => setDraft({ ...draft, credentials: { ...draft.credentials, app_id: e.target.value } })} /></div>
-            <div><AIFieldLabel>App Secret</AIFieldLabel><AITextInput value={String(draft.credentials?.app_secret ?? '')} onChange={e => setDraft({ ...draft, credentials: { ...draft.credentials, app_secret: e.target.value } })} /></div>
+            <div>
+              <AIFieldLabel>App ID</AIFieldLabel>
+              <AITextInput
+                value={String(draft.credentials?.app_id ?? '')}
+                onChange={e => setDraft({ ...draft, credentials: { ...draft.credentials, app_id: e.target.value } })}
+              />
+            </div>
+            <div>
+              <AIFieldLabel>App Secret</AIFieldLabel>
+              <AITextInput
+                value={String(draft.credentials?.app_secret ?? '')}
+                onChange={e =>
+                  setDraft({ ...draft, credentials: { ...draft.credentials, app_secret: e.target.value } })
+                }
+              />
+            </div>
           </div>
         )}
         <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
-          <input type="checkbox" checked={draft.enabled} onChange={e => setDraft({ ...draft, enabled: e.target.checked })} />
+          <input
+            type="checkbox"
+            checked={draft.enabled}
+            onChange={e => setDraft({ ...draft, enabled: e.target.checked })}
+          />
           启用此渠道
         </label>
         <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
-          <input type="checkbox" checked={draft.auto_route_agent} onChange={e => setDraft({ ...draft, auto_route_agent: e.target.checked })} />
+          <input
+            type="checkbox"
+            checked={draft.auto_route_agent}
+            onChange={e => setDraft({ ...draft, auto_route_agent: e.target.checked })}
+          />
           自动路由到默认 Agent
         </label>
-        <AIBtn tone="primary" onClick={async () => {
-          if (draft.id) await apiClient.agentUpdateChannel(draft.id, draft)
-          else await apiClient.agentCreateChannel(draft)
-          setDraft(emptyDraft)
-          await onReload()
-        }}>{draft.id ? '保存渠道' : '创建渠道'}</AIBtn>
+        <AIBtn
+          tone="primary"
+          onClick={async () => {
+            if (draft.id) await apiClient.agentUpdateChannel(draft.id, draft)
+            else await apiClient.agentCreateChannel(draft)
+            setDraft(emptyDraft)
+            await onReload()
+          }}
+        >
+          {draft.id ? '保存渠道' : '创建渠道'}
+        </AIBtn>
       </div>
     </div>
   )
@@ -835,11 +1098,19 @@ function AIPanel() {
     setProviders(pr.data)
     setTemplates(tr.data)
   }, [])
-  const loadProfiles = useCallback(async () => { setProfiles((await apiClient.getAgentProfiles()).data) }, [])
-  const loadConfig = useCallback(async () => { setConfig((await apiClient.getAgentConfig()).data) }, [])
-  const loadChannels = useCallback(async () => { setChannels((await apiClient.agentListChannels()).data) }, [])
+  const loadProfiles = useCallback(async () => {
+    setProfiles((await apiClient.getAgentProfiles()).data)
+  }, [])
+  const loadConfig = useCallback(async () => {
+    setConfig((await apiClient.getAgentConfig()).data)
+  }, [])
+  const loadChannels = useCallback(async () => {
+    setChannels((await apiClient.agentListChannels()).data)
+  }, [])
 
-  useEffect(() => { void Promise.all([loadProviders(), loadProfiles(), loadConfig(), loadChannels()]) }, [loadProviders, loadProfiles, loadConfig, loadChannels])
+  useEffect(() => {
+    void Promise.all([loadProviders(), loadProfiles(), loadConfig(), loadChannels()])
+  }, [loadProviders, loadProfiles, loadConfig, loadChannels])
 
   const AI_TABS = [
     { key: 'providers' as AISettingsTab, label: 'Provider', icon: Cpu },
@@ -849,10 +1120,12 @@ function AIPanel() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '16px 20px' }}>
+    <div className="flex flex-col h-full px-5 py-4">
       <div className="flex items-center gap-3 mb-4">
         <Sparkles size={16} style={{ color: 'var(--vos-accent-primary)' }} />
-        <h2 className="vos-settings-section-title" style={{ margin: 0 }}>AI 助手配置</h2>
+        <h2 className="vos-settings-section-title" style={{ margin: 0 }}>
+          AI 助手配置
+        </h2>
         <div className="flex items-center gap-1 rounded-xl p-1 ml-auto" style={{ background: 'var(--vos-bg-input)' }}>
           {AI_TABS.map(t => {
             const Icon = t.icon
@@ -862,7 +1135,10 @@ function AIPanel() {
                 key={t.key}
                 type="button"
                 className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border-none cursor-pointer"
-                style={{ background: active ? 'var(--vos-accent-primary)' : 'transparent', color: active ? '#fff' : 'var(--vos-text-secondary)' }}
+                style={{
+                  background: active ? 'var(--vos-accent-primary)' : 'transparent',
+                  color: active ? '#fff' : 'var(--vos-text-secondary)'
+                }}
                 onClick={() => setTab(t.key)}
               >
                 <Icon size={11} /> {t.label}
@@ -871,10 +1147,20 @@ function AIPanel() {
           })}
         </div>
       </div>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        {tab === 'providers' && <AIProviderSettings providers={providers} templates={templates} config={config} onReload={loadProviders} onConfigReload={loadConfig} />}
+      <div className="flex-1 overflow-hidden">
+        {tab === 'providers' && (
+          <AIProviderSettings
+            providers={providers}
+            templates={templates}
+            config={config}
+            onReload={loadProviders}
+            onConfigReload={loadConfig}
+          />
+        )}
         {tab === 'agents' && <AIAgentSettings profiles={profiles} providers={providers} onReload={loadProfiles} />}
-        {tab === 'runtime' && <AIRuntimeSettings config={config} profiles={profiles} providers={providers} onReload={loadConfig} />}
+        {tab === 'runtime' && (
+          <AIRuntimeSettings config={config} profiles={profiles} providers={providers} onReload={loadConfig} />
+        )}
         {tab === 'channels' && <AIChannelSettings channels={channels} profiles={profiles} onReload={loadChannels} />}
       </div>
     </div>
@@ -897,12 +1183,10 @@ export default function SettingsApp(_props: { windowId: string; processId: numbe
   const Panel = PANELS[activeCategory]
 
   return (
-    <div className="vos-flex-row" style={{ height: '100%', alignItems: 'stretch' }}>
+    <div className="vos-flex-row h-full items-stretch">
       {/* Sidebar */}
       <div className="vos-settings-sidebar">
-        <div className="vos-label" style={{ padding: '12px 8px 8px' }}>
-          设置
-        </div>
+        <div className="vos-label p-3 pb-2">设置</div>
 
         {CATEGORIES.map(cat => {
           const CatIcon = cat.icon
@@ -920,17 +1204,17 @@ export default function SettingsApp(_props: { windowId: string; processId: numbe
           )
         })}
 
-        <div style={{ flex: 1 }} />
-        <div style={{ padding: '8px 12px', borderTop: '0.5px solid var(--vos-border-subtle)' }}>
-          <div className="vos-settings-nav-item" style={{ opacity: 0.6 }}>
+        <div className="flex-1" />
+        <div className="p-2 px-3" style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}>
+          <div className="vos-settings-nav-item opacity-60">
             <Info size={14} />
-            <span style={{ fontSize: 11 }}>VentoOS</span>
+            <span className="text-[11px]">VentoOS</span>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="vos-flex-1" style={{ overflow: 'auto' }}>
+      <div className="vos-flex-1 overflow-auto">
         <Panel />
       </div>
     </div>

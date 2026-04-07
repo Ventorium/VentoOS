@@ -22,16 +22,18 @@ function scheduleSyncToBackend() {
   _syncTimer = setTimeout(() => {
     const { wallpaper, themeMode, dockIconSize, dockPosition, dockMagnification, dockAutoHide } =
       useSettingsStore.getState()
-    apiClient.saveDesktopSettings({
-      wallpaper,
-      theme_mode: themeMode,
-      dock_icon_size: dockIconSize,
-      dock_position: dockPosition,
-      dock_magnification: dockMagnification,
-      dock_auto_hide: dockAutoHide,
-    }).catch(err => {
-      logger.warn('Failed to sync settings to backend', err)
-    })
+    apiClient
+      .saveDesktopSettings({
+        wallpaper,
+        theme_mode: themeMode,
+        dock_icon_size: dockIconSize,
+        dock_position: dockPosition,
+        dock_magnification: dockMagnification,
+        dock_auto_hide: dockAutoHide
+      })
+      .catch(err => {
+        logger.warn('Failed to sync settings to backend', err)
+      })
   }, SYNC_DEBOUNCE_MS)
 }
 
@@ -58,68 +60,66 @@ interface SettingsStore {
   loadFromBackend: () => Promise<void>
 }
 
-export const useSettingsStore = create<SettingsStore>()(
-    (set) => ({
-      wallpaper: '/wallpapers/dark-mountain.jpg',
-      themeMode: 'dark',
-      resolvedTheme: 'dark',
+export const useSettingsStore = create<SettingsStore>()(set => ({
+  wallpaper: '/wallpapers/dark-mountain.jpg',
+  themeMode: 'dark',
+  resolvedTheme: 'dark',
 
-      dockIconSize: 48,
-      dockPosition: 'bottom',
-      dockMagnification: true,
-      dockAutoHide: false,
+  dockIconSize: 48,
+  dockPosition: 'bottom',
+  dockMagnification: true,
+  dockAutoHide: false,
 
-      setWallpaper(url) {
-        set({ wallpaper: url })
-        scheduleSyncToBackend()
-      },
+  setWallpaper(url) {
+    set({ wallpaper: url })
+    scheduleSyncToBackend()
+  },
 
-      setThemeMode(mode) {
-        set({ themeMode: mode })
-        scheduleSyncToBackend()
-      },
+  setThemeMode(mode) {
+    set({ themeMode: mode })
+    scheduleSyncToBackend()
+  },
 
-      setResolvedTheme(theme) {
-        set({ resolvedTheme: theme })
-      },
+  setResolvedTheme(theme) {
+    set({ resolvedTheme: theme })
+  },
 
-      setDockIconSize(size) {
-        set({ dockIconSize: size })
-        scheduleSyncToBackend()
-      },
+  setDockIconSize(size) {
+    set({ dockIconSize: size })
+    scheduleSyncToBackend()
+  },
 
-      setDockPosition(pos) {
-        set({ dockPosition: pos })
-        scheduleSyncToBackend()
-      },
+  setDockPosition(pos) {
+    set({ dockPosition: pos })
+    scheduleSyncToBackend()
+  },
 
-      setDockMagnification(on) {
-        set({ dockMagnification: on })
-        scheduleSyncToBackend()
-      },
+  setDockMagnification(on) {
+    set({ dockMagnification: on })
+    scheduleSyncToBackend()
+  },
 
-      setDockAutoHide(on) {
-        set({ dockAutoHide: on })
-        scheduleSyncToBackend()
-      },
+  setDockAutoHide(on) {
+    set({ dockAutoHide: on })
+    scheduleSyncToBackend()
+  },
 
-      async loadFromBackend() {
-        try {
-          const res = await apiClient.getDesktopSettings()
-          const data = res.data
-          if (!data) return
-          set({
-            ...(data.wallpaper ? { wallpaper: data.wallpaper } : {}),
-            ...(data.theme_mode ? { themeMode: data.theme_mode as ThemeMode } : {}),
-            ...(data.dock_icon_size ? { dockIconSize: data.dock_icon_size } : {}),
-            ...(data.dock_position ? { dockPosition: data.dock_position as DockPosition } : {}),
-            ...(data.dock_magnification !== undefined ? { dockMagnification: data.dock_magnification } : {}),
-            ...(data.dock_auto_hide !== undefined ? { dockAutoHide: data.dock_auto_hide } : {}),
-          })
-          logger.info('Loaded settings from backend')
-        } catch (err) {
-          logger.warn('Failed to load settings from backend', err)
-        }
-      },
-    }),
-)
+  async loadFromBackend() {
+    try {
+      const res = await apiClient.getDesktopSettings()
+      const data = res.data
+      if (!data) return
+      set({
+        ...(data.wallpaper ? { wallpaper: data.wallpaper } : {}),
+        ...(data.theme_mode ? { themeMode: data.theme_mode as ThemeMode } : {}),
+        ...(data.dock_icon_size ? { dockIconSize: data.dock_icon_size } : {}),
+        ...(data.dock_position ? { dockPosition: data.dock_position as DockPosition } : {}),
+        ...(data.dock_magnification !== undefined ? { dockMagnification: data.dock_magnification } : {}),
+        ...(data.dock_auto_hide !== undefined ? { dockAutoHide: data.dock_auto_hide } : {})
+      })
+      logger.info('Loaded settings from backend')
+    } catch (err) {
+      logger.warn('Failed to load settings from backend', err)
+    }
+  }
+}))

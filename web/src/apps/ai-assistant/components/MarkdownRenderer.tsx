@@ -1,10 +1,10 @@
+import copyToClipboard from 'copy-to-clipboard'
 import { Check, Copy } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import type { Components } from 'react-markdown'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
-import copyToClipboard from 'copy-to-clipboard'
 
 import 'highlight.js/styles/github-dark.min.css'
 
@@ -83,10 +83,7 @@ const markdownComponents: Components = {
   table({ children }) {
     return (
       <div className="overflow-x-auto my-2">
-        <table
-          className="w-full text-xs border-collapse"
-          style={{ border: '0.5px solid var(--vos-border-subtle)' }}
-        >
+        <table className="w-full text-xs border-collapse" style={{ border: '0.5px solid var(--vos-border-subtle)' }}>
           {children}
         </table>
       </div>
@@ -111,26 +108,17 @@ const markdownComponents: Components = {
   },
   a({ children, href }) {
     return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: 'var(--vos-accent-primary)' }}
-      >
+      <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--vos-accent-primary)' }}>
         {children}
       </a>
     )
-  },
+  }
 }
 
 export default function MarkdownRenderer({ content, streaming }: MarkdownRendererProps) {
   return (
     <div className="markdown-body text-sm leading-relaxed">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
-        components={markdownComponents}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={markdownComponents}>
         {content}
       </ReactMarkdown>
       {streaming && <span className="animate-pulse">▊</span>}

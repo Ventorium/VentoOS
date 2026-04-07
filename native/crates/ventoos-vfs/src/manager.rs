@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
+use ventoos_persist::{Database, PersistedVfsMount, VfsMountStore};
 
 use crate::ftp::FtpPool;
 use crate::sftp::{InlineSftpProvider, SftpPool, SshInfoProvider};
@@ -16,6 +17,7 @@ use crate::types::{
 /// Supports local, SFTP, FTP, S3, SMB (pure Rust client), and WebDAV file systems.
 pub struct VfsManager {
     mounts: Arc<RwLock<HashMap<String, VfsMount>>>,
+    mount_store: Option<VfsMountStore>,
     sftp_pool: SftpPool,
     ssh_provider: Option<Arc<dyn SshInfoProvider>>,
     ftp_pool: FtpPool,
@@ -27,6 +29,7 @@ impl VfsManager {
     pub fn new() -> Self {
         Self {
             mounts: Arc::new(RwLock::new(HashMap::new())),
+            mount_store: None,
             sftp_pool: SftpPool::new(),
             ssh_provider: None,
             ftp_pool: FtpPool::new(),
@@ -39,12 +42,68 @@ impl VfsManager {
     pub fn with_ssh_provider(provider: Arc<dyn SshInfoProvider>) -> Self {
         Self {
             mounts: Arc::new(RwLock::new(HashMap::new())),
+            mount_store: None,
             sftp_pool: SftpPool::new(),
             ssh_provider: Some(provider),
             ftp_pool: FtpPool::new(),
             smb_pool: SmbClientPool::new(),
             webdav_server_settings: Arc::new(RwLock::new(WebDavServerSettings::default())),
         }
+    }
+
+    /// Create a VfsManager with both an SSH provider and a database for mount persistence.
+    pub async fn with_db_and_ssh_provider(
+        db: Arc<Database>,
+        provider: Arc<dyn SshInfoProvider>,
+    ) -> Self {
+        let store = VfsMountStore::new(Arc::clone(&db));
+        // Load persisted mounts from DB
+        let mut initial_mounts = HashMap::new();
+        match store.load_all() {
+            Ok(rows) => {
+                for row in rows {
+                    let kind = row.kind.parse::<VfsSourceKind>().unwrap_or_else(|_| {
+                        tracing::warn!("Unknown VFS kind '{}' for mount '{}', defaulting to local", row.kind, row.id);
+                        VfsSourceKind::Local
+                    });
+                    initial_mounts.insert(
+                        row.id.clone(),
+                        VfsMount {
+                            id: row.id,
+                            name: row.name,
+                            kind,
+                            root: row.root,
+                            connection_id: row.connection_id,
+                            group: row.group_name,
+                        },
+                    );
+                }
+            }
+            Err(e) => tracing::error!("Failed to load VFS mounts from DB: {e}"),
+        }
+        let mgr = Self {
+            mounts: Arc::new(RwLock::new(initial_mounts)),
+            mount_store: Some(store),
+            sftp_pool: SftpPool::new(),
+            ssh_provider: Some(provider),
+            ftp_pool: FtpPool::new(),
+            smb_pool: SmbClientPool::new(),
+            webdav_server_settings: Arc::new(RwLock::new(WebDavServerSettings::default())),
+        };
+        // Re-register any SMB mounts loaded from the database
+        let smb_ids: Vec<(String, String)> = {
+            let m = mgr.mounts.read().await;
+            m.values()
+                .filter(|mount| matches!(mount.kind, VfsSourceKind::Smb))
+                .map(|mount| (mount.id.clone(), mount.root.clone()))
+                .collect()
+        };
+        for (id, root) in smb_ids {
+            if let Err(e) = mgr.smb_pool.register(&id, &root).await {
+                tracing::warn!("SMB pool register failed on load: {e}");
+            }
+        }
+        mgr
     }
 
     // ─── WebDAV server settings ──────────────────────────────────────────────
@@ -157,6 +216,20 @@ impl VfsManager {
         }
 
         self.mounts.write().await.insert(id, mount.clone());
+        // Persist to database
+        if let Some(store) = &self.mount_store {
+            let record = PersistedVfsMount {
+                id: mount.id.clone(),
+                name: mount.name.clone(),
+                kind: mount.kind.as_db_str().to_string(),
+                root: mount.root.clone(),
+                connection_id: mount.connection_id.clone(),
+                group_name: mount.group.clone(),
+            };
+            if let Err(e) = store.insert(&record) {
+                tracing::error!("Failed to persist VFS mount '{}': {e}", mount.id);
+            }
+        }
         mount
     }
 
@@ -173,7 +246,15 @@ impl VfsManager {
 
     pub async fn delete_mount(&self, id: &str) -> bool {
         self.smb_pool.remove(id).await;
-        self.mounts.write().await.remove(id).is_some()
+        let removed = self.mounts.write().await.remove(id).is_some();
+        if removed {
+            if let Some(store) = &self.mount_store {
+                if let Err(e) = store.delete(id) {
+                    tracing::error!("Failed to delete VFS mount '{}' from DB: {e}", id);
+                }
+            }
+        }
+        removed
     }
 
     pub async fn update_mount(&self, id: &str, req: CreateVfsMountReq) -> Option<VfsMount> {
@@ -182,23 +263,45 @@ impl VfsManager {
         self.smb_pool.remove(id).await;
         self.sftp_pool.remove(id).await;
         self.ftp_pool.remove(id).await;
-        let mut mounts = self.mounts.write().await;
-        if let Some(mount) = mounts.get_mut(id) {
-            mount.name = req.name;
-            mount.kind = req.kind;
-            mount.root = root.clone();
-            mount.connection_id = req.connection_id;
-            mount.group = req.group;
+        let updated = {
+            let mut mounts = self.mounts.write().await;
+            if let Some(mount) = mounts.get_mut(id) {
+                mount.name = req.name;
+                mount.kind = req.kind;
+                mount.root = root.clone();
+                mount.connection_id = req.connection_id;
+                mount.group = req.group;
 
-            if matches!(mount.kind, VfsSourceKind::Smb) {
-                if let Err(e) = self.smb_pool.register(id, &root).await {
-                    tracing::warn!("SMB pool register failed: {e}");
+                if matches!(mount.kind, VfsSourceKind::Smb) {
+                    if let Err(e) = self.smb_pool.register(id, &root).await {
+                        tracing::warn!("SMB pool register failed: {e}");
+                    }
                 }
-            }
 
-            Some(mount.clone())
-        } else {
-            None
+                Some(mount.clone())
+            } else {
+                None
+            }
+        };
+        if let Some(ref mount) = updated {
+            self.persist_mount_update(mount);
+        }
+        updated
+    }
+
+    fn persist_mount_update(&self, mount: &VfsMount) {
+        if let Some(store) = &self.mount_store {
+            let record = PersistedVfsMount {
+                id: mount.id.clone(),
+                name: mount.name.clone(),
+                kind: mount.kind.as_db_str().to_string(),
+                root: mount.root.clone(),
+                connection_id: mount.connection_id.clone(),
+                group_name: mount.group.clone(),
+            };
+            if let Err(e) = store.update(&record) {
+                tracing::error!("Failed to update VFS mount '{}' in DB: {e}", mount.id);
+            }
         }
     }
 
@@ -222,6 +325,15 @@ impl VfsManager {
         }
         // SMB requires explicit pool registration before first use
         if matches!(req.kind, VfsSourceKind::Smb) {
+            // If no share name in URI, just test TCP reachability (no file listing possible)
+            let has_share = root
+                .strip_prefix("smb://")
+                .map(|s| s.contains('/'))
+                .unwrap_or(false);
+            if !has_share {
+                self.mounts.write().await.remove(&temp_id);
+                return crate::smb::probe_server(&root).await;
+            }
             if let Err(e) = self.smb_pool.register(&temp_id, &root).await {
                 // Clean up and return the error early
                 self.mounts.write().await.remove(&temp_id);

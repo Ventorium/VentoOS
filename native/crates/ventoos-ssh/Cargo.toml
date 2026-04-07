@@ -1,12 +1,13 @@
 [package]
-name = "ventoos-connection"
+name = "ventoos-ssh"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 ventoos-core = { workspace = true }
-ventoos-persist = { workspace = true }
+ventoos-vfs = { workspace = true }
 tokio = { workspace = true }
+axum = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

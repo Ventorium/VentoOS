@@ -4518,20 +4518,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ventoos-connection"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "uuid",
- "ventoos-core",
- "ventoos-persist",
-]
-
-[[package]]
 name = "ventoos-core"
 version = "0.1.0"
 dependencies = [
@@ -4637,13 +4623,28 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "ventoos-agent",
- "ventoos-connection",
  "ventoos-core",
  "ventoos-db",
  "ventoos-k8s",
  "ventoos-persist",
  "ventoos-redis",
+ "ventoos-ssh",
  "ventoos-task",
+ "ventoos-vfs",
+]
+
+[[package]]
+name = "ventoos-ssh"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "uuid",
+ "ventoos-core",
  "ventoos-vfs",
 ]
 
@@ -4677,6 +4678,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "smolder-proto",
  "smolder-smb-core",
  "tar",
  "tempfile",
@@ -4685,6 +4687,7 @@ dependencies = [
  "tracing",
  "uuid",
  "ventoos-core",
+ "ventoos-persist",
  "webpki-roots 1.0.6",
  "zip",
 ]

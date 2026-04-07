@@ -14,14 +14,22 @@
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { Grid3X3, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { type AppManifest, closeWindow, focusWindow, openWindow, restoreWindow, useAppStore, useWindowStore } from '@/kernel'
+import {
+  type AppManifest,
+  closeWindow,
+  focusWindow,
+  openWindow,
+  restoreWindow,
+  useAppStore,
+  useWindowStore
+} from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
-import { useLaunchpadStore } from '@/shell/Launchpad/store'
-import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { useAISidePanelStore } from '@/shell/AISidePanel/store'
-import { useDockPositionStore } from './dockPositionStore'
-import { type AIStatus, useAIStatusStore } from './aiStatusStore'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
+import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { tokens } from '@/theme'
+import { type AIStatus, useAIStatusStore } from './aiStatusStore'
+import { useDockPositionStore } from './dockPositionStore'
 
 const { gap } = tokens.dock
 const HOVER_SCALE = 1.45
@@ -83,14 +91,14 @@ function DockIcon({
   )
 
   // Vertical spring: moves up for bottom dock, moves right for left dock
-  const y = useSpring(
-    useTransform(distance, [0, 40, 80], isHorizontal && magnification ? [-14, -4, 0] : [0, 0, 0]),
-    { stiffness: 350, damping: 30 }
-  )
-  const x = useSpring(
-    useTransform(distance, [0, 40, 80], !isHorizontal && magnification ? [14, 4, 0] : [0, 0, 0]),
-    { stiffness: 350, damping: 30 }
-  )
+  const y = useSpring(useTransform(distance, [0, 40, 80], isHorizontal && magnification ? [-14, -4, 0] : [0, 0, 0]), {
+    stiffness: 350,
+    damping: 30
+  })
+  const x = useSpring(useTransform(distance, [0, 40, 80], !isHorizontal && magnification ? [14, 4, 0] : [0, 0, 0]), {
+    stiffness: 350,
+    damping: 30
+  })
 
   function handleClick() {
     if (!isRunning) {
@@ -101,7 +109,14 @@ function DockIcon({
   }
 
   return (
-    <div style={{ position: 'relative', display: 'flex', flexDirection: isHorizontal ? 'column' : 'row', alignItems: 'center' }}>
+    <div
+      style={{
+        position: 'relative',
+        display: 'flex',
+        flexDirection: isHorizontal ? 'column' : 'row',
+        alignItems: 'center'
+      }}
+    >
       {/* Tooltip */}
       {hovered && (
         <motion.div
@@ -141,7 +156,7 @@ function DockIcon({
 }
 
 /* ---- Dock Separator ---- */
-function DockSeparator({ iconSize, isHorizontal }: { iconSize: number, isHorizontal: boolean }) {
+function DockSeparator({ iconSize, isHorizontal }: { iconSize: number; isHorizontal: boolean }) {
   return (
     <div
       style={{
@@ -161,14 +176,14 @@ function AIStatusIcon({ size }: { size: number }) {
 
   const iconStyle: React.CSSProperties = {
     width: size * 0.5,
-    height: size * 0.5,
+    height: size * 0.5
   }
 
   const animationClass = {
     idle: '',
     thinking: 'vos-ai-pulse',
     executing: 'vos-ai-spin',
-    error: 'vos-ai-error-blink',
+    error: 'vos-ai-error-blink'
   }[status]
 
   return (
@@ -177,7 +192,7 @@ function AIStatusIcon({ size }: { size: number }) {
         style={{
           ...iconStyle,
           color: status === 'error' ? 'var(--vos-accent-danger, #ff3b30)' : undefined,
-          opacity: 0.85,
+          opacity: 0.85
         }}
       />
     </div>
@@ -188,7 +203,7 @@ function AIStatusIcon({ size }: { size: number }) {
 function MinimizedThumbnail({
   win,
   iconSize,
-  isHorizontal,
+  isHorizontal
 }: {
   win: { id: string; title: string; appId: string }
   iconSize: number
@@ -218,12 +233,10 @@ function MinimizedThumbnail({
         justifyContent: 'center',
         flexShrink: 0,
         overflow: 'hidden',
-        padding: 0,
+        padding: 0
       }}
     >
-      <div style={{ width: iconSize * 0.35, height: iconSize * 0.35, opacity: 0.7 }}>
-        {appManifest?.icon ?? null}
-      </div>
+      <div style={{ width: iconSize * 0.35, height: iconSize * 0.35, opacity: 0.7 }}>{appManifest?.icon ?? null}</div>
     </motion.button>
   )
 }
@@ -243,44 +256,47 @@ export default function Dock() {
 
   // Compute badges: active window count per app is removed (red dot removed per design)
 
-  const handleAppContextMenu = useCallback((e: React.MouseEvent, app: AppManifest) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const getWindowsByApp = useWindowStore.getState().getWindowsByApp
-    const appWindows = getWindowsByApp(app.id)
-    const isRunning = appWindows.length > 0
-    const items: import('@/shell/ContextMenu/store').ContextMenuItems = []
+  const handleAppContextMenu = useCallback(
+    (e: React.MouseEvent, app: AppManifest) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const getWindowsByApp = useWindowStore.getState().getWindowsByApp
+      const appWindows = getWindowsByApp(app.id)
+      const isRunning = appWindows.length > 0
+      const items: import('@/shell/ContextMenu/store').ContextMenuItems = []
 
-    if (!isRunning) {
-      items.push({ id: 'open', label: `打开 ${app.name}`, action: () => openWindowFn(app.id) })
-    } else {
-      items.push({
-        id: 'focus',
-        label: `前置 ${app.name}`,
-        action: () => {
-          const top = appWindows.filter(w => !w.isMinimized)
-          if (top.length > 0) {
-            focusWindowFn(top.reduce((a, b) => (a.zIndex > b.zIndex ? a : b)).id)
-          } else {
-            restoreWindowFn(appWindows.reduce((a, b) => (a.zIndex > b.zIndex ? a : b)).id)
+      if (!isRunning) {
+        items.push({ id: 'open', label: `打开 ${app.name}`, action: () => openWindowFn(app.id) })
+      } else {
+        items.push({
+          id: 'focus',
+          label: `前置 ${app.name}`,
+          action: () => {
+            const top = appWindows.filter(w => !w.isMinimized)
+            if (top.length > 0) {
+              focusWindowFn(top.reduce((a, b) => (a.zIndex > b.zIndex ? a : b)).id)
+            } else {
+              restoreWindowFn(appWindows.reduce((a, b) => (a.zIndex > b.zIndex ? a : b)).id)
+            }
           }
+        })
+        if (app.multiWindow) {
+          items.push({ id: 'new-window', label: '新建窗口', action: () => openWindowFn(app.id) })
         }
-      })
-      if (app.multiWindow) {
-        items.push({ id: 'new-window', label: '新建窗口', action: () => openWindowFn(app.id) })
+        items.push({ type: 'separator' })
+        items.push({
+          id: 'quit',
+          label: `退出 ${app.name}`,
+          danger: true,
+          action: () => {
+            for (const w of appWindows) closeWindow(w.id)
+          }
+        })
       }
-      items.push({ type: 'separator' })
-      items.push({
-        id: 'quit',
-        label: `退出 ${app.name}`,
-        danger: true,
-        action: () => {
-          for (const w of appWindows) closeWindow(w.id)
-        }
-      })
-    }
-    showCtxMenu(e.clientX, e.clientY, items)
-  }, [showCtxMenu, openWindowFn, focusWindowFn, restoreWindowFn])
+      showCtxMenu(e.clientX, e.clientY, items)
+    },
+    [showCtxMenu, openWindowFn, focusWindowFn, restoreWindowFn]
+  )
   const mouseX = useMotionValue(999)
 
   // Settings
@@ -415,17 +431,12 @@ export default function Dock() {
                   display: 'flex',
                   flexDirection: isHorizontal ? 'row' : 'column',
                   gap: 6,
-                  alignItems: 'center',
+                  alignItems: 'center'
                 }}
               >
                 <AnimatePresence>
                   {minimizedWindows.map(w => (
-                    <MinimizedThumbnail
-                      key={w.id}
-                      win={w}
-                      iconSize={iconSize}
-                      isHorizontal={isHorizontal}
-                    />
+                    <MinimizedThumbnail key={w.id} win={w} iconSize={iconSize} isHorizontal={isHorizontal} />
                   ))}
                 </AnimatePresence>
               </div>

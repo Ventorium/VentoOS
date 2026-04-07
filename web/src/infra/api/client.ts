@@ -7,8 +7,8 @@
  */
 
 import type {
-  AgentProfile,
   AgentConfig,
+  AgentProfile,
   ApiResponse,
   AuthLoginData,
   AuthStatusData,
@@ -151,17 +151,24 @@ export const apiClient = {
   // ── Settings ─────────────────────────────────────────────────────────────
 
   getDesktopSettings: () => request<ApiResponse<DesktopSettings>>('GET', '/api/settings/desktop'),
-  saveDesktopSettings: (body: Partial<DesktopSettings>) => request<ApiResponse<unknown>>('PUT', '/api/settings/desktop', body),
+  saveDesktopSettings: (body: Partial<DesktopSettings>) =>
+    request<ApiResponse<unknown>>('PUT', '/api/settings/desktop', body),
   getWindowSettings: () => request<ApiResponse<WindowStateDTO[]>>('GET', '/api/settings/windows'),
   saveWindowSettings: (body: WindowStateDTO[]) => request<ApiResponse<unknown>>('PUT', '/api/settings/windows', body),
 
   // ── Per-App Storage ──────────────────────────────────────────────────────
 
-  listStorageKeys: (appId: string) => request<ApiResponse<string[]>>('GET', `/api/storage/${encodeURIComponent(appId)}`),
+  listStorageKeys: (appId: string) =>
+    request<ApiResponse<string[]>>('GET', `/api/storage/${encodeURIComponent(appId)}`),
   getStorageValue: (appId: string, key: string) =>
-    request<ApiResponse<{ key: string; value: string }>>('GET', `/api/storage/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`),
+    request<ApiResponse<{ key: string; value: string }>>(
+      'GET',
+      `/api/storage/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`
+    ),
   setStorageValue: (appId: string, key: string, value: string) =>
-    request<ApiResponse<unknown>>('PUT', `/api/storage/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`, { value }),
+    request<ApiResponse<unknown>>('PUT', `/api/storage/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`, {
+      value
+    }),
   deleteStorageValue: (appId: string, key: string) =>
     request<ApiResponse<unknown>>('DELETE', `/api/storage/${encodeURIComponent(appId)}/${encodeURIComponent(key)}`),
 
@@ -333,8 +340,7 @@ export const apiClient = {
   },
 
   // WebDAV server settings
-  getWebDavServerSettings: () =>
-    request<ApiResponse<WebDavServerSettings>>('GET', '/api/vfs/webdav-server/settings'),
+  getWebDavServerSettings: () => request<ApiResponse<WebDavServerSettings>>('GET', '/api/vfs/webdav-server/settings'),
   updateWebDavServerSettings: (body: WebDavServerSettings) =>
     request<ApiResponse<WebDavServerSettings>>('PUT', '/api/vfs/webdav-server/settings', body),
 
@@ -362,8 +368,7 @@ export const apiClient = {
   // Agent profiles
   getAgentProfiles: () => request<ApiResponse<AgentProfile[]>>('GET', '/api/agent/profiles'),
   getAgentProfile: (id: string) => request<ApiResponse<AgentProfile>>('GET', `/api/agent/profiles/${id}`),
-  createAgentProfile: (body: AgentProfile) =>
-    request<ApiResponse<AgentProfile>>('POST', '/api/agent/profiles', body),
+  createAgentProfile: (body: AgentProfile) => request<ApiResponse<AgentProfile>>('POST', '/api/agent/profiles', body),
   updateAgentProfile: (id: string, body: AgentProfile) =>
     request<ApiResponse<AgentProfile>>('PUT', `/api/agent/profiles/${id}`, body),
   deleteAgentProfile: (id: string) => request<ApiResponse<null>>('DELETE', `/api/agent/profiles/${id}`),

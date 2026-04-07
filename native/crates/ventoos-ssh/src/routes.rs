@@ -1,0 +1,419 @@
+use std::sync::Arc;
+
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use axum::routing::{get, post};
+use axum::{Json, Router};
+
+use ventoos_core::plugin::AppPlugin;
+use ventoos_core::types::{ApiResponse, Id};
+
+use crate::manager::SshManager;
+use crate::types::{
+    CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest, PortMapping,
+    ServiceExposure, SshServer, UpdateSshServerRequest,
+};
+
+/// Shared state for SSH routes.
+#[derive(Clone)]
+pub struct SshState {
+    pub manager: Arc<SshManager>,
+}
+
+/// SSH management application plugin.
+pub struct SshPlugin {
+    state: SshState,
+}
+
+impl SshPlugin {
+    pub fn new(manager: Arc<SshManager>) -> Self {
+        Self {
+            state: SshState { manager },
+        }
+    }
+}
+
+impl AppPlugin for SshPlugin {
+    fn app_id(&self) -> &'static str {
+        "ssh"
+    }
+
+    fn routes(&self) -> Router {
+        Router::new()
+            // SSH server routes
+            .route(
+                "/api/ssh/servers",
+                get(list_ssh_servers).post(create_ssh_server),
+            )
+            .route(
+                "/api/ssh/servers/{id}",
+                get(get_ssh_server)
+                    .put(update_ssh_server)
+                    .delete(delete_ssh_server),
+            )
+            .route("/api/ssh/servers/{id}/test", post(test_ssh_server))
+            // Port mapping routes
+            .route(
+                "/api/port-mappings",
+                get(list_port_mappings).post(create_port_mapping),
+            )
+            .route(
+                "/api/port-mappings/{id}",
+                get(get_port_mapping).delete(delete_port_mapping),
+            )
+            .route("/api/port-mappings/{id}/start", post(start_port_mapping))
+            .route("/api/port-mappings/{id}/stop", post(stop_port_mapping))
+            // Service exposure routes
+            .route(
+                "/api/service-exposures",
+                get(list_service_exposures).post(create_service_exposure),
+            )
+            .route(
+                "/api/service-exposures/{id}",
+                get(get_service_exposure).delete(delete_service_exposure),
+            )
+            .route(
+                "/api/service-exposures/{id}/start",
+                post(start_service_exposure),
+            )
+            .route(
+                "/api/service-exposures/{id}/stop",
+                post(stop_service_exposure),
+            )
+            // SSH config import & key file listing
+            .route("/api/ssh/config-hosts", get(list_ssh_config_hosts))
+            .route("/api/ssh/key-files", get(list_ssh_key_files))
+            .with_state(self.state.clone())
+    }
+}
+
+// --- SSH Server Routes ---
+
+async fn list_ssh_servers(
+    State(state): State<SshState>,
+) -> Json<ApiResponse<Vec<SshServer>>> {
+    let servers = state.manager.list_servers().await;
+    Json(ApiResponse::ok(servers))
+}
+
+async fn create_ssh_server(
+    State(state): State<SshState>,
+    Json(req): Json<CreateSshServerRequest>,
+) -> (StatusCode, Json<ApiResponse<SshServer>>) {
+    let server = state.manager.create_server(req).await;
+    (StatusCode::CREATED, Json(ApiResponse::ok(server)))
+}
+
+async fn get_ssh_server(State(state): State<SshState>, Path(id): Path<Id>) -> impl IntoResponse {
+    match state.manager.get_server(id).await {
+        Some(server) => Json(ApiResponse::ok(server)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn update_ssh_server(
+    State(state): State<SshState>,
+    Path(id): Path<Id>,
+    Json(req): Json<UpdateSshServerRequest>,
+) -> impl IntoResponse {
+    match state.manager.update_server(id, req).await {
+        Some(server) => Json(ApiResponse::ok(server)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn delete_ssh_server(State(state): State<SshState>, Path(id): Path<Id>) -> impl IntoResponse {
+    if state.manager.delete_server(id).await {
+        Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response()
+    }
+}
+
+async fn test_ssh_server(State(state): State<SshState>, Path(id): Path<Id>) -> impl IntoResponse {
+    match state.manager.test_server(id).await {
+        Some(result) => Json(ApiResponse::ok(result)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response(),
+    }
+}
+
+// --- Port Mapping Routes ---
+
+async fn list_port_mappings(
+    State(state): State<SshState>,
+) -> Json<ApiResponse<Vec<PortMapping>>> {
+    let mappings = state.manager.list_port_mappings().await;
+    Json(ApiResponse::ok(mappings))
+}
+
+async fn create_port_mapping(
+    State(state): State<SshState>,
+    Json(req): Json<CreatePortMappingRequest>,
+) -> (StatusCode, Json<ApiResponse<PortMapping>>) {
+    let mapping = state.manager.create_port_mapping(req).await;
+    (StatusCode::CREATED, Json(ApiResponse::ok(mapping)))
+}
+
+async fn get_port_mapping(State(state): State<SshState>, Path(id): Path<Id>) -> impl IntoResponse {
+    match state.manager.get_port_mapping(id).await {
+        Some(mapping) => Json(ApiResponse::ok(mapping)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Port mapping not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn delete_port_mapping(
+    State(state): State<SshState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    if state.manager.delete_port_mapping(id).await {
+        Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Port mapping not found")),
+        )
+            .into_response()
+    }
+}
+
+async fn start_port_mapping(
+    State(state): State<SshState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.manager.start_port_mapping(id).await {
+        Some(mapping) => Json(ApiResponse::ok(mapping)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Port mapping not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn stop_port_mapping(State(state): State<SshState>, Path(id): Path<Id>) -> impl IntoResponse {
+    match state.manager.stop_port_mapping(id).await {
+        Some(mapping) => Json(ApiResponse::ok(mapping)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Port mapping not found")),
+        )
+            .into_response(),
+    }
+}
+
+// --- Service Exposure Routes ---
+
+async fn list_service_exposures(
+    State(state): State<SshState>,
+) -> Json<ApiResponse<Vec<ServiceExposure>>> {
+    let exposures = state.manager.list_service_exposures().await;
+    Json(ApiResponse::ok(exposures))
+}
+
+async fn create_service_exposure(
+    State(state): State<SshState>,
+    Json(req): Json<CreateServiceExposureRequest>,
+) -> (StatusCode, Json<ApiResponse<ServiceExposure>>) {
+    let exposure = state.manager.create_service_exposure(req).await;
+    (StatusCode::CREATED, Json(ApiResponse::ok(exposure)))
+}
+
+async fn get_service_exposure(
+    State(state): State<SshState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.manager.get_service_exposure(id).await {
+        Some(exposure) => Json(ApiResponse::ok(exposure)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Service exposure not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn delete_service_exposure(
+    State(state): State<SshState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    if state.manager.delete_service_exposure(id).await {
+        Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Service exposure not found")),
+        )
+            .into_response()
+    }
+}
+
+async fn start_service_exposure(
+    State(state): State<SshState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.manager.start_service_exposure(id).await {
+        Some(exposure) => Json(ApiResponse::ok(exposure)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Service exposure not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn stop_service_exposure(
+    State(state): State<SshState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.manager.stop_service_exposure(id).await {
+        Some(exposure) => Json(ApiResponse::ok(exposure)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Service exposure not found")),
+        )
+            .into_response(),
+    }
+}
+
+// --- SSH Config Import & Key Files ---
+
+/// Parsed SSH config host entry
+#[derive(serde::Serialize)]
+struct SshConfigHost {
+    alias: String,
+    hostname: Option<String>,
+    user: Option<String>,
+    port: Option<u16>,
+    identity_file: Option<String>,
+}
+
+async fn list_ssh_config_hosts() -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
+    let config_path = std::path::Path::new(&home).join(".ssh/config");
+    match tokio::fs::read_to_string(&config_path).await {
+        Ok(content) => {
+            let mut hosts: Vec<SshConfigHost> = Vec::new();
+            let mut current: Option<SshConfigHost> = None;
+
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() || trimmed.starts_with('#') {
+                    continue;
+                }
+                // Case-insensitive keyword matching
+                let lower = trimmed.to_lowercase();
+                if lower.starts_with("host ") {
+                    // Save previous entry
+                    if let Some(entry) = current.take()
+                        && !entry.alias.contains('*')
+                    {
+                        hosts.push(entry);
+                    }
+                    let alias = trimmed[5..].trim().to_string();
+                    current = Some(SshConfigHost {
+                        alias,
+                        hostname: None,
+                        user: None,
+                        port: None,
+                        identity_file: None,
+                    });
+                } else if let Some(entry) = current.as_mut() {
+                    // Parse key-value (split at first whitespace or '=')
+                    let value = if let Some(pos) = trimmed.find([' ', '=']) {
+                        trimmed[pos + 1..].trim().to_string()
+                    } else {
+                        continue;
+                    };
+
+                    if lower.starts_with("hostname") {
+                        entry.hostname = Some(value);
+                    } else if lower.starts_with("user ") || lower.starts_with("user=") {
+                        entry.user = Some(value);
+                    } else if lower.starts_with("port") {
+                        entry.port = value.parse().ok();
+                    } else if lower.starts_with("identityfile") {
+                        // Expand ~ to home dir
+                        let expanded = if let Some(rest) = value.strip_prefix("~/") {
+                            format!("{home}/{rest}")
+                        } else {
+                            value
+                        };
+                        entry.identity_file = Some(expanded);
+                    }
+                }
+            }
+            // Don't forget the last entry
+            if let Some(entry) = current.take()
+                && !entry.alias.contains('*')
+            {
+                hosts.push(entry);
+            }
+            Json(ApiResponse::ok(hosts)).into_response()
+        }
+        Err(_) => Json(ApiResponse::ok(Vec::<SshConfigHost>::new())).into_response(),
+    }
+}
+
+/// SSH key file entry
+#[derive(serde::Serialize)]
+struct SshKeyFile {
+    name: String,
+    path: String,
+    is_public: bool,
+}
+
+async fn list_ssh_key_files() -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
+    let ssh_dir = std::path::Path::new(&home).join(".ssh");
+    let mut files: Vec<SshKeyFile> = Vec::new();
+
+    if let Ok(mut entries) = tokio::fs::read_dir(&ssh_dir).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let name = entry.file_name().to_string_lossy().to_string();
+            // Skip known non-key files
+            if matches!(
+                name.as_str(),
+                "config" | "known_hosts" | "known_hosts.old" | "authorized_keys"
+            ) {
+                continue;
+            }
+            // Only include regular files
+            if let Ok(meta) = entry.metadata().await
+                && meta.is_file()
+            {
+                let is_public = std::path::Path::new(&name)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("pub"));
+                files.push(SshKeyFile {
+                    path: entry.path().to_string_lossy().to_string(),
+                    name,
+                    is_public,
+                });
+            }
+        }
+    }
+    // Sort: private keys first, then public
+    files.sort_by(|a, b| a.is_public.cmp(&b.is_public).then(a.name.cmp(&b.name)));
+    Json(ApiResponse::ok(files))
+}
