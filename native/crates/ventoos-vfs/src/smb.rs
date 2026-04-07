@@ -13,7 +13,7 @@ use std::sync::Arc;
 use smolder_core::auth::NtlmCredentials;
 use smolder_core::facade::{Client, Share};
 use smolder_core::srvsvc::ShareInfo1;
-use smolder_proto::smb::smb2::GlobalCapabilities;
+use smolder_proto::smb::smb2::{Dialect, GlobalCapabilities};
 use tokio::sync::Mutex;
 use tracing::debug;
 
@@ -57,24 +57,7 @@ impl SmbClientPool {
     /// Register connection info for a mount.
     pub async fn register(&self, mount_id: &str, smb_uri: &str) -> Result<(), String> {
         let info = parse_smb_uri(smb_uri)?;
-
-        let client = Client::builder(info.server.clone())
-            .with_port(info.port)
-            .with_ntlm_credentials(NtlmCredentials::new(
-                if info.username.is_empty() {
-                    "guest"
-                } else {
-                    &info.username
-                },
-                &info.password,
-            ))
-            // Use empty capabilities for maximum server compatibility.
-            // Advertising ENCRYPTION (or even LEASING) can trigger negotiate
-            // context rejection on some NAS/Windows Home servers with
-            // STATUS_INVALID_PARAMETER (0xc000000d).
-            .with_capabilities(GlobalCapabilities::empty())
-            .build()
-            .map_err(|e| format!("SMB client build failed: {e}"))?;
+        let client = build_smb_client(&info)?;
 
         self.clients
             .lock()
@@ -178,10 +161,19 @@ impl SmbClientPool {
             .connect_srvsvc()
             .await
             .map_err(|e| format!("SMB srvsvc connect failed: {e}"))?;
-        srvsvc
-            .share_enum_level1()
-            .await
-            .map_err(|e| format!("SMB share enumeration failed: {e}"))
+
+        match srvsvc.share_enum_level1().await {
+            Ok(shares) => Ok(shares),
+            Err(err) => {
+                debug!("SMB share_enum_level1 failed, falling back to raw parser: {err}");
+                let mut rpc = srvsvc.into_rpc();
+                let response = rpc
+                    .call(0, 15, encode_share_enum_level1_request())
+                    .await
+                    .map_err(|e| format!("SMB share enumeration failed: {e}"))?;
+                parse_share_enum_level1_fallback(&response)
+            }
+        }
     }
 }
 
@@ -250,6 +242,123 @@ pub(crate) fn parse_smb_uri(uri: &str) -> Result<SmbConnInfo, String> {
         password,
         base_path,
     })
+}
+
+/// Build an SMB client profile that avoids SMB 3.1.1 negotiate contexts.
+///
+/// Some NAS and Windows Home implementations reject 3.1.1 negotiate
+/// contexts with `STATUS_INVALID_PARAMETER` even though they otherwise
+/// support SMB2/3 file operations. Keeping the dialect list below 3.1.1
+/// preserves the full VFS feature set while making the handshake more
+/// broadly compatible.
+fn build_smb_client(info: &SmbConnInfo) -> Result<Client, String> {
+    Client::builder(info.server.clone())
+        .with_port(info.port)
+        .with_ntlm_credentials(NtlmCredentials::new(
+            if info.username.is_empty() {
+                "guest"
+            } else {
+                &info.username
+            },
+            &info.password,
+        ))
+        // Keep the negotiate profile conservative for maximum compatibility.
+        .with_capabilities(GlobalCapabilities::empty())
+        .with_dialects(smb_client_dialects())
+        .build()
+        .map_err(|e| format!("SMB client build failed: {e}"))
+}
+
+fn encode_share_enum_level1_request() -> Vec<u8> {
+    let mut stub = Vec::with_capacity(24);
+    stub.extend_from_slice(&0_u32.to_le_bytes());
+    stub.extend_from_slice(&1_u32.to_le_bytes());
+    stub.extend_from_slice(&1_u32.to_le_bytes());
+    stub.extend_from_slice(&0_u32.to_le_bytes());
+    stub.extend_from_slice(&0_u32.to_le_bytes());
+    stub.extend_from_slice(&u32::MAX.to_le_bytes());
+    stub.extend_from_slice(&0_u32.to_le_bytes());
+    stub
+}
+
+fn parse_share_enum_level1_fallback(response: &[u8]) -> Result<Vec<ShareInfo1>, String> {
+    let names = extract_utf16_strings(response);
+    if names.is_empty() {
+        return Err(
+            "SMB share enumeration failed: no share names found in raw srvsvc response".to_string(),
+        );
+    }
+
+    let mut names = names;
+    if names.last().is_some_and(|s| is_likely_server_comment(s)) {
+        let _ = names.pop();
+    }
+
+    let mut unique = Vec::new();
+    for name in names {
+        if !unique.iter().any(|existing: &String| existing == &name) {
+            unique.push(name);
+        }
+    }
+
+    if unique.is_empty() {
+        return Err(
+            "SMB share enumeration failed: raw srvsvc response contained no usable share names"
+                .to_string(),
+        );
+    }
+
+    debug!("SMB raw share enumeration fallback returned names: {unique:?}");
+
+    Ok(unique
+        .into_iter()
+        .map(|name| ShareInfo1 {
+            name,
+            share_type: 0,
+            remark: None,
+        })
+        .collect())
+}
+
+fn is_likely_server_comment(value: &str) -> bool {
+    value.contains(' ') || value.contains('(') || value.contains(')') || value.contains('/')
+}
+
+fn extract_utf16_strings(bytes: &[u8]) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut current = Vec::new();
+
+    for chunk in bytes.chunks_exact(2) {
+        let code = u16::from_le_bytes([chunk[0], chunk[1]]);
+        if code == 0 {
+            if current.len() >= 2
+                && let Ok(s) = String::from_utf16(&current)
+            {
+                out.push(s);
+            }
+            current.clear();
+            continue;
+        }
+
+        if (0x20..=0x7e).contains(&code) {
+            current.push(code);
+        } else {
+            if current.len() >= 2
+                && let Ok(s) = String::from_utf16(&current)
+            {
+                out.push(s);
+            }
+            current.clear();
+        }
+    }
+
+    if current.len() >= 2
+        && let Ok(s) = String::from_utf16(&current)
+    {
+        out.push(s);
+    }
+
+    out
 }
 
 // ─── Path helpers ────────────────────────────────────────────────────────────
@@ -734,19 +843,7 @@ pub(crate) async fn search(
 /// Test SMB connectivity by trying to connect and list the root.
 pub(crate) async fn test_connection(smb_uri: &str) -> Result<(), String> {
     let info = parse_smb_uri(smb_uri)?;
-
-    let client = Client::builder(info.server.clone())
-        .with_port(info.port)
-        .with_ntlm_credentials(NtlmCredentials::new(
-            if info.username.is_empty() {
-                "guest"
-            } else {
-                &info.username
-            },
-            &info.password,
-        ))
-        .build()
-        .map_err(|e| format!("SMB client build failed: {e}"))?;
+    let client = build_smb_client(&info)?;
 
     if let Some(share_name) = &info.share {
         let mut share = client
@@ -854,6 +951,19 @@ mod tests {
     }
 
     #[test]
+    fn test_smb_client_dialects_avoid_smb311() {
+        assert_eq!(
+            vec![
+                Dialect::Smb202,
+                Dialect::Smb210,
+                Dialect::Smb300,
+                Dialect::Smb302,
+            ],
+            smb_client_dialects()
+        );
+    }
+
+    #[test]
     fn test_to_share_path() {
         assert_eq!(to_share_path("/", "/"), "/");
         assert_eq!(to_share_path("/", "/foo"), "/foo");
@@ -861,4 +971,13 @@ mod tests {
         assert_eq!(to_share_path("/data", "/"), "/data");
         assert_eq!(to_share_path("/data", "file.txt"), "/data/file.txt");
     }
+}
+
+fn smb_client_dialects() -> Vec<Dialect> {
+    vec![
+        Dialect::Smb202,
+        Dialect::Smb210,
+        Dialect::Smb300,
+        Dialect::Smb302,
+    ]
 }

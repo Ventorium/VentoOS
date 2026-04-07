@@ -241,6 +241,44 @@ async fn test_smb_test_connection() {
 
 #[tokio::test]
 #[ignore = "requires SMB server"]
+async fn test_smb_server_root_list() {
+    let manager = VfsManager::new();
+    let req = CreateVfsMountReq {
+        name: "test-smb-root".to_string(),
+        kind: VfsSourceKind::Smb,
+        root: format!("smb://{}:{}@{}", smb_user(), smb_pass(), smb_host()),
+        connection_id: None,
+        group: None,
+    };
+    let mount = manager.create_mount(req).await;
+
+    let result = manager
+        .list_dir(&VfsListReq {
+            mount_id: mount.id.clone(),
+            path: "/".to_string(),
+            show_hidden: false,
+        })
+        .await;
+    assert!(
+        result.is_ok(),
+        "SMB server-root list_dir failed: {:?}",
+        result.err()
+    );
+    let entries = result.unwrap();
+    assert!(
+        !entries.is_empty(),
+        "Expected SMB server-root listing to return at least one share"
+    );
+    assert!(
+        entries
+            .iter()
+            .any(|entry| entry.name.eq_ignore_ascii_case("IPC$")),
+        "Expected SMB server-root listing to include IPC$"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires SMB server"]
 async fn test_smb_list_root() {
     let manager = VfsManager::new();
     let mount = manager
