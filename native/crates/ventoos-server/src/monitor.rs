@@ -12,6 +12,121 @@ use ventoos_core::types::ApiResponse;
 use crate::state::AppState;
 
 // ---------------------------------------------------------------------------
+// macOS per-core CPU via Mach kernel API
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "macos")]
+#[allow(unsafe_code)]
+mod mach_cpu {
+    use std::sync::Mutex;
+
+    const PROCESSOR_CPU_LOAD_INFO: i32 = 2;
+    const CPU_STATE_USER: usize = 0;
+    const CPU_STATE_SYSTEM: usize = 1;
+    const CPU_STATE_IDLE: usize = 2;
+    const CPU_STATE_NICE: usize = 3;
+    const CPU_STATE_MAX: usize = 4;
+
+    unsafe extern "C" {
+        fn mach_host_self() -> u32;
+        static mach_task_self_: u32;
+        fn host_processor_info(
+            host: u32,
+            flavor: i32,
+            out_processor_count: *mut u32,
+            out_processor_info: *mut *mut i32,
+            out_processor_info_cnt: *mut u32,
+        ) -> i32;
+        fn vm_deallocate(target_task: u32, address: usize, size: usize) -> i32;
+    }
+
+    static PREV_TICKS: Mutex<Option<Vec<[u64; 4]>>> = Mutex::new(None);
+
+    /// Returns per-core CPU usage percentages using Mach kernel APIs.
+    #[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
+    pub fn per_core_usage() -> Option<Vec<f64>> {
+        // SAFETY: We call well-known Mach kernel APIs with valid pointers.
+        // We carefully bounds-check all array accesses against info_cnt.
+        #[allow(clippy::borrow_as_ptr)]
+        let current = unsafe {
+            let host = mach_host_self();
+            let mut count: u32 = 0;
+            let mut info: *mut i32 = std::ptr::null_mut();
+            let mut info_cnt: u32 = 0;
+
+            let ret = host_processor_info(
+                host,
+                PROCESSOR_CPU_LOAD_INFO,
+                &raw mut count,
+                &raw mut info,
+                &raw mut info_cnt,
+            );
+            if ret != 0 || info.is_null() || count == 0 {
+                return None;
+            }
+
+            let num_cores = count as usize;
+            let total_elements = info_cnt as usize;
+            let mut current: Vec<[u64; 4]> = Vec::with_capacity(num_cores);
+
+            for i in 0..num_cores {
+                let base = i * CPU_STATE_MAX;
+                // bounds check: ensure we don't read past the allocated array
+                if base + CPU_STATE_NICE >= total_elements {
+                    break;
+                }
+                current.push([
+                    *info.add(base + CPU_STATE_USER) as u64,
+                    *info.add(base + CPU_STATE_SYSTEM) as u64,
+                    *info.add(base + CPU_STATE_IDLE) as u64,
+                    *info.add(base + CPU_STATE_NICE) as u64,
+                ]);
+            }
+
+            // Deallocate the memory returned by host_processor_info
+            vm_deallocate(
+                mach_task_self_,
+                info as usize,
+                total_elements * std::mem::size_of::<i32>(),
+            );
+
+            current
+        };
+
+        let mut prev_guard = PREV_TICKS.lock().ok()?;
+        let result = if let Some(prev) = prev_guard.as_ref() {
+            if prev.len() == current.len() {
+                Some(
+                    current
+                        .iter()
+                        .zip(prev.iter())
+                        .map(|(cur, prv)| {
+                            let d_user = cur[0].saturating_sub(prv[0]);
+                            let d_sys = cur[1].saturating_sub(prv[1]);
+                            let d_idle = cur[2].saturating_sub(prv[2]);
+                            let d_nice = cur[3].saturating_sub(prv[3]);
+                            let total = d_user + d_sys + d_idle + d_nice;
+                            if total == 0 {
+                                0.0
+                            } else {
+                                ((d_user + d_sys + d_nice) as f64 / total as f64) * 100.0
+                            }
+                        })
+                        .collect(),
+                )
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        *prev_guard = Some(current);
+        result
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
 
@@ -101,12 +216,23 @@ async fn collect_cpu() -> CpuInfo {
         }
     }
 
-    let cores = (0..core_count)
-        .map(|i| CpuCoreInfo {
-            core_id: i,
-            usage_percent: total_usage, // macOS `top` doesn't give per-core easily
-        })
-        .collect();
+    let cores = if let Some(per_core) = mach_cpu::per_core_usage() {
+        per_core
+            .iter()
+            .enumerate()
+            .map(|(i, &usage)| CpuCoreInfo {
+                core_id: i as u32,
+                usage_percent: usage,
+            })
+            .collect()
+    } else {
+        (0..core_count)
+            .map(|i| CpuCoreInfo {
+                core_id: i,
+                usage_percent: total_usage,
+            })
+            .collect()
+    };
 
     CpuInfo {
         total_usage_percent: total_usage,

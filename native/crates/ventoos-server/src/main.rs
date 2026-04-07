@@ -39,7 +39,8 @@ async fn main() -> Result<()> {
     // Build router
     let app = routes::create_router(&state)
         .layer(TraceLayer::new_for_http())
-        .layer(CorsLayer::permissive());
+        .layer(CorsLayer::permissive())
+        .layer(axum::middleware::from_fn(cross_origin_isolation_headers));
 
     // Bind and serve
     let addr = SocketAddr::from(([0, 0, 0, 0], 5454));
@@ -48,6 +49,23 @@ async fn main() -> Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+async fn cross_origin_isolation_headers(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let mut response = next.run(req).await;
+    let headers = response.headers_mut();
+    headers.insert(
+        axum::http::header::HeaderName::from_static("cross-origin-opener-policy"),
+        axum::http::header::HeaderValue::from_static("same-origin"),
+    );
+    headers.insert(
+        axum::http::header::HeaderName::from_static("cross-origin-embedder-policy"),
+        axum::http::header::HeaderValue::from_static("require-corp"),
+    );
+    response
 }
 
 fn install_rustls_crypto_provider() {

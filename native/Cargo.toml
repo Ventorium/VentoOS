@@ -90,7 +90,7 @@ ventoos-agent = { path = "crates/ventoos-agent" }
 ventoos-persist = { path = "crates/ventoos-persist" }
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }

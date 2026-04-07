@@ -57,6 +57,7 @@ export const authService = {
   /** Lock the screen immediately (without calling backend). */
   lock(): void {
     useAuthStore.getState().lock()
+    logger.info('Screen locked')
   },
 
   /**

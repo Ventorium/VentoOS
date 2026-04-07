@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react'
+import { useId, useMemo, useState } from 'react'
 import type { ChartSeries } from './types'
 import { defaultFormat, niceScale, smoothPath } from './utils'
 
@@ -26,6 +26,7 @@ export default function LineChart({
   className,
 }: LineChartProps) {
   const uid = useId()
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null)
 
   const plotW = width - PADDING.left - PADDING.right
   const plotH = height - PADDING.top - PADDING.bottom
@@ -155,6 +156,57 @@ export default function LineChart({
           </g>
         )
       })}
+
+      {/* Hover overlay */}
+      <rect
+        x={PADDING.left}
+        y={PADDING.top}
+        width={plotW}
+        height={plotH}
+        fill="transparent"
+        onMouseMove={(e) => {
+          const svg = e.currentTarget.closest('svg')
+          if (!svg) return
+          const rect = svg.getBoundingClientRect()
+          const mouseX = ((e.clientX - rect.left) / rect.width) * width - PADDING.left
+          const pts = data[0]?.data.slice(-maxPoints) ?? []
+          if (pts.length === 0) return
+          const step = plotW / Math.max(pts.length - 1, 1)
+          const idx = Math.round(mouseX / step)
+          setHoverIdx(Math.max(0, Math.min(idx, pts.length - 1)))
+        }}
+        onMouseLeave={() => setHoverIdx(null)}
+      />
+
+      {/* Hover guide line + dots + tooltip */}
+      {hoverIdx !== null && data.length > 0 && (() => {
+        const pts = data[0].data.slice(-maxPoints)
+        if (hoverIdx >= pts.length) return null
+        const x = toX(hoverIdx, pts.length)
+
+        return (
+          <g>
+            <line x1={x} y1={PADDING.top} x2={x} y2={PADDING.top + plotH}
+              stroke="var(--vos-text-tertiary)" strokeWidth={0.5} strokeDasharray="3,3" />
+            {data.map(series => {
+              const seriesPts = series.data.slice(-maxPoints)
+              if (hoverIdx >= seriesPts.length) return null
+              const val = seriesPts[hoverIdx]
+              const cy = toY(val)
+              return (
+                <g key={series.id}>
+                  <circle cx={x} cy={cy} r={3} fill={series.color} stroke="#fff" strokeWidth={1} />
+                  <rect x={x + 6} y={cy - 10} width={60} height={18} rx={3}
+                    fill="var(--vos-bg-elevated, rgba(0,0,0,0.75))" />
+                  <text x={x + 10} y={cy + 1} fill="#fff" fontSize={10}>
+                    {formatValue(val)}
+                  </text>
+                </g>
+              )
+            })}
+          </g>
+        )
+      })()}
     </svg>
   )
 }

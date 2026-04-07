@@ -3,9 +3,15 @@
  *
  * Unified console logger with level control.
  * In production, only warnings and errors are emitted.
+ * All warn/error entries (and info+ in dev) are also pushed to the LogStore
+ * for display in the Log Center app.
  */
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+import type { LogLevel } from './store'
+import { useLogStore } from './store'
+
+export type { LogLevel, LogEntry } from './store'
+export { useLogStore } from './store'
 
 const isDev = import.meta.env.DEV
 
@@ -27,6 +33,12 @@ function log(level: LogLevel, module: string, ...args: unknown[]): void {
       console.error(prefix, ...args)
       break
   }
+
+  // Push to in-memory log store for the Log Center app.
+  // Stringify the first arg as message, rest as details.
+  const message = args.length > 0 ? String(args[0]) : ''
+  const details = args.length > 1 ? args.slice(1) : undefined
+  useLogStore.getState().push(level, module, message, details)
 }
 
 /**

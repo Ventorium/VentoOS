@@ -10,6 +10,7 @@ import { databaseManifest } from './database/manifest'
 import { explorerManifest } from './explorer/manifest'
 import { fileViewerManifest } from './file-viewer/manifest'
 import { kubernetesManifest } from './kubernetes/manifest'
+import { logCenterManifest } from './log-center/manifest'
 import { monitorManifest } from './monitor/manifest'
 import { redisManifest } from './redis/manifest'
 import { settingsManifest } from './settings/manifest'
@@ -26,7 +27,8 @@ export const builtinManifests: AppManifest[] = [
   aiAssistantManifest,
   monitorManifest,
   settingsManifest,
-  fileViewerManifest
+  fileViewerManifest,
+  logCenterManifest
 ]
 
 export {
@@ -35,6 +37,7 @@ export {
   explorerManifest,
   fileViewerManifest,
   kubernetesManifest,
+  logCenterManifest,
   monitorManifest,
   redisManifest,
   settingsManifest,

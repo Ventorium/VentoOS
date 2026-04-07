@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ProcessMetrics, SystemMetrics } from './api'
 import { monitorApi } from './api'
 import { BarChart, GaugeChart, LineChart } from '@/components/charts'
-import type { BarItem, ChartSeries } from '@/components/charts'
+import type { ChartSeries } from '@/components/charts'
 import PreferencesPanel from '@/components/PreferencesPanel'
 import type { PreferenceGroup } from '@/components/PreferencesPanel'
 import {
@@ -226,12 +226,19 @@ function SystemTab({
     { id: 'mem', label: '内存', color: 'var(--vos-accent-secondary, #a78bfa)', data: memHistory },
   ]
 
-  const diskItems: BarItem[] = metrics.disks.map(d => ({
-    label: `${d.mount_point} (${d.fs_type})`,
-    value: d.used_bytes,
-    max: d.total_bytes,
-    color: usageColor(d.usage_percent),
-  }))
+  // Deduplicate disks: keep only one entry per physical device prefix,
+  // preferring the root mount '/' or the one with the largest total size.
+  const uniqueDisks = (() => {
+    const grouped = new Map<string, typeof metrics.disks[0]>()
+    for (const d of metrics.disks) {
+      const devKey = d.device.replace(/s\d+$/, '')
+      const existing = grouped.get(devKey)
+      if (!existing || d.mount_point === '/' || d.total_bytes > existing.total_bytes) {
+        grouped.set(devKey, d)
+      }
+    }
+    return Array.from(grouped.values())
+  })()
 
   return (
     <>
@@ -306,27 +313,54 @@ function SystemTab({
             />
           </div>
         </div>
-        {metrics.memory.swap_total_bytes > 0 && (
-          <div style={{ ...styles.card, marginTop: 12 }}>
-            <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 4 }}>
-              Swap: {formatBytes(metrics.memory.swap_used_bytes)} / {formatBytes(metrics.memory.swap_total_bytes)}
+        {metrics.memory.swap_total_bytes > 0 && (() => {
+          const swapPct = (metrics.memory.swap_used_bytes / metrics.memory.swap_total_bytes) * 100
+          return (
+            <div style={{ ...styles.card, marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
+                <span>Swap</span>
+                <span>{formatBytes(metrics.memory.swap_used_bytes)} / {formatBytes(metrics.memory.swap_total_bytes)}</span>
+              </div>
+              <div style={{ height: 6, borderRadius: 3, background: 'var(--vos-border-secondary)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  borderRadius: 3,
+                  width: `${Math.min(swapPct, 100)}%`,
+                  background: usageColor(swapPct),
+                  transition: 'width 0.6s ease',
+                }} />
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </div>
 
       {/* Disk Section */}
-      {diskItems.length > 0 && (
+      {uniqueDisks.length > 0 && (
         <div style={styles.section}>
           <div style={styles.sectionTitle}>
             <HardDrive size={15} /> 磁盘
           </div>
-          <div style={styles.card}>
-            <BarChart
-              items={diskItems}
-              formatValue={formatBytes}
-            />
-          </div>
+          {uniqueDisks.map(d => {
+            const pct = d.total_bytes > 0 ? (d.used_bytes / d.total_bytes) * 100 : 0
+            return (
+              <div key={d.device + d.mount_point} style={{ ...styles.card, marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
+                  <span>{d.mount_point} ({d.device})</span>
+                  <span>{formatBytes(d.used_bytes)} / {formatBytes(d.total_bytes)}</span>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, background: 'var(--vos-border-secondary)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    borderRadius: 3,
+                    width: `${Math.min(pct, 100)}%`,
+                    background: usageColor(pct),
+                    transition: 'width 0.6s ease',
+                  }} />
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </>
@@ -337,10 +371,12 @@ function VentosTab({
   process: proc,
   cpuHistory,
   memHistory,
+  totalMemoryBytes,
 }: {
   process: ProcessMetrics | null
   cpuHistory: number[]
   memHistory: number[]
+  totalMemoryBytes: number
 }) {
   if (!proc) {
     return (
@@ -415,9 +451,9 @@ function VentosTab({
           <div style={styles.card}>
             <GaugeChart
               value={proc.memory_bytes}
-              max={proc.virtual_memory_bytes || proc.memory_bytes * 2}
+              max={totalMemoryBytes || proc.memory_bytes * 2}
               color="var(--vos-accent-secondary, #a78bfa)"
-              label="内存"
+              label="物理内存"
               formatValue={formatBytes}
             />
           </div>
@@ -871,7 +907,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
             <SystemTab metrics={systemMetrics} cpuHistory={cpuHistory} memHistory={memHistory} />
           )}
           {tab === 'ventos' && (
-            <VentosTab process={processMetrics} cpuHistory={procCpuHistory} memHistory={procMemHistory} />
+            <VentosTab process={processMetrics} cpuHistory={procCpuHistory} memHistory={procMemHistory} totalMemoryBytes={systemMetrics?.memory.total_bytes ?? 0} />
           )}
           {tab === 'web' && <WebTab />}
         </div>

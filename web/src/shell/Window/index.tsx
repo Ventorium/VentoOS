@@ -1,5 +1,6 @@
 import { motion, useAnimationControls } from 'framer-motion'
 import { type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import { closeWindow, focusWindow, minimizeWindow, toggleMaximize, useWindowStore, type WindowInstance } from '@/kernel'
 import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
 import { tokens } from '@/theme'
@@ -425,7 +426,9 @@ export default function Window({ win, children }: { win: WindowInstance; childre
               </div>
             }
           >
-            {children}
+            <ErrorBoundary appId={win.appId}>
+              {children}
+            </ErrorBoundary>
           </Suspense>
         ) : (
           <div className="vos-flex-center" style={{ flex: 1, color: 'var(--vos-text-tertiary)', fontSize: 13 }}>

@@ -1228,6 +1228,12 @@ body,
 .dock-icon-ssh {
   background: linear-gradient(145deg, #0891b2 0%, #0e7490 100%);
 }
+.dock-icon-monitor {
+  background: linear-gradient(145deg, #06b6d4 0%, #0284c7 100%);
+}
+.dock-icon-log-center {
+  background: linear-gradient(145deg, #64748b 0%, #475569 100%);
+}
 .dock-icon-terminal {
   background: linear-gradient(145deg, #1c1c1e 0%, #2c2c2e 100%);
 }

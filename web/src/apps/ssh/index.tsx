@@ -1241,7 +1241,7 @@ export default function SshApp(_props: AppComponentProps) {
 
   // Load preferences
   useEffect(() => {
-    storage.get<boolean>('autoOpenMonitor').then(v => {
+    storage.getJSON<boolean>('autoOpenMonitor').then(v => {
       if (v !== null && v !== undefined) setAutoOpenMonitor(v)
     })
   }, [storage])
@@ -1359,7 +1359,7 @@ export default function SshApp(_props: AppComponentProps) {
                   onChange: (v) => {
                     const val = v as boolean
                     setAutoOpenMonitor(val)
-                    storage.set('autoOpenMonitor', val)
+                    storage.setJSON('autoOpenMonitor', val)
                   },
                 },
               ],
