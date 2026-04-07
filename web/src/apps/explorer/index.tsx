@@ -37,7 +37,7 @@ import {
   Spinner
 } from '@/components'
 import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
-import { getAppsForFile, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage } from '@/kernel'
+import { getAllAppsForFile, getApp, getAppsForFile, getFileIconByName, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage, useFileDefaultsStore } from '@/kernel'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -1145,10 +1145,16 @@ function ColumnView({
                           style={{ color: isHighlighted ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
                         />
                       ) : (
-                        <File
-                          size={13}
-                          style={{ color: isHighlighted ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }}
-                        />
+                        (() => {
+                          const iconInfo = getFileIconByName(entry.name)
+                          const IconComp = iconInfo.icon
+                          return (
+                            <IconComp
+                              size={13}
+                              style={{ color: isHighlighted ? '#fff' : iconInfo.color, flexShrink: 0 }}
+                            />
+                          )
+                        })()
                       )}
                       {isRenaming ? (
                         <input
@@ -1931,6 +1937,15 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     apps: AppManifest[]
   }>({ visible: false, node: null, apps: [] })
 
+  // Set-default-open-with dialog
+  const [defaultOpenState, setDefaultOpenState] = useState<{
+    visible: boolean
+    node: VfsNode | null
+    ext: string
+    apps: Array<AppManifest & { associationType: 'open' | 'preview' }>
+    alsoOpenFile: boolean
+  }>({ visible: false, node: null, ext: '', apps: [], alsoOpenFile: true })
+
   // Upload
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadTargetRef = useRef<string>('/')
@@ -2404,10 +2419,27 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     if (!selectedMount) return
     if (entry.is_dir) return
     const ext = getFileExt(entry.name)
+
+    // 1. Check if a default app is set for this extension
+    const defaultAppId = useFileDefaultsStore.getState().getDefault(ext)
+    if (defaultAppId) {
+      const defaultApp = getApp(defaultAppId)
+      if (defaultApp) {
+        openWindow(defaultApp.id, { appState: { mountId: selectedMount, node: entry } })
+        return
+      }
+    }
+
+    // 2. If no default, check all associated apps
     const associatedApps = getAppsForFile(ext)
-    if (associatedApps.length > 0) {
+    if (associatedApps.length === 1) {
+      // Single app — open directly
+      openWindow(associatedApps[0].id, { appState: { mountId: selectedMount, node: entry } })
+    } else if (associatedApps.length > 1) {
+      // Multiple apps — show "Open With" dialog
       setOpenWithState({ visible: true, node: entry, apps: associatedApps })
     } else {
+      // 3. Fallback to file viewer
       handleOpenViewer(selectedMount, entry)
     }
   }
@@ -2456,13 +2488,58 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               action: () => setNewFileState({ visible: true, dirPath: entry.path, name: '' })
             }
           ]
-        : [
-            {
-              id: 'open-viewer',
-              label: '打开文件',
-              action: () => selectedMount && handleOpenViewer(selectedMount, entry)
-            }
-          ]),
+        : (() => {
+            const fileExt = getFileExt(entry.name)
+            const allApps = getAllAppsForFile(fileExt)
+            const hasExt = fileExt.length > 0
+
+            const openWithItems: import('@/shell/ContextMenu/store').ContextMenuItems = [
+              // File viewer is always available
+              {
+                id: 'ow-file-viewer',
+                label: '文件查看器',
+                action: () => selectedMount && handleOpenViewer(selectedMount, entry)
+              },
+              // All registered apps
+              ...allApps.map(app => ({
+                id: `ow-${app.id}`,
+                label: `${app.name}${app.associationType === 'preview' ? ' (预览)' : ''}`,
+                action: () => selectedMount && openWindow(app.id, { appState: { mountId: selectedMount, node: entry } })
+              })),
+              // Set default option (only for files with extension)
+              ...(hasExt
+                ? [
+                    { type: 'separator' as const },
+                    {
+                      id: 'ow-set-default',
+                      label: '设置默认打开方式…',
+                      action: () => {
+                        setDefaultOpenState({
+                          visible: true,
+                          node: entry,
+                          ext: fileExt,
+                          apps: getAllAppsForFile(fileExt),
+                          alsoOpenFile: true
+                        })
+                      }
+                    }
+                  ]
+                : [])
+            ]
+
+            return [
+              {
+                id: 'open-viewer',
+                label: '打开文件',
+                action: () => selectedMount && handleOpenViewer(selectedMount, entry)
+              },
+              {
+                id: 'open-with',
+                label: '打开方式',
+                submenu: openWithItems
+              }
+            ]
+          })()),
       { type: 'separator' as const },
       {
         id: 'copy',
@@ -2953,8 +3030,9 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                       className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
                       style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
                       onClick={() => {
+                        const n = openWithState.node!
                         setOpenWithState({ visible: false, node: null, apps: [] })
-                        openWindow(app.id)
+                        openWindow(app.id, { appState: { mountId: selectedMount, node: n } })
                       }}
                     >
                       <span className="font-medium">{app.name}</span>
@@ -2992,6 +3070,80 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             </div>
           )}
 
+          {/* Set default open-with dialog */}
+          {defaultOpenState.visible && defaultOpenState.node && selectedMount && (
+            <div
+              className="vos-modal-overlay"
+              onClick={() => setDefaultOpenState(s => ({ ...s, visible: false }))}
+            >
+              <div className="vos-modal-panel" style={{ width: 360 }} onClick={e => e.stopPropagation()}>
+                <div className="text-sm font-medium">设置默认打开方式</div>
+                <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  为 <strong>.{defaultOpenState.ext}</strong> 文件选择默认应用
+                </div>
+                <div className="flex flex-col gap-1" style={{ maxHeight: 240, overflowY: 'auto' }}>
+                  {/* File viewer option */}
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
+                    style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                    onClick={() => {
+                      const n = defaultOpenState.node!
+                      const ext = defaultOpenState.ext
+                      const also = defaultOpenState.alsoOpenFile
+                      useFileDefaultsStore.getState().setDefault(ext, 'file-viewer')
+                      setDefaultOpenState(s => ({ ...s, visible: false }))
+                      if (also) handleOpenViewer(selectedMount, n)
+                    }}
+                  >
+                    <span className="font-medium">文件查看器</span>
+                    <span style={{ color: 'var(--vos-text-tertiary)' }}>预览</span>
+                  </button>
+                  {defaultOpenState.apps.map(app => (
+                    <button
+                      key={app.id}
+                      type="button"
+                      className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
+                      style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                      onClick={() => {
+                        const n = defaultOpenState.node!
+                        const ext = defaultOpenState.ext
+                        const also = defaultOpenState.alsoOpenFile
+                        useFileDefaultsStore.getState().setDefault(ext, app.id)
+                        setDefaultOpenState(s => ({ ...s, visible: false }))
+                        if (also) openWindow(app.id, { appState: { mountId: selectedMount, node: n } })
+                      }}
+                    >
+                      <span className="font-medium">{app.name}</span>
+                      <span style={{ color: 'var(--vos-text-tertiary)' }}>
+                        {app.associationType === 'preview' ? '预览' : '编辑'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                  <input
+                    type="checkbox"
+                    checked={defaultOpenState.alsoOpenFile}
+                    onChange={e =>
+                      setDefaultOpenState(s => ({ ...s, alsoOpenFile: e.target.checked }))
+                    }
+                  />
+                  同时打开该文件
+                </label>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="vos-btn-sm vos-btn-ghost"
+                    onClick={() => setDefaultOpenState(s => ({ ...s, visible: false }))}
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Hidden file input for upload */}
           <input
             ref={fileInputRef}
@@ -3006,7 +3158,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         </>
       }
     >
-      <div ref={containerRef} className="flex h-full" tabIndex={-1} style={{ outline: 'none' }}>
+      <div ref={containerRef} className="flex flex-col h-full" tabIndex={-1} style={{ outline: 'none' }}>
         {selectedMount ? (
           <>
             {/* Path bar / Menubar */}
