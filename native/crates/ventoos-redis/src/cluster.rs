@@ -61,23 +61,16 @@ async fn try_cluster_slots(addr: &str) -> Result<ClusterTopology, String> {
     let resp = resp::parse_resp(&mut reader).await?;
 
     if resp.is_error() {
-        return Err(format!(
-            "CLUSTER SLOTS failed: {}",
-            resp.to_string_lossy()
-        ));
+        return Err(format!("CLUSTER SLOTS failed: {}", resp.to_string_lossy()));
     }
 
-    let arr = resp
-        .into_array()
-        .ok_or("Invalid CLUSTER SLOTS response")?;
+    let arr = resp.into_array().ok_or("Invalid CLUSTER SLOTS response")?;
 
     let mut slots = Vec::new();
     let mut slot_map: HashMap<u16, (String, u16)> = HashMap::new();
 
     for slot_entry in arr {
-        let entry = slot_entry
-            .into_array()
-            .ok_or("Invalid slot entry")?;
+        let entry = slot_entry.into_array().ok_or("Invalid slot entry")?;
         if entry.len() < 3 {
             continue;
         }
@@ -134,12 +127,13 @@ pub fn key_slot(key: &str) -> u16 {
 
 fn extract_hash_tag(key: &str) -> &str {
     if let Some(start) = key.find('{')
-        && let Some(end) = key[start + 1..].find('}') {
-            let tag = &key[start + 1..start + 1 + end];
-            if !tag.is_empty() {
-                return tag;
-            }
+        && let Some(end) = key[start + 1..].find('}')
+    {
+        let tag = &key[start + 1..start + 1 + end];
+        if !tag.is_empty() {
+            return tag;
         }
+    }
     key
 }
 

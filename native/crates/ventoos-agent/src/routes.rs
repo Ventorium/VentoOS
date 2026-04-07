@@ -18,8 +18,8 @@ use ventoos_core::types::ApiResponse;
 use crate::manager::AgentManager;
 use crate::tool::ToolRegistry;
 use crate::types::{
-    AgentConfig, AgentProfile, ChannelConfig, ChatRequest, ChatResponse, ChatSession, ProviderConfig,
-    ProviderProbeRequest, ProviderTemplate, StreamEvent, ToolDefinition,
+    AgentConfig, AgentProfile, ChannelConfig, ChatRequest, ChatResponse, ChatSession,
+    ProviderConfig, ProviderProbeRequest, ProviderTemplate, StreamEvent, ToolDefinition,
 };
 
 /// AI Agent application plugin.
@@ -51,11 +51,16 @@ impl AppPlugin for AgentPlugin {
                 "/api/agent/providers",
                 get(list_providers).post(create_provider),
             )
-            .route("/api/agent/providers/templates", get(list_provider_templates))
+            .route(
+                "/api/agent/providers/templates",
+                get(list_provider_templates),
+            )
             .route("/api/agent/providers/test", post(test_provider))
             .route(
                 "/api/agent/providers/{id}",
-                get(get_provider).put(update_provider).delete(delete_provider),
+                get(get_provider)
+                    .put(update_provider)
+                    .delete(delete_provider),
             )
             .route(
                 "/api/agent/profiles",
@@ -67,7 +72,10 @@ impl AppPlugin for AgentPlugin {
             )
             .route("/api/agent/tools", get(list_tools))
             .route("/api/agent/config", get(get_config).put(update_config))
-            .route("/api/agent/channels", get(list_channels).post(create_channel))
+            .route(
+                "/api/agent/channels",
+                get(list_channels).post(create_channel),
+            )
             .route(
                 "/api/agent/channels/{id}",
                 get(get_channel).put(update_channel).delete(delete_channel),
@@ -145,12 +153,20 @@ async fn chat(
     let tool_registry = mgr.tool_registry.read().await;
 
     match runner
-        .chat(&prepared, &provider, &tool_registry, &mgr.guards, &*mgr.executor)
+        .chat(
+            &prepared,
+            &provider,
+            &tool_registry,
+            &mgr.guards,
+            &*mgr.executor,
+        )
         .await
     {
-        Ok((session_id, message)) => {
-            Json(ApiResponse::ok(ChatResponse { session_id, message })).into_response()
-        }
+        Ok((session_id, message)) => Json(ApiResponse::ok(ChatResponse {
+            session_id,
+            message,
+        }))
+        .into_response(),
         Err(error) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ApiResponse::<()>::err(error.to_string())),
@@ -208,7 +224,14 @@ async fn chat_stream(
 
     tokio::spawn(async move {
         runner
-            .run(&prepared, &provider, &tool_registry, &guards, &*executor, event_tx)
+            .run(
+                &prepared,
+                &provider,
+                &tool_registry,
+                &guards,
+                &*executor,
+                event_tx,
+            )
             .await;
     });
 
@@ -220,9 +243,9 @@ fn error_stream(message: String) -> Sse<ReceiverStream<Result<Event, Infallible>
     tokio::spawn(async move {
         let event = StreamEvent::Error { message };
         let _ = tx
-            .send(Ok(Event::default().event("error").data(
-                serde_json::to_string(&event).unwrap_or_default(),
-            )))
+            .send(Ok(Event::default()
+                .event("error")
+                .data(serde_json::to_string(&event).unwrap_or_default())))
             .await;
     });
     Sse::new(ReceiverStream::new(rx))
@@ -421,7 +444,9 @@ async fn delete_profile(
 async fn list_tools(
     State(mgr): State<Arc<AgentManager>>,
 ) -> Json<ApiResponse<Vec<ToolDefinition>>> {
-    Json(ApiResponse::ok(mgr.tool_registry.read().await.definitions()))
+    Json(ApiResponse::ok(
+        mgr.tool_registry.read().await.definitions(),
+    ))
 }
 
 async fn get_config(State(mgr): State<Arc<AgentManager>>) -> Json<ApiResponse<AgentConfig>> {

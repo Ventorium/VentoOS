@@ -42,7 +42,8 @@ pub fn definitions() -> Vec<ToolDefinition> {
         },
         ToolDefinition {
             name: "vfs_write_file".into(),
-            description: "Write content to a file in a VFS mount. Medium risk: modifies remote file.".into(),
+            description:
+                "Write content to a file in a VFS mount. Medium risk: modifies remote file.".into(),
             parameters: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -56,7 +57,8 @@ pub fn definitions() -> Vec<ToolDefinition> {
         },
         ToolDefinition {
             name: "vfs_delete".into(),
-            description: "Delete a file or directory from a VFS mount. HIGH RISK: permanent deletion.".into(),
+            description:
+                "Delete a file or directory from a VFS mount. HIGH RISK: permanent deletion.".into(),
             parameters: serde_json::json!({
                 "type": "object",
                 "properties": {

@@ -6,8 +6,8 @@
 //! URI format: `s3://accessKeyId:secretAccessKey@endpoint[:port]/bucket[/prefix]`
 //! For HTTPS-only use: port defaults to 443.
 
-use std::sync::Once;
 use std::sync::Arc;
+use std::sync::Once;
 
 use ring::{digest, hmac};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -135,7 +135,12 @@ impl S3Config {
         } else {
             // No explicit endpoint — infer TLS from port (80 = plain HTTP)
             let tls = port_from_host != 80;
-            (host.to_string(), port_from_host, bucket_from_path.to_string(), tls)
+            (
+                host.to_string(),
+                port_from_host,
+                bucket_from_path.to_string(),
+                tls,
+            )
         };
 
         if bucket.is_empty() {
@@ -187,10 +192,9 @@ fn urlpercent_decode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(b) = u8::from_str_radix(
-                std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""),
-                16,
-            ) {
+            if let Ok(b) =
+                u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+            {
                 raw.push(b);
                 i += 3;
                 continue;

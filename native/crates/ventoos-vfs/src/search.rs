@@ -16,7 +16,10 @@ fn glob_match(name: &[u8], pattern: &[u8]) -> bool {
     let mut match_ni = 0;
 
     while ni < name.len() {
-        if pi < pattern.len() && (pattern[pi] == b'?' || pattern[pi].to_ascii_lowercase() == name[ni].to_ascii_lowercase()) {
+        if pi < pattern.len()
+            && (pattern[pi] == b'?'
+                || pattern[pi].to_ascii_lowercase() == name[ni].to_ascii_lowercase())
+        {
             ni += 1;
             pi += 1;
         } else if pi < pattern.len() && pattern[pi] == b'[' {

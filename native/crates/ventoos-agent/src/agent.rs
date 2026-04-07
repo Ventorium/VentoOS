@@ -8,7 +8,7 @@ use tracing::{debug, info, warn};
 
 use crate::guard::GuardChain;
 use crate::provider::ProviderClient;
-use crate::session::{truncate_title, SessionStore};
+use crate::session::{SessionStore, truncate_title};
 use crate::tool::{ToolExecutor, ToolRegistry};
 use crate::types::{
     AgentConfig, AgentError, AgentMessage, ChatRequest, StreamEvent, ToolDefinition,
@@ -132,31 +132,27 @@ impl AgentRunner {
                     let arguments_str = &tc.function.arguments;
 
                     // Parse arguments
-                    let arguments: Value =
-                        match serde_json::from_str(arguments_str) {
-                            Ok(v) => v,
-                            Err(e) => {
-                                let error_msg = format!("Invalid tool arguments: {e}");
-                                let _ = tx
-                                    .send(StreamEvent::ToolResult {
-                                        id: tc.id.clone(),
-                                        name: tool_name.clone(),
-                                        content: error_msg.clone(),
-                                        success: false,
-                                    })
-                                    .await;
-                                let tool_result_msg = AgentMessage::tool_result(
-                                    &tc.id,
-                                    tool_name,
-                                    &error_msg,
-                                );
-                                self.sessions
-                                    .push_message(&session_id, tool_result_msg.clone())
-                                    .await;
-                                messages.push(tool_result_msg);
-                                continue;
-                            }
-                        };
+                    let arguments: Value = match serde_json::from_str(arguments_str) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            let error_msg = format!("Invalid tool arguments: {e}");
+                            let _ = tx
+                                .send(StreamEvent::ToolResult {
+                                    id: tc.id.clone(),
+                                    name: tool_name.clone(),
+                                    content: error_msg.clone(),
+                                    success: false,
+                                })
+                                .await;
+                            let tool_result_msg =
+                                AgentMessage::tool_result(&tc.id, tool_name, &error_msg);
+                            self.sessions
+                                .push_message(&session_id, tool_result_msg.clone())
+                                .await;
+                            messages.push(tool_result_msg);
+                            continue;
+                        }
+                    };
 
                     // Send tool call start event
                     let _ = tx
@@ -210,8 +206,7 @@ impl AgentRunner {
                         .await;
 
                     // Add tool result message
-                    let tool_result_msg =
-                        AgentMessage::tool_result(&tc.id, tool_name, &content);
+                    let tool_result_msg = AgentMessage::tool_result(&tc.id, tool_name, &content);
                     self.sessions
                         .push_message(&session_id, tool_result_msg.clone())
                         .await;
@@ -278,10 +273,7 @@ impl AgentRunner {
 
         // Add user message
         let user_msg = AgentMessage::user(&req_clone.message);
-        runner
-            .sessions
-            .push_message(&session_id, user_msg)
-            .await;
+        runner.sessions.push_message(&session_id, user_msg).await;
 
         let system_prompt = req_clone
             .system_prompt

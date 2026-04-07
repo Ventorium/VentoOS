@@ -10,15 +10,15 @@ pub mod manager;
 pub mod routes;
 pub(crate) mod s3;
 pub mod search;
-pub(crate) mod smb;
 pub mod sftp;
+pub(crate) mod smb;
 pub mod tail;
+#[cfg(test)]
+mod tests;
 pub mod types;
 pub mod watch;
 pub(crate) mod webdav;
 pub mod webdav_server;
-#[cfg(test)]
-mod tests;
 
 pub use manager::VfsManager;
 pub use routes::VfsPlugin;

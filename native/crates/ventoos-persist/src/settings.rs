@@ -42,13 +42,20 @@ impl SettingsManager {
     /// Get multiple settings by keys.
     pub fn get_batch(&self, keys: &[&str]) -> Result<HashMap<String, String>, rusqlite::Error> {
         self.db.with_conn(|conn| {
-            let placeholders: Vec<String> = keys.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
+            let placeholders: Vec<String> = keys
+                .iter()
+                .enumerate()
+                .map(|(i, _)| format!("?{}", i + 1))
+                .collect();
             let sql = format!(
                 "SELECT key, value FROM settings WHERE key IN ({})",
                 placeholders.join(", ")
             );
             let mut stmt = conn.prepare(&sql)?;
-            let params: Vec<&dyn rusqlite::types::ToSql> = keys.iter().map(|k| k as &dyn rusqlite::types::ToSql).collect();
+            let params: Vec<&dyn rusqlite::types::ToSql> = keys
+                .iter()
+                .map(|k| k as &dyn rusqlite::types::ToSql)
+                .collect();
             let rows = stmt.query_map(params.as_slice(), |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })?;
@@ -80,8 +87,12 @@ mod tests {
         let mgr = SettingsManager::new(db);
 
         assert_eq!(mgr.get("wallpaper").unwrap(), None);
-        mgr.set("wallpaper", "/wallpapers/dark-mountain.jpg").unwrap();
-        assert_eq!(mgr.get("wallpaper").unwrap(), Some("/wallpapers/dark-mountain.jpg".to_string()));
+        mgr.set("wallpaper", "/wallpapers/dark-mountain.jpg")
+            .unwrap();
+        assert_eq!(
+            mgr.get("wallpaper").unwrap(),
+            Some("/wallpapers/dark-mountain.jpg".to_string())
+        );
     }
 
     #[test]
@@ -93,7 +104,9 @@ mod tests {
         mgr.set("theme_mode", "dark").unwrap();
         mgr.set("dock_size", "48").unwrap();
 
-        let batch = mgr.get_batch(&["wallpaper", "theme_mode", "nonexistent"]).unwrap();
+        let batch = mgr
+            .get_batch(&["wallpaper", "theme_mode", "nonexistent"])
+            .unwrap();
         assert_eq!(batch.get("wallpaper"), Some(&"/w.jpg".to_string()));
         assert_eq!(batch.get("theme_mode"), Some(&"dark".to_string()));
         assert_eq!(batch.get("nonexistent"), None);

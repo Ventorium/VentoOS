@@ -8,6 +8,7 @@
 import { configureApiClient } from '@/infra/api'
 import { createLogger } from '@/infra/logger'
 import { wsClient } from '@/infra/ws'
+import { useFileDefaultsStore } from './apps/file-defaults'
 
 const logger = createLogger('kernel/bootstrap')
 
@@ -28,6 +29,9 @@ export function bootKernel(opts: { tokenProvider: () => string | null; onUnautho
 
   // Configure WebSocket with token provider (actual connection deferred until auth validated)
   wsClient.setTokenProvider(opts.tokenProvider)
+
+  // Load file-default preferences from persistent storage
+  useFileDefaultsStore.getState().load().catch(() => {})
 
   logger.info('Kernel booted')
 

@@ -118,10 +118,8 @@ fn urldecode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(byte) = u8::from_str_radix(
-                &String::from_utf8_lossy(&bytes[i + 1..i + 3]),
-                16,
-            ) {
+            if let Ok(byte) = u8::from_str_radix(&String::from_utf8_lossy(&bytes[i + 1..i + 3]), 16)
+            {
                 result.push(byte as char);
                 i += 3;
                 continue;
@@ -141,9 +139,8 @@ impl SshInfoProvider for InlineSftpProvider {
     fn resolve(
         &self,
         _connection_id: &str,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<SshConnInfo, String>> + Send + '_>,
-    > {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<SshConnInfo, String>> + Send + '_>>
+    {
         let info = self.0.clone();
         Box::pin(async move { Ok(info) })
     }
@@ -155,9 +152,7 @@ pub trait SshInfoProvider: Send + Sync {
     fn resolve(
         &self,
         connection_id: &str,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<SshConnInfo, String>> + Send + '_>,
-    >;
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<SshConnInfo, String>> + Send + '_>>;
 }
 
 /// Minimal russh client handler that accepts all server keys.
@@ -224,10 +219,9 @@ async fn connect_sftp(info: &SshConnInfo) -> Result<SftpSession, String> {
     let handler = SshHandler;
 
     debug!("Connecting SSH to {}:{}", info.host, info.port);
-    let mut session =
-        russh::client::connect(config, (info.host.as_str(), info.port), handler)
-            .await
-            .map_err(|e| format!("SSH connect failed: {e}"))?;
+    let mut session = russh::client::connect(config, (info.host.as_str(), info.port), handler)
+        .await
+        .map_err(|e| format!("SSH connect failed: {e}"))?;
 
     // Authenticate
     let auth_result = match &info.auth {
@@ -235,11 +229,13 @@ async fn connect_sftp(info: &SshConnInfo) -> Result<SftpSession, String> {
             .authenticate_password(&info.username, pw)
             .await
             .map_err(|e| format!("SSH auth failed: {e}"))?,
-        SshAuth::PrivateKey { key_pem, passphrase } => {
+        SshAuth::PrivateKey {
+            key_pem,
+            passphrase,
+        } => {
             let key = russh::keys::decode_secret_key(key_pem, passphrase.as_deref())
                 .map_err(|e| format!("Invalid private key: {e}"))?;
-            let key_with_alg =
-                russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), None);
+            let key_with_alg = russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), None);
             session
                 .authenticate_publickey(&info.username, key_with_alg)
                 .await
@@ -526,7 +522,10 @@ pub async fn upload_file(
 
     let path = resolve_remote_path(root, rel_path);
     let mut file = sftp
-        .open_with_flags(&path, OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE)
+        .open_with_flags(
+            &path,
+            OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
+        )
         .await
         .map_err(|e| format!("SFTP open for write failed: {e}"))?;
     file.write_all(data)
@@ -584,8 +583,6 @@ pub async fn search(
     Ok(Vec::new())
 }
 
-
-
 /// Resolve a relative path within a remote root.
 /// Prevents path traversal by stripping `..` components.
 fn resolve_remote_path(root: &str, rel_path: &str) -> String {
@@ -593,7 +590,11 @@ fn resolve_remote_path(root: &str, rel_path: &str) -> String {
     if rel_path.is_empty() || rel_path == "/" {
         // If root itself was "/", trimming the trailing slash leaves an empty string.
         // In that case return "/" so SFTP operations target the filesystem root.
-        return if root.is_empty() { "/".to_string() } else { root.to_string() };
+        return if root.is_empty() {
+            "/".to_string()
+        } else {
+            root.to_string()
+        };
     }
 
     // Normalize: split by '/', reject '..' components
@@ -630,10 +631,7 @@ mod tests {
             resolve_remote_path("/home/user", "../../etc/passwd"),
             "/home/user/etc/passwd"
         );
-        assert_eq!(
-            resolve_remote_path("/home/user", "../../../"),
-            "/home/user"
-        );
+        assert_eq!(resolve_remote_path("/home/user", "../../../"), "/home/user");
     }
 
     #[test]

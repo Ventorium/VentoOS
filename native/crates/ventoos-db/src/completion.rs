@@ -126,7 +126,9 @@ pub fn build_mysql_tree(schema_rows: &[HashMap<String, Value>]) -> CompletionTre
 }
 
 /// Build completion tree for `SQLite`.
-pub fn build_sqlite_tree(tables_with_columns: &[(String, Vec<(String, String)>)]) -> CompletionTree {
+pub fn build_sqlite_tree(
+    tables_with_columns: &[(String, Vec<(String, String)>)],
+) -> CompletionTree {
     let tables: Vec<CompletionTable> = tables_with_columns
         .iter()
         .map(|(table_name, cols)| CompletionTable {

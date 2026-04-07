@@ -10,7 +10,10 @@ use ventoos_core::plugin::AppPlugin;
 use ventoos_core::types::ApiResponse;
 
 use crate::manager::DbManager;
-use crate::types::{CreateDbConnectionReq, DbConnectionConfig, ExplainReq, ExportReq, RowDeleteReq, RowUpdateReq, TableDataReq};
+use crate::types::{
+    CreateDbConnectionReq, DbConnectionConfig, ExplainReq, ExportReq, RowDeleteReq, RowUpdateReq,
+    TableDataReq,
+};
 
 /// Database application plugin.
 pub struct DbPlugin {
@@ -283,9 +286,10 @@ async fn update_row(
     Json(body): Json<RowUpdateReq>,
 ) -> impl IntoResponse {
     match mgr.update_row(&id, &body).await {
-        Ok(affected) => {
-            Json(ApiResponse::ok(serde_json::json!({"affected_rows": affected}))).into_response()
-        }
+        Ok(affected) => Json(ApiResponse::ok(
+            serde_json::json!({"affected_rows": affected}),
+        ))
+        .into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
@@ -296,9 +300,10 @@ async fn delete_row(
     Json(body): Json<RowDeleteReq>,
 ) -> impl IntoResponse {
     match mgr.delete_row(&id, &body).await {
-        Ok(affected) => {
-            Json(ApiResponse::ok(serde_json::json!({"affected_rows": affected}))).into_response()
-        }
+        Ok(affected) => Json(ApiResponse::ok(
+            serde_json::json!({"affected_rows": affected}),
+        ))
+        .into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }

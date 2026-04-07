@@ -8,8 +8,8 @@ use crate::ftp::FtpPool;
 use crate::sftp::{InlineSftpProvider, SftpPool, SshInfoProvider};
 use crate::smb::SmbClientPool;
 use crate::types::{
-    CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq,
-    VfsMount, VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
+    CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsFileContent, VfsListReq, VfsMkdirReq, VfsMount,
+    VfsMoveReq, VfsNode, VfsReadReq, VfsSearchReq, VfsSourceKind, VfsWriteReq,
     WebDavServerSettings,
 };
 
@@ -63,7 +63,11 @@ impl VfsManager {
             Ok(rows) => {
                 for row in rows {
                     let kind = row.kind.parse::<VfsSourceKind>().unwrap_or_else(|_| {
-                        tracing::warn!("Unknown VFS kind '{}' for mount '{}', defaulting to local", row.kind, row.id);
+                        tracing::warn!(
+                            "Unknown VFS kind '{}' for mount '{}', defaulting to local",
+                            row.kind,
+                            row.id
+                        );
                         VfsSourceKind::Local
                     });
                     initial_mounts.insert(
@@ -115,7 +119,7 @@ impl VfsManager {
     pub async fn update_webdav_server_settings(&self, settings: WebDavServerSettings) {
         *self.webdav_server_settings.write().await = settings;
     }
-  
+
     /// Expand `~` to the user's home directory in a path string.
     /// Only applies to paths starting with `~` or `~/`.
     fn expand_tilde(path: &str) -> String {
@@ -175,15 +179,16 @@ impl VfsManager {
                         };
                     }
                     Err(e) => {
-                        return Err(format!("Failed to read private key file '{}': {}", expanded, e));
+                        return Err(format!(
+                            "Failed to read private key file '{}': {}",
+                            expanded, e
+                        ));
                     }
                 }
             }
         }
         let provider = InlineSftpProvider(conn_info);
-        self.sftp_pool
-            .get_or_connect(&mount.id, &provider)
-            .await
+        self.sftp_pool.get_or_connect(&mount.id, &provider).await
     }
 
     /// Determine the SFTP remote root: if connection_id is set the root is in mount.root;
@@ -323,22 +328,14 @@ impl VfsManager {
                 },
             );
         }
-        // SMB requires explicit pool registration before first use
-        if matches!(req.kind, VfsSourceKind::Smb) {
-            // If no share name in URI, just test TCP reachability (no file listing possible)
-            let has_share = root
-                .strip_prefix("smb://")
-                .map(|s| s.contains('/'))
-                .unwrap_or(false);
-            if !has_share {
-                self.mounts.write().await.remove(&temp_id);
-                return crate::smb::probe_server(&root).await;
-            }
-            if let Err(e) = self.smb_pool.register(&temp_id, &root).await {
-                // Clean up and return the error early
-                self.mounts.write().await.remove(&temp_id);
-                return Err(format!("SMB pool register failed: {e}"));
-            }
+        // SMB requires explicit pool registration before first use.
+        // Server-root mounts are valid and will enumerate shares through srvsvc.
+        if matches!(req.kind, VfsSourceKind::Smb)
+            && let Err(e) = self.smb_pool.register(&temp_id, &root).await
+        {
+            // Clean up and return the error early.
+            self.mounts.write().await.remove(&temp_id);
+            return Err(format!("SMB pool register failed: {e}"));
         }
         let result = self
             .list_dir(&VfsListReq {
@@ -367,7 +364,10 @@ impl VfsManager {
             .ok_or("Mount not found")?;
 
         match mount.kind {
-            VfsSourceKind::Local => self.list_local_dir(&mount.root, &req.path, req.show_hidden).await,
+            VfsSourceKind::Local => {
+                self.list_local_dir(&mount.root, &req.path, req.show_hidden)
+                    .await
+            }
             VfsSourceKind::Sftp => {
                 let sftp = self.get_sftp_for_mount(&mount).await?;
                 let root = Self::sftp_root(&mount)?;
@@ -377,23 +377,27 @@ impl VfsManager {
                 crate::ftp::ftp_list_dir(&self.ftp_pool, &mount.id, &mount.root, &req.path).await
             }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 client.list_dir(&req.path).await
             }
             VfsSourceKind::Smb => {
                 crate::smb::list_dir(&self.smb_pool, &mount.id, &req.path, req.show_hidden).await
             }
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 client.list_dir(&req.path).await
             }
         }
     }
 
-    async fn list_local_dir(&self, root: &str, rel_path: &str, show_hidden: bool) -> Result<Vec<VfsNode>, String> {
+    async fn list_local_dir(
+        &self,
+        root: &str,
+        rel_path: &str,
+        show_hidden: bool,
+    ) -> Result<Vec<VfsNode>, String> {
         let base = std::path::Path::new(root);
         let full = if rel_path.is_empty() || rel_path == "/" {
             base.to_path_buf()
@@ -481,18 +485,13 @@ impl VfsManager {
                 crate::sftp::read_file(&sftp, &root, &req.path, req.max_bytes).await
             }
             VfsSourceKind::Ftp => {
-                let raw = crate::ftp::ftp_read_raw(
-                    &self.ftp_pool,
-                    &mount.id,
-                    &mount.root,
-                    &req.path,
-                )
-                .await?;
+                let raw =
+                    crate::ftp::ftp_read_raw(&self.ftp_pool, &mount.id, &mount.root, &req.path)
+                        .await?;
                 Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
             }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 let raw = client.get_object(&req.path).await?;
                 Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
             }
@@ -500,9 +499,9 @@ impl VfsManager {
                 crate::smb::read_file(&self.smb_pool, &mount.id, &req.path, req.max_bytes).await
             }
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 let raw = client.read_file(&req.path, req.max_bytes).await?;
                 Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
             }
@@ -527,18 +526,11 @@ impl VfsManager {
                 crate::sftp::move_file(&sftp, &root, &req.src, &req.dest).await
             }
             VfsSourceKind::Ftp => {
-                crate::ftp::ftp_rename(
-                    &self.ftp_pool,
-                    &mount.id,
-                    &mount.root,
-                    &req.src,
-                    &req.dest,
-                )
-                .await
+                crate::ftp::ftp_rename(&self.ftp_pool, &mount.id, &mount.root, &req.src, &req.dest)
+                    .await
             }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 client.copy_object(&req.src, &req.dest).await?;
                 client.delete_object(&req.src).await
             }
@@ -546,9 +538,9 @@ impl VfsManager {
                 crate::smb::move_file(&self.smb_pool, &mount.id, &req.src, &req.dest).await
             }
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 client.move_file(&req.src, &req.dest).await
             }
         }
@@ -573,28 +565,22 @@ impl VfsManager {
             }
             VfsSourceKind::Ftp => {
                 // FTP has no native copy; read then write
-                let data = crate::ftp::ftp_read_raw(
-                    &self.ftp_pool,
-                    &mount.id,
-                    &mount.root,
-                    &req.src,
-                )
-                .await?;
-                crate::ftp::ftp_write(&self.ftp_pool, &mount.id, &mount.root, &req.dest, data)
-                    .await
+                let data =
+                    crate::ftp::ftp_read_raw(&self.ftp_pool, &mount.id, &mount.root, &req.src)
+                        .await?;
+                crate::ftp::ftp_write(&self.ftp_pool, &mount.id, &mount.root, &req.dest, data).await
             }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 client.copy_object(&req.src, &req.dest).await
             }
             VfsSourceKind::Smb => {
                 crate::smb::copy_file(&self.smb_pool, &mount.id, &req.src, &req.dest).await
             }
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 client.copy_file(&req.src, &req.dest).await
             }
         }
@@ -622,18 +608,15 @@ impl VfsManager {
             }
             VfsSourceKind::S3 => {
                 // S3 has no real directories; create a placeholder key
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 let dir_key = format!("{}/", req.path.trim_end_matches('/'));
                 client.put_object(&dir_key, &[]).await
             }
-            VfsSourceKind::Smb => {
-                crate::smb::mkdir(&self.smb_pool, &mount.id, &req.path).await
-            }
+            VfsSourceKind::Smb => crate::smb::mkdir(&self.smb_pool, &mount.id, &req.path).await,
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 client.mkdir(&req.path).await
             }
         }
@@ -656,25 +639,18 @@ impl VfsManager {
                 let root = Self::sftp_root(&mount)?;
                 crate::sftp::delete(&sftp, &root, &req.path).await
             }
-            VfsSourceKind::Ftp => crate::ftp::ftp_delete_auto(
-                &self.ftp_pool,
-                &mount.id,
-                &mount.root,
-                &req.path,
-            )
-            .await,
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_delete_auto(&self.ftp_pool, &mount.id, &mount.root, &req.path).await
+            }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 client.delete_object(&req.path).await
             }
-            VfsSourceKind::Smb => {
-                crate::smb::delete(&self.smb_pool, &mount.id, &req.path).await
-            }
+            VfsSourceKind::Smb => crate::smb::delete(&self.smb_pool, &mount.id, &req.path).await,
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 client.delete(&req.path).await
             }
         }
@@ -702,22 +678,22 @@ impl VfsManager {
             }
             VfsSourceKind::Ftp => {
                 let data = req.content.as_bytes().to_vec();
-                crate::ftp::ftp_write(&self.ftp_pool, &mount.id, &mount.root, &req.path, data)
-                    .await
+                crate::ftp::ftp_write(&self.ftp_pool, &mount.id, &mount.root, &req.path, data).await
             }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 client.put_object(&req.path, req.content.as_bytes()).await
             }
             VfsSourceKind::Smb => {
                 crate::smb::write_file(&self.smb_pool, &mount.id, &req.path, &req.content).await
             }
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
-                client.write_file(&req.path, req.content.as_bytes().to_vec()).await
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
+                client
+                    .write_file(&req.path, req.content.as_bytes().to_vec())
+                    .await
             }
         }
     }
@@ -748,17 +724,16 @@ impl VfsManager {
                 crate::ftp::ftp_write(&self.ftp_pool, &mount.id, &mount.root, path, data).await
             }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 client.put_object(path, &data).await
             }
             VfsSourceKind::Smb => {
                 crate::smb::upload_file(&self.smb_pool, &mount.id, path, &data).await
             }
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 client.write_file(path, data).await
             }
         }
@@ -785,17 +760,14 @@ impl VfsManager {
                 crate::ftp::ftp_stat(&self.ftp_pool, &mount.id, &mount.root, path).await
             }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 client.stat(path).await
             }
-            VfsSourceKind::Smb => {
-                crate::smb::stat(&self.smb_pool, &mount.id, path).await
-            }
+            VfsSourceKind::Smb => crate::smb::stat(&self.smb_pool, &mount.id, path).await,
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 client.stat(path).await
             }
         }
@@ -819,21 +791,21 @@ impl VfsManager {
             VfsSourceKind::Sftp => {
                 let sftp = self.get_sftp_for_mount(&mount).await?;
                 let root = Self::sftp_root(&mount)?;
-                crate::sftp::search(&sftp, &root, &req.path, &req.query, req.max_results)
-                    .await
+                crate::sftp::search(&sftp, &root, &req.path, &req.query, req.max_results).await
             }
-            VfsSourceKind::Ftp => crate::ftp::ftp_search(
-                &self.ftp_pool,
-                &mount.id,
-                &mount.root,
-                &req.path,
-                &req.query,
-                req.max_results.unwrap_or(100),
-            )
-            .await,
+            VfsSourceKind::Ftp => {
+                crate::ftp::ftp_search(
+                    &self.ftp_pool,
+                    &mount.id,
+                    &mount.root,
+                    &req.path,
+                    &req.query,
+                    req.max_results.unwrap_or(100),
+                )
+                .await
+            }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 client
                     .search(&req.path, &req.query, req.max_results.unwrap_or(100))
                     .await
@@ -850,9 +822,9 @@ impl VfsManager {
             }
             VfsSourceKind::WebDav => {
                 // WebDAV has no native search; enumerate and filter by name
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 let all = client.list_dir(&req.path).await?;
                 let query_lower = req.query.to_lowercase();
                 let max = req.max_results.unwrap_or(100);
@@ -882,10 +854,7 @@ impl VfsManager {
                 let root = Self::sftp_root(&mount)?;
                 crate::chmod::chmod_sftp(&sftp, &root, path, mode).await
             }
-            _ => Err(format!(
-                "chmod not supported for {:?} provider",
-                mount.kind
-            )),
+            _ => Err(format!("chmod not supported for {:?} provider", mount.kind)),
         }
     }
 
@@ -911,6 +880,7 @@ impl VfsManager {
                 let root_owned = mount.root.clone();
                 let paths = req.paths.clone();
                 let format = req.format;
+                let password = req.password.clone();
                 tokio::task::spawn_blocking(move || {
                     let root_path = std::path::Path::new(&root_owned);
                     match format {
@@ -918,7 +888,10 @@ impl VfsManager {
                             crate::archive::create_tar_gz(root_path, &paths, &dest)
                         }
                         crate::archive::ArchiveFormat::Zip => {
-                            crate::archive::create_zip(root_path, &paths, &dest)
+                            crate::archive::create_zip(root_path, &paths, &dest, password.as_deref())
+                        }
+                        crate::archive::ArchiveFormat::SevenZ => {
+                            Err("7z creation not yet supported".to_string())
                         }
                     }
                 })
@@ -953,12 +926,16 @@ impl VfsManager {
                 let dest_dir = Self::resolve_local_dest(root, &req.dest_dir)?;
                 let format = crate::archive::ArchiveFormat::from_path(&req.archive_path)
                     .ok_or("Unknown archive format")?;
+                let password = req.password.clone();
                 tokio::task::spawn_blocking(move || match format {
                     crate::archive::ArchiveFormat::TarGz => {
                         crate::archive::extract_tar_gz(&archive_path, &dest_dir)
                     }
                     crate::archive::ArchiveFormat::Zip => {
-                        crate::archive::extract_zip(&archive_path, &dest_dir)
+                        crate::archive::extract_zip(&archive_path, &dest_dir, password.as_deref())
+                    }
+                    crate::archive::ArchiveFormat::SevenZ => {
+                        Err("7z extraction not yet supported".to_string())
                     }
                 })
                 .await
@@ -966,6 +943,38 @@ impl VfsManager {
             }
             _ => Err(format!(
                 "Archive extraction not supported for {:?} provider",
+                mount.kind
+            )),
+        }
+    }
+
+    /// List contents of an archive file within a mount.
+    pub async fn list_archive_contents(
+        &self,
+        mount_id: &str,
+        path: &str,
+        password: Option<String>,
+    ) -> Result<crate::archive::ArchiveListResult, String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        match mount.kind {
+            VfsSourceKind::Local => {
+                let root = std::path::Path::new(&mount.root);
+                let archive_path = Self::resolve_local_path(root, path)?;
+                tokio::task::spawn_blocking(move || {
+                    crate::archive::list_archive(&archive_path, password.as_deref())
+                })
+                .await
+                .map_err(|e| format!("List archive task failed: {e}"))?
+            }
+            _ => Err(format!(
+                "Archive listing not supported for {:?} provider",
                 mount.kind
             )),
         }
@@ -1078,17 +1087,14 @@ impl VfsManager {
                 crate::ftp::ftp_read_raw(&self.ftp_pool, &mount.id, &mount.root, path).await
             }
             VfsSourceKind::S3 => {
-                let client =
-                    crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
+                let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 client.get_object(path).await
             }
-            VfsSourceKind::Smb => {
-                crate::smb::read_file_raw(&self.smb_pool, &mount.id, path).await
-            }
+            VfsSourceKind::Smb => crate::smb::read_file_raw(&self.smb_pool, &mount.id, path).await,
             VfsSourceKind::WebDav => {
-                let client = crate::webdav::WebDavClient::new(
-                    crate::webdav::WebDavConfig::parse(&mount.root)?,
-                );
+                let client = crate::webdav::WebDavClient::new(crate::webdav::WebDavConfig::parse(
+                    &mount.root,
+                )?);
                 client.read_file(path, None).await
             }
         }
@@ -1275,10 +1281,7 @@ impl VfsManager {
 }
 
 /// Recursively copy a directory.
-async fn copy_dir_recursive(
-    src: &std::path::Path,
-    dest: &std::path::Path,
-) -> Result<(), String> {
+async fn copy_dir_recursive(src: &std::path::Path, dest: &std::path::Path) -> Result<(), String> {
     tokio::fs::create_dir_all(dest)
         .await
         .map_err(|e| format!("Create dir failed: {e}"))?;
@@ -1500,7 +1503,10 @@ mod tests {
         assert!(result.is_ok());
         assert!(!dir.path().join("a.txt").exists());
         assert!(dir.path().join("b.txt").exists());
-        assert_eq!(std::fs::read_to_string(dir.path().join("b.txt")).unwrap(), "hello");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("b.txt")).unwrap(),
+            "hello"
+        );
     }
 
     #[tokio::test]
@@ -1531,7 +1537,10 @@ mod tests {
         assert!(result.is_ok());
         assert!(dir.path().join("orig.txt").exists());
         assert!(dir.path().join("copy.txt").exists());
-        assert_eq!(std::fs::read_to_string(dir.path().join("copy.txt")).unwrap(), "data");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("copy.txt")).unwrap(),
+            "data"
+        );
     }
 
     #[tokio::test]

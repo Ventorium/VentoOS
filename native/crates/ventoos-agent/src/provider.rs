@@ -11,8 +11,8 @@ use tracing::debug;
 use crate::types::{
     AgentError, AgentMessage, FunctionCall, OpenAiErrorResponse, OpenAiReasoningConfig,
     OpenAiRequest, OpenAiResponse, OpenAiStreamChunk, ProviderConfig, ProviderProbeRequest,
-    ProviderProbeResult, ProviderVendor, ReasoningMode, StreamEvent,
-    StreamToolCallDelta, ToolCall, ToolDefinition,
+    ProviderProbeResult, ProviderVendor, ReasoningMode, StreamEvent, StreamToolCallDelta, ToolCall,
+    ToolDefinition,
 };
 
 /// Runtime provider client.
@@ -94,7 +94,12 @@ impl OpenAiCompatibleProvider {
         tools: &[ToolDefinition],
         model: Option<&str>,
     ) -> Result<AgentMessage, AgentError> {
-        let body = Self::build_request(messages, tools, model.unwrap_or(&self.config.default_model), false);
+        let body = Self::build_request(
+            messages,
+            tools,
+            model.unwrap_or(&self.config.default_model),
+            false,
+        );
         let response = self
             .request_builder(self.chat_url())
             .json(&body)
@@ -123,7 +128,12 @@ impl OpenAiCompatibleProvider {
         model: Option<&str>,
         tx: &mpsc::Sender<StreamEvent>,
     ) -> Result<AgentMessage, AgentError> {
-        let body = Self::build_request(messages, tools, model.unwrap_or(&self.config.default_model), true);
+        let body = Self::build_request(
+            messages,
+            tools,
+            model.unwrap_or(&self.config.default_model),
+            true,
+        );
         let response = self
             .request_builder(self.chat_url())
             .json(&body)
@@ -231,7 +241,10 @@ impl OpenAiCompatibleProvider {
     }
 
     fn chat_url(&self) -> String {
-        format!("{}/chat/completions", self.config.base_url.trim_end_matches('/'))
+        format!(
+            "{}/chat/completions",
+            self.config.base_url.trim_end_matches('/')
+        )
     }
 
     fn request_builder(&self, url: String) -> RequestBuilder {
@@ -320,18 +333,18 @@ impl AnthropicProvider {
         model: Option<&str>,
     ) -> Result<AgentMessage, AgentError> {
         let body = Self::build_request(messages, model.unwrap_or(&self.config.default_model), 1024);
-        let response = self
-            .request_builder()
-            .json(&body)
-            .send()
-            .await?;
+        let response = self.request_builder().json(&body).send().await?;
         let status = response.status();
         if !status.is_success() {
-            return Err(AgentError::Provider(response.text().await.unwrap_or_default()));
+            return Err(AgentError::Provider(
+                response.text().await.unwrap_or_default(),
+            ));
         }
 
         let data: AnthropicResponse = response.json().await?;
-        Ok(AgentMessage::assistant(extract_anthropic_text(&data.content)))
+        Ok(AgentMessage::assistant(extract_anthropic_text(
+            &data.content,
+        )))
     }
 
     pub async fn chat_stream(
@@ -472,7 +485,9 @@ impl GeminiProvider {
             .await?;
         let status = response.status();
         if !status.is_success() {
-            return Err(AgentError::Provider(response.text().await.unwrap_or_default()));
+            return Err(AgentError::Provider(
+                response.text().await.unwrap_or_default(),
+            ));
         }
 
         let data: GeminiResponse = response.json().await?;
@@ -632,7 +647,10 @@ impl SseParser {
                 continue;
             }
 
-            if let Some(data) = line.strip_prefix("data: ").or_else(|| line.strip_prefix("data:")) {
+            if let Some(data) = line
+                .strip_prefix("data: ")
+                .or_else(|| line.strip_prefix("data:"))
+            {
                 let data = data.trim();
                 if !data.is_empty() {
                     events.push(data.to_string());
@@ -919,8 +937,7 @@ mod tests {
     fn test_provider_build_request() {
         let messages = vec![AgentMessage::user("hello")];
         let tools = vec![];
-        let req =
-            OpenAiCompatibleProvider::build_request(&messages, &tools, "gpt-4o", false);
+        let req = OpenAiCompatibleProvider::build_request(&messages, &tools, "gpt-4o", false);
 
         assert_eq!(req.model, "gpt-4o");
         assert_eq!(req.messages.len(), 1);

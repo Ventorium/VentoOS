@@ -639,7 +639,14 @@ impl RedisManager {
         let start_id = req.start_id.as_deref().unwrap_or("$");
         let resp = Self::send_command(
             conn,
-            &["XGROUP", "CREATE", key, &req.group_name, start_id, "MKSTREAM"],
+            &[
+                "XGROUP",
+                "CREATE",
+                key,
+                &req.group_name,
+                start_id,
+                "MKSTREAM",
+            ],
         )
         .await?;
         if resp.is_error() {
@@ -683,10 +690,7 @@ impl RedisManager {
             }
         }
 
-        Ok(BatchResult {
-            affected,
-            keys,
-        })
+        Ok(BatchResult { affected, keys })
     }
 
     /// Scan keys matching pattern and export as JSON.
@@ -932,11 +936,13 @@ fn elapsed_ms(start: &Instant) -> u64 {
 fn parse_keyspace_total(info: &str) -> i64 {
     let mut total = 0i64;
     for line in info.lines() {
-        if line.starts_with("db") && line.contains("keys=")
+        if line.starts_with("db")
+            && line.contains("keys=")
             && let Some(keys_part) = line.split("keys=").nth(1)
-                && let Some(num_str) = keys_part.split(',').next() {
-                    total += num_str.parse::<i64>().unwrap_or(0);
-                }
+            && let Some(num_str) = keys_part.split(',').next()
+        {
+            total += num_str.parse::<i64>().unwrap_or(0);
+        }
     }
     total
 }
@@ -957,9 +963,10 @@ fn parse_info_sections(info: &str) -> RedisInfoParsed {
                 .entry(current_section.clone())
                 .or_insert_with(std::collections::HashMap::new);
         } else if let Some((key, value)) = line.split_once(':')
-            && let Some(section) = sections.get_mut(&current_section) {
-                section.insert(key.to_string(), value.to_string());
-            }
+            && let Some(section) = sections.get_mut(&current_section)
+        {
+            section.insert(key.to_string(), value.to_string());
+        }
     }
 
     RedisInfoParsed { sections }
@@ -981,10 +988,7 @@ fn parse_stream_entries(resp: RespValue) -> Result<Vec<StreamEntry>, String> {
         }
 
         let id = entry_arr[0].as_str().unwrap_or("").to_string();
-        let fields_arr = entry_arr[1]
-            .clone()
-            .into_array()
-            .unwrap_or_default();
+        let fields_arr = entry_arr[1].clone().into_array().unwrap_or_default();
 
         let mut fields_map = serde_json::Map::new();
         let mut i = 0;

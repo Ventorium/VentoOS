@@ -6,12 +6,9 @@
 use serde::Deserialize;
 
 use crate::channel::{
-    ChannelAdapter, ChannelKind, ChannelSendResult, InboundChannelRequest,
-    VerifiedChannelRequest,
+    ChannelAdapter, ChannelKind, ChannelSendResult, InboundChannelRequest, VerifiedChannelRequest,
 };
-use crate::types::{
-    AgentError, ChannelIdentity, ChannelMessageEvent,
-};
+use crate::types::{AgentError, ChannelIdentity, ChannelMessageEvent};
 
 /// Telegram Bot API adapter.
 pub struct TelegramAdapter {
@@ -71,7 +68,10 @@ impl ChannelAdapter for TelegramAdapter {
         ChannelKind::Telegram
     }
 
-    fn verify(&self, request: &InboundChannelRequest) -> Result<VerifiedChannelRequest, AgentError> {
+    fn verify(
+        &self,
+        request: &InboundChannelRequest,
+    ) -> Result<VerifiedChannelRequest, AgentError> {
         self.verify_update(&request.raw_body)?;
         Ok(VerifiedChannelRequest {
             channel_id: self.channel_id.clone(),
@@ -80,7 +80,10 @@ impl ChannelAdapter for TelegramAdapter {
         })
     }
 
-    fn normalize(&self, inbound: VerifiedChannelRequest) -> Result<ChannelMessageEvent, AgentError> {
+    fn normalize(
+        &self,
+        inbound: VerifiedChannelRequest,
+    ) -> Result<ChannelMessageEvent, AgentError> {
         let update = self.verify_update(&inbound.raw_body)?;
         // Extract non-field-moved data before partially moving update
         let update_id_str = update.update_id.to_string();
@@ -134,56 +137,52 @@ impl ChannelAdapter for TelegramAdapter {
         outbound: crate::channel::ChannelOutboundMessage,
     ) -> crate::channel::BoxFuture<'a, Result<ChannelSendResult, AgentError>> {
         Box::pin(async move {
-        let url = format!("{}/sendMessage", self.api_base());
-        let mut body = serde_json::json!({
-            "chat_id": outbound.external_conversation_id,
-            "text": outbound.content,
-            "parse_mode": "Markdown",
-        });
+            let url = format!("{}/sendMessage", self.api_base());
+            let mut body = serde_json::json!({
+                "chat_id": outbound.external_conversation_id,
+                "text": outbound.content,
+                "parse_mode": "Markdown",
+            });
 
-        if let Some(thread_id) = &outbound.external_thread_id {
-            let thread_i64: i64 = thread_id
-                .parse()
-                .map_err(|_| AgentError::ChannelError {
+            if let Some(thread_id) = &outbound.external_thread_id {
+                let thread_i64: i64 = thread_id.parse().map_err(|_| AgentError::ChannelError {
                     channel: "telegram".into(),
                     detail: "invalid thread_id".into(),
                 })?;
-            body["message_thread_id"] = serde_json::json!(thread_i64);
-        }
+                body["message_thread_id"] = serde_json::json!(thread_i64);
+            }
 
-        let client = reqwest::Client::new();
-        let resp = client
-            .post(&url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| AgentError::ChannelError {
-                channel: "telegram".into(),
-                detail: format!("send request failed: {e}"),
+            let client = reqwest::Client::new();
+            let resp = client.post(&url).json(&body).send().await.map_err(|e| {
+                AgentError::ChannelError {
+                    channel: "telegram".into(),
+                    detail: format!("send request failed: {e}"),
+                }
             })?;
 
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
-            return Err(AgentError::ChannelError {
-                channel: "telegram".into(),
-                detail: format!("sendMessage returned {status}: {text}"),
-            });
-        }
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                return Err(AgentError::ChannelError {
+                    channel: "telegram".into(),
+                    detail: format!("sendMessage returned {status}: {text}"),
+                });
+            }
 
-        let result: serde_json::Value = resp.json().await.map_err(|e| AgentError::ChannelError {
-            channel: "telegram".into(),
-            detail: format!("failed to parse sendMessage response: {e}"),
-        })?;
+            let result: serde_json::Value =
+                resp.json().await.map_err(|e| AgentError::ChannelError {
+                    channel: "telegram".into(),
+                    detail: format!("failed to parse sendMessage response: {e}"),
+                })?;
 
-        Ok(ChannelSendResult {
-            accepted: true,
-            external_message_id: result
-                .get("result")
-                .and_then(|r| r.get("message_id"))
-                .and_then(|m| m.as_i64())
-                .map(|m| m.to_string()),
-        })
+            Ok(ChannelSendResult {
+                accepted: true,
+                external_message_id: result
+                    .get("result")
+                    .and_then(|r| r.get("message_id"))
+                    .and_then(|m| m.as_i64())
+                    .map(|m| m.to_string()),
+            })
         })
     }
 }

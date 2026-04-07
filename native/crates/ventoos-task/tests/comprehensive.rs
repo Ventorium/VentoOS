@@ -1,6 +1,4 @@
-use ventoos_core::task::{
-    CreateTaskRequest, RiskLevel, TaskPriority, TaskSource, TaskStatus,
-};
+use ventoos_core::task::{CreateTaskRequest, RiskLevel, TaskPriority, TaskSource, TaskStatus};
 use ventoos_core::types::new_id;
 use ventoos_task::TaskEngine;
 
@@ -382,9 +380,7 @@ async fn test_status_to_partial_success_sets_completed_at() {
 #[tokio::test]
 async fn test_update_status_nonexistent() {
     let engine = TaskEngine::new();
-    let result = engine
-        .update_status(new_id(), TaskStatus::Running)
-        .await;
+    let result = engine.update_status(new_id(), TaskStatus::Running).await;
     assert!(result.is_none());
 }
 

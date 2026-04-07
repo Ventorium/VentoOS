@@ -70,19 +70,13 @@ impl AppPlugin for K8sPlugin {
                 get(get_resource_events),
             )
             // Pod logs
-            .route(
-                "/api/k8s/clusters/{id}/pods/{name}/logs",
-                get(get_pod_logs),
-            )
+            .route("/api/k8s/clusters/{id}/pods/{name}/logs", get(get_pod_logs))
             .route(
                 "/api/k8s/clusters/{id}/pods/{name}/logs/stream",
                 get(ws_pod_logs),
             )
             // Pod exec
-            .route(
-                "/api/k8s/clusters/{id}/pods/{name}/exec",
-                get(ws_pod_exec),
-            )
+            .route("/api/k8s/clusters/{id}/pods/{name}/exec", get(ws_pod_exec))
             // Port-forward
             .route(
                 "/api/k8s/clusters/{id}/port-forward",
@@ -122,10 +116,7 @@ async fn create_cluster(
     (StatusCode::CREATED, Json(ApiResponse::ok(cluster)))
 }
 
-async fn get_cluster(
-    State(st): State<K8sState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn get_cluster(State(st): State<K8sState>, Path(id): Path<String>) -> impl IntoResponse {
     match st.manager.get_cluster(&id).await {
         Some(cluster) => Json(ApiResponse::ok(cluster)).into_response(),
         None => (
@@ -136,10 +127,7 @@ async fn get_cluster(
     }
 }
 
-async fn delete_cluster(
-    State(st): State<K8sState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn delete_cluster(State(st): State<K8sState>, Path(id): Path<String>) -> impl IntoResponse {
     // Also stop all port-forwards for this cluster
     st.port_forwards.stop_all(&id).await;
     if st.manager.delete_cluster(&id).await {
@@ -153,10 +141,7 @@ async fn delete_cluster(
     }
 }
 
-async fn test_cluster(
-    State(st): State<K8sState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn test_cluster(State(st): State<K8sState>, Path(id): Path<String>) -> impl IntoResponse {
     match st.manager.test_cluster(&id).await {
         Some(result) => Json(ApiResponse::ok(result)).into_response(),
         None => (
@@ -167,10 +152,7 @@ async fn test_cluster(
     }
 }
 
-async fn list_namespaces(
-    State(st): State<K8sState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn list_namespaces(State(st): State<K8sState>, Path(id): Path<String>) -> impl IntoResponse {
     match st.manager.list_namespaces(&id).await {
         Ok(ns) => Json(ApiResponse::ok(ns)).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
@@ -315,15 +297,14 @@ async fn get_pod_logs(
     let client = match st.manager.build_shared_client(&id).await {
         Ok(c) => c,
         Err(e) => {
-            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response()
+            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response();
         }
     };
 
     let ns = q.namespace.as_deref().unwrap_or("default");
     let tail = q.tail.unwrap_or(100);
-    let mut url = format!(
-        "/api/v1/namespaces/{ns}/pods/{name}/log?tailLines={tail}&timestamps=true"
-    );
+    let mut url =
+        format!("/api/v1/namespaces/{ns}/pods/{name}/log?tailLines={tail}&timestamps=true");
     if let Some(ref container) = q.container {
         url.push_str("&container=");
         url.push_str(container);
@@ -344,8 +325,7 @@ async fn ws_pod_logs(
     let client = match st.manager.build_shared_client(&id).await {
         Ok(c) => c,
         Err(e) => {
-            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e)))
-                .into_response();
+            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response();
         }
     };
 
@@ -373,8 +353,7 @@ async fn ws_pod_exec(
     let client = match st.manager.build_shared_client(&id).await {
         Ok(c) => c,
         Err(e) => {
-            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e)))
-                .into_response();
+            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response();
         }
     };
 
@@ -451,7 +430,7 @@ async fn detect_service(
     let client = match st.manager.build_shared_client(&id).await {
         Ok(c) => c,
         Err(e) => {
-            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response()
+            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response();
         }
     };
 
@@ -470,7 +449,7 @@ async fn bridge_service(
     let client = match st.manager.build_shared_client(&id).await {
         Ok(c) => c,
         Err(e) => {
-            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response()
+            return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response();
         }
     };
 

@@ -8,7 +8,7 @@
 //! Required environment (edit constants below or set env vars):
 //!   - SFTP: root@<SFTP_HOST>:22 with password SFTP_PASS
 //!   - S3 (MinIO): http://<S3_ENDPOINT> with S3_ACCESS_KEY / S3_SECRET_KEY
-//!   - SMB: smb://<SMB_HOST>/<SMB_SHARE> user/pass SMB_USER / SMB_PASS
+//!   - SMB: smb://<SMB_HOST> 或 smb://<SMB_HOST>/<SMB_SHARE>，user/pass SMB_USER / SMB_PASS
 //!   - FTP: ftp://<FTP_HOST> user/pass FTP_USER / FTP_PASS
 
 #![cfg(test)]
@@ -70,7 +70,11 @@ async fn test_sftp_list_root() {
         .await;
 
     let result = manager
-        .list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/".to_string(), show_hidden: false })
+        .list_dir(&VfsListReq {
+            mount_id: mount.id.clone(),
+            path: "/".to_string(),
+            show_hidden: false,
+        })
         .await;
     assert!(result.is_ok(), "SFTP list_dir failed: {:?}", result.err());
     let nodes = result.unwrap();
@@ -89,7 +93,11 @@ async fn test_sftp_test_connection() {
         group: None,
     };
     let result = manager.test_connection(&req).await;
-    assert!(result.is_ok(), "SFTP test_connection failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "SFTP test_connection failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
@@ -113,12 +121,30 @@ async fn test_sftp_mkdir_and_list() {
             path: dir_name.clone(),
         })
         .await;
-    assert!(mkdir_result.is_ok(), "SFTP mkdir failed: {:?}", mkdir_result.err());
+    assert!(
+        mkdir_result.is_ok(),
+        "SFTP mkdir failed: {:?}",
+        mkdir_result.err()
+    );
 
-    let list_result = manager.list_dir(&VfsListReq { mount_id: mount.id.clone(), path: "/tmp".to_string(), show_hidden: false }).await;
-    assert!(list_result.is_ok(), "SFTP list /tmp failed: {:?}", list_result.err());
+    let list_result = manager
+        .list_dir(&VfsListReq {
+            mount_id: mount.id.clone(),
+            path: "/tmp".to_string(),
+            show_hidden: false,
+        })
+        .await;
+    assert!(
+        list_result.is_ok(),
+        "SFTP list /tmp failed: {:?}",
+        list_result.err()
+    );
     let entries = list_result.unwrap();
-    let short_name = dir_name.trim_start_matches('/').split('/').last().unwrap_or("");
+    let short_name = dir_name
+        .trim_start_matches('/')
+        .split('/')
+        .last()
+        .unwrap_or("");
     assert!(
         entries.iter().any(|e| e.name == short_name),
         "Created directory not found in listing"
@@ -139,13 +165,19 @@ async fn test_s3_test_connection() {
             "s3://{}:{}@{}",
             s3_access_key(),
             s3_secret_key(),
-            endpoint.trim_start_matches("http://").trim_start_matches("https://")
+            endpoint
+                .trim_start_matches("http://")
+                .trim_start_matches("https://")
         ),
         connection_id: None,
         group: None,
     };
     let result = manager.test_connection(&req).await;
-    assert!(result.is_ok(), "S3 test_connection failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "S3 test_connection failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
@@ -161,7 +193,9 @@ async fn test_s3_list_root() {
                 "s3://{}:{}@{}",
                 s3_access_key(),
                 s3_secret_key(),
-                endpoint.trim_start_matches("http://").trim_start_matches("https://")
+                endpoint
+                    .trim_start_matches("http://")
+                    .trim_start_matches("https://")
             ),
             connection_id: None,
             group: None,
@@ -198,7 +232,11 @@ async fn test_smb_test_connection() {
         group: None,
     };
     let result = manager.test_connection(&req).await;
-    assert!(result.is_ok(), "SMB test_connection failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "SMB test_connection failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
@@ -245,7 +283,11 @@ async fn test_ftp_test_connection() {
         group: None,
     };
     let result = manager.test_connection(&req).await;
-    assert!(result.is_ok(), "FTP test_connection failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "FTP test_connection failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
@@ -370,9 +412,18 @@ async fn test_validate_mount_name() {
     assert!(validate_mount_name("My Documents").is_none(), "valid name");
     assert!(validate_mount_name("").is_some(), "empty should fail");
     assert!(validate_mount_name("a/b").is_some(), "slash should fail");
-    assert!(validate_mount_name("a\\b").is_some(), "backslash should fail");
-    assert!(validate_mount_name(" leading").is_some(), "leading space should fail");
-    assert!(validate_mount_name("trailing ").is_some(), "trailing space should fail");
+    assert!(
+        validate_mount_name("a\\b").is_some(),
+        "backslash should fail"
+    );
+    assert!(
+        validate_mount_name(" leading").is_some(),
+        "leading space should fail"
+    );
+    assert!(
+        validate_mount_name("trailing ").is_some(),
+        "trailing space should fail"
+    );
     let long = "a".repeat(101);
     assert!(validate_mount_name(&long).is_some(), "too long should fail");
 }
@@ -405,8 +456,7 @@ async fn test_webdav_server_settings_update() {
 
 // These tests require a real WebDAV server; run with `--ignored`
 fn webdav_host() -> String {
-    std::env::var("WEBDAV_URL")
-        .unwrap_or_else(|_| "webdav://demo.sabre.io/".to_string())
+    std::env::var("WEBDAV_URL").unwrap_or_else(|_| "webdav://demo.sabre.io/".to_string())
 }
 
 #[tokio::test]
@@ -445,5 +495,9 @@ async fn test_webdav_test_connection() {
         group: None,
     };
     let result = manager.test_connection(&req).await;
-    assert!(result.is_ok(), "WebDAV test_connection failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "WebDAV test_connection failed: {:?}",
+        result.err()
+    );
 }

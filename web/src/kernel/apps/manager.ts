@@ -36,7 +36,51 @@ export function getAppsForFile(ext: string): AppManifest[] {
   return useAppStore
     .getState()
     .getAllApps()
-    .filter(a => a.fileAssociations?.includes(lower))
+    .filter(
+      a =>
+        a.fileAssociations?.includes(lower) ||
+        a.fileOpenAssociations?.includes(lower) ||
+        a.filePreviewAssociations?.includes(lower)
+    )
+}
+
+/** Get apps that can open/edit files with the given extension */
+export function getOpenAppsForFile(ext: string): AppManifest[] {
+  const lower = ext.toLowerCase()
+  return useAppStore
+    .getState()
+    .getAllApps()
+    .filter(a => a.fileOpenAssociations?.includes(lower) || a.fileAssociations?.includes(lower))
+}
+
+/** Get apps that can preview files with the given extension */
+export function getPreviewAppsForFile(ext: string): AppManifest[] {
+  const lower = ext.toLowerCase()
+  return useAppStore
+    .getState()
+    .getAllApps()
+    .filter(a => a.filePreviewAssociations?.includes(lower))
+}
+
+/** Get all apps for a file (both open and preview), with type annotation */
+export function getAllAppsForFile(ext: string): Array<AppManifest & { associationType: 'open' | 'preview' }> {
+  const lower = ext.toLowerCase()
+  const result: Array<AppManifest & { associationType: 'open' | 'preview' }> = []
+  const seen = new Set<string>()
+
+  for (const app of useAppStore.getState().getAllApps()) {
+    const canOpen = app.fileOpenAssociations?.includes(lower) || app.fileAssociations?.includes(lower)
+    const canPreview = app.filePreviewAssociations?.includes(lower)
+    if (canOpen && !seen.has(app.id)) {
+      seen.add(app.id)
+      result.push({ ...app, associationType: 'open' })
+    }
+    if (canPreview && !seen.has(app.id)) {
+      seen.add(app.id)
+      result.push({ ...app, associationType: 'preview' })
+    }
+  }
+  return result
 }
 
 // ─── Lazy component cache ──────────────────────────────────────────────────

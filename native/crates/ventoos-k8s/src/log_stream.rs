@@ -41,7 +41,9 @@ pub async fn handle_log_stream(
             Err(e) => {
                 let _ = socket
                     .send(Message::Text(
-                        serde_json::json!({"type":"error","message": e}).to_string().into(),
+                        serde_json::json!({"type":"error","message": e})
+                            .to_string()
+                            .into(),
                     ))
                     .await;
                 return;
@@ -55,7 +57,8 @@ pub async fn handle_log_stream(
         let _ = socket
             .send(Message::Text(
                 serde_json::json!({"type":"error","message":"No pods found"})
-                    .to_string().into(),
+                    .to_string()
+                    .into(),
             ))
             .await;
         return;
@@ -84,8 +87,7 @@ pub async fn handle_log_stream(
         let filter = filter_regex.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = stream_pod_logs(&client, &ns, &pn, &container, tail, filter, tx).await
-            {
+            if let Err(e) = stream_pod_logs(&client, &ns, &pn, &container, tail, filter, tx).await {
                 warn!("Log stream error for pod {pn}: {e}");
             }
         });
@@ -164,9 +166,7 @@ async fn resolve_pods_by_label(
     namespace: &str,
     label_selector: &str,
 ) -> Result<Vec<String>, String> {
-    let url = format!(
-        "/api/v1/namespaces/{namespace}/pods?labelSelector={label_selector}"
-    );
+    let url = format!("/api/v1/namespaces/{namespace}/pods?labelSelector={label_selector}");
     let json = client.get(&url).await?;
     let items = json
         .get("items")

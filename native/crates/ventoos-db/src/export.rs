@@ -44,8 +44,7 @@ pub fn export_json(result: &QueryResult, format: &ExportFormat) -> Result<Vec<u8
         let mut out = Vec::with_capacity(4096);
         for row in &result.rows {
             let obj = row_to_json_object(&result.columns, row);
-            let line =
-                serde_json::to_string(&obj).map_err(|e| format!("JSON serialize: {e}"))?;
+            let line = serde_json::to_string(&obj).map_err(|e| format!("JSON serialize: {e}"))?;
             out.extend_from_slice(line.as_bytes());
             out.push(b'\n');
         }
@@ -71,10 +70,7 @@ pub fn export(result: &QueryResult, format: &ExportFormat) -> Result<Vec<u8>, St
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-fn row_to_json_object(
-    columns: &[String],
-    row: &[serde_json::Value],
-) -> serde_json::Value {
+fn row_to_json_object(columns: &[String], row: &[serde_json::Value]) -> serde_json::Value {
     let mut map = serde_json::Map::with_capacity(columns.len());
     for (i, col) in columns.iter().enumerate() {
         let val = row.get(i).cloned().unwrap_or(serde_json::Value::Null);

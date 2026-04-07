@@ -8,8 +8,7 @@
 use serde::Deserialize;
 
 use crate::channel::{
-    ChannelAdapter, ChannelKind, ChannelSendResult, InboundChannelRequest,
-    VerifiedChannelRequest,
+    ChannelAdapter, ChannelKind, ChannelSendResult, InboundChannelRequest, VerifiedChannelRequest,
 };
 use crate::types::{AgentError, ChannelIdentity, ChannelMessageEvent};
 
@@ -48,7 +47,10 @@ impl ChannelAdapter for QqAdapter {
         ChannelKind::Qq
     }
 
-    fn verify(&self, request: &InboundChannelRequest) -> Result<VerifiedChannelRequest, AgentError> {
+    fn verify(
+        &self,
+        request: &InboundChannelRequest,
+    ) -> Result<VerifiedChannelRequest, AgentError> {
         // Basic structural validation
         let cb = self.parse_callback(&request.raw_body)?;
 
@@ -66,7 +68,10 @@ impl ChannelAdapter for QqAdapter {
         })
     }
 
-    fn normalize(&self, inbound: VerifiedChannelRequest) -> Result<ChannelMessageEvent, AgentError> {
+    fn normalize(
+        &self,
+        inbound: VerifiedChannelRequest,
+    ) -> Result<ChannelMessageEvent, AgentError> {
         let cb = self.parse_callback(&inbound.raw_body)?;
 
         let content = cb.text.content.trim().to_string();
@@ -159,15 +164,16 @@ impl QqAdapter {
         });
 
         let client = reqwest::Client::new();
-        let resp = client
-            .post(url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| AgentError::ChannelError {
-                channel: "qq".into(),
-                detail: format!("token request failed: {e}"),
-            })?;
+        let resp =
+            client
+                .post(url)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AgentError::ChannelError {
+                    channel: "qq".into(),
+                    detail: format!("token request failed: {e}"),
+                })?;
 
         if !resp.status().is_success() {
             return Err(AgentError::ChannelError {
@@ -176,10 +182,11 @@ impl QqAdapter {
             });
         }
 
-        let result: serde_json::Value = resp.json().await.map_err(|e| AgentError::ChannelError {
-            channel: "qq".into(),
-            detail: format!("failed to parse token response: {e}"),
-        })?;
+        let result: serde_json::Value =
+            resp.json().await.map_err(|e| AgentError::ChannelError {
+                channel: "qq".into(),
+                detail: format!("failed to parse token response: {e}"),
+            })?;
 
         result
             .get("access_token")
@@ -232,7 +239,11 @@ mod tests {
     }
 
     fn test_adapter() -> QqAdapter {
-        QqAdapter::new("ch-qq".into(), "test-client-id".into(), "test-secret".into())
+        QqAdapter::new(
+            "ch-qq".into(),
+            "test-client-id".into(),
+            "test-secret".into(),
+        )
     }
 
     #[test]

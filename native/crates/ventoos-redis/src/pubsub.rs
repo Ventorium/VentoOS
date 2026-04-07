@@ -41,10 +41,7 @@ impl SubKind {
 ///
 /// For `message`: `[message, channel, data]`
 /// For `pmessage`: `[pmessage, pattern, channel, data]`
-pub fn parse_subscription_message(
-    kind: &str,
-    parts: &[String],
-) -> Option<PubSubMessage> {
+pub fn parse_subscription_message(kind: &str, parts: &[String]) -> Option<PubSubMessage> {
     match kind {
         "message" if parts.len() >= 2 => Some(PubSubMessage {
             channel: parts[0].clone(),

@@ -533,7 +533,9 @@ impl AgentProfile {
             lines.push("For destructive actions, explain impact before proceeding.".into());
         }
         if self.behavior.read_only_mode {
-            lines.push("Operate in read-only mode unless the user explicitly authorizes writes.".into());
+            lines.push(
+                "Operate in read-only mode unless the user explicitly authorizes writes.".into(),
+            );
         }
         if self.behavior.concise_output {
             lines.push("Keep responses concise and action-oriented.".into());
@@ -1096,7 +1098,11 @@ mod tests {
         let profiles = builtin_agent_profiles();
         assert_eq!(profiles.len(), 4);
         assert!(profiles.iter().all(|p| p.is_builtin));
-        assert!(profiles.iter().any(|p| p.preset_kind == AgentPresetKind::CodingAssistant));
+        assert!(
+            profiles
+                .iter()
+                .any(|p| p.preset_kind == AgentPresetKind::CodingAssistant)
+        );
     }
 
     #[test]
@@ -1166,7 +1172,10 @@ mod tests {
     #[test]
     fn test_default_agent_config() {
         let cfg = AgentConfig::default();
-        assert_eq!(cfg.default_agent_profile_id.as_deref(), Some("general-assistant"));
+        assert_eq!(
+            cfg.default_agent_profile_id.as_deref(),
+            Some("general-assistant")
+        );
         assert_eq!(cfg.max_iterations, 10);
         assert!(cfg.tools_enabled);
         assert!(!cfg.default_system_prompt.is_empty());
@@ -1184,11 +1193,8 @@ mod tests {
 
     #[test]
     fn test_channel_config_defaults() {
-        let config = ChannelConfig::new(
-            "channel-1".into(),
-            "Telegram".into(),
-            ChannelKind::Telegram,
-        );
+        let config =
+            ChannelConfig::new("channel-1".into(), "Telegram".into(), ChannelKind::Telegram);
 
         assert!(config.enabled);
         assert!(config.auto_route_agent);

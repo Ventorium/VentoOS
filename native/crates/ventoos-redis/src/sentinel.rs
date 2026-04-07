@@ -22,9 +22,18 @@ pub struct SentinelMasterInfo {
 pub async fn discover_master(config: &SentinelConfig) -> Result<SentinelMasterInfo, String> {
     for sentinel in &config.sentinels {
         let addr = format!("{}:{}", sentinel.host, sentinel.port);
-        debug!("Querying sentinel at {addr} for master '{}'", config.master_name);
+        debug!(
+            "Querying sentinel at {addr} for master '{}'",
+            config.master_name
+        );
 
-        match try_sentinel(&addr, &config.master_name, config.sentinel_password.as_deref()).await {
+        match try_sentinel(
+            &addr,
+            &config.master_name,
+            config.sentinel_password.as_deref(),
+        )
+        .await
+        {
             Ok(info) => return Ok(info),
             Err(e) => {
                 warn!("Sentinel {addr} failed: {e}");

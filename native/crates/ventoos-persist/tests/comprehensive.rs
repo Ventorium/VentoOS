@@ -57,10 +57,7 @@ fn db_open_file_creates_persistent_database() {
     {
         let db = Database::open(&db_path).unwrap();
         db.with_conn(|conn| {
-            conn.execute(
-                "INSERT INTO settings (key, value) VALUES ('k', 'v')",
-                [],
-            )?;
+            conn.execute("INSERT INTO settings (key, value) VALUES ('k', 'v')", [])?;
             Ok(())
         })
         .unwrap();
@@ -80,9 +77,7 @@ fn db_open_file_creates_persistent_database() {
 fn db_with_conn_executes_queries() {
     let db = mem_db();
     let count: i64 = db
-        .with_conn(|conn| {
-            conn.query_row("SELECT count(*) FROM settings", [], |r| r.get(0))
-        })
+        .with_conn(|conn| conn.query_row("SELECT count(*) FROM settings", [], |r| r.get(0)))
         .unwrap();
     assert_eq!(count, 0);
 }
@@ -178,10 +173,7 @@ fn settings_empty_string_key_and_value() {
     let db = mem_db();
     let mgr = SettingsManager::new(db);
     mgr.set("", "empty_key_value").unwrap();
-    assert_eq!(
-        mgr.get("").unwrap(),
-        Some("empty_key_value".to_string())
-    );
+    assert_eq!(mgr.get("").unwrap(), Some("empty_key_value".to_string()));
 
     mgr.set("empty_val", "").unwrap();
     assert_eq!(mgr.get("empty_val").unwrap(), Some(String::new()));
@@ -196,14 +188,8 @@ fn settings_large_number_of_entries() {
             .unwrap();
     }
     // Spot check
-    assert_eq!(
-        mgr.get("key_0000").unwrap(),
-        Some("value_0".to_string())
-    );
-    assert_eq!(
-        mgr.get("key_0149").unwrap(),
-        Some("value_149".to_string())
-    );
+    assert_eq!(mgr.get("key_0000").unwrap(), Some("value_0".to_string()));
+    assert_eq!(mgr.get("key_0149").unwrap(), Some("value_149".to_string()));
 
     // Batch
     let keys: Vec<String> = (0..150).map(|i| format!("key_{i:04}")).collect();
@@ -645,10 +631,7 @@ fn db_persistence_across_reopen() {
     {
         let db = Arc::new(Database::open(&db_path).unwrap());
         let settings = SettingsManager::new(Arc::clone(&db));
-        assert_eq!(
-            settings.get("survive").unwrap(),
-            Some("reopen".to_string())
-        );
+        assert_eq!(settings.get("survive").unwrap(), Some("reopen".to_string()));
 
         let windows = WindowStateManager::new(db);
         let loaded = windows.load_all().unwrap();
@@ -754,7 +737,10 @@ fn storage_large_value() {
 
     let big = "y".repeat(50 * 1024);
     mgr.set_value("app", "big", &big).unwrap();
-    assert_eq!(mgr.get_value("app", "big").unwrap().unwrap().len(), 50 * 1024);
+    assert_eq!(
+        mgr.get_value("app", "big").unwrap().unwrap().len(),
+        50 * 1024
+    );
 }
 
 #[test]

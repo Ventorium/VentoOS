@@ -119,7 +119,11 @@ fn urlencoding(s: &str) -> String {
 
 /// List directory contents in a K8s pod by executing `ls -la`.
 pub async fn list_dir(config: &K8sPodConfig, path: &str) -> Result<Vec<VfsNode>, String> {
-    let output = exec_in_pod(config, &["ls", "-la", "--time-style=+%Y-%m-%dT%H:%M:%S", path]).await?;
+    let output = exec_in_pod(
+        config,
+        &["ls", "-la", "--time-style=+%Y-%m-%dT%H:%M:%S", path],
+    )
+    .await?;
     Ok(parse_ls_output(&output, path))
 }
 

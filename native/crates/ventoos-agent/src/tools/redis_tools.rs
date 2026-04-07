@@ -60,7 +60,8 @@ pub fn definitions() -> Vec<ToolDefinition> {
         },
         ToolDefinition {
             name: "redis_execute_command".into(),
-            description: "Execute an arbitrary Redis command. Medium risk: may read or modify data.".into(),
+            description:
+                "Execute an arbitrary Redis command. Medium risk: may read or modify data.".into(),
             parameters: serde_json::json!({
                 "type": "object",
                 "properties": {

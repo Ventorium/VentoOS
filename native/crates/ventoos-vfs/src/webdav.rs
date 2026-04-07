@@ -39,10 +39,7 @@ impl WebDavConfig {
 
         let (username, password) = if let Some(c) = creds {
             let (u, p) = c.split_once(':').unwrap_or((c, ""));
-            (
-                Some(urlencoding_decode(u)),
-                Some(urlencoding_decode(p)),
-            )
+            (Some(urlencoding_decode(u)), Some(urlencoding_decode(p)))
         } else {
             (None, None)
         };
@@ -55,7 +52,11 @@ impl WebDavConfig {
             format!("{base_url}/")
         };
 
-        Ok(Self { base_url, username, password })
+        Ok(Self {
+            base_url,
+            username,
+            password,
+        })
     }
 
     /// Build the full URL for a given VFS path.
@@ -66,10 +67,7 @@ impl WebDavConfig {
             self.base_url.clone()
         } else {
             // Percent-encode each path segment
-            let encoded: Vec<String> = path
-                .split('/')
-                .map(|seg| percent_encode(seg))
-                .collect();
+            let encoded: Vec<String> = path.split('/').map(|seg| percent_encode(seg)).collect();
             format!("{}{}", self.base_url, encoded.join("/"))
         }
     }
@@ -409,12 +407,13 @@ fn parse_propfind_response(
             }
             Ok(Event::Text(ref e)) => {
                 let text = e.unescape().unwrap_or_default().to_string();
-                if in_href { href_text = text; }
-                else if in_displayname { displayname = text; }
-                else if in_getcontentlength {
+                if in_href {
+                    href_text = text;
+                } else if in_displayname {
+                    displayname = text;
+                } else if in_getcontentlength {
                     content_length = text.trim().parse().ok();
-                }
-                else if in_getlastmodified {
+                } else if in_getlastmodified {
                     last_modified = Some(text);
                 }
             }
@@ -521,10 +520,7 @@ fn percent_decode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let (Some(h), Some(l)) = (
-                hex_val(bytes[i + 1]),
-                hex_val(bytes[i + 2]),
-            ) {
+            if let (Some(h), Some(l)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
                 raw.push((h << 4) | l);
                 i += 3;
                 continue;
@@ -552,8 +548,18 @@ fn percent_encode(s: &str) -> String {
     for b in s.bytes() {
         match b {
             // unreserved + safe-in-path
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9'
-            | b'-' | b'_' | b'.' | b'~' | b'!' | b'\'' | b'(' | b')' | b'*' => {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'~'
+            | b'!'
+            | b'\''
+            | b'('
+            | b')'
+            | b'*' => {
                 out.push(b as char);
             }
             _ => {
@@ -595,7 +601,10 @@ mod tests {
     fn test_url_for() {
         let cfg = WebDavConfig::parse("webdav://host/base/").unwrap();
         assert_eq!(cfg.url_for("/"), "http://host/base/");
-        assert_eq!(cfg.url_for("/sub dir/file.txt"), "http://host/base/sub%20dir/file.txt");
+        assert_eq!(
+            cfg.url_for("/sub dir/file.txt"),
+            "http://host/base/sub%20dir/file.txt"
+        );
     }
 
     #[test]

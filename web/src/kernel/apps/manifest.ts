@@ -80,10 +80,20 @@ export interface AppManifest {
 
   // ── File associations ─────────────────────────────────────────────────────
   /**
-   * File extensions this app can open, e.g. ['db', 'sqlite', 'sqlite3'].
-   * Used by Explorer to show "Open with" dialog when double-clicking files.
+   * @deprecated Use fileOpenAssociations / filePreviewAssociations instead.
+   * Kept for backward compatibility — treated as fileOpenAssociations.
    */
   fileAssociations?: string[]
+  /**
+   * File extensions this app can open/edit, e.g. ['png', 'jpg', 'webp'].
+   * Apps registered here appear in "Open With" and can be set as default.
+   */
+  fileOpenAssociations?: string[]
+  /**
+   * File extensions this app can preview (read-only), e.g. ['png', 'pdf', 'md'].
+   * Apps registered here provide quick preview without editing capability.
+   */
+  filePreviewAssociations?: string[]
 
   // ── Window behavior ───────────────────────────────────────────────────────
   /** Allow multiple simultaneous windows */

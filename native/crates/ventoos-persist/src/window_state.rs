@@ -153,7 +153,8 @@ mod tests {
         let db = Arc::new(Database::open_in_memory().unwrap());
         let mgr = WindowStateManager::new(db);
 
-        mgr.save_all(&[make_state("a", 1), make_state("b", 2)]).unwrap();
+        mgr.save_all(&[make_state("a", 1), make_state("b", 2)])
+            .unwrap();
         assert_eq!(mgr.load_all().unwrap().len(), 2);
 
         mgr.save_all(&[make_state("c", 1)]).unwrap();

@@ -91,9 +91,7 @@ impl AppPlugin for SshPlugin {
 
 // --- SSH Server Routes ---
 
-async fn list_ssh_servers(
-    State(state): State<SshState>,
-) -> Json<ApiResponse<Vec<SshServer>>> {
+async fn list_ssh_servers(State(state): State<SshState>) -> Json<ApiResponse<Vec<SshServer>>> {
     let servers = state.manager.list_servers().await;
     Json(ApiResponse::ok(servers))
 }
@@ -181,9 +179,7 @@ async fn get_server_metrics(
 
 // --- Port Mapping Routes ---
 
-async fn list_port_mappings(
-    State(state): State<SshState>,
-) -> Json<ApiResponse<Vec<PortMapping>>> {
+async fn list_port_mappings(State(state): State<SshState>) -> Json<ApiResponse<Vec<PortMapping>>> {
     let mappings = state.manager.list_port_mappings().await;
     Json(ApiResponse::ok(mappings))
 }

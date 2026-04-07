@@ -63,13 +63,12 @@ pub fn create_router(state: &AppState) -> Router {
             get(get_window_states).put(save_window_states),
         )
         // Per-app storage routes
-        .route(
-            "/api/storage/{app_id}",
-            get(list_storage_keys),
-        )
+        .route("/api/storage/{app_id}", get(list_storage_keys))
         .route(
             "/api/storage/{app_id}/{key}",
-            get(get_storage_value).put(set_storage_value).delete(delete_storage_value),
+            get(get_storage_value)
+                .put(set_storage_value)
+                .delete(delete_storage_value),
         )
         // Local filesystem browser (system capability for path picker)
         .route("/api/fs/browse", get(browse_local_fs))
@@ -157,10 +156,15 @@ async fn list_notifications() -> Json<ApiResponse<Vec<ventoos_core::notification
 
 // --- Settings Routes ---
 
-async fn get_desktop_state(
-    State(state): State<AppState>,
-) -> Json<ApiResponse<serde_json::Value>> {
-    let keys = &["wallpaper", "theme_mode", "dock_icon_size", "dock_position", "dock_magnification", "dock_auto_hide"];
+async fn get_desktop_state(State(state): State<AppState>) -> Json<ApiResponse<serde_json::Value>> {
+    let keys = &[
+        "wallpaper",
+        "theme_mode",
+        "dock_icon_size",
+        "dock_position",
+        "dock_magnification",
+        "dock_auto_hide",
+    ];
     match state.settings_mgr.get_batch(keys) {
         Ok(settings) => {
             let result = serde_json::json!({
@@ -182,17 +186,49 @@ async fn save_desktop_state(
     Json(body): Json<serde_json::Value>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     let kv_pairs: Vec<(&str, Option<String>)> = vec![
-        ("wallpaper", body.get("wallpaper").and_then(|v| v.as_str()).map(String::from)),
-        ("theme_mode", body.get("theme_mode").and_then(|v| v.as_str()).map(String::from)),
-        ("dock_icon_size", body.get("dock_icon_size").and_then(|v| v.as_u64()).map(|v| v.to_string())),
-        ("dock_position", body.get("dock_position").and_then(|v| v.as_str()).map(String::from)),
-        ("dock_magnification", body.get("dock_magnification").and_then(|v| v.as_bool()).map(|v| v.to_string())),
-        ("dock_auto_hide", body.get("dock_auto_hide").and_then(|v| v.as_bool()).map(|v| v.to_string())),
+        (
+            "wallpaper",
+            body.get("wallpaper")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+        ),
+        (
+            "theme_mode",
+            body.get("theme_mode")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+        ),
+        (
+            "dock_icon_size",
+            body.get("dock_icon_size")
+                .and_then(|v| v.as_u64())
+                .map(|v| v.to_string()),
+        ),
+        (
+            "dock_position",
+            body.get("dock_position")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+        ),
+        (
+            "dock_magnification",
+            body.get("dock_magnification")
+                .and_then(|v| v.as_bool())
+                .map(|v| v.to_string()),
+        ),
+        (
+            "dock_auto_hide",
+            body.get("dock_auto_hide")
+                .and_then(|v| v.as_bool())
+                .map(|v| v.to_string()),
+        ),
     ];
     for (key, value) in kv_pairs {
         if let Some(val) = value {
             if let Err(e) = state.settings_mgr.set(key, &val) {
-                return Json(ApiResponse::err(format!("Failed to save setting '{key}': {e}")));
+                return Json(ApiResponse::err(format!(
+                    "Failed to save setting '{key}': {e}"
+                )));
             }
         }
     }
@@ -204,7 +240,9 @@ async fn get_window_states(
 ) -> Json<ApiResponse<Vec<ventoos_core::window::WindowState>>> {
     match state.window_states.load_all() {
         Ok(states) => Json(ApiResponse::ok(states)),
-        Err(e) => Json(ApiResponse::err(format!("Failed to load window states: {e}"))),
+        Err(e) => Json(ApiResponse::err(format!(
+            "Failed to load window states: {e}"
+        ))),
     }
 }
 
@@ -214,7 +252,9 @@ async fn save_window_states(
 ) -> Json<ApiResponse<serde_json::Value>> {
     match state.window_states.save_all(&body) {
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"saved": true}))),
-        Err(e) => Json(ApiResponse::err(format!("Failed to save window states: {e}"))),
+        Err(e) => Json(ApiResponse::err(format!(
+            "Failed to save window states: {e}"
+        ))),
     }
 }
 
@@ -235,7 +275,9 @@ async fn get_storage_value(
     Path((app_id, key)): Path<(String, String)>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     match state.storage.get_value(&app_id, &key) {
-        Ok(Some(val)) => Json(ApiResponse::ok(serde_json::json!({ "key": key, "value": val }))),
+        Ok(Some(val)) => Json(ApiResponse::ok(
+            serde_json::json!({ "key": key, "value": val }),
+        )),
         Ok(None) => Json(ApiResponse::err(format!("Key '{key}' not found"))),
         Err(e) => Json(ApiResponse::err(format!("Failed to get value: {e}"))),
     }

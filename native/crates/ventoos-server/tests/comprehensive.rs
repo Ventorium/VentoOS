@@ -1,9 +1,9 @@
 //! Comprehensive API integration tests for `ventoos-server`.
 
+use axum::Router;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use axum::Router;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tower::ServiceExt;
 
 use ventoos_server::routes::create_router;
@@ -521,12 +521,7 @@ async fn test_storage_set_value() {
     let token = setup_auth(&app).await;
 
     let body = json!({"value": "hello world"});
-    let req = authed_json_request(
-        Method::PUT,
-        "/api/storage/test-app/key1",
-        &token,
-        body,
-    );
+    let req = authed_json_request(Method::PUT, "/api/storage/test-app/key1", &token, body);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 

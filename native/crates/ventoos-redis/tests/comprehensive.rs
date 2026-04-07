@@ -7,7 +7,7 @@ use std::io::Cursor;
 
 use serde_json::json;
 use tokio::io::BufReader;
-use ventoos_redis::resp::{build_command, parse_resp, RespValue};
+use ventoos_redis::resp::{RespValue, build_command, parse_resp};
 use ventoos_redis::*;
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -112,10 +112,7 @@ async fn resp_parse_nested_array() {
     assert_eq!(
         val,
         RespValue::Array(Some(vec![
-            RespValue::Array(Some(vec![
-                RespValue::Integer(1),
-                RespValue::Integer(2),
-            ])),
+            RespValue::Array(Some(vec![RespValue::Integer(1), RespValue::Integer(2),])),
             RespValue::Array(Some(vec![RespValue::SimpleString("hi".into())])),
         ]))
     );
@@ -179,8 +176,14 @@ async fn resp3_parse_map() {
     assert_eq!(
         val,
         RespValue::Map(vec![
-            (RespValue::SimpleString("key1".into()), RespValue::Integer(1)),
-            (RespValue::SimpleString("key2".into()), RespValue::Integer(2)),
+            (
+                RespValue::SimpleString("key1".into()),
+                RespValue::Integer(1)
+            ),
+            (
+                RespValue::SimpleString("key2".into()),
+                RespValue::Integer(2)
+            ),
         ])
     );
 }
@@ -218,7 +221,10 @@ async fn resp3_parse_push() {
 async fn resp_parse_connection_closed() {
     // Empty input → connection closed.
     let err = parse(b"").await.unwrap_err();
-    assert!(err.contains("closed") || err.contains("Closed"), "got: {err}");
+    assert!(
+        err.contains("closed") || err.contains("Closed"),
+        "got: {err}"
+    );
 }
 
 #[tokio::test]
@@ -418,10 +424,7 @@ fn to_string_lossy_map() {
 
 #[test]
 fn to_json_simple_string() {
-    assert_eq!(
-        RespValue::SimpleString("hi".into()).to_json(),
-        json!("hi")
-    );
+    assert_eq!(RespValue::SimpleString("hi".into()).to_json(), json!("hi"));
 }
 
 #[test]
@@ -446,7 +449,10 @@ fn to_json_bulk_string() {
 #[test]
 fn to_json_null_variants() {
     assert_eq!(RespValue::Null.to_json(), serde_json::Value::Null);
-    assert_eq!(RespValue::BulkString(None).to_json(), serde_json::Value::Null);
+    assert_eq!(
+        RespValue::BulkString(None).to_json(),
+        serde_json::Value::Null
+    );
     assert_eq!(RespValue::Array(None).to_json(), serde_json::Value::Null);
 }
 
@@ -463,15 +469,15 @@ fn to_json_double() {
 #[test]
 fn to_json_double_nan_becomes_null() {
     // f64::NAN cannot be represented as JSON Number.
-    assert_eq!(RespValue::Double(f64::NAN).to_json(), serde_json::Value::Null);
+    assert_eq!(
+        RespValue::Double(f64::NAN).to_json(),
+        serde_json::Value::Null
+    );
 }
 
 #[test]
 fn to_json_big_number() {
-    assert_eq!(
-        RespValue::BigNumber("999".into()).to_json(),
-        json!("999")
-    );
+    assert_eq!(RespValue::BigNumber("999".into()).to_json(), json!("999"));
 }
 
 #[test]
@@ -499,7 +505,10 @@ fn to_json_push() {
 fn to_json_map() {
     let v = RespValue::Map(vec![
         (RespValue::SimpleString("x".into()), RespValue::Integer(1)),
-        (RespValue::SimpleString("y".into()), RespValue::Boolean(true)),
+        (
+            RespValue::SimpleString("y".into()),
+            RespValue::Boolean(true),
+        ),
     ]);
     assert_eq!(v.to_json(), json!({"x": 1, "y": true}));
 }
@@ -525,7 +534,11 @@ fn as_bytes_ref_bulk_string() {
 
 #[test]
 fn as_bytes_ref_non_bulk_returns_none() {
-    assert!(RespValue::SimpleString("hi".into()).as_bytes_ref().is_none());
+    assert!(
+        RespValue::SimpleString("hi".into())
+            .as_bytes_ref()
+            .is_none()
+    );
 }
 
 // ═══════════════════════════════════════════════════════════

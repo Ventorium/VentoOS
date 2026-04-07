@@ -35,17 +35,15 @@ pub async fn detect_service(
         .unwrap_or_default();
 
     // Check annotations for component hints
-    let annotation_hint = annotations
-        .as_ref()
-        .and_then(|a| {
-            let component = a
-                .get("app.kubernetes.io/component")
-                .or_else(|| a.get("app.kubernetes.io/name"))
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_lowercase();
-            detect_from_component_name(&component)
-        });
+    let annotation_hint = annotations.as_ref().and_then(|a| {
+        let component = a
+            .get("app.kubernetes.io/component")
+            .or_else(|| a.get("app.kubernetes.io/name"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_lowercase();
+        detect_from_component_name(&component)
+    });
 
     if let Some(detected) = annotation_hint {
         let (port, target_port) = extract_first_port(&spec_ports);
@@ -59,13 +57,14 @@ pub async fn detect_service(
 
     // Check port numbers
     for port_entry in &spec_ports {
-        let port_num = port_entry
-            .get("port")
-            .and_then(Value::as_u64)
-            .unwrap_or(0) as u16;
+        let port_num = port_entry.get("port").and_then(Value::as_u64).unwrap_or(0) as u16;
         let target = port_entry
             .get("targetPort")
-            .and_then(|v| v.as_u64().map(|n| n as u16).or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+            .and_then(|v| {
+                v.as_u64()
+                    .map(|n| n as u16)
+                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+            })
             .unwrap_or(port_num);
 
         let detected = match port_num {
@@ -110,7 +109,9 @@ pub async fn bridge_service(
 
     // Find target pods via the Service's selector
     let svc_json = client
-        .get(&format!("/api/v1/namespaces/{namespace}/services/{service_name}"))
+        .get(&format!(
+            "/api/v1/namespaces/{namespace}/services/{service_name}"
+        ))
         .await?;
 
     let selector = svc_json
@@ -126,9 +127,7 @@ pub async fn bridge_service(
         .join(",");
 
     // Find a pod matching the selector
-    let pods_url = format!(
-        "/api/v1/namespaces/{namespace}/pods?labelSelector={label_selector}"
-    );
+    let pods_url = format!("/api/v1/namespaces/{namespace}/pods?labelSelector={label_selector}");
     let pods_json = client.get(&pods_url).await?;
     let pod_name = pods_json
         .pointer("/items/0/metadata/name")
@@ -180,7 +179,11 @@ fn extract_first_port(ports: &[Value]) -> (u16, u16) {
             let port = p.get("port").and_then(Value::as_u64).unwrap_or(0) as u16;
             let target = p
                 .get("targetPort")
-                .and_then(|v| v.as_u64().map(|n| n as u16).or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                .and_then(|v| {
+                    v.as_u64()
+                        .map(|n| n as u16)
+                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                })
                 .unwrap_or(port);
             (port, target)
         })

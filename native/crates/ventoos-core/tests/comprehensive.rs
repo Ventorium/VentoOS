@@ -351,10 +351,7 @@ fn task_status_all_variants_roundtrip() {
     let variants = [
         (TaskStatus::Queued, "\"queued\""),
         (TaskStatus::Running, "\"running\""),
-        (
-            TaskStatus::WaitingConfirmation,
-            "\"waiting_confirmation\"",
-        ),
+        (TaskStatus::WaitingConfirmation, "\"waiting_confirmation\""),
         (TaskStatus::Success, "\"success\""),
         (TaskStatus::Failed, "\"failed\""),
         (TaskStatus::Cancelled, "\"cancelled\""),
@@ -570,7 +567,11 @@ fn paginated_response_with_tasks() {
             id: new_id(),
             name: format!("task-{}", i),
             description: None,
-            status: if i == 0 { TaskStatus::Success } else { TaskStatus::Running },
+            status: if i == 0 {
+                TaskStatus::Success
+            } else {
+                TaskStatus::Running
+            },
             priority: TaskPriority::Normal,
             risk_level: RiskLevel::None,
             source: TaskSource::User,

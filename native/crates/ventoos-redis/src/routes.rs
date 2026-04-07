@@ -60,10 +60,7 @@ impl AppPlugin for RedisPlugin {
             .route("/api/redis/connections/{id}/command", post(execute_command))
             // Server info & stats
             .route("/api/redis/connections/{id}/info", get(server_info))
-            .route(
-                "/api/redis/connections/{id}/info/parsed",
-                get(info_parsed),
-            )
+            .route("/api/redis/connections/{id}/info/parsed", get(info_parsed))
             // Memory analysis
             .route(
                 "/api/redis/connections/{id}/memory/stats",
@@ -91,10 +88,7 @@ impl AppPlugin for RedisPlugin {
                 "/api/redis/connections/{id}/batch/delete",
                 post(batch_delete),
             )
-            .route(
-                "/api/redis/connections/{id}/batch/ttl",
-                post(batch_set_ttl),
-            )
+            .route("/api/redis/connections/{id}/batch/ttl", post(batch_set_ttl))
             .route(
                 "/api/redis/connections/{id}/batch/export",
                 post(batch_export),
@@ -358,9 +352,7 @@ async fn stream_add(
     Json(body): Json<StreamAddRequest>,
 ) -> impl IntoResponse {
     match mgr.stream_add(&id, &key, &body).await {
-        Ok(entry_id) => {
-            Json(ApiResponse::ok(serde_json::json!({"id": entry_id}))).into_response()
-        }
+        Ok(entry_id) => Json(ApiResponse::ok(serde_json::json!({"id": entry_id}))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
@@ -440,9 +432,7 @@ async fn pubsub_unsubscribe(
     Json(body): Json<SubscribeRequest>,
 ) -> impl IntoResponse {
     match mgr.unsubscribe(&id, body.channels).await {
-        Ok(()) => {
-            Json(ApiResponse::ok(serde_json::json!({"unsubscribed": true}))).into_response()
-        }
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"unsubscribed": true}))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
@@ -467,9 +457,7 @@ async fn monitor_start(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     match mgr.monitor(&id).await {
-        Ok(_rx) => {
-            Json(ApiResponse::ok(serde_json::json!({"monitoring": true}))).into_response()
-        }
+        Ok(_rx) => Json(ApiResponse::ok(serde_json::json!({"monitoring": true}))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }
@@ -479,7 +467,5 @@ async fn monitor_stop(
     Path(id): Path<String>,
 ) -> Json<ApiResponse<serde_json::Value>> {
     mgr.stop_monitor(&id).await;
-    Json(ApiResponse::ok(
-        serde_json::json!({"monitoring": false}),
-    ))
+    Json(ApiResponse::ok(serde_json::json!({"monitoring": false})))
 }

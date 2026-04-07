@@ -1,6 +1,6 @@
 //! Archive operations: compress and decompress files.
 //!
-//! Supports tar.gz and zip formats for local filesystem operations.
+//! Supports tar.gz, zip (with optional AES encryption), and listing archive contents.
 //! For remote providers, files are streamed via read/write APIs.
 
 use std::io::{Read, Write};
@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 pub enum ArchiveFormat {
     TarGz,
     Zip,
+    #[serde(rename = "7z")]
+    SevenZ,
 }
 
 impl ArchiveFormat {
@@ -24,6 +26,8 @@ impl ArchiveFormat {
             Some(Self::TarGz)
         } else if lower.ends_with(".zip") {
             Some(Self::Zip)
+        } else if lower.ends_with(".7z") {
+            Some(Self::SevenZ)
         } else {
             None
         }
@@ -34,8 +38,29 @@ impl ArchiveFormat {
         match self {
             Self::TarGz => ".tar.gz",
             Self::Zip => ".zip",
+            Self::SevenZ => ".7z",
         }
     }
+}
+
+/// An entry within an archive (for listing).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveEntry {
+    pub path: String,
+    pub size: u64,
+    pub compressed_size: Option<u64>,
+    pub is_dir: bool,
+    pub modified: Option<String>,
+    pub encrypted: Option<bool>,
+}
+
+/// Result of listing archive contents.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveListResult {
+    pub entries: Vec<ArchiveEntry>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub password_required: bool,
+    pub error: Option<String>,
 }
 
 /// Request to create an archive.
@@ -47,6 +72,8 @@ pub struct ArchiveRequest {
     pub dest: String,
     /// Archive format.
     pub format: ArchiveFormat,
+    /// Optional password for encryption.
+    pub password: Option<String>,
 }
 
 /// Request to extract an archive.
@@ -56,16 +83,99 @@ pub struct ExtractRequest {
     pub archive_path: String,
     /// Destination directory (relative to mount root).
     pub dest_dir: String,
+    /// Optional password for encrypted archives.
+    pub password: Option<String>,
+}
+
+/// Request to list contents of an archive.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveListRequest {
+    pub path: String,
+    pub password: Option<String>,
+}
+
+/// List contents of an archive file.
+pub fn list_archive(archive_path: &Path, _password: Option<&str>) -> Result<ArchiveListResult, String> {
+    let path_str = archive_path.to_string_lossy();
+
+    if let Some(ArchiveFormat::TarGz) = ArchiveFormat::from_path(&path_str) {
+        return list_tar_gz(archive_path);
+    }
+    if let Some(ArchiveFormat::Zip) = ArchiveFormat::from_path(&path_str) {
+        return list_zip(archive_path);
+    }
+
+    // For unsupported formats, return error
+    Err(format!("Unsupported archive format: {}", path_str))
+}
+
+fn list_tar_gz(archive_path: &Path) -> Result<ArchiveListResult, String> {
+    let file = std::fs::File::open(archive_path).map_err(|e| format!("Failed to open: {e}"))?;
+    let dec = flate2::read::GzDecoder::new(file);
+    let mut archive = tar::Archive::new(dec);
+
+    let mut entries = Vec::new();
+    for entry in archive.entries().map_err(|e| format!("Failed to read entries: {e}"))? {
+        let entry = entry.map_err(|e| format!("Entry error: {e}"))?;
+        let path = entry.path().map_err(|e| format!("Path error: {e}"))?.to_string_lossy().to_string();
+        let is_dir = entry.header().entry_type().is_dir();
+        let size = entry.header().size().unwrap_or(0);
+        let modified = entry.header().mtime().ok().map(|t| {
+            chrono::DateTime::from_timestamp(t as i64, 0)
+                .map(|dt| dt.to_rfc3339())
+                .unwrap_or_default()
+        });
+
+        entries.push(ArchiveEntry {
+            path,
+            size,
+            compressed_size: None,
+            is_dir,
+            modified,
+            encrypted: Some(false),
+        });
+    }
+
+    Ok(ArchiveListResult {
+        entries,
+        password_required: false,
+        error: None,
+    })
+}
+
+fn list_zip(archive_path: &Path) -> Result<ArchiveListResult, String> {
+    let file = std::fs::File::open(archive_path).map_err(|e| format!("Failed to open: {e}"))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Invalid zip: {e}"))?;
+
+    let mut entries = Vec::new();
+    for i in 0..archive.len() {
+        let entry = archive.by_index_raw(i).map_err(|e| format!("Entry error: {e}"))?;
+        let path = entry.name().to_string();
+        let is_dir = entry.is_dir();
+        let size = entry.size();
+        let compressed_size = Some(entry.compressed_size());
+        let encrypted = Some(entry.encrypted());
+
+        entries.push(ArchiveEntry {
+            path,
+            size,
+            compressed_size,
+            is_dir,
+            modified: None,
+            encrypted,
+        });
+    }
+
+    Ok(ArchiveListResult {
+        entries,
+        password_required: false,
+        error: None,
+    })
 }
 
 /// Create a tar.gz archive from local files.
-pub fn create_tar_gz(
-    root: &Path,
-    paths: &[String],
-    dest: &Path,
-) -> Result<(), String> {
-    let file = std::fs::File::create(dest)
-        .map_err(|e| format!("Failed to create archive: {e}"))?;
+pub fn create_tar_gz(root: &Path, paths: &[String], dest: &Path) -> Result<(), String> {
+    let file = std::fs::File::create(dest).map_err(|e| format!("Failed to create archive: {e}"))?;
     let enc = flate2::write::GzEncoder::new(file, flate2::Compression::default());
     let mut builder = tar::Builder::new(enc);
 
@@ -80,8 +190,8 @@ pub fn create_tar_gz(
                 .append_dir_all(clean, &full)
                 .map_err(|e| format!("Failed to add directory: {e}"))?;
         } else {
-            let mut f = std::fs::File::open(&full)
-                .map_err(|e| format!("Failed to open file: {e}"))?;
+            let mut f =
+                std::fs::File::open(&full).map_err(|e| format!("Failed to open file: {e}"))?;
             builder
                 .append_file(clean, &mut f)
                 .map_err(|e| format!("Failed to add file: {e}"))?;
@@ -96,8 +206,8 @@ pub fn create_tar_gz(
 
 /// Extract a tar.gz archive to a local directory.
 pub fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> Result<(), String> {
-    let file = std::fs::File::open(archive_path)
-        .map_err(|e| format!("Failed to open archive: {e}"))?;
+    let file =
+        std::fs::File::open(archive_path).map_err(|e| format!("Failed to open archive: {e}"))?;
     let dec = flate2::read::GzDecoder::new(file);
     let mut archive = tar::Archive::new(dec);
 
@@ -117,17 +227,10 @@ pub fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> Result<(), String
     Ok(())
 }
 
-/// Create a zip archive from local files.
-pub fn create_zip(
-    root: &Path,
-    paths: &[String],
-    dest: &Path,
-) -> Result<(), String> {
-    let file = std::fs::File::create(dest)
-        .map_err(|e| format!("Failed to create archive: {e}"))?;
+/// Create a zip archive from local files, optionally with password encryption.
+pub fn create_zip(root: &Path, paths: &[String], dest: &Path, password: Option<&str>) -> Result<(), String> {
+    let file = std::fs::File::create(dest).map_err(|e| format!("Failed to create archive: {e}"))?;
     let mut zip = zip::ZipWriter::new(file);
-    let options = zip::write::SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated);
 
     for rel_path in paths {
         let clean = rel_path.trim_start_matches('/');
@@ -136,12 +239,13 @@ pub fn create_zip(
             return Err(format!("Path not found: {rel_path}"));
         }
         if full.is_dir() {
-            add_dir_to_zip(&mut zip, root, &full, options)?;
+            add_dir_to_zip(&mut zip, root, &full, password)?;
         } else {
+            let options = make_zip_options(password);
             zip.start_file(clean, options)
                 .map_err(|e| format!("Zip error: {e}"))?;
-            let mut f = std::fs::File::open(&full)
-                .map_err(|e| format!("Failed to open file: {e}"))?;
+            let mut f =
+                std::fs::File::open(&full).map_err(|e| format!("Failed to open file: {e}"))?;
             let mut buf = Vec::new();
             f.read_to_end(&mut buf)
                 .map_err(|e| format!("Read error: {e}"))?;
@@ -155,11 +259,22 @@ pub fn create_zip(
     Ok(())
 }
 
+/// Build zip options with optional AES encryption, fresh for each call.
+fn make_zip_options(password: Option<&str>) -> zip::write::FileOptions<'_, ()> {
+    let base = zip::write::FileOptions::<()>::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+    if let Some(pwd) = password {
+        base.with_aes_encryption(zip::AesMode::Aes256, pwd)
+    } else {
+        base
+    }
+}
+
 fn add_dir_to_zip(
     zip: &mut zip::ZipWriter<std::fs::File>,
     root: &Path,
     dir: &Path,
-    options: zip::write::SimpleFileOptions,
+    password: Option<&str>,
 ) -> Result<(), String> {
     let rel = dir
         .strip_prefix(root)
@@ -167,6 +282,7 @@ fn add_dir_to_zip(
         .to_string_lossy();
 
     // Add directory entry
+    let options = make_zip_options(password);
     zip.add_directory(format!("{rel}/"), options)
         .map_err(|e| format!("Zip dir error: {e}"))?;
 
@@ -174,17 +290,17 @@ fn add_dir_to_zip(
         let entry = entry.map_err(|e| format!("Dir entry error: {e}"))?;
         let path = entry.path();
         if path.is_dir() {
-            add_dir_to_zip(zip, root, &path, options)?;
+            add_dir_to_zip(zip, root, &path, password)?;
         } else {
             let file_rel = path
                 .strip_prefix(root)
                 .map_err(|_| "Path error".to_string())?
                 .to_string_lossy()
                 .to_string();
-            zip.start_file(&file_rel, options)
+            let opts = make_zip_options(password);
+            zip.start_file(&file_rel, opts)
                 .map_err(|e| format!("Zip error: {e}"))?;
-            let mut f = std::fs::File::open(&path)
-                .map_err(|e| format!("Open error: {e}"))?;
+            let mut f = std::fs::File::open(&path).map_err(|e| format!("Open error: {e}"))?;
             let mut buf = Vec::new();
             f.read_to_end(&mut buf)
                 .map_err(|e| format!("Read error: {e}"))?;
@@ -195,12 +311,12 @@ fn add_dir_to_zip(
     Ok(())
 }
 
-/// Extract a zip archive to a local directory.
-pub fn extract_zip(archive_path: &Path, dest_dir: &Path) -> Result<(), String> {
-    let file = std::fs::File::open(archive_path)
-        .map_err(|e| format!("Failed to open archive: {e}"))?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|e| format!("Invalid zip archive: {e}"))?;
+/// Extract a zip archive to a local directory, with optional password.
+pub fn extract_zip(archive_path: &Path, dest_dir: &Path, password: Option<&str>) -> Result<(), String> {
+    let file =
+        std::fs::File::open(archive_path).map_err(|e| format!("Failed to open archive: {e}"))?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|e| format!("Invalid zip archive: {e}"))?;
 
     let canonical_dest = dest_dir
         .canonicalize()
@@ -211,9 +327,12 @@ pub fn extract_zip(archive_path: &Path, dest_dir: &Path) -> Result<(), String> {
         .map_err(|e| format!("Destination error: {e}"))?;
 
     for i in 0..archive.len() {
-        let mut entry = archive
-            .by_index(i)
-            .map_err(|e| format!("Zip entry error: {e}"))?;
+        let mut entry = if let Some(pwd) = password {
+            archive.by_index_decrypt(i, pwd.as_bytes())
+                .map_err(|e| format!("Zip entry error (wrong password?): {e}"))?
+        } else {
+            archive.by_index(i).map_err(|e| format!("Zip entry error: {e}"))?
+        };
 
         let Some(name) = entry.enclosed_name() else {
             // Skip entries with unsafe paths
@@ -223,21 +342,22 @@ pub fn extract_zip(archive_path: &Path, dest_dir: &Path) -> Result<(), String> {
 
         // Security: ensure extraction stays within dest_dir
         if !out_path.starts_with(&canonical_dest) {
-            return Err(format!("Path traversal detected in archive: {}", name.display()));
+            return Err(format!(
+                "Path traversal detected in archive: {}",
+                name.display()
+            ));
         }
 
         if entry.is_dir() {
-            std::fs::create_dir_all(&out_path)
-                .map_err(|e| format!("Create dir failed: {e}"))?;
+            std::fs::create_dir_all(&out_path).map_err(|e| format!("Create dir failed: {e}"))?;
         } else {
             if let Some(parent) = out_path.parent() {
                 std::fs::create_dir_all(parent)
                     .map_err(|e| format!("Create parent dir failed: {e}"))?;
             }
-            let mut outfile = std::fs::File::create(&out_path)
-                .map_err(|e| format!("Create file failed: {e}"))?;
-            std::io::copy(&mut entry, &mut outfile)
-                .map_err(|e| format!("Extract failed: {e}"))?;
+            let mut outfile =
+                std::fs::File::create(&out_path).map_err(|e| format!("Create file failed: {e}"))?;
+            std::io::copy(&mut entry, &mut outfile).map_err(|e| format!("Extract failed: {e}"))?;
         }
     }
 
@@ -250,9 +370,18 @@ mod tests {
 
     #[test]
     fn test_format_detection() {
-        assert_eq!(ArchiveFormat::from_path("test.tar.gz"), Some(ArchiveFormat::TarGz));
-        assert_eq!(ArchiveFormat::from_path("test.tgz"), Some(ArchiveFormat::TarGz));
-        assert_eq!(ArchiveFormat::from_path("test.zip"), Some(ArchiveFormat::Zip));
+        assert_eq!(
+            ArchiveFormat::from_path("test.tar.gz"),
+            Some(ArchiveFormat::TarGz)
+        );
+        assert_eq!(
+            ArchiveFormat::from_path("test.tgz"),
+            Some(ArchiveFormat::TarGz)
+        );
+        assert_eq!(
+            ArchiveFormat::from_path("test.zip"),
+            Some(ArchiveFormat::Zip)
+        );
         assert_eq!(ArchiveFormat::from_path("test.txt"), None);
     }
 
@@ -296,12 +425,12 @@ mod tests {
 
         // Create archive
         let archive_path = root.join("test.zip");
-        create_zip(root, &["hello.txt".into(), "subdir".into()], &archive_path).unwrap();
+        create_zip(root, &["hello.txt".into(), "subdir".into()], &archive_path, None).unwrap();
         assert!(archive_path.exists());
 
         // Extract archive
         let extract_dir = root.join("extracted");
-        extract_zip(&archive_path, &extract_dir).unwrap();
+        extract_zip(&archive_path, &extract_dir, None).unwrap();
         assert_eq!(
             std::fs::read_to_string(extract_dir.join("hello.txt")).unwrap(),
             "Hello Zip"

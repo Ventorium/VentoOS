@@ -6,12 +6,16 @@
  */
 import type { AppManifest } from '@/kernel'
 import { aiAssistantManifest } from './ai-assistant/manifest'
+import { archiveEditorManifest } from './archive-editor/manifest'
 import { databaseManifest } from './database/manifest'
 import { explorerManifest } from './explorer/manifest'
 import { fileViewerManifest } from './file-viewer/manifest'
+import { fontPreviewManifest } from './font-preview/manifest'
+import { imageEditorManifest } from './image-editor/manifest'
 import { kubernetesManifest } from './kubernetes/manifest'
 import { logCenterManifest } from './log-center/manifest'
 import { monitorManifest } from './monitor/manifest'
+import { officeEditorManifest } from './office-editor/manifest'
 import { redisManifest } from './redis/manifest'
 import { settingsManifest } from './settings/manifest'
 import { sshManifest } from './ssh/manifest'
@@ -28,17 +32,25 @@ export const builtinManifests: AppManifest[] = [
   monitorManifest,
   settingsManifest,
   fileViewerManifest,
-  logCenterManifest
+  logCenterManifest,
+  imageEditorManifest,
+  officeEditorManifest,
+  archiveEditorManifest,
+  fontPreviewManifest
 ]
 
 export {
   aiAssistantManifest,
+  archiveEditorManifest,
   databaseManifest,
   explorerManifest,
   fileViewerManifest,
+  fontPreviewManifest,
+  imageEditorManifest,
   kubernetesManifest,
   logCenterManifest,
   monitorManifest,
+  officeEditorManifest,
   redisManifest,
   settingsManifest,
   sshManifest,

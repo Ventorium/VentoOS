@@ -334,12 +334,8 @@ impl K8sManager {
         let client = self.build_client(cluster_id).await?;
         let kind_str = format!("{kind:?}");
         let ns = namespace.unwrap_or("default");
-        let field_selector = format!(
-            "involvedObject.name={name},involvedObject.kind={kind_str}"
-        );
-        let url = format!(
-            "/api/v1/namespaces/{ns}/events?fieldSelector={field_selector}"
-        );
+        let field_selector = format!("involvedObject.name={name},involvedObject.kind={kind_str}");
+        let url = format!("/api/v1/namespaces/{ns}/events?fieldSelector={field_selector}");
 
         let json = client.get(&url).await?;
         let items = json
@@ -351,8 +347,14 @@ impl K8sManager {
         Ok(items
             .iter()
             .map(|item| K8sEvent {
-                reason: item.get("reason").and_then(|v| v.as_str()).map(String::from),
-                message: item.get("message").and_then(|v| v.as_str()).map(String::from),
+                reason: item
+                    .get("reason")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                message: item
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
                 event_type: item.get("type").and_then(|v| v.as_str()).map(String::from),
                 count: item.get("count").and_then(|v| v.as_u64()).map(|n| n as u32),
                 first_timestamp: item

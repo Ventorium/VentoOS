@@ -26,6 +26,17 @@ export const fileViewerManifest: AppManifest = {
   author: { name: 'VentoOS' },
   description: 'View files from any VFS mount — text, code, images, PDF, video and more',
   icon: React.createElement(FileViewerIcon),
+  filePreviewAssociations: [
+    'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif',
+    'mp4', 'webm', 'mkv', 'avi', 'mov', 'ogv',
+    'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma',
+    'pdf',
+    'txt', 'md', 'markdown', 'log', 'csv', 'tsv', 'ini', 'env', 'conf', 'cfg',
+    'toml', 'yaml', 'yml', 'xml', 'html', 'htm', 'css', 'less', 'scss',
+    'js', 'jsx', 'ts', 'tsx', 'json', 'jsonc', 'rs', 'py', 'go', 'java',
+    'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'rb', 'sh', 'bash', 'zsh',
+    'sql', 'graphql', 'proto', 'diff', 'patch'
+  ],
   multiWindow: true,
   defaultSize: { width: 900, height: 600 },
   minSize: { width: 480, height: 300 },

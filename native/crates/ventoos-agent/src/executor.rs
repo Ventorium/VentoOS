@@ -38,11 +38,7 @@ impl PlatformToolExecutor {
     }
 
     /// Register a handler for the given tool name.
-    pub fn register(
-        &mut self,
-        name: impl Into<String>,
-        handler: Arc<ToolHandlerFn>,
-    ) {
+    pub fn register(&mut self, name: impl Into<String>, handler: Arc<ToolHandlerFn>) {
         self.handlers.insert(name.into(), handler);
     }
 

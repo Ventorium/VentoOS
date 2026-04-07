@@ -108,7 +108,10 @@ async fn t05_delete_provider() {
 #[tokio::test]
 async fn t06_update_nonexistent_provider_returns_false() {
     let mgr = AgentManager::new();
-    assert!(!mgr.update_provider(make_provider("x", "X", ProviderVendor::OpenAi)).await);
+    assert!(
+        !mgr.update_provider(make_provider("x", "X", ProviderVendor::OpenAi))
+            .await
+    );
 }
 
 #[tokio::test]
@@ -174,7 +177,8 @@ async fn t10_all_provider_vendor_variants() {
 #[tokio::test]
 async fn t11_add_profile() {
     let mgr = AgentManager::new();
-    mgr.add_profile(make_profile("custom1", "Custom", false)).await;
+    mgr.add_profile(make_profile("custom1", "Custom", false))
+        .await;
     let p = mgr.get_profile("custom1").await;
     assert!(p.is_some());
 }
@@ -182,7 +186,8 @@ async fn t11_add_profile() {
 #[tokio::test]
 async fn t12_get_profile() {
     let mgr = AgentManager::new();
-    mgr.add_profile(make_profile("cp", "My Profile", false)).await;
+    mgr.add_profile(make_profile("cp", "My Profile", false))
+        .await;
     let p = mgr.get_profile("cp").await.unwrap();
     assert_eq!(p.name, "My Profile");
     assert!(!p.is_builtin);
@@ -302,7 +307,10 @@ async fn t23_delete_channel() {
 #[tokio::test]
 async fn t24_update_nonexistent_channel_returns_false() {
     let mgr = AgentManager::new();
-    assert!(!mgr.update_channel(make_channel("x", "X", ChannelKind::Qq)).await);
+    assert!(
+        !mgr.update_channel(make_channel("x", "X", ChannelKind::Qq))
+            .await
+    );
 }
 
 #[tokio::test]
@@ -390,17 +398,13 @@ async fn t32_list_sessions_sorted_by_recency() {
         .create("s1".into(), "First".into(), None, None, None, None)
         .await;
     // Push a message to s1 to update its timestamp
-    store
-        .push_message("s1", AgentMessage::user("update"))
-        .await;
+    store.push_message("s1", AgentMessage::user("update")).await;
 
     store
         .create("s2".into(), "Second".into(), None, None, None, None)
         .await;
     // Push to s2 later => s2 is more recent
-    store
-        .push_message("s2", AgentMessage::user("latest"))
-        .await;
+    store.push_message("s2", AgentMessage::user("latest")).await;
 
     let list = store.list().await;
     assert_eq!(list.len(), 2);
@@ -531,15 +535,11 @@ async fn t41_multiple_messages_in_session() {
     store
         .create("s1".into(), "Multi".into(), None, None, None, None)
         .await;
-    store
-        .push_message("s1", AgentMessage::user("msg1"))
-        .await;
+    store.push_message("s1", AgentMessage::user("msg1")).await;
     store
         .push_message("s1", AgentMessage::assistant("reply1"))
         .await;
-    store
-        .push_message("s1", AgentMessage::user("msg2"))
-        .await;
+    store.push_message("s1", AgentMessage::user("msg2")).await;
 
     let s = store.get("s1").await.unwrap();
     assert_eq!(s.messages.len(), 3);
@@ -814,11 +814,11 @@ fn t64_mask_api_key() {
 fn t65_provider_config_normalized() {
     let cfg = ProviderConfig {
         id: "p1".into(),
-        name: "".into(),       // empty -> filled from vendor
+        name: "".into(),                               // empty -> filled from vendor
         provider_type: ProviderType::OpenAiCompatible, // will be corrected
         vendor: ProviderVendor::Anthropic,
         api_key: "key".into(),
-        base_url: "".into(),   // empty -> filled from vendor
+        base_url: "".into(),      // empty -> filled from vendor
         default_model: "".into(), // empty -> filled from vendor
         enabled: true,
         capabilities: None,
@@ -1114,10 +1114,7 @@ async fn t89_session_create_with_provider_and_model() {
     assert_eq!(session.provider_id, Some("p1".into()));
     assert_eq!(session.model, Some("gpt-4".into()));
     assert_eq!(session.system_prompt, Some("Be helpful".into()));
-    assert_eq!(
-        session.agent_profile_id,
-        Some("general-assistant".into())
-    );
+    assert_eq!(session.agent_profile_id, Some("general-assistant".into()));
 }
 
 #[test]
@@ -1200,7 +1197,10 @@ async fn t96_channels_sorted_by_name() {
 #[test]
 fn t97_provider_template_ollama_no_api_key() {
     let templates = builtin_provider_templates();
-    let ollama = templates.iter().find(|t| t.vendor == ProviderVendor::Ollama).unwrap();
+    let ollama = templates
+        .iter()
+        .find(|t| t.vendor == ProviderVendor::Ollama)
+        .unwrap();
     assert!(!ollama.requires_api_key);
     // All others require API key
     for t in &templates {

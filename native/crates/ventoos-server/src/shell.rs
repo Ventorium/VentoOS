@@ -227,23 +227,20 @@ async fn handle_ssh_shell(
     let config = Arc::new(russh::client::Config::default());
     let handler = ShellSshHandler;
 
-    let mut session = match russh::client::connect(
-        config,
-        (conn_info.host.as_str(), conn_info.port),
-        handler,
-    )
-    .await
-    {
-        Ok(s) => s,
-        Err(e) => {
-            let _ = socket
-                .send(Message::Text(
-                    format!("\r\nSSH connect failed: {e}\r\n").into(),
-                ))
-                .await;
-            return;
-        }
-    };
+    let mut session =
+        match russh::client::connect(config, (conn_info.host.as_str(), conn_info.port), handler)
+            .await
+        {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = socket
+                    .send(Message::Text(
+                        format!("\r\nSSH connect failed: {e}\r\n").into(),
+                    ))
+                    .await;
+                return;
+            }
+        };
 
     // Authenticate
     let auth_ok = match &conn_info.auth {

@@ -138,8 +138,9 @@ impl AgentManager {
     pub async fn delete_profile(&self, id: &str) -> bool {
         let mut profiles = self.profiles.write().await;
         if let Some(existing) = profiles.get(id)
-            && existing.is_builtin {
-                return false;
+            && existing.is_builtin
+        {
+            return false;
         }
         profiles.remove(id).is_some()
     }
@@ -189,21 +190,19 @@ impl AgentManager {
 
     // ── Request Preparation / Provider Resolution ──────────────────────────
 
-    pub async fn prepare_chat_request(
-        &self,
-        req: &ChatRequest,
-    ) -> Result<ChatRequest, AgentError> {
+    pub async fn prepare_chat_request(&self, req: &ChatRequest) -> Result<ChatRequest, AgentError> {
         if let Some(session_id) = req.session_id.as_deref()
-            && let Some(session) = self.sessions.get(session_id).await {
-                return Ok(ChatRequest {
-                    session_id: req.session_id.clone(),
-                    message: req.message.clone(),
-                    provider_id: req.provider_id.clone().or(session.provider_id),
-                    model: req.model.clone().or(session.model),
-                    system_prompt: req.system_prompt.clone().or(session.system_prompt),
-                    agent_profile_id: req.agent_profile_id.clone().or(session.agent_profile_id),
-                });
-            }
+            && let Some(session) = self.sessions.get(session_id).await
+        {
+            return Ok(ChatRequest {
+                session_id: req.session_id.clone(),
+                message: req.message.clone(),
+                provider_id: req.provider_id.clone().or(session.provider_id),
+                model: req.model.clone().or(session.model),
+                system_prompt: req.system_prompt.clone().or(session.system_prompt),
+                agent_profile_id: req.agent_profile_id.clone().or(session.agent_profile_id),
+            });
+        }
 
         let config = self.config.read().await.clone();
         let effective_profile_id = req

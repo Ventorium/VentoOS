@@ -38,6 +38,7 @@ import {
 } from '@/components'
 import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
 import { getAllAppsForFile, getApp, getAppsForFile, getFileIconByName, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage, useFileDefaultsStore } from '@/kernel'
+import { apiClient } from '@/infra/api'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -1946,6 +1947,17 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     alsoOpenFile: boolean
   }>({ visible: false, node: null, ext: '', apps: [], alsoOpenFile: true })
 
+  // Compress dialog
+  const [compressState, setCompressState] = useState<{
+    visible: boolean
+    items: Array<{ mountId: string; node: VfsNode }>
+    format: string
+    encrypt: boolean
+    password: string
+    confirmPassword: string
+    archiveName: string
+  }>({ visible: false, items: [], format: 'zip', encrypt: false, password: '', confirmPassword: '', archiveName: '' })
+
   // Upload
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadTargetRef = useRef<string>('/')
@@ -2540,6 +2552,28 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               }
             ]
           })()),
+      { type: 'separator' as const },
+      {
+        id: 'compress',
+        label: '压缩',
+        action: () => {
+          if (!selectedMount) return
+          const entries = getSelectedEntries(colIdx)
+          const items = entries.length > 0
+            ? entries.map(e => ({ mountId: selectedMount!, node: e }))
+            : [{ mountId: selectedMount!, node: entry }]
+          const defaultName = items.length === 1 ? items[0].node.name.replace(/\.[^.]+$/, '') : 'archive'
+          setCompressState({
+            visible: true,
+            items,
+            format: 'zip',
+            encrypt: false,
+            password: '',
+            confirmPassword: '',
+            archiveName: defaultName
+          })
+        }
+      },
       { type: 'separator' as const },
       {
         id: 'copy',
@@ -3138,6 +3172,112 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     onClick={() => setDefaultOpenState(s => ({ ...s, visible: false }))}
                   >
                     取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Compress dialog */}
+          {compressState.visible && (
+            <div
+              className="vos-modal-overlay"
+              onClick={() => setCompressState(s => ({ ...s, visible: false }))}
+            >
+              <div className="vos-modal-panel" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
+                <div className="text-sm font-medium">压缩文件</div>
+                <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  压缩 {compressState.items.length} 个项目
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>文件名</label>
+                    <input
+                      className="vos-input text-xs"
+                      value={compressState.archiveName}
+                      onChange={e => setCompressState(s => ({ ...s, archiveName: e.target.value }))}
+                      placeholder="archive"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>格式</label>
+                    <select
+                      className="vos-input text-xs"
+                      value={compressState.format}
+                      onChange={e => setCompressState(s => ({ ...s, format: e.target.value }))}
+                    >
+                      <option value="zip">ZIP</option>
+                      <option value="tar.gz">TAR.GZ</option>
+                      <option value="7z">7Z</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                    <input
+                      type="checkbox"
+                      checked={compressState.encrypt}
+                      onChange={e => setCompressState(s => ({ ...s, encrypt: e.target.checked }))}
+                    />
+                    加密压缩
+                  </label>
+                  {compressState.encrypt && (
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="password"
+                        className="vos-input text-xs"
+                        placeholder="输入密码"
+                        value={compressState.password}
+                        onChange={e => setCompressState(s => ({ ...s, password: e.target.value }))}
+                      />
+                      <input
+                        type="password"
+                        className="vos-input text-xs"
+                        placeholder="确认密码"
+                        value={compressState.confirmPassword}
+                        onChange={e => setCompressState(s => ({ ...s, confirmPassword: e.target.value }))}
+                      />
+                      {compressState.password && compressState.confirmPassword && compressState.password !== compressState.confirmPassword && (
+                        <div className="text-xs" style={{ color: 'var(--vos-accent-danger)' }}>密码不一致</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="vos-btn-sm vos-btn-ghost"
+                    onClick={() => setCompressState(s => ({ ...s, visible: false }))}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="vos-btn-sm vos-btn-primary"
+                    disabled={
+                      !compressState.archiveName.trim() ||
+                      (compressState.encrypt && (!compressState.password || compressState.password !== compressState.confirmPassword))
+                    }
+                    onClick={async () => {
+                      if (compressState.items.length === 0) return
+                      const mId = compressState.items[0].mountId
+                      const paths = compressState.items.map(i => i.node.path)
+                      const parentDir = paths[0].substring(0, paths[0].lastIndexOf('/')) || '/'
+                      const destPath = `${parentDir}/${compressState.archiveName}.${compressState.format}`
+                      try {
+                        await apiClient.post(`/api/vfs/mounts/${encodeURIComponent(mId)}/archive/compress`, {
+                          paths,
+                          dest_path: destPath,
+                          format: compressState.format,
+                          password: compressState.encrypt ? compressState.password : undefined
+                        })
+                        setCompressState(s => ({ ...s, visible: false }))
+                        // Refresh the column that contains the items
+                        refreshColumn(activeColumn)
+                      } catch (err) {
+                        console.error('Compress failed:', err)
+                      }
+                    }}
+                  >
+                    压缩
                   </button>
                 </div>
               </div>

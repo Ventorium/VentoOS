@@ -8,8 +8,7 @@
 use serde::Deserialize;
 
 use crate::channel::{
-    ChannelAdapter, ChannelKind, ChannelSendResult, InboundChannelRequest,
-    VerifiedChannelRequest,
+    ChannelAdapter, ChannelKind, ChannelSendResult, InboundChannelRequest, VerifiedChannelRequest,
 };
 use crate::types::{AgentError, ChannelIdentity, ChannelMessageEvent};
 
@@ -48,7 +47,10 @@ impl ChannelAdapter for DingTalkAdapter {
         ChannelKind::DingTalk
     }
 
-    fn verify(&self, request: &InboundChannelRequest) -> Result<VerifiedChannelRequest, AgentError> {
+    fn verify(
+        &self,
+        request: &InboundChannelRequest,
+    ) -> Result<VerifiedChannelRequest, AgentError> {
         // Basic structural validation
         let cb = self.parse_callback(&request.raw_body)?;
 
@@ -66,7 +68,10 @@ impl ChannelAdapter for DingTalkAdapter {
         })
     }
 
-    fn normalize(&self, inbound: VerifiedChannelRequest) -> Result<ChannelMessageEvent, AgentError> {
+    fn normalize(
+        &self,
+        inbound: VerifiedChannelRequest,
+    ) -> Result<ChannelMessageEvent, AgentError> {
         let cb = self.parse_callback(&inbound.raw_body)?;
 
         let content = cb.text.content.trim().to_string();
@@ -107,44 +112,44 @@ impl ChannelAdapter for DingTalkAdapter {
         outbound: crate::channel::ChannelOutboundMessage,
     ) -> crate::channel::BoxFuture<'a, Result<ChannelSendResult, AgentError>> {
         Box::pin(async move {
-        // First get an access token
-        let token = self.get_access_token().await?;
+            // First get an access token
+            let token = self.get_access_token().await?;
 
-        let url = "https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend";
-        let body = serde_json::json!({
-            "robotCode": self.client_id,
-            "userIds": [outbound.external_conversation_id],
-            "msgKey": "sampleText",
-            "msgParam": serde_json::json!({
-                "content": outbound.content
-            }).to_string(),
-        });
-
-        let client = reqwest::Client::new();
-        let resp = client
-            .post(url)
-            .header("x-acs-dingtalk-access-token", &token)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| AgentError::ChannelError {
-                channel: "dingtalk".into(),
-                detail: format!("send request failed: {e}"),
-            })?;
-
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
-            return Err(AgentError::ChannelError {
-                channel: "dingtalk".into(),
-                detail: format!("send API returned {status}: {text}"),
+            let url = "https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend";
+            let body = serde_json::json!({
+                "robotCode": self.client_id,
+                "userIds": [outbound.external_conversation_id],
+                "msgKey": "sampleText",
+                "msgParam": serde_json::json!({
+                    "content": outbound.content
+                }).to_string(),
             });
-        }
 
-        Ok(ChannelSendResult {
-            accepted: true,
-            external_message_id: None,
-        })
+            let client = reqwest::Client::new();
+            let resp = client
+                .post(url)
+                .header("x-acs-dingtalk-access-token", &token)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AgentError::ChannelError {
+                    channel: "dingtalk".into(),
+                    detail: format!("send request failed: {e}"),
+                })?;
+
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                return Err(AgentError::ChannelError {
+                    channel: "dingtalk".into(),
+                    detail: format!("send API returned {status}: {text}"),
+                });
+            }
+
+            Ok(ChannelSendResult {
+                accepted: true,
+                external_message_id: None,
+            })
         })
     }
 }
@@ -159,15 +164,16 @@ impl DingTalkAdapter {
         });
 
         let client = reqwest::Client::new();
-        let resp = client
-            .post(url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| AgentError::ChannelError {
-                channel: "dingtalk".into(),
-                detail: format!("token request failed: {e}"),
-            })?;
+        let resp =
+            client
+                .post(url)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AgentError::ChannelError {
+                    channel: "dingtalk".into(),
+                    detail: format!("token request failed: {e}"),
+                })?;
 
         if !resp.status().is_success() {
             return Err(AgentError::ChannelError {
@@ -176,10 +182,11 @@ impl DingTalkAdapter {
             });
         }
 
-        let result: serde_json::Value = resp.json().await.map_err(|e| AgentError::ChannelError {
-            channel: "dingtalk".into(),
-            detail: format!("failed to parse token response: {e}"),
-        })?;
+        let result: serde_json::Value =
+            resp.json().await.map_err(|e| AgentError::ChannelError {
+                channel: "dingtalk".into(),
+                detail: format!("failed to parse token response: {e}"),
+            })?;
 
         result
             .get("accessToken")
@@ -232,7 +239,11 @@ mod tests {
     }
 
     fn test_adapter() -> DingTalkAdapter {
-        DingTalkAdapter::new("ch-dt".into(), "test-client-id".into(), "test-secret".into())
+        DingTalkAdapter::new(
+            "ch-dt".into(),
+            "test-client-id".into(),
+            "test-secret".into(),
+        )
     }
 
     #[test]

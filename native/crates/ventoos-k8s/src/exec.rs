@@ -59,17 +59,20 @@ pub async fn handle_exec(
 
     let _ = socket
         .send(Message::Text(
-            serde_json::to_string(&ExecMessage::Stdout(
-                format!("Connecting to pod {pod_name} ({container})...\r\n")
-            ))
-            .unwrap_or_default().into(),
+            serde_json::to_string(&ExecMessage::Stdout(format!(
+                "Connecting to pod {pod_name} ({container})...\r\n"
+            )))
+            .unwrap_or_default()
+            .into(),
         ))
         .await;
 
     // Try to execute a command and return output
     let exec_url = format!(
         "/api/v1/namespaces/{namespace}/pods/{pod_name}/exec?stdout=true&stderr=true&command=sh&command=-c&command={}",
-        urlencoding_simple("echo $HOSTNAME && cat /etc/os-release 2>/dev/null | head -3 || echo 'unknown OS'")
+        urlencoding_simple(
+            "echo $HOSTNAME && cat /etc/os-release 2>/dev/null | head -3 || echo 'unknown OS'"
+        )
     );
 
     match client.get_raw_text(&exec_url).await {
@@ -77,7 +80,8 @@ pub async fn handle_exec(
             let _ = socket
                 .send(Message::Text(
                     serde_json::to_string(&ExecMessage::Stdout(output))
-                        .unwrap_or_default().into(),
+                        .unwrap_or_default()
+                        .into(),
                 ))
                 .await;
         }
@@ -85,10 +89,11 @@ pub async fn handle_exec(
             warn!("Exec API not available via HTTP (expected - requires SPDY): {e}");
             let _ = socket
                 .send(Message::Text(
-                    serde_json::to_string(&ExecMessage::Stdout(
-                        format!("Shell connected to {pod_name}\r\n$ ")
-                    ))
-                    .unwrap_or_default().into(),
+                    serde_json::to_string(&ExecMessage::Stdout(format!(
+                        "Shell connected to {pod_name}\r\n$ "
+                    )))
+                    .unwrap_or_default()
+                    .into(),
                 ))
                 .await;
         }
@@ -120,7 +125,8 @@ pub async fn handle_exec(
                             let _ = socket
                                 .send(Message::Text(
                                     serde_json::to_string(&ExecMessage::Close)
-                                        .unwrap_or_default().into(),
+                                        .unwrap_or_default()
+                                        .into(),
                                 ))
                                 .await;
                             break;
@@ -138,10 +144,11 @@ pub async fn handle_exec(
                                 Ok(output) => {
                                     let _ = socket
                                         .send(Message::Text(
-                                            serde_json::to_string(&ExecMessage::Stdout(
-                                                format!("{output}\r\n$ ")
-                                            ))
-                                            .unwrap_or_default().into(),
+                                            serde_json::to_string(&ExecMessage::Stdout(format!(
+                                                "{output}\r\n$ "
+                                            )))
+                                            .unwrap_or_default()
+                                            .into(),
                                         ))
                                         .await;
                                 }
@@ -149,10 +156,11 @@ pub async fn handle_exec(
                                     // Fallback echo
                                     let _ = socket
                                         .send(Message::Text(
-                                            serde_json::to_string(&ExecMessage::Stdout(
-                                                format!("{input}\r\n$ ")
-                                            ))
-                                            .unwrap_or_default().into(),
+                                            serde_json::to_string(&ExecMessage::Stdout(format!(
+                                                "{input}\r\n$ "
+                                            )))
+                                            .unwrap_or_default()
+                                            .into(),
                                         ))
                                         .await;
                                 }

@@ -62,8 +62,10 @@ pub struct ChannelSendResult {
 pub trait ChannelAdapter: Send + Sync {
     fn id(&self) -> &str;
     fn kind(&self) -> ChannelKind;
-    fn verify(&self, request: &InboundChannelRequest) -> Result<VerifiedChannelRequest, AgentError>;
-    fn normalize(&self, inbound: VerifiedChannelRequest) -> Result<ChannelMessageEvent, AgentError>;
+    fn verify(&self, request: &InboundChannelRequest)
+    -> Result<VerifiedChannelRequest, AgentError>;
+    fn normalize(&self, inbound: VerifiedChannelRequest)
+    -> Result<ChannelMessageEvent, AgentError>;
     fn send<'a>(
         &'a self,
         outbound: ChannelOutboundMessage,

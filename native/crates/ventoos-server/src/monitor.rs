@@ -130,16 +130,12 @@ mod mach_cpu {
 // Route handlers
 // ---------------------------------------------------------------------------
 
-pub async fn get_system_metrics(
-    State(_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn get_system_metrics(State(_state): State<AppState>) -> impl IntoResponse {
     let metrics = collect_system_metrics().await;
     Json(ApiResponse::ok(metrics))
 }
 
-pub async fn get_process_metrics(
-    State(_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn get_process_metrics(State(_state): State<AppState>) -> impl IntoResponse {
     let metrics = collect_process_metrics().await;
     Json(ApiResponse::ok(metrics))
 }
@@ -247,7 +243,9 @@ async fn collect_cpu() -> CpuInfo {
     use tokio::fs;
 
     let model_name = {
-        let cpuinfo = fs::read_to_string("/proc/cpuinfo").await.unwrap_or_default();
+        let cpuinfo = fs::read_to_string("/proc/cpuinfo")
+            .await
+            .unwrap_or_default();
         cpuinfo
             .lines()
             .find(|l| l.starts_with("model name"))
@@ -428,7 +426,9 @@ async fn collect_memory() -> MemoryInfo {
 async fn collect_memory() -> MemoryInfo {
     use tokio::fs;
 
-    let content = fs::read_to_string("/proc/meminfo").await.unwrap_or_default();
+    let content = fs::read_to_string("/proc/meminfo")
+        .await
+        .unwrap_or_default();
     let val = |key: &str| -> u64 {
         content
             .lines()
@@ -633,17 +633,30 @@ async fn collect_process_metrics() -> ProcessMetrics {
         use tokio::fs;
 
         // /proc/self/stat: fields[13]=utime, [14]=stime (in clock ticks)
-        let stat = fs::read_to_string("/proc/self/stat").await.unwrap_or_default();
+        let stat = fs::read_to_string("/proc/self/stat")
+            .await
+            .unwrap_or_default();
         let fields: Vec<&str> = stat.split_whitespace().collect();
 
-        let thread_count = fields.get(19).map(|v| v.parse::<u32>().unwrap_or(1)).unwrap_or(1);
+        let thread_count = fields
+            .get(19)
+            .map(|v| v.parse::<u32>().unwrap_or(1))
+            .unwrap_or(1);
 
         // /proc/self/statm: fields[0]=total pages, [1]=resident pages
-        let statm = fs::read_to_string("/proc/self/statm").await.unwrap_or_default();
+        let statm = fs::read_to_string("/proc/self/statm")
+            .await
+            .unwrap_or_default();
         let statm_fields: Vec<&str> = statm.split_whitespace().collect();
         let page_size = 4096_u64;
-        let virtual_memory_bytes = statm_fields.first().map(|v| parse_u64(v) * page_size).unwrap_or(0);
-        let memory_bytes = statm_fields.get(1).map(|v| parse_u64(v) * page_size).unwrap_or(0);
+        let virtual_memory_bytes = statm_fields
+            .first()
+            .map(|v| parse_u64(v) * page_size)
+            .unwrap_or(0);
+        let memory_bytes = statm_fields
+            .get(1)
+            .map(|v| parse_u64(v) * page_size)
+            .unwrap_or(0);
 
         // uptime from /proc/self/stat field[21] (starttime in jiffies) vs /proc/uptime
         let uptime_str = fs::read_to_string("/proc/uptime").await.unwrap_or_default();
@@ -665,11 +678,7 @@ async fn collect_process_metrics() -> ProcessMetrics {
 
     #[cfg(target_os = "macos")]
     {
-        let ps_output = run_cmd(
-            "ps",
-            &["-o", "pcpu=,rss=,vsz=", "-p", &pid.to_string()],
-        )
-        .await;
+        let ps_output = run_cmd("ps", &["-o", "pcpu=,rss=,vsz=", "-p", &pid.to_string()]).await;
 
         let cols: Vec<&str> = ps_output.split_whitespace().collect();
         let cpu_usage_percent = cols.first().copied().map_or(0.0, parse_f64);
@@ -775,8 +784,12 @@ async fn collect_system_metrics() -> SystemMetrics {
     }
     .to_string();
 
-    let (cpu, memory, disks, hostname) =
-        tokio::join!(collect_cpu(), collect_memory(), collect_disks(), get_hostname());
+    let (cpu, memory, disks, hostname) = tokio::join!(
+        collect_cpu(),
+        collect_memory(),
+        collect_disks(),
+        get_hostname()
+    );
 
     let timestamp = chrono::Utc::now().to_rfc3339();
 

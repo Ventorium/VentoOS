@@ -14,18 +14,13 @@ pub fn parse_xrange_response(resp: RespValue) -> Result<Vec<StreamEntry>, String
 
     let mut entries = Vec::new();
     for item in arr {
-        let entry_arr = item
-            .into_array()
-            .ok_or("Invalid stream entry")?;
+        let entry_arr = item.into_array().ok_or("Invalid stream entry")?;
         if entry_arr.len() < 2 {
             continue;
         }
 
         let id = entry_arr[0].as_str().unwrap_or("").to_string();
-        let fields_arr = entry_arr[1]
-            .clone()
-            .into_array()
-            .unwrap_or_default();
+        let fields_arr = entry_arr[1].clone().into_array().unwrap_or_default();
 
         let mut fields_map = serde_json::Map::new();
         let mut i = 0;

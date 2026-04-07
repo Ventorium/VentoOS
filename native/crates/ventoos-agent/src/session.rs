@@ -44,10 +44,7 @@ impl SessionStore {
             created_at: now.clone(),
             updated_at: now,
         };
-        self.sessions
-            .write()
-            .await
-            .insert(id, session.clone());
+        self.sessions.write().await.insert(id, session.clone());
         session
     }
 
@@ -92,9 +89,10 @@ impl SessionStore {
         agent_profile_id: Option<String>,
     ) -> (ChatSession, bool) {
         if let Some(id) = session_id
-            && let Some(session) = self.get(id).await {
-                return (session, false);
-            }
+            && let Some(session) = self.get(id).await
+        {
+            return (session, false);
+        }
 
         let id = session_id.map_or_else(|| uuid::Uuid::new_v4().to_string(), String::from);
 
@@ -121,7 +119,9 @@ impl SessionStore {
         let mut sessions = self.sessions.write().await;
         if let Some(session) = sessions.get_mut(&binding.session_id) {
             if session.agent_profile_id.is_none() {
-                session.agent_profile_id.clone_from(&binding.agent_profile_id);
+                session
+                    .agent_profile_id
+                    .clone_from(&binding.agent_profile_id);
             }
             session.channel_binding = Some(binding);
             session.updated_at = chrono::Utc::now().to_rfc3339();
@@ -177,14 +177,7 @@ mod tests {
     async fn test_create_session() {
         let store = SessionStore::new();
         let session = store
-            .create(
-                "s1".into(),
-                "Test Session".into(),
-                None,
-                None,
-                None,
-                None,
-            )
+            .create("s1".into(), "Test Session".into(), None, None, None, None)
             .await;
         assert_eq!(session.id, "s1");
         assert_eq!(session.title, "Test Session");
@@ -235,7 +228,11 @@ mod tests {
 
         let msg = AgentMessage::user("Hello");
         assert!(store.push_message("s1", msg).await);
-        assert!(!store.push_message("nonexistent", AgentMessage::user("x")).await);
+        assert!(
+            !store
+                .push_message("nonexistent", AgentMessage::user("x"))
+                .await
+        );
 
         let session = store.get("s1").await.unwrap();
         assert_eq!(session.messages.len(), 1);
@@ -269,7 +266,14 @@ mod tests {
     async fn test_bind_and_resolve_channel_conversation() {
         let store = SessionStore::new();
         store
-            .create("s1".into(), "Channel Session".into(), None, None, None, None)
+            .create(
+                "s1".into(),
+                "Channel Session".into(),
+                None,
+                None,
+                None,
+                None,
+            )
             .await;
 
         let binding = ChannelConversationBinding::new(
@@ -303,14 +307,24 @@ mod tests {
                 .map(|item| item.external_conversation_id.as_str()),
             Some("chat-42")
         );
-        assert_eq!(session.agent_profile_id.as_deref(), Some("general-assistant"));
+        assert_eq!(
+            session.agent_profile_id.as_deref(),
+            Some("general-assistant")
+        );
     }
 
     #[tokio::test]
     async fn test_find_session_by_channel_without_thread() {
         let store = SessionStore::new();
         store
-            .create("s1".into(), "Channel Session".into(), None, None, None, None)
+            .create(
+                "s1".into(),
+                "Channel Session".into(),
+                None,
+                None,
+                None,
+                None,
+            )
             .await;
 
         store

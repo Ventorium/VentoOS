@@ -8,15 +8,15 @@ use tokio::sync::RwLock;
 use tracing::{error, info};
 
 use crate::completion::{
-    self, build_pg_tree, build_sqlite_tree, CompletionCache, MYSQL_COMPLETION_QUERY,
-    PG_COMPLETION_QUERY,
+    self, CompletionCache, MYSQL_COMPLETION_QUERY, PG_COMPLETION_QUERY, build_pg_tree,
+    build_sqlite_tree,
 };
 use crate::explain;
 use crate::tunnel::SshTunnel;
 use crate::types::{
-    ColumnInfo, CompletionTree, CreateDbConnectionReq, DbConnectionConfig, DbEngine,
-    DbTestResult, ExplainResult, ExportReq, IndexInfo, QueryResult,
-    RowDeleteReq, RowUpdateReq, SchemaInfo, TableDataReq, TableInfo, TableStructure,
+    ColumnInfo, CompletionTree, CreateDbConnectionReq, DbConnectionConfig, DbEngine, DbTestResult,
+    ExplainResult, ExportReq, IndexInfo, QueryResult, RowDeleteReq, RowUpdateReq, SchemaInfo,
+    TableDataReq, TableInfo, TableStructure,
 };
 
 // ---------------------------------------------------------------------------
@@ -407,10 +407,7 @@ impl DbManager {
 
             let tunnel = SshTunnel::start(tunnel_cfg, remote_host, remote_port).await?;
             let local_port = tunnel.local_port;
-            self.tunnels
-                .write()
-                .await
-                .insert(id.to_string(), tunnel);
+            self.tunnels.write().await.insert(id.to_string(), tunnel);
 
             // Modify config to connect via tunnel
             let mut tunneled = config.clone();
@@ -1293,10 +1290,9 @@ impl DbManager {
         conn_id: &str,
         force_refresh: bool,
     ) -> Result<CompletionTree, String> {
-        if !force_refresh
-            && let Some(cached) = self.completion_cache.get(conn_id).await {
-                return Ok(cached);
-            }
+        if !force_refresh && let Some(cached) = self.completion_cache.get(conn_id).await {
+            return Ok(cached);
+        }
 
         let pools = self.pools.read().await;
         let pool = pools.get(conn_id).ok_or("Not connected")?;
@@ -1616,11 +1612,7 @@ impl DbManager {
     // ── EXPORT ─────────────────────────────────────────────────────────────
 
     /// Execute SQL and export results in the requested format.
-    pub async fn export(
-        &self,
-        conn_id: &str,
-        req: &ExportReq,
-    ) -> Result<Vec<u8>, String> {
+    pub async fn export(&self, conn_id: &str, req: &ExportReq) -> Result<Vec<u8>, String> {
         let result = self.execute_sql(conn_id, &req.sql).await?;
         crate::export::export(&result, &req.format)
     }

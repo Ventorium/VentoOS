@@ -174,9 +174,18 @@ async fn test_10_default_trait() {
 
 #[test]
 fn test_11_db_engine_serialization() {
-    assert_eq!(serde_json::to_string(&DbEngine::PostgreSql).unwrap(), "\"postgresql\"");
-    assert_eq!(serde_json::to_string(&DbEngine::MySql).unwrap(), "\"mysql\"");
-    assert_eq!(serde_json::to_string(&DbEngine::Sqlite).unwrap(), "\"sqlite\"");
+    assert_eq!(
+        serde_json::to_string(&DbEngine::PostgreSql).unwrap(),
+        "\"postgresql\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DbEngine::MySql).unwrap(),
+        "\"mysql\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DbEngine::Sqlite).unwrap(),
+        "\"sqlite\""
+    );
 
     let pg: DbEngine = serde_json::from_str("\"postgresql\"").unwrap();
     assert_eq!(pg, DbEngine::PostgreSql);
@@ -216,9 +225,24 @@ fn test_13_schema_info_with_multiple_tables() {
     let schema = SchemaInfo {
         name: "public".into(),
         tables: vec![
-            TableInfo { name: "users".into(), schema: Some("public".into()), table_type: "table".into(), row_count_estimate: Some(1000) },
-            TableInfo { name: "orders".into(), schema: Some("public".into()), table_type: "table".into(), row_count_estimate: Some(50000) },
-            TableInfo { name: "user_stats".into(), schema: Some("public".into()), table_type: "view".into(), row_count_estimate: None },
+            TableInfo {
+                name: "users".into(),
+                schema: Some("public".into()),
+                table_type: "table".into(),
+                row_count_estimate: Some(1000),
+            },
+            TableInfo {
+                name: "orders".into(),
+                schema: Some("public".into()),
+                table_type: "table".into(),
+                row_count_estimate: Some(50000),
+            },
+            TableInfo {
+                name: "user_stats".into(),
+                schema: Some("public".into()),
+                table_type: "view".into(),
+                row_count_estimate: None,
+            },
         ],
     };
     let json = serde_json::to_value(&schema).unwrap();
@@ -243,9 +267,33 @@ fn test_14_table_info_all_fields() {
 #[test]
 fn test_15_column_info_all_data_types() {
     let cols = vec![
-        ColumnInfo { name: "id".into(), data_type: "integer".into(), nullable: false, default_value: None, is_primary_key: true, max_length: None, comment: None },
-        ColumnInfo { name: "email".into(), data_type: "varchar".into(), nullable: false, default_value: None, is_primary_key: false, max_length: Some(255), comment: Some("User email".into()) },
-        ColumnInfo { name: "bio".into(), data_type: "text".into(), nullable: true, default_value: Some("''".into()), is_primary_key: false, max_length: None, comment: None },
+        ColumnInfo {
+            name: "id".into(),
+            data_type: "integer".into(),
+            nullable: false,
+            default_value: None,
+            is_primary_key: true,
+            max_length: None,
+            comment: None,
+        },
+        ColumnInfo {
+            name: "email".into(),
+            data_type: "varchar".into(),
+            nullable: false,
+            default_value: None,
+            is_primary_key: false,
+            max_length: Some(255),
+            comment: Some("User email".into()),
+        },
+        ColumnInfo {
+            name: "bio".into(),
+            data_type: "text".into(),
+            nullable: true,
+            default_value: Some("''".into()),
+            is_primary_key: false,
+            max_length: None,
+            comment: None,
+        },
     ];
     let json = serde_json::to_value(&cols).unwrap();
     assert_eq!(json[0]["is_primary_key"], true);
@@ -270,12 +318,21 @@ fn test_16_index_info_composite_columns() {
 #[test]
 fn test_17_table_structure_composed() {
     let ts = TableStructure {
-        columns: vec![
-            ColumnInfo { name: "id".into(), data_type: "int".into(), nullable: false, default_value: None, is_primary_key: true, max_length: None, comment: None },
-        ],
-        indexes: vec![
-            IndexInfo { name: "pk_id".into(), columns: vec!["id".into()], is_unique: true, is_primary: true },
-        ],
+        columns: vec![ColumnInfo {
+            name: "id".into(),
+            data_type: "int".into(),
+            nullable: false,
+            default_value: None,
+            is_primary_key: true,
+            max_length: None,
+            comment: None,
+        }],
+        indexes: vec![IndexInfo {
+            name: "pk_id".into(),
+            columns: vec!["id".into()],
+            is_unique: true,
+            is_primary: true,
+        }],
     };
     let json = serde_json::to_value(&ts).unwrap();
     assert_eq!(json["columns"].as_array().unwrap().len(), 1);
@@ -367,7 +424,9 @@ fn test_21_ssh_tunnel_config_private_key_auth() {
             port: 2222,
             username: "ops".into(),
             auth: SshTunnelAuth::PrivateKey {
-                key_pem: "-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----".into(),
+                key_pem:
+                    "-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----"
+                        .into(),
                 passphrase: Some("keypass".into()),
             },
         }),
@@ -377,7 +436,10 @@ fn test_21_ssh_tunnel_config_private_key_auth() {
     let tunnel = restored.tunnel.unwrap();
     assert_eq!(tunnel.port, 2222);
     match &tunnel.auth {
-        SshTunnelAuth::PrivateKey { key_pem, passphrase } => {
+        SshTunnelAuth::PrivateKey {
+            key_pem,
+            passphrase,
+        } => {
             assert!(key_pem.contains("BEGIN"));
             assert_eq!(passphrase.as_deref(), Some("keypass"));
         }
@@ -393,10 +455,7 @@ fn test_21_ssh_tunnel_config_private_key_auth() {
 fn test_22_export_csv_simple() {
     let qr = QueryResult {
         columns: vec!["id".into(), "name".into()],
-        rows: vec![
-            vec![json!(1), json!("Alice")],
-            vec![json!(2), json!("Bob")],
-        ],
+        rows: vec![vec![json!(1), json!("Alice")], vec![json!(2), json!("Bob")]],
         row_count: 2,
         affected_rows: None,
         execution_time_ms: 1,
@@ -485,10 +544,7 @@ fn test_27_export_csv_single_column() {
 fn test_28_export_json_array() {
     let qr = QueryResult {
         columns: vec!["id".into(), "v".into()],
-        rows: vec![
-            vec![json!(1), json!("a")],
-            vec![json!(2), json!("b")],
-        ],
+        rows: vec![vec![json!(1), json!("a")], vec![json!(2), json!("b")]],
         row_count: 2,
         affected_rows: None,
         execution_time_ms: 1,
@@ -645,7 +701,10 @@ fn test_34_parse_pg_nested_plan_join() {
     assert_eq!(result.root.children[1].node_type, "Hash");
     // Nested child
     assert_eq!(result.root.children[1].children.len(), 1);
-    assert_eq!(result.root.children[1].children[0].relation.as_deref(), Some("customers"));
+    assert_eq!(
+        result.root.children[1].children[0].relation.as_deref(),
+        Some("customers")
+    );
 }
 
 #[test]
@@ -734,7 +793,10 @@ fn test_38_parse_sqlite_explain() {
     assert_eq!(result.root.node_type, "Query Plan");
     assert_eq!(result.root.children.len(), 2);
     assert_eq!(result.root.children[0].node_type, "SCAN TABLE users");
-    assert_eq!(result.root.children[1].node_type, "USE TEMP B-TREE FOR ORDER BY");
+    assert_eq!(
+        result.root.children[1].node_type,
+        "USE TEMP B-TREE FOR ORDER BY"
+    );
 }
 
 #[test]
@@ -795,15 +857,27 @@ fn test_41_completion_tree_full() {
                     CompletionTable {
                         name: "users".into(),
                         columns: vec![
-                            CompletionColumn { name: "id".into(), data_type: "integer".into() },
-                            CompletionColumn { name: "email".into(), data_type: "varchar".into() },
+                            CompletionColumn {
+                                name: "id".into(),
+                                data_type: "integer".into(),
+                            },
+                            CompletionColumn {
+                                name: "email".into(),
+                                data_type: "varchar".into(),
+                            },
                         ],
                     },
                     CompletionTable {
                         name: "orders".into(),
                         columns: vec![
-                            CompletionColumn { name: "id".into(), data_type: "integer".into() },
-                            CompletionColumn { name: "total".into(), data_type: "numeric".into() },
+                            CompletionColumn {
+                                name: "id".into(),
+                                data_type: "integer".into(),
+                            },
+                            CompletionColumn {
+                                name: "total".into(),
+                                data_type: "numeric".into(),
+                            },
                         ],
                     },
                 ],
@@ -817,7 +891,10 @@ fn test_41_completion_tree_full() {
     let json = serde_json::to_value(&tree).unwrap();
     assert_eq!(json["schemas"].as_array().unwrap().len(), 2);
     assert_eq!(json["schemas"][0]["tables"].as_array().unwrap().len(), 2);
-    assert_eq!(json["schemas"][0]["tables"][0]["columns"][1]["data_type"], "varchar");
+    assert_eq!(
+        json["schemas"][0]["tables"][0]["columns"][1]["data_type"],
+        "varchar"
+    );
 }
 
 #[test]
@@ -826,7 +903,10 @@ fn test_42_completion_schema_serialization() {
         name: "test_schema".into(),
         tables: vec![CompletionTable {
             name: "t1".into(),
-            columns: vec![CompletionColumn { name: "col1".into(), data_type: "text".into() }],
+            columns: vec![CompletionColumn {
+                name: "col1".into(),
+                data_type: "text".into(),
+            }],
         }],
     };
     let json_str = serde_json::to_string(&schema).unwrap();
@@ -841,9 +921,18 @@ fn test_43_completion_table_typed_columns() {
     let table = CompletionTable {
         name: "metrics".into(),
         columns: vec![
-            CompletionColumn { name: "ts".into(), data_type: "timestamp".into() },
-            CompletionColumn { name: "value".into(), data_type: "double precision".into() },
-            CompletionColumn { name: "labels".into(), data_type: "jsonb".into() },
+            CompletionColumn {
+                name: "ts".into(),
+                data_type: "timestamp".into(),
+            },
+            CompletionColumn {
+                name: "value".into(),
+                data_type: "double precision".into(),
+            },
+            CompletionColumn {
+                name: "labels".into(),
+                data_type: "jsonb".into(),
+            },
         ],
     };
     let json = serde_json::to_value(&table).unwrap();

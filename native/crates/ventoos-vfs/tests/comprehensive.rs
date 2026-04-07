@@ -825,7 +825,10 @@ fn validate_mount_name_valid() {
 #[test]
 fn validate_mount_name_empty_returns_error() {
     let err = validate_mount_name("").unwrap();
-    assert!(err.contains("不能为空"), "Expected empty-name error, got: {err}");
+    assert!(
+        err.contains("不能为空"),
+        "Expected empty-name error, got: {err}"
+    );
 }
 
 #[test]
@@ -924,7 +927,10 @@ fn archive_format_from_path_unknown() {
 
 #[test]
 fn archive_format_extension() {
-    assert_eq!(ventoos_vfs::archive::ArchiveFormat::TarGz.extension(), ".tar.gz");
+    assert_eq!(
+        ventoos_vfs::archive::ArchiveFormat::TarGz.extension(),
+        ".tar.gz"
+    );
     assert_eq!(ventoos_vfs::archive::ArchiveFormat::Zip.extension(), ".zip");
 }
 
@@ -934,6 +940,7 @@ fn archive_request_construction() {
         paths: vec!["file1.txt".into(), "dir/".into()],
         dest: "output.tar.gz".into(),
         format: ventoos_vfs::archive::ArchiveFormat::TarGz,
+        password: None,
     };
     assert_eq!(req.paths.len(), 2);
     let json = serde_json::to_string(&req).unwrap();
@@ -949,12 +956,7 @@ fn archive_create_and_extract_tar_gz() {
     std::fs::write(src_dir.join("hello.txt"), "hello archive").unwrap();
 
     let archive_path = dir.path().join("out.tar.gz");
-    ventoos_vfs::archive::create_tar_gz(
-        &src_dir,
-        &["hello.txt".into()],
-        &archive_path,
-    )
-    .unwrap();
+    ventoos_vfs::archive::create_tar_gz(&src_dir, &["hello.txt".into()], &archive_path).unwrap();
     assert!(archive_path.exists());
 
     let extract_dir = dir.path().join("extracted");

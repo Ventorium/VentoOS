@@ -3,7 +3,9 @@
 //! Covers: kubeconfig parsing, K8s manager CRUD, resource types,
 //! port-forward manager, log stream types, exec types, and edge cases.
 
-use ventoos_k8s::k8s_client::{Kubeconfig, KubeconfigCluster, KubeconfigContextEntry, KubeconfigUser};
+use ventoos_k8s::k8s_client::{
+    Kubeconfig, KubeconfigCluster, KubeconfigContextEntry, KubeconfigUser,
+};
 use ventoos_k8s::*;
 
 // ═══════════════════════════════════════════════════════════════════════════

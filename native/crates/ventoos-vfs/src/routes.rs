@@ -39,8 +39,14 @@ impl AppPlugin for VfsPlugin {
 
         Router::new()
             .route("/api/vfs/mounts", get(list_mounts).post(create_mount))
-            .route("/api/vfs/mounts/test-connection", post(test_connection_handler))
-            .route("/api/vfs/mounts/{id}", get(get_mount).put(update_mount).delete(delete_mount))
+            .route(
+                "/api/vfs/mounts/test-connection",
+                post(test_connection_handler),
+            )
+            .route(
+                "/api/vfs/mounts/{id}",
+                get(get_mount).put(update_mount).delete(delete_mount),
+            )
             .route("/api/vfs/mounts/{id}/ls", get(list_dir))
             .route("/api/vfs/mounts/{id}/read", get(read_file))
             .route("/api/vfs/mounts/{id}/raw", get(read_file_raw))
@@ -52,9 +58,12 @@ impl AppPlugin for VfsPlugin {
             .route("/api/vfs/mounts/{id}/upload", post(upload_handler))
             .route("/api/vfs/mounts/{id}/stat", get(stat_handler))
             .route("/api/vfs/mounts/{id}/search", get(search_handler))
-            // Archive / extract
+            // Archive / extract / list
             .route("/api/vfs/mounts/{id}/archive", post(archive_handler))
             .route("/api/vfs/mounts/{id}/extract", post(extract_handler))
+            .route("/api/vfs/mounts/{id}/archive/list", get(archive_list_handler))
+            .route("/api/vfs/mounts/{id}/archive/extract", post(archive_extract_handler))
+            .route("/api/vfs/mounts/{id}/archive/compress", post(archive_compress_handler))
             // Permissions
             .route("/api/vfs/mounts/{id}/chmod", put(chmod_handler))
             // Watch (WebSocket)
@@ -436,6 +445,79 @@ async fn extract_handler(
     }
 }
 
+// ─── New Archive API handlers ────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct ArchiveListQuery {
+    path: String,
+    password: Option<String>,
+}
+
+async fn archive_list_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Query(q): Query<ArchiveListQuery>,
+) -> impl IntoResponse {
+    match mgr.list_archive_contents(&id, &q.path, q.password).await {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ArchiveExtractBody {
+    archive_path: String,
+    dest_dir: String,
+    password: Option<String>,
+}
+
+async fn archive_extract_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<ArchiveExtractBody>,
+) -> impl IntoResponse {
+    let req = ExtractRequest {
+        archive_path: body.archive_path,
+        dest_dir: body.dest_dir,
+        password: body.password,
+    };
+    match mgr.extract_archive(&id, &req).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"extracted": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ArchiveCompressBody {
+    paths: Vec<String>,
+    dest_path: String,
+    format: String,
+    password: Option<String>,
+}
+
+async fn archive_compress_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<ArchiveCompressBody>,
+) -> impl IntoResponse {
+    let format = match body.format.as_str() {
+        "zip" => crate::archive::ArchiveFormat::Zip,
+        "tar.gz" => crate::archive::ArchiveFormat::TarGz,
+        "7z" => crate::archive::ArchiveFormat::SevenZ,
+        _ => return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err("Unsupported format"))).into_response(),
+    };
+    let req = ArchiveRequest {
+        paths: body.paths,
+        dest: body.dest_path,
+        format,
+        password: body.password,
+    };
+    match mgr.create_archive(&id, &req).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"compressed": true}))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
 // ─── Chmod handler ───────────────────────────────────────────────────────────
 
 #[derive(serde::Deserialize)]
@@ -470,12 +552,8 @@ async fn watch_handler(
 ) -> impl IntoResponse {
     let path = q.path.unwrap_or_else(|| "/".into());
     ws.on_upgrade(move |mut socket| async move {
-        let (handle, mut rx) = crate::watch::start_watch(
-            mgr,
-            id,
-            path,
-            std::time::Duration::from_secs(2),
-        );
+        let (handle, mut rx) =
+            crate::watch::start_watch(mgr, id, path, std::time::Duration::from_secs(2));
 
         loop {
             tokio::select! {
@@ -516,7 +594,9 @@ async fn tail_handler(
     ws.on_upgrade(move |mut socket| async move {
         // Get mount info for local tail
         let Some(mount) = mgr.get_mount(&id).await else {
-            let _ = socket.send(Message::Text(r#"{"error":"Mount not found"}"#.into())).await;
+            let _ = socket
+                .send(Message::Text(r#"{"error":"Mount not found"}"#.into()))
+                .await;
             return;
         };
 
@@ -555,7 +635,9 @@ async fn tail_handler(
             }
             _ => {
                 let _ = socket
-                    .send(Message::Text(r#"{"error":"Tail only supported for local mounts"}"#.into()))
+                    .send(Message::Text(
+                        r#"{"error":"Tail only supported for local mounts"}"#.into(),
+                    ))
                     .await;
             }
         }

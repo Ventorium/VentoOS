@@ -8,8 +8,7 @@
 use serde::Deserialize;
 
 use crate::channel::{
-    ChannelAdapter, ChannelKind, ChannelSendResult, InboundChannelRequest,
-    VerifiedChannelRequest,
+    ChannelAdapter, ChannelKind, ChannelSendResult, InboundChannelRequest, VerifiedChannelRequest,
 };
 use crate::types::{AgentError, ChannelIdentity, ChannelMessageEvent};
 
@@ -57,15 +56,16 @@ impl FeishuAdapter {
         });
 
         let client = reqwest::Client::new();
-        let resp = client
-            .post(url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| AgentError::ChannelError {
-                channel: "feishu".into(),
-                detail: format!("token request failed: {e}"),
-            })?;
+        let resp =
+            client
+                .post(url)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AgentError::ChannelError {
+                    channel: "feishu".into(),
+                    detail: format!("token request failed: {e}"),
+                })?;
 
         if !resp.status().is_success() {
             return Err(AgentError::ChannelError {
@@ -74,10 +74,11 @@ impl FeishuAdapter {
             });
         }
 
-        let result: serde_json::Value = resp.json().await.map_err(|e| AgentError::ChannelError {
-            channel: "feishu".into(),
-            detail: format!("failed to parse token response: {e}"),
-        })?;
+        let result: serde_json::Value =
+            resp.json().await.map_err(|e| AgentError::ChannelError {
+                channel: "feishu".into(),
+                detail: format!("failed to parse token response: {e}"),
+            })?;
 
         result
             .get("tenant_access_token")
@@ -99,7 +100,10 @@ impl ChannelAdapter for FeishuAdapter {
         ChannelKind::Feishu
     }
 
-    fn verify(&self, request: &InboundChannelRequest) -> Result<VerifiedChannelRequest, AgentError> {
+    fn verify(
+        &self,
+        request: &InboundChannelRequest,
+    ) -> Result<VerifiedChannelRequest, AgentError> {
         let cb = self.parse_callback(&request.raw_body)?;
 
         // Handle URL verification challenge
@@ -125,7 +129,10 @@ impl ChannelAdapter for FeishuAdapter {
         })
     }
 
-    fn normalize(&self, inbound: VerifiedChannelRequest) -> Result<ChannelMessageEvent, AgentError> {
+    fn normalize(
+        &self,
+        inbound: VerifiedChannelRequest,
+    ) -> Result<ChannelMessageEvent, AgentError> {
         let cb = self.parse_callback(&inbound.raw_body)?;
 
         if cb.r#type == "url_verification" {
@@ -181,7 +188,10 @@ impl ChannelAdapter for FeishuAdapter {
                 external_thread_id: event.message.thread_id,
             },
             content,
-            occurred_at: cb.header.timestamp.unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
+            occurred_at: cb
+                .header
+                .timestamp
+                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
         })
     }
 
@@ -190,50 +200,51 @@ impl ChannelAdapter for FeishuAdapter {
         outbound: crate::channel::ChannelOutboundMessage,
     ) -> crate::channel::BoxFuture<'a, Result<ChannelSendResult, AgentError>> {
         Box::pin(async move {
-        let token = self.get_tenant_access_token().await?;
+            let token = self.get_tenant_access_token().await?;
 
-        let url = "https://open.feishu.cn/open-apis/im/v1/messages";
-        let body = serde_json::json!({
-            "receive_id": outbound.external_conversation_id,
-            "msg_type": "text",
-            "content": serde_json::json!({"text": outbound.content}).to_string(),
-        });
-
-        let client = reqwest::Client::new();
-        let resp = client
-            .post(url)
-            .header("Authorization", format!("Bearer {token}"))
-            .query(&[("receive_id_type", "chat_id")])
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| AgentError::ChannelError {
-                channel: "feishu".into(),
-                detail: format!("send request failed: {e}"),
-            })?;
-
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
-            return Err(AgentError::ChannelError {
-                channel: "feishu".into(),
-                detail: format!("send API returned {status}: {text}"),
+            let url = "https://open.feishu.cn/open-apis/im/v1/messages";
+            let body = serde_json::json!({
+                "receive_id": outbound.external_conversation_id,
+                "msg_type": "text",
+                "content": serde_json::json!({"text": outbound.content}).to_string(),
             });
-        }
 
-        let result: serde_json::Value = resp.json().await.map_err(|e| AgentError::ChannelError {
-            channel: "feishu".into(),
-            detail: format!("failed to parse send response: {e}"),
-        })?;
+            let client = reqwest::Client::new();
+            let resp = client
+                .post(url)
+                .header("Authorization", format!("Bearer {token}"))
+                .query(&[("receive_id_type", "chat_id")])
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AgentError::ChannelError {
+                    channel: "feishu".into(),
+                    detail: format!("send request failed: {e}"),
+                })?;
 
-        Ok(ChannelSendResult {
-            accepted: true,
-            external_message_id: result
-                .get("data")
-                .and_then(|d| d.get("message_id"))
-                .and_then(|m| m.as_str())
-                .map(String::from),
-        })
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                return Err(AgentError::ChannelError {
+                    channel: "feishu".into(),
+                    detail: format!("send API returned {status}: {text}"),
+                });
+            }
+
+            let result: serde_json::Value =
+                resp.json().await.map_err(|e| AgentError::ChannelError {
+                    channel: "feishu".into(),
+                    detail: format!("failed to parse send response: {e}"),
+                })?;
+
+            Ok(ChannelSendResult {
+                accepted: true,
+                external_message_id: result
+                    .get("data")
+                    .and_then(|d| d.get("message_id"))
+                    .and_then(|m| m.as_str())
+                    .map(String::from),
+            })
         })
     }
 }

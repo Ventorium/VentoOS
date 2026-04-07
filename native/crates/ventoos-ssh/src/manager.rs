@@ -287,9 +287,8 @@ impl SshInfoProvider for SshManager {
     fn resolve(
         &self,
         connection_id: &str,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<SshConnInfo, String>> + Send + '_>,
-    > {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<SshConnInfo, String>> + Send + '_>>
+    {
         let connection_id = connection_id.to_string();
         Box::pin(async move {
             let id: Id = connection_id
@@ -304,16 +303,20 @@ impl SshInfoProvider for SshManager {
             let credentials = self.credentials.read().await;
             let auth = match credentials.get(&id) {
                 Some(StoredCredential::Password(pw)) => SshAuth::Password(pw.clone()),
-                Some(StoredCredential::PrivateKey { key_pem, passphrase }) => {
-                    SshAuth::PrivateKey {
-                        key_pem: key_pem.clone(),
-                        passphrase: passphrase.clone(),
-                    }
-                }
+                Some(StoredCredential::PrivateKey {
+                    key_pem,
+                    passphrase,
+                }) => SshAuth::PrivateKey {
+                    key_pem: key_pem.clone(),
+                    passphrase: passphrase.clone(),
+                },
                 None => {
                     // Try to infer from auth method — key_path might be a local file
                     match &server.auth_method {
-                        SshAuthMethod::PrivateKey { key_path: Some(path), .. } => {
+                        SshAuthMethod::PrivateKey {
+                            key_path: Some(path),
+                            ..
+                        } => {
                             let key_pem = tokio::fs::read_to_string(path)
                                 .await
                                 .map_err(|e| format!("无法读取密钥文件 {path}: {e}"))?;
@@ -323,9 +326,13 @@ impl SshInfoProvider for SshManager {
                             }
                         }
                         SshAuthMethod::Password { .. } => {
-                            return Err("密码认证未配置，请在 SSH 管理中编辑此服务器并设置连接密码".into());
+                            return Err(
+                                "密码认证未配置，请在 SSH 管理中编辑此服务器并设置连接密码".into(),
+                            );
                         }
-                        SshAuthMethod::PrivateKey { .. } => return Err("未找到此 SSH 服务器的认证凭据，请检查服务器配置".into()),
+                        SshAuthMethod::PrivateKey { .. } => {
+                            return Err("未找到此 SSH 服务器的认证凭据，请检查服务器配置".into());
+                        }
                     }
                 }
             };

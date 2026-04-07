@@ -2,12 +2,12 @@
 
 use std::sync::Arc;
 
+use ventoos_agent::ToolExecutor;
 use ventoos_agent::executor::{PlatformToolExecutor, register_platform_stubs};
 use ventoos_agent::guard::{GuardChain, RiskGuard};
 use ventoos_agent::tool::{StubToolExecutor, ToolRegistry};
 use ventoos_agent::tools::platform_tools;
 use ventoos_agent::types::RiskLevel;
-use ventoos_agent::ToolExecutor;
 
 // ─── Tool Registration & Discovery ────────────────────────────────────────
 
@@ -130,9 +130,7 @@ async fn test_platform_stubs_return_not_connected() {
         "vfs_list_mounts",
         "system_notify",
     ] {
-        let result = executor
-            .execute(tool_name, &serde_json::json!({}))
-            .await;
+        let result = executor.execute(tool_name, &serde_json::json!({})).await;
         assert!(result.is_ok(), "Stub for '{}' should succeed", tool_name);
         let val = result.unwrap();
         assert_eq!(val["status"], "not_connected");

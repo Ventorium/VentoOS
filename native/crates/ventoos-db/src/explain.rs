@@ -101,7 +101,8 @@ fn parse_mysql_node(block: &Value) -> ExplainNode {
             node_type: "Nested Loop".into(),
             relation: None,
             startup_cost: None,
-            total_cost: block.get("cost_info")
+            total_cost: block
+                .get("cost_info")
                 .and_then(|c| c.get("query_cost"))
                 .and_then(Value::as_str)
                 .and_then(|s| s.parse::<f64>().ok()),
@@ -129,7 +130,8 @@ fn parse_mysql_node(block: &Value) -> ExplainNode {
         node_type: "Query Block".into(),
         relation: None,
         startup_cost: None,
-        total_cost: block.get("cost_info")
+        total_cost: block
+            .get("cost_info")
             .and_then(|c| c.get("query_cost"))
             .and_then(Value::as_str)
             .and_then(|s| s.parse::<f64>().ok()),
@@ -151,9 +153,7 @@ fn parse_mysql_table_node(table: &Value) -> ExplainNode {
         .get("table_name")
         .and_then(Value::as_str)
         .map(String::from);
-    let rows_examined = table
-        .get("rows_examined_per_scan")
-        .and_then(Value::as_u64);
+    let rows_examined = table.get("rows_examined_per_scan").and_then(Value::as_u64);
     let cost = table
         .get("cost_info")
         .and_then(|c| c.get("read_cost"))

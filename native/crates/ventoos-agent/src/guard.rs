@@ -26,9 +26,7 @@ pub struct GuardChain {
 
 impl GuardChain {
     pub fn new() -> Self {
-        Self {
-            guards: Vec::new(),
-        }
+        Self { guards: Vec::new() }
     }
 
     /// Create a chain with the default built-in guards.
@@ -75,10 +73,7 @@ const DENIED_PATHS: &[&str] = &[
 ];
 
 /// Path prefixes that are denied.
-const DENIED_PREFIXES: &[&str] = &[
-    "/proc/",
-    "/sys/",
-];
+const DENIED_PREFIXES: &[&str] = &["/proc/", "/sys/"];
 
 impl Guard for PathGuard {
     fn check(&self, tool_name: &str, arguments: &Value) -> Result<(), AgentError> {
@@ -87,10 +82,7 @@ impl Guard for PathGuard {
             return Ok(());
         }
 
-        let path = arguments
-            .get("path")
-            .and_then(Value::as_str)
-            .unwrap_or("");
+        let path = arguments.get("path").and_then(Value::as_str).unwrap_or("");
 
         if path.is_empty() {
             return Ok(());

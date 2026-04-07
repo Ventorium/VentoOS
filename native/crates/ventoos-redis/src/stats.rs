@@ -23,9 +23,10 @@ pub fn parse_info(info: &str) -> RedisInfoParsed {
             current = line.trim_start_matches('#').trim().to_lowercase();
             sections.entry(current.clone()).or_default();
         } else if let Some((key, value)) = line.split_once(':')
-            && let Some(section) = sections.get_mut(&current) {
-                section.insert(key.to_string(), value.to_string());
-            }
+            && let Some(section) = sections.get_mut(&current)
+        {
+            section.insert(key.to_string(), value.to_string());
+        }
     }
 
     RedisInfoParsed { sections }
@@ -38,10 +39,7 @@ pub fn extract_stats(parsed: &RedisInfoParsed) -> HashMap<String, serde_json::Va
     // Server
     if let Some(server) = parsed.sections.get("server") {
         if let Some(v) = server.get("redis_version") {
-            stats.insert(
-                "version".to_string(),
-                serde_json::Value::String(v.clone()),
-            );
+            stats.insert("version".to_string(), serde_json::Value::String(v.clone()));
         }
         if let Some(v) = server.get("uptime_in_days") {
             stats.insert(
@@ -53,12 +51,13 @@ pub fn extract_stats(parsed: &RedisInfoParsed) -> HashMap<String, serde_json::Va
 
     // Clients
     if let Some(clients) = parsed.sections.get("clients")
-        && let Some(v) = clients.get("connected_clients") {
-            stats.insert(
-                "connected_clients".to_string(),
-                serde_json::Value::String(v.clone()),
-            );
-        }
+        && let Some(v) = clients.get("connected_clients")
+    {
+        stats.insert(
+            "connected_clients".to_string(),
+            serde_json::Value::String(v.clone()),
+        );
+    }
 
     // Memory
     if let Some(memory) = parsed.sections.get("memory") {

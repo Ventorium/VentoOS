@@ -9,17 +9,16 @@
 
 use std::sync::Arc;
 
+use axum::Router;
 use axum::body::Body;
 use axum::extract::{Path, Request, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::any;
-use axum::Router;
 
 use crate::manager::VfsManager;
 use crate::types::{
-    VfsCopyReq, VfsDeleteReq, VfsMkdirReq, VfsMoveReq, VfsWriteReq,
-    WebDavServerSettings,
+    VfsCopyReq, VfsDeleteReq, VfsMkdirReq, VfsMoveReq, VfsWriteReq, WebDavServerSettings,
 };
 
 /// Build the WebDAV sub-router.  All requests to `/webdav/*path` pass through
@@ -35,10 +34,7 @@ pub fn webdav_router() -> Router<Arc<VfsManager>> {
 
 // ─── Root OPTIONS / PROPFIND ──────────────────────────────────────────────────
 
-async fn webdav_root_options(
-    State(mgr): State<Arc<VfsManager>>,
-    req: Request,
-) -> Response {
+async fn webdav_root_options(State(mgr): State<Arc<VfsManager>>, req: Request) -> Response {
     let settings = mgr.webdav_server_settings().await;
     if !settings.enabled {
         return (StatusCode::NOT_FOUND, "WebDAV server is disabled").into_response();
@@ -47,7 +43,9 @@ async fn webdav_root_options(
     match *req.method() {
         Method::OPTIONS => dav_options_response(),
         _ if req.method().as_str() == "PROPFIND" => {
-            if let Err(r) = check_auth(&req, &settings) { return r; }
+            if let Err(r) = check_auth(&req, &settings) {
+                return r;
+            }
             propfind_root_response(&mgr, &settings).await
         }
         _ => (StatusCode::METHOD_NOT_ALLOWED, "").into_response(),
@@ -140,11 +138,9 @@ fn check_auth(req: &Request, settings: &WebDavServerSettings) -> Result<(), Resp
     }
 
     let encoded = &auth_header["Basic ".len()..];
-    let decoded = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        encoded.trim(),
-    )
-    .unwrap_or_default();
+    let decoded =
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, encoded.trim())
+            .unwrap_or_default();
     let creds = String::from_utf8_lossy(&decoded);
     let (u, p) = creds.split_once(':').unwrap_or((&creds, ""));
 
@@ -249,9 +245,8 @@ async fn propfind_root_response(mgr: &VfsManager, settings: &WebDavServerSetting
         .collect();
 
     // Build a virtual root listing of all exposed mounts as directories
-    let mut xml = String::from(
-        r#"<?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:">"#,
-    );
+    let mut xml =
+        String::from(r#"<?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:">"#);
 
     // Root entry
     xml.push_str(&build_response_xml("/webdav/", "", true, None, None));
@@ -273,7 +268,12 @@ async fn propfind_root_response(mgr: &VfsManager, settings: &WebDavServerSetting
 
 // ─── GET / HEAD ───────────────────────────────────────────────────────────────
 
-async fn handle_get(mgr: &VfsManager, mount_id: &str, file_path: &str, head_only: bool) -> Response {
+async fn handle_get(
+    mgr: &VfsManager,
+    mount_id: &str,
+    file_path: &str,
+    head_only: bool,
+) -> Response {
     match mgr.read_file_raw(mount_id, file_path).await {
         Ok(data) => {
             let mime = mime_guess::from_path(file_path)
@@ -285,9 +285,13 @@ async fn handle_get(mgr: &VfsManager, mount_id: &str, file_path: &str, head_only
                 .header("Content-Type", mime)
                 .header("Content-Length", content_length.to_string());
             if head_only {
-                builder.body(Body::empty()).unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+                builder
+                    .body(Body::empty())
+                    .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
             } else {
-                builder.body(Body::from(data)).unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+                builder
+                    .body(Body::from(data))
+                    .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
             }
         }
         Err(e) => (StatusCode::NOT_FOUND, e).into_response(),
@@ -438,9 +442,7 @@ fn dav_options_response() -> Response {
     headers.insert("DAV", HeaderValue::from_static("1, 2"));
     headers.insert(
         "Allow",
-        HeaderValue::from_static(
-            "OPTIONS, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY, PROPFIND",
-        ),
+        HeaderValue::from_static("OPTIONS, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY, PROPFIND"),
     );
     headers.insert("MS-Author-Via", HeaderValue::from_static("DAV"));
     (StatusCode::OK, headers, "").into_response()
@@ -453,9 +455,8 @@ fn build_multistatus_xml(
     mount_prefix: &str,
     request_path: &str,
 ) -> String {
-    let mut xml = String::from(
-        r#"<?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:">"#,
-    );
+    let mut xml =
+        String::from(r#"<?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:">"#);
 
     for node in nodes {
         let href = if node.path == "/" || node.path == request_path {
@@ -531,14 +532,32 @@ fn percent_encode_segment(s: &str) -> String {
     let mut out = String::with_capacity(s.len() * 3);
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9'
-            | b'-' | b'_' | b'.' | b'~' | b'!' | b'\'' | b'(' | b')' | b'*' => {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'~'
+            | b'!'
+            | b'\''
+            | b'('
+            | b')'
+            | b'*' => {
                 out.push(b as char);
             }
             _ => {
                 out.push('%');
-                out.push(char::from_digit((b >> 4) as u32, 16).unwrap_or('0').to_ascii_uppercase());
-                out.push(char::from_digit((b & 0xf) as u32, 16).unwrap_or('0').to_ascii_uppercase());
+                out.push(
+                    char::from_digit((b >> 4) as u32, 16)
+                        .unwrap_or('0')
+                        .to_ascii_uppercase(),
+                );
+                out.push(
+                    char::from_digit((b & 0xf) as u32, 16)
+                        .unwrap_or('0')
+                        .to_ascii_uppercase(),
+                );
             }
         }
     }

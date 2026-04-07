@@ -34,7 +34,11 @@ async fn main() -> Result<()> {
 
     // Initialize state
     let state = AppState::new(&db_path, &data_dir).await?;
-    info!("Data directory: {}, database: {}", data_dir.display(), db_path.display());
+    info!(
+        "Data directory: {}, database: {}",
+        data_dir.display(),
+        db_path.display()
+    );
 
     // Build router
     let app = routes::create_router(&state)

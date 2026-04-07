@@ -29,6 +29,7 @@ import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { tokens } from '@/theme'
 import { type AIStatus, useAIStatusStore } from './aiStatusStore'
+import { useDockPinsStore } from './dockPinsStore'
 import { useDockPositionStore } from './dockPositionStore'
 
 const { gap } = tokens.dock
@@ -244,7 +245,7 @@ function MinimizedThumbnail({
 /* ---- Dock Root ---- */
 export default function Dock() {
   const appsMap = useAppStore(s => s.apps)
-  const apps = useMemo(() => Array.from(appsMap.values()).filter(a => !a.hidden), [appsMap])
+  const allVisibleApps = useMemo(() => Array.from(appsMap.values()).filter(a => !a.hidden), [appsMap])
   const windows = useWindowStore(s => s.windows)
   const minimizedWindows = useMemo(() => windows.filter(w => w.isMinimized), [windows])
   const openWindowFn = openWindow
@@ -253,6 +254,27 @@ export default function Dock() {
   const toggleLaunchpad = useLaunchpadStore(s => s.toggle)
   const toggleAI = useAISidePanelStore(s => s.toggle)
   const showCtxMenu = useContextMenuStore(s => s.show)
+  const pinnedApps = useDockPinsStore(s => s.pinnedApps)
+  const pinApp = useDockPinsStore(s => s.pin)
+  const unpinApp = useDockPinsStore(s => s.unpin)
+
+  // Load dock pins on mount with default visible apps
+  useEffect(() => {
+    if (pinnedApps === null && allVisibleApps.length > 0) {
+      useDockPinsStore.getState().load(allVisibleApps.map(a => a.id))
+    }
+  }, [pinnedApps, allVisibleApps])
+
+  // Dock shows: pinned apps + running-but-not-pinned apps (in order: pinned first, then running)
+  const runningAppIds = useMemo(() => new Set(windows.map(w => w.appId)), [windows])
+  const apps = useMemo(() => {
+    if (!pinnedApps) return allVisibleApps // Not loaded yet: show all
+    const pinned = allVisibleApps.filter(a => pinnedApps.has(a.id))
+    const runningUnpinned = Array.from(appsMap.values()).filter(
+      a => !pinnedApps.has(a.id) && runningAppIds.has(a.id)
+    )
+    return [...pinned, ...runningUnpinned]
+  }, [allVisibleApps, appsMap, pinnedApps, runningAppIds])
 
   // Compute badges: active window count per app is removed (red dot removed per design)
 
@@ -263,6 +285,8 @@ export default function Dock() {
       const getWindowsByApp = useWindowStore.getState().getWindowsByApp
       const appWindows = getWindowsByApp(app.id)
       const isRunning = appWindows.length > 0
+      const isPinned = useDockPinsStore.getState().isPinned(app.id)
+      const isTerminal = app.id === 'terminal'
       const items: import('@/shell/ContextMenu/store').ContextMenuItems = []
 
       if (!isRunning) {
@@ -293,9 +317,28 @@ export default function Dock() {
           }
         })
       }
+
+      // Pin/unpin actions (terminal excluded)
+      if (!isTerminal) {
+        items.push({ type: 'separator' })
+        if (isPinned) {
+          items.push({
+            id: 'unpin',
+            label: '从 Dock 中移除',
+            action: () => unpinApp(app.id)
+          })
+        } else {
+          items.push({
+            id: 'pin',
+            label: '保留在 Dock 中',
+            action: () => pinApp(app.id)
+          })
+        }
+      }
+
       showCtxMenu(e.clientX, e.clientY, items)
     },
-    [showCtxMenu, openWindowFn, focusWindowFn, restoreWindowFn]
+    [showCtxMenu, openWindowFn, focusWindowFn, restoreWindowFn, pinApp, unpinApp]
   )
   const mouseX = useMotionValue(999)
 

@@ -33,9 +33,8 @@ impl StorageManager {
 
         // Slow path: create directory and open database
         let app_dir = self.data_dir.join("apps").join(app_id);
-        std::fs::create_dir_all(&app_dir).map_err(|e| {
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        std::fs::create_dir_all(&app_dir)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
 
         let db_path = app_dir.join("store.db");
         let conn = Connection::open(&db_path)?;
@@ -117,7 +116,10 @@ mod tests {
         assert_eq!(mgr.get_value("explorer", "foo").unwrap(), None);
 
         mgr.set_value("explorer", "foo", "bar").unwrap();
-        assert_eq!(mgr.get_value("explorer", "foo").unwrap(), Some("bar".to_string()));
+        assert_eq!(
+            mgr.get_value("explorer", "foo").unwrap(),
+            Some("bar".to_string())
+        );
 
         assert!(mgr.delete_value("explorer", "foo").unwrap());
         assert_eq!(mgr.get_value("explorer", "foo").unwrap(), None);
@@ -141,7 +143,13 @@ mod tests {
         mgr.set_value("app1", "key", "val1").unwrap();
         mgr.set_value("app2", "key", "val2").unwrap();
 
-        assert_eq!(mgr.get_value("app1", "key").unwrap(), Some("val1".to_string()));
-        assert_eq!(mgr.get_value("app2", "key").unwrap(), Some("val2".to_string()));
+        assert_eq!(
+            mgr.get_value("app1", "key").unwrap(),
+            Some("val1".to_string())
+        );
+        assert_eq!(
+            mgr.get_value("app2", "key").unwrap(),
+            Some("val2".to_string())
+        );
     }
 }

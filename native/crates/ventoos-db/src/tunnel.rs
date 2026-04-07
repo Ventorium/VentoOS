@@ -121,13 +121,10 @@ async fn connect_ssh(
 
     debug!("SSH tunnel connecting to {}:{}", config.host, config.port);
 
-    let mut session = russh::client::connect(
-        ssh_config,
-        (config.host.as_str(), config.port),
-        handler,
-    )
-    .await
-    .map_err(|e| format!("SSH connect failed: {e}"))?;
+    let mut session =
+        russh::client::connect(ssh_config, (config.host.as_str(), config.port), handler)
+            .await
+            .map_err(|e| format!("SSH connect failed: {e}"))?;
 
     // Authenticate
     let auth_ok = match &config.auth {
@@ -153,7 +150,10 @@ async fn connect_ssh(
         return Err("SSH authentication failed".into());
     }
 
-    info!("SSH tunnel authenticated to {}:{}", config.host, config.port);
+    info!(
+        "SSH tunnel authenticated to {}:{}",
+        config.host, config.port
+    );
     Ok(session)
 }
 

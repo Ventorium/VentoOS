@@ -38,9 +38,7 @@ pub async fn connect_tls(
     Ok(tls_stream)
 }
 
-fn build_tls_config(
-    tls_config: &RedisTlsConfig,
-) -> Result<rustls::ClientConfig, String> {
+fn build_tls_config(tls_config: &RedisTlsConfig) -> Result<rustls::ClientConfig, String> {
     let mut root_store = rustls::RootCertStore::empty();
 
     // Add CA certificate if provided
