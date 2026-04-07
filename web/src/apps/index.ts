@@ -10,6 +10,7 @@ import { databaseManifest } from './database/manifest'
 import { explorerManifest } from './explorer/manifest'
 import { fileViewerManifest } from './file-viewer/manifest'
 import { kubernetesManifest } from './kubernetes/manifest'
+import { monitorManifest } from './monitor/manifest'
 import { redisManifest } from './redis/manifest'
 import { settingsManifest } from './settings/manifest'
 import { sshManifest } from './ssh/manifest'
@@ -23,6 +24,7 @@ export const builtinManifests: AppManifest[] = [
   sshManifest,
   terminalManifest,
   aiAssistantManifest,
+  monitorManifest,
   settingsManifest,
   fileViewerManifest
 ]
@@ -33,6 +35,7 @@ export {
   explorerManifest,
   fileViewerManifest,
   kubernetesManifest,
+  monitorManifest,
   redisManifest,
   settingsManifest,
   sshManifest,

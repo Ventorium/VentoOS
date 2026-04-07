@@ -7,6 +7,7 @@ use axum::{Json, Router};
 use rust_embed::Embed;
 
 use crate::auth;
+use crate::monitor;
 use crate::shell;
 use crate::state::AppState;
 use crate::websocket;
@@ -72,6 +73,9 @@ pub fn create_router(state: &AppState) -> Router {
         )
         // Local filesystem browser (system capability for path picker)
         .route("/api/fs/browse", get(browse_local_fs))
+        // Monitor routes
+        .route("/api/monitor/system", get(monitor::get_system_metrics))
+        .route("/api/monitor/process", get(monitor::get_process_metrics))
         // WebSocket (task events)
         .route("/ws", get(websocket::ws_handler))
         // WebShell WebSocket

@@ -134,6 +134,10 @@ export const sshApi = {
   stopServiceExposure: (id: string) =>
     request<ApiResponse<ServiceExposure>>('POST', `/api/service-exposures/${id}/stop`),
 
+  // Metrics
+  getServerMetrics: (id: string) =>
+    request<ApiResponse<Record<string, unknown>>>('GET', `/api/ssh/servers/${id}/metrics`),
+
   // Config & keys
   getSshConfigHosts: () => request<ApiResponse<SshConfigHost[]>>('GET', '/api/ssh/config-hosts'),
   getSshKeyFiles: () => request<ApiResponse<SshKeyFile[]>>('GET', '/api/ssh/key-files'),

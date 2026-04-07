@@ -53,6 +53,7 @@ impl AppPlugin for SshPlugin {
                     .delete(delete_ssh_server),
             )
             .route("/api/ssh/servers/{id}/test", post(test_ssh_server))
+            .route("/api/ssh/servers/{id}/metrics", get(get_server_metrics))
             // Port mapping routes
             .route(
                 "/api/port-mappings",
@@ -146,6 +147,30 @@ async fn delete_ssh_server(State(state): State<SshState>, Path(id): Path<Id>) ->
 async fn test_ssh_server(State(state): State<SshState>, Path(id): Path<Id>) -> impl IntoResponse {
     match state.manager.test_server(id).await {
         Some(result) => Json(ApiResponse::ok(result)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response(),
+    }
+}
+
+async fn get_server_metrics(
+    State(state): State<SshState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.manager.get_server(id).await {
+        Some(_server) => {
+            // In a real implementation, this would SSH into the server
+            // and run system commands to collect metrics.
+            // For now, return a stub response indicating the feature is available
+            // but requires an active SSH connection.
+            Json(ApiResponse::ok(serde_json::json!({
+                "status": "not_connected",
+                "message": "Connect to the server first to view metrics"
+            })))
+            .into_response()
+        }
         None => (
             StatusCode::NOT_FOUND,
             Json(ApiResponse::<()>::err("SSH server not found")),

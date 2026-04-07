@@ -30,7 +30,10 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
-import { openWindow } from '@/kernel'
+import { openWindow, registerAppMenus, unregisterAppMenus, useAppStorage } from '@/kernel'
+import PreferencesPanel from '@/components/PreferencesPanel'
+import type { PreferenceGroup } from '@/components/PreferencesPanel'
+import ResourceMonitorPanel from './ResourceMonitorPanel'
 import {
   sshApi as api,
   type CreatePortMappingReq,
@@ -88,7 +91,7 @@ function DelBtn({ onConfirm }: { onConfirm: () => void }) {
 /* ═══════════════════════════════════════════════════════════
    SSH Server Section
 ═══════════════════════════════════════════════════════════ */
-function ServersTab() {
+function ServersTab({ onToggleMonitor, monitorServerId }: { onToggleMonitor: (id: string) => void; monitorServerId: string | null }) {
   const [servers, setServers] = useState<SshServer[]>([])
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -265,6 +268,14 @@ function ServersTab() {
               >
                 {testing === srv.id ? <Loader2 size={13} className="vos-spin" /> : <Activity size={13} />}
                 测试
+              </button>
+              <button
+                type="button"
+                className={`vos-btn vos-btn-sm${monitorServerId === srv.id ? ' vos-btn-primary' : ''}`}
+                onClick={() => onToggleMonitor(srv.id)}
+                title="资源监控"
+              >
+                <Activity size={13} /> 监控
               </button>
               <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={() => handleOpenShell(srv)}>
                 <Terminal size={13} /> 打开 Shell
@@ -1223,13 +1234,50 @@ function ExposureForm({
 export default function SshApp(_props: AppComponentProps) {
   const [tab, setTab] = useState<TabId>('servers')
   const [servers, setServers] = useState<SshServer[]>([])
+  const [monitorPanelServerId, setMonitorPanelServerId] = useState<string | null>(null)
+  const [showPreferences, setShowPreferences] = useState(false)
+  const [autoOpenMonitor, setAutoOpenMonitor] = useState(true)
+  const storage = useAppStorage('ssh')
+
+  // Load preferences
+  useEffect(() => {
+    storage.get<boolean>('autoOpenMonitor').then(v => {
+      if (v !== null && v !== undefined) setAutoOpenMonitor(v)
+    })
+  }, [storage])
+
+  // Register menus
+  useEffect(() => {
+    registerAppMenus('ssh', [
+      {
+        id: 'ssh',
+        label: 'SSH 管理',
+        items: [
+          {
+            id: 'preferences',
+            label: '偏好设置',
+            shortcut: '⌘,',
+            action: () => setShowPreferences(true),
+          },
+        ],
+      },
+    ])
+    return () => unregisterAppMenus('ssh')
+  }, [])
 
   useEffect(() => {
     api
       .getSshServers()
-      .then(r => setServers(r.data))
+      .then(r => {
+        setServers(r.data)
+        // Auto-open monitor for first connected server
+        if (autoOpenMonitor) {
+          const connected = r.data.find(s => s.status === 'connected')
+          if (connected) setMonitorPanelServerId(connected.id)
+        }
+      })
       .catch(() => {})
-  }, [])
+  }, [autoOpenMonitor])
 
   const TABS = [
     { id: 'servers' as TabId, label: 'SSH 服务器', icon: <Terminal size={14} /> },
@@ -1260,22 +1308,65 @@ export default function SshApp(_props: AppComponentProps) {
       </div>
 
       {/* Content */}
-      <div className="ssh-content">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -8 }}
-            transition={{ duration: 0.15 }}
-            style={{ height: '100%' }}
-          >
-            {tab === 'servers' && <ServersTab />}
-            {tab === 'port-mappings' && <PortMappingsTab servers={servers} />}
-            {tab === 'exposures' && <ExposuresTab servers={servers} />}
-          </motion.div>
+      <div className="ssh-content" style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'auto' }}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: 0.15 }}
+              style={{ height: '100%' }}
+            >
+              {tab === 'servers' && (
+                <ServersTab
+                  onToggleMonitor={(id) => setMonitorPanelServerId(prev => prev === id ? null : id)}
+                  monitorServerId={monitorPanelServerId}
+                />
+              )}
+              {tab === 'port-mappings' && <PortMappingsTab servers={servers} />}
+              {tab === 'exposures' && <ExposuresTab servers={servers} />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        <AnimatePresence>
+          {monitorPanelServerId && (
+            <ResourceMonitorPanel
+              key={monitorPanelServerId}
+              serverId={monitorPanelServerId}
+              onClose={() => setMonitorPanelServerId(null)}
+            />
+          )}
         </AnimatePresence>
       </div>
+
+      {showPreferences && (
+        <PreferencesPanel
+          title="SSH 偏好设置"
+          onClose={() => setShowPreferences(false)}
+          groups={[
+            {
+              id: 'general',
+              title: '通用',
+              items: [
+                {
+                  id: 'autoOpenMonitor',
+                  label: '连接后自动打开资源监控',
+                  type: 'switch',
+                  value: autoOpenMonitor,
+                  onChange: (v) => {
+                    const val = v as boolean
+                    setAutoOpenMonitor(val)
+                    storage.set('autoOpenMonitor', val)
+                  },
+                },
+              ],
+            },
+          ] satisfies PreferenceGroup[]}
+        />
+      )}
     </div>
   )
 }

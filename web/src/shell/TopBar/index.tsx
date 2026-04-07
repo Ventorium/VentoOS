@@ -322,24 +322,52 @@ function MenuBarRight() {
   return (
     <div className="flex items-center h-full">
       {/* App tray icons */}
-      {trays.map(({ appId, config }) => (
-        <button
-          key={appId}
-          type="button"
-          className="vos-topbar-btn"
-          title={config.tooltip ?? appId}
-          onClick={e => {
-            if (config.items && config.items.length > 0) {
-              const rect = e.currentTarget.getBoundingClientRect()
-              showCtxMenu(rect.left, rect.bottom + 2, toContextMenuItems(config.items))
-            } else {
-              config.onClick?.()
-            }
-          }}
-        >
-          {config.icon ?? <span style={{ fontSize: 13 }}>●</span>}
-        </button>
-      ))}
+      {trays
+        .filter(({ config }) => config.visible !== false)
+        .sort((a, b) => (b.config.priority ?? 0) - (a.config.priority ?? 0))
+        .map(({ appId, config }) => (
+          <button
+            key={appId}
+            type="button"
+            className="vos-topbar-btn"
+            title={config.tooltip ?? appId}
+            style={{ position: 'relative' }}
+            onClick={e => {
+              if (config.items && config.items.length > 0) {
+                const rect = e.currentTarget.getBoundingClientRect()
+                showCtxMenu(rect.left, rect.bottom + 2, toContextMenuItems(config.items))
+              } else {
+                config.onClick?.()
+              }
+            }}
+          >
+            {config.render ? config.render() : (
+              <>
+                {config.icon ?? <span style={{ fontSize: 13 }}>●</span>}
+                {config.badge && (
+                  <span
+                    className="vos-tray-badge"
+                    style={{
+                      position: 'absolute',
+                      top: 2,
+                      right: 2,
+                      fontSize: 9,
+                      lineHeight: 1,
+                      padding: '1px 3px',
+                      borderRadius: 6,
+                      backgroundColor: config.badgeColor ?? 'var(--vos-accent-primary)',
+                      color: '#fff',
+                      fontWeight: 600,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {config.badge}
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+        ))}
 
       {activeTaskCount > 0 && (
         <button type="button" className="vos-topbar-btn" onClick={toggleTaskPanel} title="任务中心">

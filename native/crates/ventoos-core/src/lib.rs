@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod error;
+pub mod monitor;
 pub mod notification;
 pub mod plugin;
 pub mod process;

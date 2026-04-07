@@ -39,4 +39,14 @@ export interface AppTrayConfig {
   tooltip?: string
   onClick?: () => void
   items?: AppMenuEntry[] // Context-menu items
+  /** Badge text displayed on the tray icon (e.g. "32%", "4") */
+  badge?: string
+  /** Badge color */
+  badgeColor?: string
+  /** Whether the tray is visible. Default true. */
+  visible?: boolean
+  /** Custom render for the entire tray button content */
+  render?: () => ReactNode
+  /** Priority for ordering. Higher = more left. Default 0 */
+  priority?: number
 }
