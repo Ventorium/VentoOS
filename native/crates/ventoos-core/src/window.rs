@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::Id;
-
 /// Window state in the `WebOS` shell.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -19,7 +17,7 @@ pub enum WindowStatus {
 /// Persisted window state for recovery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowState {
-    pub id: Id,
+    pub id: String,
     pub app_id: String,
     pub title: String,
     pub x: f64,
@@ -36,12 +34,11 @@ pub struct WindowState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::new_id;
 
     #[test]
     fn test_window_state_serialization() {
         let state = WindowState {
-            id: new_id(),
+            id: "win-1234567890-1".to_string(),
             app_id: "kubernetes".to_string(),
             title: "Kubernetes - production".to_string(),
             x: 100.0,
@@ -56,6 +53,7 @@ mod tests {
         };
         let json = serde_json::to_string(&state).unwrap();
         let deserialized: WindowState = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "win-1234567890-1");
         assert_eq!(deserialized.app_id, "kubernetes");
         assert_eq!(deserialized.status, WindowStatus::Active);
     }
