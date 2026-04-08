@@ -38,7 +38,7 @@ import {
 } from '@/components'
 import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
 import { getAllAppsForFile, getApp, getAppsForFile, getFileIconByName, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage, useFileDefaultsStore } from '@/kernel'
-import { apiClient } from '@/infra/api'
+import { request } from '@/infra/api'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -789,7 +789,7 @@ function WebDavServerPanel({
 
   const saveSettings = (next: WebDavServerSettings) => {
     setSettings(next)
-    apiClient
+    vfsApi
       .updateWebDavServerSettings(next)
       .then(r => {
         setSettings(r.data)
@@ -800,7 +800,7 @@ function WebDavServerPanel({
   }
 
   useEffect(() => {
-    apiClient
+    vfsApi
       .getWebDavServerSettings()
       .then(r => {
         setSettings(r.data)
@@ -1319,7 +1319,7 @@ function FileInfoPanel({
       return
     }
     let url: string | null = null
-    apiClient
+    vfsApi
       .readVfsFileRaw(mountId, node.path)
       .then(blob => {
         url = URL.createObjectURL(blob)
@@ -1531,7 +1531,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
     let revoke: string | null = null
 
     if (isImage || isPdf) {
-      apiClient
+      vfsApi
         .readVfsFileRaw(mountId, node.path)
         .then(blob => {
           const url = URL.createObjectURL(blob)
@@ -1541,7 +1541,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
         .catch(e => setError(e instanceof Error ? e.message : '加载失败'))
         .finally(() => setLoading(false))
     } else {
-      apiClient
+      vfsApi
         .readVfsFile(mountId, node.path, 4 * 1024 * 1024)
         .then(r => {
           setContent(r.data)
@@ -2419,7 +2419,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   const handleShowProperties = (entry: VfsNode) => {
     setSelectedNode(entry)
     if (!entry.is_dir && selectedMount) {
-      apiClient
+      vfsApi
         .readVfsFile(selectedMount, entry.path)
         .then(r => setPreview(r.data))
         .catch(console.error)
@@ -3263,7 +3263,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                       const parentDir = paths[0].substring(0, paths[0].lastIndexOf('/')) || '/'
                       const destPath = `${parentDir}/${compressState.archiveName}.${compressState.format}`
                       try {
-                        await apiClient.post(`/api/vfs/mounts/${encodeURIComponent(mId)}/archive/compress`, {
+                        await request('POST', `/api/vfs/mounts/${encodeURIComponent(mId)}/archive/compress`, {
                           paths,
                           dest_path: destPath,
                           format: compressState.format,
