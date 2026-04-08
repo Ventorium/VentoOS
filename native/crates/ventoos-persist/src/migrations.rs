@@ -20,6 +20,7 @@ pub fn run(conn: &Connection) -> Result<(), rusqlite::Error> {
     let migrations: Vec<(i64, &str)> = vec![
         (1, include_str!("../migrations/001_initial.sql")),
         (2, include_str!("../migrations/002_vfs_mounts.sql")),
+        (3, include_str!("../migrations/003_tokens.sql")),
     ];
 
     for (version, sql) in migrations {

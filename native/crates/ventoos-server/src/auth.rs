@@ -8,7 +8,6 @@ use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
-use tokio::sync::RwLock;
 use tracing::warn;
 
 use ventoos_core::auth::{AuthStatus, ChangePasswordRequest, LoginRequest, LoginResponse};
@@ -16,20 +15,10 @@ use ventoos_core::types::ApiResponse;
 use ventoos_persist::Database;
 
 /// Simple token-based auth manager (single user).
+/// Tokens are persisted in the database for survival across restarts.
 #[derive(Clone)]
 pub struct AuthManager {
-    inner: Arc<AuthInner>,
-}
-
-struct AuthInner {
     db: Arc<Database>,
-    /// Active tokens with expiry timestamps.
-    tokens: RwLock<Vec<TokenEntry>>,
-}
-
-struct TokenEntry {
-    token: String,
-    expires_at: u64,
 }
 
 /// Token validity duration in seconds (24 hours).
@@ -37,18 +26,12 @@ const TOKEN_TTL: u64 = 86400;
 
 impl AuthManager {
     pub fn new(db: Arc<Database>) -> Self {
-        Self {
-            inner: Arc::new(AuthInner {
-                db,
-                tokens: RwLock::new(Vec::new()),
-            }),
-        }
+        Self { db }
     }
 
     /// Check if a password has been set up yet.
     pub fn is_initialized(&self) -> bool {
-        self.inner
-            .db
+        self.db
             .with_conn(|conn| {
                 let mut stmt =
                     conn.prepare("SELECT value FROM settings WHERE key = 'password_hash'")?;
@@ -64,8 +47,7 @@ impl AuthManager {
             return Err("Password already set".to_string());
         }
         let hash = bcrypt::hash(password, 10).map_err(|e| e.to_string())?;
-        self.inner
-            .db
+        self.db
             .with_conn(|conn| {
                 conn.execute(
                     "INSERT OR REPLACE INTO settings (key, value) VALUES ('password_hash', ?1)",
@@ -79,7 +61,6 @@ impl AuthManager {
     /// Verify password and return a token.
     pub async fn login(&self, password: &str) -> Result<String, String> {
         let hash: String = self
-            .inner
             .db
             .with_conn(|conn| {
                 let mut stmt =
@@ -98,14 +79,20 @@ impl AuthManager {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
+        let expires_at = now + TOKEN_TTL;
 
-        let mut tokens = self.inner.tokens.write().await;
-        // Clean expired tokens
-        tokens.retain(|t| t.expires_at > now);
-        tokens.push(TokenEntry {
-            token: token.clone(),
-            expires_at: now + TOKEN_TTL,
-        });
+        // Clean expired tokens first
+        self.cleanup_expired_tokens();
+
+        // Store token in database
+        self.db
+            .with_conn(|conn| {
+                conn.execute(
+                    "INSERT INTO auth_tokens (token, expires_at, created_at) VALUES (?1, ?2, ?3)",
+                    rusqlite::params![&token, expires_at as i64, now as i64],
+                )
+            })
+            .map_err(|e| e.to_string())?;
 
         Ok(token)
     }
@@ -113,7 +100,6 @@ impl AuthManager {
     /// Change password.
     pub async fn change_password(&self, current: &str, new_password: &str) -> Result<(), String> {
         let hash: String = self
-            .inner
             .db
             .with_conn(|conn| {
                 let mut stmt =
@@ -128,8 +114,7 @@ impl AuthManager {
         }
 
         let new_hash = bcrypt::hash(new_password, 10).map_err(|e| e.to_string())?;
-        self.inner
-            .db
+        self.db
             .with_conn(|conn| {
                 conn.execute(
                     "UPDATE settings SET value = ?1 WHERE key = 'password_hash'",
@@ -140,8 +125,9 @@ impl AuthManager {
             .map_err(|e| e.to_string())?;
 
         // Invalidate all tokens
-        let mut tokens = self.inner.tokens.write().await;
-        tokens.clear();
+        self.db
+            .with_conn(|conn| conn.execute("DELETE FROM auth_tokens", []))
+            .map_err(|e| e.to_string())?;
 
         Ok(())
     }
@@ -152,16 +138,35 @@ impl AuthManager {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let tokens = self.inner.tokens.read().await;
-        tokens
-            .iter()
-            .any(|t| t.token == token && t.expires_at > now)
+
+        self.db
+            .with_conn(|conn| {
+                let count: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM auth_tokens WHERE token = ?1 AND expires_at > ?2",
+                    rusqlite::params![token, now as i64],
+                    |row| row.get(0),
+                )?;
+                Ok(count > 0)
+            })
+            .unwrap_or(false)
     }
 
     /// Logout — remove a token.
     pub async fn logout(&self, token: &str) {
-        let mut tokens = self.inner.tokens.write().await;
-        tokens.retain(|t| t.token != token);
+        let _ = self.db.with_conn(|conn| {
+            conn.execute("DELETE FROM auth_tokens WHERE token = ?1", [token])
+        });
+    }
+
+    /// Clean up expired tokens.
+    fn cleanup_expired_tokens(&self) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let _ = self.db.with_conn(|conn| {
+            conn.execute("DELETE FROM auth_tokens WHERE expires_at <= ?1", [now as i64])
+        });
     }
 
     /// Get auth status.
