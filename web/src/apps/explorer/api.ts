@@ -46,6 +46,21 @@ export interface VfsFileContent {
   truncated: boolean
 }
 
+export interface ArchiveEntry {
+  path: string
+  size: number
+  compressed_size?: number
+  is_dir: boolean
+  modified?: string
+  encrypted?: boolean
+}
+
+export interface ArchiveListResult {
+  entries: ArchiveEntry[]
+  password_required: boolean
+  error?: string
+}
+
 export interface VfsWriteReq {
   path: string
   content: string
@@ -125,6 +140,13 @@ export const vfsApi = {
     const params = new URLSearchParams({ path, query })
     if (maxResults) params.set('max_results', String(maxResults))
     return request<ApiResponse<VfsNode[]>>('GET', `/api/vfs/mounts/${mountId}/search?${params}`)
+  },
+
+  // Archive
+  listArchiveContents: (mountId: string, path: string, password?: string) => {
+    const params = new URLSearchParams({ path })
+    if (password) params.set('password', password)
+    return request<ApiResponse<ArchiveListResult>>('GET', `/api/vfs/mounts/${mountId}/archive/list?${params}`)
   },
 
   // WebDAV

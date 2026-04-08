@@ -931,6 +931,14 @@ function fmtSize(bytes?: number | null) {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
+/** Shell-escape a string so it can be safely pasted into a terminal.
+ *  Pure alphanumeric / `_.-` / `/` → as-is; otherwise wrap in single quotes,
+ *  escaping any embedded `'` with the POSIX `'\''` idiom. */
+function shellEscape(s: string): string {
+  if (/^[a-zA-Z0-9_.\-/]+$/.test(s)) return s
+  return "'" + s.replace(/'/g, "'\\''") + "'"
+}
+
 // ─── Source kind icon/label mapping ────────────────────────────────────────
 
 const kindMeta: Record<VfsSourceKind, { icon: typeof Monitor; label: string }> = {
@@ -1065,7 +1073,7 @@ function ColumnView({
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 flex overflow-x-auto overflow-y-hidden" style={{ scrollBehavior: 'smooth' }}>
+    <div ref={scrollRef} className="flex-1 flex overflow-x-auto overflow-y-hidden" style={{ scrollBehavior: 'smooth', minWidth: 0 }}>
       {columns.map((col, colIdx) => {
         const colSelected = multiSelect.get(colIdx)
         return (
@@ -1111,6 +1119,11 @@ function ColumnView({
               >
                 {col.entries.map(entry => {
                   const isPrimary = col.selected === entry.name
+                  const isLastCol = colIdx === columns.length - 1
+                  // Ancestor: selected in a non-last column (part of the navigation path)
+                  const isAncestorSel = isPrimary && !isLastCol
+                  // Current selection: selected in the last column
+                  const isCurrentSel = isPrimary && isLastCol
                   const isMulti = colSelected?.has(entry.name) ?? false
                   const isHighlighted = isPrimary || isMulti
                   const isDragTarget = entry.is_dir && dropTarget === entry.path
@@ -1131,12 +1144,14 @@ function ColumnView({
                       style={{
                         background: isDragTarget
                           ? 'var(--vos-accent-primary-hover, rgba(59,130,246,0.2))'
-                          : isPrimary
+                          : isCurrentSel
                             ? 'var(--vos-accent-primary)'
-                            : isMulti
-                              ? 'var(--vos-accent-primary-muted, rgba(59,130,246,0.25))'
-                              : 'transparent',
-                        color: isPrimary ? '#fff' : isMulti && colIdx === activeColumn ? '#fff' : 'var(--vos-text-primary)',
+                            : isAncestorSel
+                              ? 'rgba(59,130,246,0.12)'
+                              : isMulti
+                                ? 'var(--vos-accent-primary-muted, rgba(59,130,246,0.25))'
+                                : 'transparent',
+                        color: isCurrentSel ? '#fff' : isAncestorSel ? 'var(--vos-accent-primary)' : isMulti && colIdx === activeColumn ? '#fff' : 'var(--vos-text-primary)',
                         borderRadius: 3,
                         margin: '1px 4px',
                         outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
@@ -1148,7 +1163,7 @@ function ColumnView({
                       {entry.is_dir ? (
                         <Folder
                           size={13}
-                          style={{ color: isPrimary ? '#fff' : (isMulti && colIdx === activeColumn) ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
+                          style={{ color: isCurrentSel ? '#fff' : isAncestorSel ? 'var(--vos-accent-primary)' : (isMulti && colIdx === activeColumn) ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
                         />
                       ) : (
                         (() => {
@@ -1157,7 +1172,7 @@ function ColumnView({
                           return (
                             <IconComp
                               size={13}
-                              style={{ color: (isPrimary || (isMulti && colIdx === activeColumn)) ? '#fff' : iconInfo.color, flexShrink: 0 }}
+                              style={{ color: (isCurrentSel || (isMulti && colIdx === activeColumn)) ? '#fff' : isAncestorSel ? 'var(--vos-accent-primary)' : iconInfo.color, flexShrink: 0 }}
                             />
                           )
                         })()
@@ -1967,6 +1982,16 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     archiveName: string
   }>({ visible: false, items: [], format: 'zip', encrypt: false, password: '', confirmPassword: '', archiveName: '' })
 
+  // Extract password dialog
+  const [extractPasswordState, setExtractPasswordState] = useState<{
+    visible: boolean
+    mountId: string
+    archivePath: string
+    destDir: string
+    colIdx: number
+    password: string
+  }>({ visible: false, mountId: '', archivePath: '', destDir: '', colIdx: 0, password: '' })
+
   // Upload
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadTargetRef = useRef<string>('/')
@@ -2314,6 +2339,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     const entries = getSelectedEntries(activeColumn)
     if (entries.length === 0) return
     const names = entries.map(e => e.name).join(', ')
+    const colIdxAtDelete = activeColumn
     setConfirmState({
       visible: true,
       message: `确认删除 ${entries.length} 项？\n${names}`,
@@ -2323,8 +2349,23 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           for (const entry of entries) {
             await vfsApi.deleteVfs(selectedMount, entry.path)
           }
+          // Clear selectedNode/preview if the node is among deleted or inside deleted dir
+          if (selectedNode) {
+            const affected = entries.some(
+              e => selectedNode.path === e.path || selectedNode.path.startsWith(`${e.path}/`)
+            )
+            if (affected) {
+              setSelectedNode(null)
+              setPreview(null)
+            }
+          }
+          // Truncate child columns for deleted directories
+          const hasDeletedDir = entries.some(e => e.is_dir)
+          if (hasDeletedDir) {
+            setColumns(prev => prev.slice(0, colIdxAtDelete + 1))
+          }
           clearMultiSelect()
-          await refreshColumn(activeColumn)
+          await refreshColumn(colIdxAtDelete)
         } catch (e) {
           console.error('Delete failed:', e)
         }
@@ -2636,6 +2677,19 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               const baseName = entry.name.replace(/\.(zip|7z|tar\.gz|tgz|tar\.bz2|tbz2|tar\.xz|txz|tar\.zst|tzst|tar|gz|bz2|xz|zst|rar)$/i, '')
               const destPath = `${parentDir}/${baseName}`
               try {
+                // Check if archive is password-protected
+                const listResult = await vfsApi.listArchiveContents(selectedMount, entry.path)
+                if (listResult.data.password_required) {
+                  setExtractPasswordState({
+                    visible: true,
+                    mountId: selectedMount,
+                    archivePath: entry.path,
+                    destDir: destPath,
+                    colIdx,
+                    password: ''
+                  })
+                  return
+                }
                 await request('POST', `/api/vfs/mounts/${encodeURIComponent(selectedMount)}/archive/extract`, {
                   archive_path: entry.path,
                   dest_dir: destPath
@@ -2686,6 +2740,41 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             }
           ]
         : []),
+      {
+        id: 'copy-path',
+        label: '复制路径',
+        submenu: [
+          {
+            id: 'copy-relative-path',
+            label: '复制相对路径',
+            action: () => {
+              navigator.clipboard.writeText(shellEscape(entry.path))
+            }
+          },
+          ...(mounts.find(m => m.id === selectedMount)?.kind === 'local'
+            ? [{
+                id: 'copy-absolute-path',
+                label: '复制绝对路径',
+                action: () => {
+                  const mount = mounts.find(m => m.id === selectedMount)
+                  if (mount) {
+                    const absPath = mount.root.replace(/\/+$/, '') + entry.path
+                    navigator.clipboard.writeText(shellEscape(absPath))
+                  }
+                }
+              }]
+            : []),
+          {
+            id: 'copy-vfs-path',
+            label: '复制 VFS 路径',
+            action: () => {
+              const mount = mounts.find(m => m.id === selectedMount)
+              const vfsPath = mount ? `${mount.kind}:${mount.name}${entry.path}` : entry.path
+              navigator.clipboard.writeText(shellEscape(vfsPath))
+            }
+          }
+        ]
+      },
       { type: 'separator' as const },
       {
         id: 'rename',
@@ -3422,6 +3511,79 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               e.target.value = ''
             }}
           />
+
+          {/* Extract password dialog */}
+          {extractPasswordState.visible && (
+            <div
+              className="vos-modal-overlay"
+              onClick={() => setExtractPasswordState(s => ({ ...s, visible: false }))}
+            >
+              <div className="vos-modal-panel" style={{ width: 340 }} onClick={e => e.stopPropagation()}>
+                <div className="text-sm font-medium">解压需要密码</div>
+                <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  该压缩文件已加密，请输入密码后解压
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>解压密码</label>
+                  <input
+                    type="password"
+                    className="vos-input text-xs"
+                    placeholder="输入密码"
+                    autoFocus
+                    value={extractPasswordState.password}
+                    onChange={e => setExtractPasswordState(s => ({ ...s, password: e.target.value }))}
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && extractPasswordState.password) {
+                        const { mountId, archivePath, destDir, colIdx, password } = extractPasswordState
+                        setExtractPasswordState(s => ({ ...s, visible: false }))
+                        try {
+                          await request('POST', `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/extract`, {
+                            archive_path: archivePath,
+                            dest_dir: destDir,
+                            password
+                          })
+                          refreshColumn(colIdx)
+                        } catch (err) {
+                          console.error('Extract failed:', err)
+                        }
+                      }
+                      if (e.key === 'Escape') setExtractPasswordState(s => ({ ...s, visible: false }))
+                    }}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="vos-btn vos-btn-sm vos-btn-ghost"
+                    onClick={() => setExtractPasswordState(s => ({ ...s, visible: false }))}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="vos-btn vos-btn-sm vos-btn-primary"
+                    disabled={!extractPasswordState.password}
+                    onClick={async () => {
+                      const { mountId, archivePath, destDir, colIdx, password } = extractPasswordState
+                      setExtractPasswordState(s => ({ ...s, visible: false }))
+                      try {
+                        await request('POST', `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/extract`, {
+                          archive_path: archivePath,
+                          dest_dir: destDir,
+                          password
+                        })
+                        refreshColumn(colIdx)
+                      } catch (err) {
+                        console.error('Extract failed:', err)
+                      }
+                    }}
+                  >
+                    解压
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       }
     >
@@ -3472,7 +3634,11 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                         onClick={() => {
                           const colIdx = 0
                           if (columns.length > 1) {
-                            setColumns(prev => prev.slice(0, 1))
+                            setColumns(prev => {
+                              const newCols = prev.slice(0, 1)
+                              newCols[0] = { ...newCols[0], selected: undefined }
+                              return newCols
+                            })
                             setActiveColumn(0)
                             setPreview(null)
                             setSelectedNode(null)
@@ -3499,7 +3665,11 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                               onClick={() => {
                                 if (isLast) return
                                 if (targetColIdx < columns.length) {
-                                  setColumns(prev => prev.slice(0, targetColIdx + 1))
+                                  setColumns(prev => {
+                                    const sliced = prev.slice(0, targetColIdx + 1)
+                                    sliced[sliced.length - 1] = { ...sliced[sliced.length - 1], selected: undefined }
+                                    return sliced
+                                  })
                                   setActiveColumn(targetColIdx)
                                   setPreview(null)
                                   setSelectedNode(null)

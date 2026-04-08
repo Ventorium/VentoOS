@@ -338,6 +338,17 @@ fn list_zip(archive_path: &Path) -> Result<ArchiveListResult, String> {
     })
 }
 
+/// Extract the last component of a relative path for use as archive entry name.
+/// e.g. "a/b/c.txt" → "c.txt", "a/b/mydir" → "mydir"
+fn entry_name(rel_path: &str) -> Result<&str, String> {
+    let clean = rel_path.trim_start_matches('/');
+    Path::new(clean)
+        .file_name()
+        .ok_or_else(|| format!("Invalid path (no file name): {rel_path}"))?
+        .to_str()
+        .ok_or_else(|| format!("Invalid path (non-UTF8): {rel_path}"))
+}
+
 /// Create a tar.gz archive from local files.
 pub fn create_tar_gz(root: &Path, paths: &[String], dest: &Path) -> Result<(), String> {
     let file = std::fs::File::create(dest).map_err(|e| format!("Failed to create archive: {e}"))?;
@@ -350,15 +361,16 @@ pub fn create_tar_gz(root: &Path, paths: &[String], dest: &Path) -> Result<(), S
         if !full.exists() {
             return Err(format!("Path not found: {rel_path}"));
         }
+        let name = entry_name(clean)?;
         if full.is_dir() {
             builder
-                .append_dir_all(clean, &full)
+                .append_dir_all(name, &full)
                 .map_err(|e| format!("Failed to add directory: {e}"))?;
         } else {
             let mut f =
                 std::fs::File::open(&full).map_err(|e| format!("Failed to open file: {e}"))?;
             builder
-                .append_file(clean, &mut f)
+                .append_file(name, &mut f)
                 .map_err(|e| format!("Failed to add file: {e}"))?;
         }
     }
@@ -408,11 +420,12 @@ pub fn create_zip(
         if !full.exists() {
             return Err(format!("Path not found: {rel_path}"));
         }
+        let name = entry_name(clean)?;
         if full.is_dir() {
-            add_dir_to_zip(&mut zip, root, &full, password)?;
+            add_dir_to_zip(&mut zip, name, &full, password)?;
         } else {
             let options = make_zip_options(password);
-            zip.start_file(clean, options)
+            zip.start_file(name, options)
                 .map_err(|e| format!("Zip error: {e}"))?;
             let mut f =
                 std::fs::File::open(&full).map_err(|e| format!("Failed to open file: {e}"))?;
@@ -458,7 +471,8 @@ pub fn create_sevenz(
         if !full.exists() {
             return Err(format!("Path not found: {rel_path}"));
         }
-        add_sevenz_path(&mut writer, &full, clean)?;
+        let name = entry_name(clean)?;
+        add_sevenz_path(&mut writer, &full, name)?;
     }
 
     let _ = writer
@@ -531,33 +545,25 @@ fn make_zip_options(password: Option<&str>) -> zip::write::FileOptions<'_, ()> {
 
 fn add_dir_to_zip(
     zip: &mut zip::ZipWriter<std::fs::File>,
-    root: &Path,
+    archive_prefix: &str,
     dir: &Path,
     password: Option<&str>,
 ) -> Result<(), String> {
-    let rel = dir
-        .strip_prefix(root)
-        .map_err(|_| "Path error".to_string())?
-        .to_string_lossy();
-
     // Add directory entry
     let options = make_zip_options(password);
-    zip.add_directory(format!("{rel}/"), options)
+    zip.add_directory(format!("{archive_prefix}/"), options)
         .map_err(|e| format!("Zip dir error: {e}"))?;
 
     for entry in std::fs::read_dir(dir).map_err(|e| format!("Read dir error: {e}"))? {
         let entry = entry.map_err(|e| format!("Dir entry error: {e}"))?;
+        let child_name = entry.file_name().to_string_lossy().to_string();
         let path = entry.path();
+        let child_archive = format!("{archive_prefix}/{child_name}");
         if path.is_dir() {
-            add_dir_to_zip(zip, root, &path, password)?;
+            add_dir_to_zip(zip, &child_archive, &path, password)?;
         } else {
-            let file_rel = path
-                .strip_prefix(root)
-                .map_err(|_| "Path error".to_string())?
-                .to_string_lossy()
-                .to_string();
             let opts = make_zip_options(password);
-            zip.start_file(&file_rel, opts)
+            zip.start_file(&child_archive, opts)
                 .map_err(|e| format!("Zip error: {e}"))?;
             let mut f = std::fs::File::open(&path).map_err(|e| format!("Open error: {e}"))?;
             let mut buf = Vec::new();
@@ -634,7 +640,7 @@ pub fn extract_zip(
 pub fn extract_rar(
     archive_path: &Path,
     dest_dir: &Path,
-    _password: Option<&str>,
+    password: Option<&str>,
 ) -> Result<(), String> {
     use std::process::Command;
 
@@ -643,9 +649,14 @@ pub fn extract_rar(
     let dest_str = dest_dir.to_string_lossy();
 
     // Try `unrar x` first
-    let out = Command::new("unrar")
-        .args(["x", "-o+", path_str.as_ref(), dest_str.as_ref()])
-        .output();
+    let mut args = vec!["x".to_string(), "-o+".to_string()];
+    if let Some(pwd) = password {
+        args.push(format!("-p{}", pwd));
+    }
+    args.push(path_str.to_string());
+    args.push(dest_str.to_string());
+
+    let out = Command::new("unrar").args(&args).output();
 
     if let Ok(o) = out {
         if o.status.success() {
@@ -658,14 +669,11 @@ pub fn extract_rar(
     }
 
     // Fallback: try `7z x`
-    let out7z = Command::new("7z")
-        .args([
-            "x",
-            path_str.as_ref(),
-            &format!("-o{}", dest_str),
-            "-y",
-        ])
-        .output();
+    let mut args7z = vec!["x".to_string(), path_str.to_string(), format!("-o{}", dest_str), "-y".to_string()];
+    if let Some(pwd) = password {
+        args7z.push(format!("-p{}", pwd));
+    }
+    let out7z = Command::new("7z").args(&args7z).output();
 
     if let Ok(o) = out7z {
         if o.status.success() {
@@ -676,6 +684,41 @@ pub fn extract_rar(
     }
 
     Err("RAR extraction requires `unrar` or `7z` (p7zip) installed on the system. Install with: brew install unrar  or  brew install p7zip".to_string())
+}
+
+/// Create a RAR archive using the system `rar` tool.
+pub fn create_rar(
+    root: &Path,
+    paths: &[String],
+    dest: &Path,
+    password: Option<&str>,
+) -> Result<(), String> {
+    use std::process::Command;
+
+    let dest_str = dest.to_string_lossy();
+    let mut args = vec!["a".to_string(), dest_str.to_string()];
+    if let Some(pwd) = password {
+        args.push(format!("-hp{}", pwd));
+    }
+    for path in paths {
+        let abs = root.join(path);
+        args.push(abs.to_string_lossy().to_string());
+    }
+
+    let out = Command::new("rar").args(&args).output();
+    match out {
+        Ok(o) if o.status.success() => Ok(()),
+        Ok(o) => {
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let msg = if !stderr.is_empty() { stderr.to_string() } else { stdout.to_string() };
+            Err(format!("rar compression error: {msg}"))
+        }
+        Err(e) => Err(format!(
+            "Failed to run `rar`: {}. Install with: brew install rar  or  apt install rar",
+            e
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -811,6 +854,100 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(extract_dir.join("subdir/deeper/final.txt")).unwrap(),
             "Final 7z"
+        );
+    }
+
+    /// Test that deep paths are stored using only the last component name,
+    /// not the full relative path. This prevents the "double path" bug
+    /// where /a/b/c.txt gets extracted as /a/b/a/b/c.txt.
+    #[test]
+    fn test_deep_path_uses_filename_only() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+
+        // Create nested structure: a/b/deep.txt and a/b/mydir/inner.txt
+        std::fs::create_dir_all(root.join("a/b/mydir")).unwrap();
+        std::fs::write(root.join("a/b/deep.txt"), "Deep content").unwrap();
+        std::fs::write(root.join("a/b/mydir/inner.txt"), "Inner content").unwrap();
+
+        // Compress using the deep path as input
+        let archive_path = root.join("test.zip");
+        create_zip(
+            root,
+            &["a/b/deep.txt".into(), "a/b/mydir".into()],
+            &archive_path,
+            None,
+        )
+        .unwrap();
+
+        // List entries and verify paths
+        let listed = list_archive(&archive_path, None).unwrap();
+        let paths: Vec<&str> = listed.entries.iter().map(|e| e.path.as_str()).collect();
+        // File should be stored as "deep.txt", NOT "a/b/deep.txt"
+        assert!(
+            paths.iter().any(|p| *p == "deep.txt"),
+            "Expected 'deep.txt' in archive, got: {paths:?}"
+        );
+        assert!(
+            !paths.iter().any(|p| p.contains("a/b/deep.txt")),
+            "Should NOT contain full path 'a/b/deep.txt', got: {paths:?}"
+        );
+        // Directory entries should start with "mydir/", NOT "a/b/mydir/"
+        assert!(
+            paths.iter().any(|p| *p == "mydir/"),
+            "Expected 'mydir/' in archive, got: {paths:?}"
+        );
+        assert!(
+            paths.iter().any(|p| *p == "mydir/inner.txt"),
+            "Expected 'mydir/inner.txt' in archive, got: {paths:?}"
+        );
+
+        // Extract to a new dir and verify no path duplication
+        let extract_dir = root.join("extracted");
+        extract_zip(&archive_path, &extract_dir, None).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(extract_dir.join("deep.txt")).unwrap(),
+            "Deep content"
+        );
+        assert_eq!(
+            std::fs::read_to_string(extract_dir.join("mydir/inner.txt")).unwrap(),
+            "Inner content"
+        );
+    }
+
+    /// Same deep-path test for tar.gz format.
+    #[test]
+    fn test_deep_path_tar_gz_filename_only() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+
+        std::fs::create_dir_all(root.join("x/y/z")).unwrap();
+        std::fs::write(root.join("x/y/z/data.bin"), "Binary data").unwrap();
+
+        let archive_path = root.join("out.tar.gz");
+        create_tar_gz(
+            root,
+            &["x/y/z/data.bin".into()],
+            &archive_path,
+        )
+        .unwrap();
+
+        // Verify archive entry is "data.bin", not "x/y/z/data.bin"
+        let file = std::fs::File::open(&archive_path).unwrap();
+        let dec = flate2::read::GzDecoder::new(file);
+        let mut archive = tar::Archive::new(dec);
+        let entries: Vec<String> = archive
+            .entries()
+            .unwrap()
+            .map(|e| e.unwrap().path().unwrap().to_string_lossy().to_string())
+            .collect();
+        assert!(
+            entries.iter().any(|p| p == "data.bin"),
+            "Expected 'data.bin' in tar.gz, got: {entries:?}"
+        );
+        assert!(
+            !entries.iter().any(|p| p.contains("x/y/z")),
+            "Should NOT contain full path, got: {entries:?}"
         );
     }
 }

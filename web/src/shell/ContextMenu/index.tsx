@@ -80,7 +80,7 @@ function MenuItemRow({ item, close, compact }: { item: MenuItem; close: () => vo
         className={`vos-ctx-item${item.danger ? ' danger' : ''}`}
         style={{
           color: item.danger
-            ? 'var(--vos-accent-danger)'
+            ? undefined
             : item.disabled
               ? 'var(--vos-text-tertiary)'
               : 'var(--vos-text-primary)',
