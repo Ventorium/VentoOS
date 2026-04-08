@@ -12,10 +12,10 @@
  * This MVP provides direct rendering for common formats.
  */
 
-import { Download, FileText, Loader2, Save } from 'lucide-react'
+import { Download, FileText, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
-import { apiClient } from '@/infra/api'
+import { getAuthHeaders } from '@/infra/api'
 
 type ViewMode = 'loading' | 'docx' | 'xlsx' | 'csv' | 'unsupported' | 'error'
 
@@ -41,8 +41,8 @@ export default function OfficeEditor({ initialAppState }: AppComponentProps) {
   }
 
   const fetchFileBlob = useCallback(async (): Promise<Blob> => {
-    const url = `${apiClient.defaults.baseURL ?? ''}/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node!.path)}`
-    const resp = await fetch(url, { credentials: 'include' })
+    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node!.path)}`
+    const resp = await fetch(url, { headers: getAuthHeaders() })
     if (!resp.ok) throw new Error(`Failed to fetch: ${resp.statusText}`)
     return resp.blob()
   }, [mountId, node])

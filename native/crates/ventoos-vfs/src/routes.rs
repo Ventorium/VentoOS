@@ -61,9 +61,18 @@ impl AppPlugin for VfsPlugin {
             // Archive / extract / list
             .route("/api/vfs/mounts/{id}/archive", post(archive_handler))
             .route("/api/vfs/mounts/{id}/extract", post(extract_handler))
-            .route("/api/vfs/mounts/{id}/archive/list", get(archive_list_handler))
-            .route("/api/vfs/mounts/{id}/archive/extract", post(archive_extract_handler))
-            .route("/api/vfs/mounts/{id}/archive/compress", post(archive_compress_handler))
+            .route(
+                "/api/vfs/mounts/{id}/archive/list",
+                get(archive_list_handler),
+            )
+            .route(
+                "/api/vfs/mounts/{id}/archive/extract",
+                post(archive_extract_handler),
+            )
+            .route(
+                "/api/vfs/mounts/{id}/archive/compress",
+                post(archive_compress_handler),
+            )
             // Permissions
             .route("/api/vfs/mounts/{id}/chmod", put(chmod_handler))
             // Watch (WebSocket)
@@ -504,7 +513,13 @@ async fn archive_compress_handler(
         "zip" => crate::archive::ArchiveFormat::Zip,
         "tar.gz" => crate::archive::ArchiveFormat::TarGz,
         "7z" => crate::archive::ArchiveFormat::SevenZ,
-        _ => return (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err("Unsupported format"))).into_response(),
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<()>::err("Unsupported format")),
+            )
+                .into_response();
+        }
     };
     let req = ArchiveRequest {
         paths: body.paths,

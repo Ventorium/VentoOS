@@ -887,9 +887,12 @@ impl VfsManager {
                         crate::archive::ArchiveFormat::TarGz => {
                             crate::archive::create_tar_gz(root_path, &paths, &dest)
                         }
-                        crate::archive::ArchiveFormat::Zip => {
-                            crate::archive::create_zip(root_path, &paths, &dest, password.as_deref())
-                        }
+                        crate::archive::ArchiveFormat::Zip => crate::archive::create_zip(
+                            root_path,
+                            &paths,
+                            &dest,
+                            password.as_deref(),
+                        ),
                         crate::archive::ArchiveFormat::SevenZ => {
                             Err("7z creation not yet supported".to_string())
                         }

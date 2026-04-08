@@ -95,7 +95,10 @@ pub struct ArchiveListRequest {
 }
 
 /// List contents of an archive file.
-pub fn list_archive(archive_path: &Path, _password: Option<&str>) -> Result<ArchiveListResult, String> {
+pub fn list_archive(
+    archive_path: &Path,
+    _password: Option<&str>,
+) -> Result<ArchiveListResult, String> {
     let path_str = archive_path.to_string_lossy();
 
     if let Some(ArchiveFormat::TarGz) = ArchiveFormat::from_path(&path_str) {
@@ -115,9 +118,16 @@ fn list_tar_gz(archive_path: &Path) -> Result<ArchiveListResult, String> {
     let mut archive = tar::Archive::new(dec);
 
     let mut entries = Vec::new();
-    for entry in archive.entries().map_err(|e| format!("Failed to read entries: {e}"))? {
+    for entry in archive
+        .entries()
+        .map_err(|e| format!("Failed to read entries: {e}"))?
+    {
         let entry = entry.map_err(|e| format!("Entry error: {e}"))?;
-        let path = entry.path().map_err(|e| format!("Path error: {e}"))?.to_string_lossy().to_string();
+        let path = entry
+            .path()
+            .map_err(|e| format!("Path error: {e}"))?
+            .to_string_lossy()
+            .to_string();
         let is_dir = entry.header().entry_type().is_dir();
         let size = entry.header().size().unwrap_or(0);
         let modified = entry.header().mtime().ok().map(|t| {
@@ -149,7 +159,9 @@ fn list_zip(archive_path: &Path) -> Result<ArchiveListResult, String> {
 
     let mut entries = Vec::new();
     for i in 0..archive.len() {
-        let entry = archive.by_index_raw(i).map_err(|e| format!("Entry error: {e}"))?;
+        let entry = archive
+            .by_index_raw(i)
+            .map_err(|e| format!("Entry error: {e}"))?;
         let path = entry.name().to_string();
         let is_dir = entry.is_dir();
         let size = entry.size();
@@ -228,7 +240,12 @@ pub fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> Result<(), String
 }
 
 /// Create a zip archive from local files, optionally with password encryption.
-pub fn create_zip(root: &Path, paths: &[String], dest: &Path, password: Option<&str>) -> Result<(), String> {
+pub fn create_zip(
+    root: &Path,
+    paths: &[String],
+    dest: &Path,
+    password: Option<&str>,
+) -> Result<(), String> {
     let file = std::fs::File::create(dest).map_err(|e| format!("Failed to create archive: {e}"))?;
     let mut zip = zip::ZipWriter::new(file);
 
@@ -312,7 +329,11 @@ fn add_dir_to_zip(
 }
 
 /// Extract a zip archive to a local directory, with optional password.
-pub fn extract_zip(archive_path: &Path, dest_dir: &Path, password: Option<&str>) -> Result<(), String> {
+pub fn extract_zip(
+    archive_path: &Path,
+    dest_dir: &Path,
+    password: Option<&str>,
+) -> Result<(), String> {
     let file =
         std::fs::File::open(archive_path).map_err(|e| format!("Failed to open archive: {e}"))?;
     let mut archive =
@@ -328,10 +349,13 @@ pub fn extract_zip(archive_path: &Path, dest_dir: &Path, password: Option<&str>)
 
     for i in 0..archive.len() {
         let mut entry = if let Some(pwd) = password {
-            archive.by_index_decrypt(i, pwd.as_bytes())
+            archive
+                .by_index_decrypt(i, pwd.as_bytes())
                 .map_err(|e| format!("Zip entry error (wrong password?): {e}"))?
         } else {
-            archive.by_index(i).map_err(|e| format!("Zip entry error: {e}"))?
+            archive
+                .by_index(i)
+                .map_err(|e| format!("Zip entry error: {e}"))?
         };
 
         let Some(name) = entry.enclosed_name() else {
@@ -425,7 +449,13 @@ mod tests {
 
         // Create archive
         let archive_path = root.join("test.zip");
-        create_zip(root, &["hello.txt".into(), "subdir".into()], &archive_path, None).unwrap();
+        create_zip(
+            root,
+            &["hello.txt".into(), "subdir".into()],
+            &archive_path,
+            None,
+        )
+        .unwrap();
         assert!(archive_path.exists());
 
         // Extract archive
