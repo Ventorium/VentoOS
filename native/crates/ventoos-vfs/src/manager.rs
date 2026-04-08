@@ -858,7 +858,9 @@ impl VfsManager {
         }
     }
 
-    /// Create an archive from files within a mount (local only).
+    /// Create an archive from files within a mount.
+    /// For local mounts, operates directly on the filesystem.
+    /// For remote mounts, downloads files to a temp dir, creates archive, then uploads.
     pub async fn create_archive(
         &self,
         mount_id: &str,
@@ -901,14 +903,122 @@ impl VfsManager {
                 .await
                 .map_err(|e| format!("Archive task failed: {e}"))?
             }
-            _ => Err(format!(
-                "Archive creation not supported for {:?} provider",
-                mount.kind
-            )),
+            _ => {
+                // Remote mount: download files → create archive locally → upload result
+                self.create_archive_remote(mount_id, &mount, req).await
+            }
         }
     }
 
-    /// Extract an archive within a mount (local only).
+    /// Create archive for remote mounts by downloading to temp, archiving, and uploading.
+    async fn create_archive_remote(
+        &self,
+        mount_id: &str,
+        mount: &VfsMount,
+        req: &crate::archive::ArchiveRequest,
+    ) -> Result<(), String> {
+        let temp_dir = tempfile::TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
+        let temp_root = temp_dir.path().to_path_buf();
+
+        // Download all source files/dirs to temp
+        for rel_path in &req.paths {
+            self.download_recursive(mount_id, mount, rel_path, &temp_root)
+                .await?;
+        }
+
+        // Create archive in temp
+        let archive_name = std::path::Path::new(&req.dest)
+            .file_name()
+            .ok_or("Invalid archive destination")?
+            .to_string_lossy()
+            .to_string();
+        let temp_archive = temp_root.join(&archive_name);
+        let paths = req.paths.clone();
+        let format = req.format;
+        let password = req.password.clone();
+        let temp_root_clone = temp_root.clone();
+        let temp_archive_clone = temp_archive.clone();
+        tokio::task::spawn_blocking(move || match format {
+            crate::archive::ArchiveFormat::TarGz => {
+                crate::archive::create_tar_gz(&temp_root_clone, &paths, &temp_archive_clone)
+            }
+            crate::archive::ArchiveFormat::Zip => {
+                crate::archive::create_zip(&temp_root_clone, &paths, &temp_archive_clone, password.as_deref())
+            }
+            crate::archive::ArchiveFormat::SevenZ => {
+                Err("7z creation not yet supported".to_string())
+            }
+        })
+        .await
+        .map_err(|e| format!("Archive task failed: {e}"))??;
+
+        // Upload the archive to remote mount
+        let archive_data = tokio::fs::read(&temp_archive)
+            .await
+            .map_err(|e| format!("Failed to read temp archive: {e}"))?;
+        self.upload_file(mount_id, &req.dest, archive_data).await?;
+
+        // Temp dir is automatically cleaned up when dropped
+        Ok(())
+    }
+
+    /// Recursively download a file or directory from a remote mount to a local temp path.
+    async fn download_recursive(
+        &self,
+        mount_id: &str,
+        mount: &VfsMount,
+        rel_path: &str,
+        temp_root: &std::path::Path,
+    ) -> Result<(), String> {
+        // List the path to determine if it's a file or directory
+        // Try listing the path as directory first
+        let list_req = VfsListReq {
+            mount_id: mount_id.to_string(),
+            path: format!("/{}", rel_path.trim_start_matches('/')),
+            show_hidden: true,
+        };
+        let children = self.list_dir(&list_req).await;
+
+        match children {
+            Ok(nodes) if !nodes.is_empty() => {
+                // It's a directory — recurse into children
+                let dir_local = temp_root.join(rel_path.trim_start_matches('/'));
+                tokio::fs::create_dir_all(&dir_local)
+                    .await
+                    .map_err(|e| format!("Failed to create temp dir: {e}"))?;
+
+                for node in nodes {
+                    let child_path = format!(
+                        "{}/{}",
+                        rel_path.trim_end_matches('/'),
+                        node.name
+                    );
+                    // Box::pin the future to allow recursion in async
+                    Box::pin(self.download_recursive(mount_id, mount, &child_path, temp_root))
+                        .await?;
+                }
+                Ok(())
+            }
+            _ => {
+                // It's a file (or listing failed) — download it
+                let data = self.read_file_raw(mount_id, &format!("/{}", rel_path.trim_start_matches('/'))).await?;
+                let local_path = temp_root.join(rel_path.trim_start_matches('/'));
+                if let Some(parent) = local_path.parent() {
+                    tokio::fs::create_dir_all(parent)
+                        .await
+                        .map_err(|e| format!("Failed to create parent dir: {e}"))?;
+                }
+                tokio::fs::write(&local_path, &data)
+                    .await
+                    .map_err(|e| format!("Failed to write temp file: {e}"))?;
+                Ok(())
+            }
+        }
+    }
+
+    /// Extract an archive within a mount.
+    /// For local mounts, operates directly on the filesystem.
+    /// For remote mounts, downloads archive to temp, extracts, then uploads files.
     pub async fn extract_archive(
         &self,
         mount_id: &str,
@@ -944,14 +1054,98 @@ impl VfsManager {
                 .await
                 .map_err(|e| format!("Extract task failed: {e}"))?
             }
-            _ => Err(format!(
-                "Archive extraction not supported for {:?} provider",
-                mount.kind
-            )),
+            _ => {
+                // Remote mount: download archive → extract locally → upload files
+                self.extract_archive_remote(mount_id, &mount, req).await
+            }
         }
     }
 
+    /// Extract archive for remote mounts by downloading, extracting locally, and uploading.
+    async fn extract_archive_remote(
+        &self,
+        mount_id: &str,
+        _mount: &VfsMount,
+        req: &crate::archive::ExtractRequest,
+    ) -> Result<(), String> {
+        let temp_dir = tempfile::TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
+        let temp_root = temp_dir.path().to_path_buf();
+
+        // Download the archive file
+        let archive_data = self.read_file_raw(mount_id, &req.archive_path).await?;
+        let temp_archive = temp_root.join("archive_file");
+        tokio::fs::write(&temp_archive, &archive_data)
+            .await
+            .map_err(|e: std::io::Error| format!("Failed to write temp archive: {e}"))?;
+
+        // Extract locally
+        let temp_extract = temp_root.join("extracted");
+        tokio::fs::create_dir_all(&temp_extract)
+            .await
+            .map_err(|e: std::io::Error| format!("Failed to create extract dir: {e}"))?;
+
+        let format = crate::archive::ArchiveFormat::from_path(&req.archive_path)
+            .ok_or("Unknown archive format")?;
+        let password = req.password.clone();
+        let temp_archive_clone = temp_archive.clone();
+        let temp_extract_clone = temp_extract.clone();
+        tokio::task::spawn_blocking(move || match format {
+            crate::archive::ArchiveFormat::TarGz => {
+                crate::archive::extract_tar_gz(&temp_archive_clone, &temp_extract_clone)
+            }
+            crate::archive::ArchiveFormat::Zip => {
+                crate::archive::extract_zip(&temp_archive_clone, &temp_extract_clone, password.as_deref())
+            }
+            crate::archive::ArchiveFormat::SevenZ => {
+                Err("7z extraction not yet supported".to_string())
+            }
+        })
+        .await
+        .map_err(|e| format!("Extract task failed: {e}"))??;
+
+        // Upload all extracted files to the remote mount
+        self.upload_dir_recursive(mount_id, &temp_extract, &req.dest_dir)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Recursively upload a local directory to a remote mount.
+    async fn upload_dir_recursive(
+        &self,
+        mount_id: &str,
+        local_dir: &std::path::Path,
+        remote_base: &str,
+    ) -> Result<(), String> {
+        let mut entries = tokio::fs::read_dir(local_dir)
+            .await
+            .map_err(|e| format!("Failed to read dir: {e}"))?;
+
+        while let Some(entry) = entries.next_entry().await.map_err(|e| format!("Read dir error: {e}"))? {
+            let file_type = entry.file_type().await.map_err(|e| format!("File type error: {e}"))?;
+            let name = entry.file_name().to_string_lossy().to_string();
+            let remote_path = format!("{}/{}", remote_base.trim_end_matches('/'), name);
+
+            if file_type.is_dir() {
+                // Create remote directory
+                let mkdir_req = VfsMkdirReq {
+                    mount_id: mount_id.to_string(),
+                    path: remote_path.clone(),
+                };
+                let _ = self.mkdir(&mkdir_req).await; // Ignore "already exists"
+                Box::pin(self.upload_dir_recursive(mount_id, &entry.path(), &remote_path)).await?;
+            } else {
+                let data = tokio::fs::read(entry.path())
+                    .await
+                    .map_err(|e| format!("Failed to read file: {e}"))?;
+                self.upload_file(mount_id, &remote_path, data).await?;
+            }
+        }
+        Ok(())
+    }
+
     /// List contents of an archive file within a mount.
+    /// For remote mounts, downloads the archive to a temp file first.
     pub async fn list_archive_contents(
         &self,
         mount_id: &str,
@@ -966,20 +1160,33 @@ impl VfsManager {
             .cloned()
             .ok_or("Mount not found")?;
 
-        match mount.kind {
-            VfsSourceKind::Local => {
-                let root = std::path::Path::new(&mount.root);
-                let archive_path = Self::resolve_local_path(root, path)?;
-                tokio::task::spawn_blocking(move || {
-                    crate::archive::list_archive(&archive_path, password.as_deref())
-                })
+        if mount.kind == VfsSourceKind::Local {
+            let root = std::path::Path::new(&mount.root);
+            let archive_path = Self::resolve_local_path(root, path)?;
+            tokio::task::spawn_blocking(move || {
+                crate::archive::list_archive(&archive_path, password.as_deref())
+            })
+            .await
+            .map_err(|e| format!("List archive task failed: {e}"))?
+        } else {
+            // Remote mount: download archive to temp, then list
+            let data = self.read_file_raw(mount_id, path).await?;
+            let temp_dir = tempfile::TempDir::new()
+                .map_err(|e| format!("Failed to create temp dir: {e}"))?;
+            let temp_file = temp_dir.path().join(
+                std::path::Path::new(path)
+                    .file_name()
+                    .unwrap_or_default(),
+            );
+            tokio::fs::write(&temp_file, &data)
                 .await
-                .map_err(|e| format!("List archive task failed: {e}"))?
-            }
-            _ => Err(format!(
-                "Archive listing not supported for {:?} provider",
-                mount.kind
-            )),
+                .map_err(|e: std::io::Error| format!("Failed to write temp file: {e}"))?;
+
+            tokio::task::spawn_blocking(move || {
+                crate::archive::list_archive(&temp_file, password.as_deref())
+            })
+            .await
+            .map_err(|e| format!("List archive task failed: {e}"))?
         }
     }
 

@@ -37,7 +37,7 @@ import {
   Spinner
 } from '@/components'
 import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
-import { getAllAppsForFile, getApp, getAppsForFile, getFileIconByName, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage, useFileDefaultsStore } from '@/kernel'
+import { getAlwaysOpenWithApps, getAllAppsForFile, getApp, getAppsForFile, getFileIconByName, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage, useFileDefaultsStore } from '@/kernel'
 import { request } from '@/infra/api'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
@@ -994,11 +994,11 @@ function ColumnView({
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    // Defer to next frame so the new column is laid out before measuring scrollWidth
-    const raf = requestAnimationFrame(() => {
-      el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' })
-    })
-    return () => cancelAnimationFrame(raf)
+    // Defer to allow layout to settle (including preview panel transitions)
+    const timer = setTimeout(() => {
+      el.scrollTo({ left: el.scrollWidth, behavior: 'instant' })
+    }, 50)
+    return () => clearTimeout(timer)
   }, [columns.length])
 
   // Scroll active column to keep selected item visible
@@ -1007,7 +1007,7 @@ function ColumnView({
     if (!colEl) return
     const selected = colEl.querySelector('[aria-selected="true"]')
     if (selected) {
-      selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      selected.scrollIntoView({ block: 'nearest', behavior: 'instant' })
     }
   }, [activeColumn, scrollTrigger, columns])
 
@@ -1129,9 +1129,11 @@ function ColumnView({
                         background: isDragTarget
                           ? 'var(--vos-accent-primary-hover, rgba(59,130,246,0.2))'
                           : isHighlighted
-                            ? 'var(--vos-accent-primary)'
+                            ? colIdx === activeColumn
+                              ? 'var(--vos-accent-primary)'
+                              : 'var(--vos-accent-primary-muted, rgba(59,130,246,0.25))'
                             : 'transparent',
-                        color: isHighlighted ? '#fff' : 'var(--vos-text-primary)',
+                        color: isHighlighted && colIdx === activeColumn ? '#fff' : isHighlighted ? 'var(--vos-accent-primary)' : 'var(--vos-text-primary)',
                         borderRadius: 3,
                         margin: '1px 4px',
                         outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
@@ -1143,7 +1145,7 @@ function ColumnView({
                       {entry.is_dir ? (
                         <Folder
                           size={13}
-                          style={{ color: isHighlighted ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
+                          style={{ color: isHighlighted && colIdx === activeColumn ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
                         />
                       ) : (
                         (() => {
@@ -1152,7 +1154,7 @@ function ColumnView({
                           return (
                             <IconComp
                               size={13}
-                              style={{ color: isHighlighted ? '#fff' : iconInfo.color, flexShrink: 0 }}
+                              style={{ color: isHighlighted && colIdx === activeColumn ? '#fff' : iconInfo.color, flexShrink: 0 }}
                             />
                           )
                         })()
@@ -1312,7 +1314,10 @@ function FileInfoPanel({
   const [imgSrc, setImgSrc] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!node || node.is_dir) return
+    if (!node || node.is_dir) {
+      setImgSrc(null)
+      return
+    }
     const ext = getFileExt(node.name)
     if (!IMAGE_EXTS.has(ext)) {
       setImgSrc(null)
@@ -1331,11 +1336,11 @@ function FileInfoPanel({
     }
   }, [mountId, node])
 
-  if (!node || node.is_dir) return null
+  if (!node) return null
 
-  const ext = getFileExt(node.name)
-  const isImage = IMAGE_EXTS.has(ext)
-  const isCode = CODE_EXTS.has(ext) || ext === 'json'
+  const ext = node.is_dir ? '' : getFileExt(node.name)
+  const isImage = !node.is_dir && IMAGE_EXTS.has(ext)
+  const isCode = !node.is_dir && (CODE_EXTS.has(ext) || ext === 'json')
   const displayContent =
     preview && !node.is_dir && !preview.is_binary
       ? ext === 'json'
@@ -2478,7 +2483,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     showContextMenu(e.clientX, e.clientY, [
       {
         id: 'open',
-        label: entry.is_dir ? '打开' : '预览',
+        label: '打开',
         action: () => handleNavigate(colIdx, entry)
       },
       ...(entry.is_dir
@@ -2503,48 +2508,75 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         : (() => {
             const fileExt = getFileExt(entry.name)
             const allApps = getAllAppsForFile(fileExt)
+            const alwaysApps = getAlwaysOpenWithApps()
             const hasExt = fileExt.length > 0
 
-            const openWithItems: import('@/shell/ContextMenu/store').ContextMenuItems = [
-              // File viewer is always available
-              {
+            // Determine default app
+            const defaultAppId = useFileDefaultsStore.getState().getDefault(fileExt)
+            const defaultApp = defaultAppId ? getApp(defaultAppId) : null
+
+            // Build open-with submenu: default app first, divider, then rest
+            const openWithItems: import('@/shell/ContextMenu/store').ContextMenuItems = []
+
+            // Default app at the top
+            if (defaultApp) {
+              openWithItems.push({
+                id: `ow-${defaultApp.id}`,
+                label: `${defaultApp.name}（默认）`,
+                action: () => selectedMount && openWindow(defaultApp.id, { appState: { mountId: selectedMount, node: entry } })
+              })
+              openWithItems.push({ type: 'separator' as const })
+            }
+
+            // All registered apps (skip default if already shown)
+            for (const app of allApps) {
+              if (app.id === defaultAppId) continue
+              openWithItems.push({
+                id: `ow-${app.id}`,
+                label: app.name,
+                action: () => selectedMount && openWindow(app.id, { appState: { mountId: selectedMount, node: entry } })
+              })
+            }
+
+            // Always-show apps (skip if already listed)
+            const listedIds = new Set([defaultAppId, ...allApps.map(a => a.id)])
+            for (const app of alwaysApps) {
+              if (listedIds.has(app.id)) continue
+              openWithItems.push({
+                id: `ow-${app.id}`,
+                label: app.name,
+                action: () => selectedMount && openWindow(app.id, { appState: { mountId: selectedMount, node: entry } })
+              })
+            }
+
+            // File viewer is always available
+            if (!listedIds.has('file-viewer')) {
+              openWithItems.push({
                 id: 'ow-file-viewer',
                 label: '文件查看器',
                 action: () => selectedMount && handleOpenViewer(selectedMount, entry)
-              },
-              // All registered apps
-              ...allApps.map(app => ({
-                id: `ow-${app.id}`,
-                label: `${app.name}${app.associationType === 'preview' ? ' (预览)' : ''}`,
-                action: () => selectedMount && openWindow(app.id, { appState: { mountId: selectedMount, node: entry } })
-              })),
-              // Set default option (only for files with extension)
-              ...(hasExt
-                ? [
-                    { type: 'separator' as const },
-                    {
-                      id: 'ow-set-default',
-                      label: '设置默认打开方式…',
-                      action: () => {
-                        setDefaultOpenState({
-                          visible: true,
-                          node: entry,
-                          ext: fileExt,
-                          apps: getAllAppsForFile(fileExt),
-                          alsoOpenFile: true
-                        })
-                      }
-                    }
-                  ]
-                : [])
-            ]
+              })
+            }
+
+            // Set default option (only for files with extension)
+            if (hasExt) {
+              openWithItems.push({ type: 'separator' as const })
+              openWithItems.push({
+                id: 'ow-set-default',
+                label: '设置默认打开方式…',
+                action: () => {
+                  setDefaultOpenState({
+                    visible: true,
+                    node: entry,
+                    ext: fileExt,
+                    apps: getAllAppsForFile(fileExt),
+                    alsoOpenFile: true
+                  })
+                }
+              })
+            }
 
             return [
-              {
-                id: 'open-viewer',
-                label: '打开文件',
-                action: () => selectedMount && handleOpenViewer(selectedMount, entry)
-              },
               {
                 id: 'open-with',
                 label: '打开方式',

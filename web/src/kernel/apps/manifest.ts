@@ -94,6 +94,12 @@ export interface AppManifest {
    * Apps registered here provide quick preview without editing capability.
    */
   filePreviewAssociations?: string[]
+  /**
+   * If true, this app always appears in the "Open With" menu for any file,
+   * regardless of whether it declares a matching file association.
+   * Useful for generic tools like text editors or hex viewers.
+   */
+  alwaysShowInOpenWith?: boolean
 
   // ── Window behavior ───────────────────────────────────────────────────────
   /** Allow multiple simultaneous windows */

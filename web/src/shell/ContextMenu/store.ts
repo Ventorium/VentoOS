@@ -24,13 +24,18 @@ export interface MenuItem {
 
 export type ContextMenuItems = (MenuItem | MenuSeparator)[]
 
+/** Anchor the menu relative to a point with directional preference */
+export type ContextMenuAnchor = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+
 interface ContextMenuStore {
   visible: boolean
   x: number
   y: number
   items: ContextMenuItems
+  compact: boolean
+  anchor: ContextMenuAnchor
 
-  show: (x: number, y: number, items: ContextMenuItems) => void
+  show: (x: number, y: number, items: ContextMenuItems, options?: { compact?: boolean; anchor?: ContextMenuAnchor }) => void
   hide: () => void
 }
 
@@ -39,13 +44,15 @@ export const useContextMenuStore = create<ContextMenuStore>(set => ({
   x: 0,
   y: 0,
   items: [],
+  compact: false,
+  anchor: 'top-left' as ContextMenuAnchor,
 
-  show(x, y, items) {
-    set({ visible: true, x, y, items })
+  show(x, y, items, options) {
+    set({ visible: true, x, y, items, compact: options?.compact ?? false, anchor: options?.anchor ?? 'top-left' })
   },
 
   hide() {
-    set({ visible: false, items: [] })
+    set({ visible: false, items: [], compact: false })
   }
 }))
 

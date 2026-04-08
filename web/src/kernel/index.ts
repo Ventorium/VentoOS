@@ -6,7 +6,7 @@
  */
 
 export { useApp, useAppComponent, useAppList } from './apps/hooks'
-export { getAllApps, getAllAppsForFile, getApp, getAppComponent, getAppsForFile, getOpenAppsForFile, getPreviewAppsForFile, registerApp, registerApps } from './apps/manager'
+export { getAlwaysOpenWithApps, getAllApps, getAllAppsForFile, getApp, getAppComponent, getAppsForFile, getOpenAppsForFile, getPreviewAppsForFile, registerApp, registerApps } from './apps/manager'
 export type { AppComponentProps, AppLifecycle, AppManifest, AppPermission } from './apps/manifest'
 export type { AppMenuEntry, AppMenuGroup, AppMenuItem, AppTrayConfig } from './apps/menu'
 export { useActiveAppMenus, useAllTrays, useAppMenus, useAppTray } from './apps/menu-hooks'

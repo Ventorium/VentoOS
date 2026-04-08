@@ -13,9 +13,12 @@
  */
 
 import { Download, FileText, Loader2 } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
 import { getAuthHeaders } from '@/infra/api'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 type ViewMode = 'loading' | 'docx' | 'xlsx' | 'csv' | 'unsupported' | 'error'
 
@@ -25,9 +28,14 @@ interface SheetData {
   sheetName: string
 }
 
-export default function OfficeEditor({ initialAppState }: AppComponentProps) {
+export default function OfficeEditor({ windowId, initialAppState }: AppComponentProps) {
   const mountId = (initialAppState?.mountId as string) ?? ''
   const node = initialAppState?.node as { name: string; path: string } | undefined
+
+  const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
+    windowId,
+    appId: 'office-editor'
+  })
 
   const docxContainerRef = useRef<HTMLDivElement>(null)
   const [mode, setMode] = useState<ViewMode>('loading')
@@ -156,6 +164,14 @@ export default function OfficeEditor({ initialAppState }: AppComponentProps) {
     </div>
   )
 
+  const filePicker = (
+    <AnimatePresence>
+      {showFilePicker && (
+        <VfsFilePickerModal mode="file" onConfirm={handleFilePickerConfirm} onClose={closeFilePicker} />
+      )}
+    </AnimatePresence>
+  )
+
   if (mode === 'loading') {
     return (
       <div style={{
@@ -166,6 +182,7 @@ export default function OfficeEditor({ initialAppState }: AppComponentProps) {
         <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
         <div style={{ fontSize: 13 }}>正在加载文档…</div>
         <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+        {filePicker}
       </div>
     )
   }
@@ -180,6 +197,7 @@ export default function OfficeEditor({ initialAppState }: AppComponentProps) {
         <FileText size={48} style={{ opacity: 0.3 }} />
         <div style={{ fontSize: 14, fontWeight: 500 }}>无法打开文档</div>
         <div style={{ fontSize: 12, maxWidth: 400, textAlign: 'center' }}>{errorMsg}</div>
+        {filePicker}
       </div>
     )
   }
@@ -199,6 +217,7 @@ export default function OfficeEditor({ initialAppState }: AppComponentProps) {
             请下载后使用本地应用打开
           </div>
         </div>
+        {filePicker}
       </div>
     )
   }
@@ -219,6 +238,7 @@ export default function OfficeEditor({ initialAppState }: AppComponentProps) {
           .vos-docx-viewer { background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin: 0 auto; }
           .vos-docx-viewer section.docx { padding: 40px 60px; min-height: 100%; }
         `}</style>
+        {filePicker}
       </div>
     )
   }
@@ -274,9 +294,10 @@ export default function OfficeEditor({ initialAppState }: AppComponentProps) {
             </div>
           )}
         </div>
+        {filePicker}
       </div>
     )
   }
 
-  return null
+  return filePicker
 }

@@ -28,6 +28,7 @@ smolder-smb-core = "0.3"
 flate2 = "1"
 tar = "0.4"
 zip = { version = "2", default-features = false, features = ["deflate", "aes-crypto"] }
+tempfile = "3"
 
 [lints]
 workspace = true

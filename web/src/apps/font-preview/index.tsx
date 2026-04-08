@@ -6,9 +6,12 @@
  */
 
 import { Download, Type } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
 import { apiClient } from '@/infra/api'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 const SAMPLE_TEXT_EN = 'The quick brown fox jumps over the lazy dog'
 const SAMPLE_TEXT_CN = '天地玄黄，宇宙洪荒。日月盈昃，辰宿列张。'
@@ -17,9 +20,14 @@ const SAMPLE_CHARS = '!"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXY
 
 const PREVIEW_SIZES = [12, 14, 16, 20, 24, 32, 48, 64, 72]
 
-export default function FontPreview({ initialAppState }: AppComponentProps) {
+export default function FontPreview({ windowId, initialAppState }: AppComponentProps) {
   const mountId = (initialAppState?.mountId as string) ?? ''
   const node = initialAppState?.node as { name: string; path: string } | undefined
+
+  const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
+    windowId,
+    appId: 'font-preview'
+  })
 
   const [fontFamily, setFontFamily] = useState('')
   const [loaded, setLoaded] = useState(false)
@@ -206,6 +214,11 @@ export default function FontPreview({ initialAppState }: AppComponentProps) {
           </div>
         )}
       </div>
+      <AnimatePresence>
+        {showFilePicker && (
+          <VfsFilePickerModal mode="file" onConfirm={handleFilePickerConfirm} onClose={closeFilePicker} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

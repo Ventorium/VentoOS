@@ -430,7 +430,7 @@ const KIND_ICON: Record<string, React.ElementType> = {
 
 // ── VFS Browser Modal ────────────────────────────────────────────────────────
 
-function VfsFilePickerModal({
+export function VfsFilePickerModal({
   mode,
   onConfirm,
   onClose

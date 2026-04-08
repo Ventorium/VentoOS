@@ -83,6 +83,14 @@ export function getAllAppsForFile(ext: string): Array<AppManifest & { associatio
   return result
 }
 
+/** Get apps that always appear in the "Open With" menu regardless of extension */
+export function getAlwaysOpenWithApps(): AppManifest[] {
+  return useAppStore
+    .getState()
+    .getAllApps()
+    .filter(a => a.alwaysShowInOpenWith)
+}
+
 // ─── Lazy component cache ──────────────────────────────────────────────────
 
 const componentCache = new Map<string, ComponentType<AppComponentProps>>()

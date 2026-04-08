@@ -53,7 +53,15 @@ function MenuItemRow({ item, close }: { item: MenuItem; close: () => void }) {
   const rowRef = useRef<HTMLButtonElement>(null)
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div
+      style={{ position: 'relative' }}
+      onMouseEnter={() => {
+        if (item.submenu) setShowSub(true)
+      }}
+      onMouseLeave={() => {
+        if (item.submenu) setShowSub(false)
+      }}
+    >
       <button
         ref={rowRef}
         type="button"
@@ -66,12 +74,6 @@ function MenuItemRow({ item, close }: { item: MenuItem; close: () => void }) {
               ? 'var(--vos-text-tertiary)'
               : 'var(--vos-text-primary)',
           cursor: item.disabled ? 'default' : 'pointer'
-        }}
-        onMouseEnter={() => {
-          if (item.submenu) setShowSub(true)
-        }}
-        onMouseLeave={() => {
-          if (item.submenu) setShowSub(false)
         }}
         onClick={() => {
           if (item.disabled || item.submenu) return
@@ -91,12 +93,12 @@ function MenuItemRow({ item, close }: { item: MenuItem; close: () => void }) {
 }
 
 /* ---- Menu Panel ---- */
-function MenuPanel({ items }: { items: ContextMenuItems }) {
+function MenuPanel({ items, compact }: { items: ContextMenuItems; compact?: boolean }) {
   return (
     <div
-      className="vos-ctx-panel"
+      className={`vos-ctx-panel ${compact ? 'vos-ctx-panel-compact' : ''}`}
       style={{
-        minWidth: 180,
+        minWidth: compact ? 140 : 180,
         padding: '4px 0',
         borderRadius: tokens.radius.contextMenu
       }}
@@ -113,26 +115,42 @@ function MenuPanel({ items }: { items: ContextMenuItems }) {
 
 /* ---- Root Context Menu ---- */
 export default function ContextMenu() {
-  const { visible, x, y, items, hide } = useContextMenuStore(
+  const { visible, x, y, items, compact, anchor, hide } = useContextMenuStore(
     useShallow(s => ({
       visible: s.visible,
       x: s.x,
       y: s.y,
       items: s.items,
+      compact: s.compact,
+      anchor: s.anchor,
       hide: s.hide
     }))
   )
   const menuRef = useRef<HTMLDivElement>(null)
   const [finalPos, setFinalPos] = useState({ left: x, top: y })
 
-  // Adjust position so menu doesn't overflow viewport
+  // Adjust position so menu doesn't overflow viewport, respecting anchor
   useEffect(() => {
     if (!visible || !menuRef.current) return
     const rect = menuRef.current.getBoundingClientRect()
-    const left = Math.min(x, window.innerWidth - rect.width - 8)
-    const top = Math.min(y, window.innerHeight - rect.height - 8)
+    let left = x
+    let top = y
+
+    // Anchor determines the origin point
+    if (anchor === 'bottom-left' || anchor === 'bottom-right') {
+      // Menu opens upward from the point
+      top = y - rect.height
+    }
+    if (anchor === 'top-right' || anchor === 'bottom-right') {
+      // Menu opens leftward from the point
+      left = x - rect.width
+    }
+
+    // Clamp to viewport
+    left = Math.max(8, Math.min(left, window.innerWidth - rect.width - 8))
+    top = Math.max(8, Math.min(top, window.innerHeight - rect.height - 8))
     setFinalPos({ left, top })
-  }, [visible, x, y])
+  }, [visible, x, y, anchor])
 
   // Close on Escape
   useEffect(() => {
@@ -174,10 +192,10 @@ export default function ContextMenu() {
               left: finalPos.left,
               top: finalPos.top,
               zIndex: 9995,
-              transformOrigin: 'top left'
+              transformOrigin: anchor === 'bottom-left' ? 'bottom left' : anchor === 'bottom-right' ? 'bottom right' : anchor === 'top-right' ? 'top right' : 'top left'
             }}
           >
-            <MenuPanel items={items} />
+            <MenuPanel items={items} compact={compact} />
           </motion.div>
         </>
       )}

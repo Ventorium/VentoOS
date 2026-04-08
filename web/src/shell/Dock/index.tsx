@@ -18,6 +18,7 @@ import {
   type AppManifest,
   closeWindow,
   focusWindow,
+  minimizeWindow,
   openWindow,
   restoreWindow,
   useAppStore,
@@ -286,28 +287,87 @@ export default function Dock() {
       const appWindows = getWindowsByApp(app.id)
       const isRunning = appWindows.length > 0
       const isPinned = useDockPinsStore.getState().isPinned(app.id)
-      const isTerminal = app.id === 'terminal'
       const items: import('@/shell/ContextMenu/store').ContextMenuItems = []
 
-      if (!isRunning) {
-        items.push({ id: 'open', label: `打开 ${app.name}`, action: () => openWindowFn(app.id) })
-      } else {
-        items.push({
-          id: 'focus',
-          label: `前置 ${app.name}`,
-          action: () => {
-            const top = appWindows.filter(w => !w.isMinimized)
-            if (top.length > 0) {
-              focusWindowFn(top.reduce((a, b) => (a.zIndex > b.zIndex ? a : b)).id)
-            } else {
-              restoreWindowFn(appWindows.reduce((a, b) => (a.zIndex > b.zIndex ? a : b)).id)
+      // Section 1: List all open windows (clickable to focus/restore)
+      if (isRunning) {
+        for (const w of appWindows) {
+          items.push({
+            id: `win-${w.id}`,
+            label: w.title || app.name,
+            action: () => {
+              if (w.isMinimized) {
+                restoreWindowFn(w.id)
+              } else {
+                focusWindowFn(w.id)
+              }
             }
-          }
-        })
-        if (app.multiWindow) {
-          items.push({ id: 'new-window', label: '新建窗口', action: () => openWindowFn(app.id) })
+          })
         }
         items.push({ type: 'separator' })
+      }
+
+      // Section 2: New window (if multiWindow supported)
+      if (app.multiWindow) {
+        items.push({
+          id: 'new-window',
+          label: '新建窗口',
+          action: () => openWindowFn(app.id)
+        })
+        items.push({ type: 'separator' })
+      } else if (!isRunning) {
+        // Single-window non-running: just show open
+        items.push({
+          id: 'open',
+          label: `打开 ${app.name}`,
+          action: () => openWindowFn(app.id)
+        })
+        items.push({ type: 'separator' })
+      }
+
+      // Section 3: Options submenu
+      const optionsSubmenu: import('@/shell/ContextMenu/store').ContextMenuItems = []
+      if (isPinned) {
+        optionsSubmenu.push({
+          id: 'unpin',
+          label: '从 Dock 中移除',
+          action: () => unpinApp(app.id)
+        })
+      } else {
+        optionsSubmenu.push({
+          id: 'pin',
+          label: '固定在 Dock',
+          action: () => pinApp(app.id)
+        })
+      }
+      items.push({
+        id: 'options',
+        label: '选项',
+        submenu: optionsSubmenu
+      })
+
+      // Section 4: Window management + quit
+      if (isRunning) {
+        items.push({ type: 'separator' })
+        const visibleWindows = appWindows.filter(w => !w.isMinimized)
+        if (visibleWindows.length > 1) {
+          items.push({
+            id: 'show-all',
+            label: '显示所有窗口',
+            action: () => {
+              for (const w of visibleWindows) focusWindowFn(w.id)
+            }
+          })
+        }
+        if (visibleWindows.length > 0) {
+          items.push({
+            id: 'hide-all',
+            label: '隐藏',
+            action: () => {
+              for (const w of visibleWindows) minimizeWindow(w.id)
+            }
+          })
+        }
         items.push({
           id: 'quit',
           label: `退出 ${app.name}`,
@@ -318,25 +378,13 @@ export default function Dock() {
         })
       }
 
-      // Pin/unpin actions (terminal excluded)
-      if (!isTerminal) {
-        items.push({ type: 'separator' })
-        if (isPinned) {
-          items.push({
-            id: 'unpin',
-            label: '从 Dock 中移除',
-            action: () => unpinApp(app.id)
-          })
-        } else {
-          items.push({
-            id: 'pin',
-            label: '保留在 Dock 中',
-            action: () => pinApp(app.id)
-          })
-        }
-      }
+      // Determine anchor based on dock position
+      const dockPos = useSettingsStore.getState().dockPosition
+      const anchor = dockPos === 'bottom' ? 'bottom-left' as const
+        : dockPos === 'left' ? 'top-right' as const
+        : 'top-left' as const
 
-      showCtxMenu(e.clientX, e.clientY, items)
+      showCtxMenu(e.clientX, e.clientY, items, { compact: true, anchor })
     },
     [showCtxMenu, openWindowFn, focusWindowFn, restoreWindowFn, pinApp, unpinApp]
   )

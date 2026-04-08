@@ -14,6 +14,7 @@
  */
 
 import { XMarkdown } from '@ant-design/x-markdown'
+import { AnimatePresence } from 'framer-motion'
 import { FileText, Loader2, Pause, Pencil, Play, Save, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -21,6 +22,8 @@ import type { VfsFileContent, VfsNode } from '@/apps/explorer/api'
 import { vfsApi } from '@/apps/explorer/api'
 import type { AppComponentProps } from '@/kernel'
 import { useWindow, useWindowActions } from '@/kernel'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 // ─── Utilities ────────────────────────────────────────────────────────────
 
@@ -399,6 +402,11 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
   const win = useWindow(windowId)
   const { setTitle } = useWindowActions(windowId)
 
+  const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
+    windowId,
+    appId: 'file-viewer'
+  })
+
   const mountId = win?.appState?.mountId as string | undefined
   const node = win?.appState?.node as VfsNode | undefined
 
@@ -681,6 +689,11 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
           {node.modified && <span>{new Date(node.modified).toLocaleString()}</span>}
         </div>
       )}
+      <AnimatePresence>
+        {showFilePicker && (
+          <VfsFilePickerModal mode="file" onConfirm={handleFilePickerConfirm} onClose={closeFilePicker} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

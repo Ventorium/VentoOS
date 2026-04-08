@@ -31,6 +31,9 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
 import { apiClient } from '@/infra/api'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import { VfsFilePickerModal } from '@/shell/FilePicker'
+import { AnimatePresence } from 'framer-motion'
 
 type Tool = 'move' | 'brush' | 'eraser' | 'crop'
 
@@ -38,9 +41,14 @@ interface HistoryEntry {
   imageData: ImageData
 }
 
-export default function ImageEditor({ initialAppState }: AppComponentProps) {
+export default function ImageEditor({ windowId, initialAppState }: AppComponentProps) {
   const mountId = (initialAppState?.mountId as string) ?? ''
   const node = initialAppState?.node as { name: string; path: string } | undefined
+
+  const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
+    windowId,
+    appId: 'image-editor'
+  })
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -683,6 +691,11 @@ export default function ImageEditor({ initialAppState }: AppComponentProps) {
           </div>
         </div>
       )}
+      <AnimatePresence>
+        {showFilePicker && (
+          <VfsFilePickerModal mode="file" onConfirm={handleFilePickerConfirm} onClose={closeFilePicker} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
