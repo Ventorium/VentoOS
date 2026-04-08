@@ -7,6 +7,10 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use zesven::write::EntryMeta;
+use zesven::{
+    Archive as SevenZArchive, ArchivePath, ExtractOptions, Password, WriteOptions, Writer,
+};
 
 /// Supported archive formats.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -97,7 +101,7 @@ pub struct ArchiveListRequest {
 /// List contents of an archive file.
 pub fn list_archive(
     archive_path: &Path,
-    _password: Option<&str>,
+    password: Option<&str>,
 ) -> Result<ArchiveListResult, String> {
     let path_str = archive_path.to_string_lossy();
 
@@ -106,6 +110,9 @@ pub fn list_archive(
     }
     if let Some(ArchiveFormat::Zip) = ArchiveFormat::from_path(&path_str) {
         return list_zip(archive_path);
+    }
+    if let Some(ArchiveFormat::SevenZ) = ArchiveFormat::from_path(&path_str) {
+        return list_sevenz(archive_path, password);
     }
 
     // For unsupported formats, return error
@@ -131,7 +138,9 @@ fn list_tar_gz(archive_path: &Path) -> Result<ArchiveListResult, String> {
         let is_dir = entry.header().entry_type().is_dir();
         let size = entry.header().size().unwrap_or(0);
         let modified = entry.header().mtime().ok().map(|t| {
-            chrono::DateTime::from_timestamp(t as i64, 0)
+            i64::try_from(t)
+                .ok()
+                .and_then(|secs| chrono::DateTime::from_timestamp(secs, 0))
                 .map(|dt| dt.to_rfc3339())
                 .unwrap_or_default()
         });
@@ -143,6 +152,42 @@ fn list_tar_gz(archive_path: &Path) -> Result<ArchiveListResult, String> {
             is_dir,
             modified,
             encrypted: Some(false),
+        });
+    }
+
+    Ok(ArchiveListResult {
+        entries,
+        password_required: false,
+        error: None,
+    })
+}
+
+fn list_sevenz(archive_path: &Path, password: Option<&str>) -> Result<ArchiveListResult, String> {
+    let archive = if let Some(pwd) = password {
+        SevenZArchive::open_path_with_password(archive_path, Password::new(pwd))
+            .map_err(|e| format!("Failed to open 7z archive: {e}"))?
+    } else {
+        SevenZArchive::open_path(archive_path)
+            .map_err(|e| format!("Failed to open 7z archive: {e}"))?
+    };
+
+    let mut entries = Vec::new();
+    for entry in archive.entries() {
+        if entry.is_anti {
+            continue;
+        }
+
+        let modified = entry
+            .modified()
+            .map(|time| chrono::DateTime::<chrono::Utc>::from(time).to_rfc3339());
+
+        entries.push(ArchiveEntry {
+            path: entry.path.as_str().to_string(),
+            size: entry.size,
+            compressed_size: None,
+            is_dir: entry.is_directory,
+            modified,
+            encrypted: Some(entry.is_encrypted),
         });
     }
 
@@ -273,6 +318,95 @@ pub fn create_zip(
 
     zip.finish()
         .map_err(|e| format!("Zip finalize error: {e}"))?;
+    Ok(())
+}
+
+/// Create a 7z archive from local files, optionally with password encryption.
+pub fn create_sevenz(
+    root: &Path,
+    paths: &[String],
+    dest: &Path,
+    password: Option<&str>,
+) -> Result<(), String> {
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create archive directory: {e}"))?;
+    }
+
+    let writer = Writer::create_path(dest).map_err(|e| format!("Failed to create archive: {e}"))?;
+    let options = if let Some(pwd) = password {
+        WriteOptions::new()
+            .password(Password::new(pwd))
+            .encrypt_header(true)
+            .encrypt_data(true)
+    } else {
+        WriteOptions::new()
+    };
+    let mut writer = writer.options(options);
+
+    for rel_path in paths {
+        let clean = rel_path.trim_start_matches('/');
+        let full = root.join(clean);
+        if !full.exists() {
+            return Err(format!("Path not found: {rel_path}"));
+        }
+        add_sevenz_path(&mut writer, &full, clean)?;
+    }
+
+    let _ = writer
+        .finish()
+        .map_err(|e| format!("7z finalize error: {e}"))?;
+    Ok(())
+}
+
+fn add_sevenz_path<W>(writer: &mut Writer<W>, full: &Path, archive_rel: &str) -> Result<(), String>
+where
+    W: std::io::Write + std::io::Seek,
+{
+    let normalized = archive_rel.replace('\\', "/");
+    let archive_path =
+        ArchivePath::new(&normalized).map_err(|e| format!("Invalid 7z path: {e}"))?;
+
+    if full.is_dir() {
+        let meta = EntryMeta::from_path(full).map_err(|e| format!("7z dir meta error: {e}"))?;
+        writer
+            .add_directory(archive_path, meta)
+            .map_err(|e| format!("7z dir error: {e}"))?;
+
+        for entry in std::fs::read_dir(full).map_err(|e| format!("Read dir error: {e}"))? {
+            let entry = entry.map_err(|e| format!("Dir entry error: {e}"))?;
+            let child_name = entry.file_name().to_string_lossy().to_string();
+            let child_path = entry.path();
+            let child_rel = format!("{}/{}", archive_rel.trim_end_matches('/'), child_name);
+            add_sevenz_path(writer, &child_path, &child_rel)?;
+        }
+    } else {
+        writer
+            .add_path(full, archive_path)
+            .map_err(|e| format!("7z file error: {e}"))?;
+    }
+
+    Ok(())
+}
+
+/// Extract a 7z archive to a local directory, with optional password.
+pub fn extract_sevenz(
+    archive_path: &Path,
+    dest_dir: &Path,
+    password: Option<&str>,
+) -> Result<(), String> {
+    let mut archive = if let Some(pwd) = password {
+        SevenZArchive::open_path_with_password(archive_path, Password::new(pwd))
+            .map_err(|e| format!("Failed to open 7z archive: {e}"))?
+    } else {
+        SevenZArchive::open_path(archive_path)
+            .map_err(|e| format!("Failed to open 7z archive: {e}"))?
+    };
+
+    std::fs::create_dir_all(dest_dir).map_err(|e| format!("Destination error: {e}"))?;
+    let _ = archive
+        .extract(dest_dir, (), &ExtractOptions::default())
+        .map_err(|e| format!("7z extract error: {e}"))?;
     Ok(())
 }
 
@@ -468,6 +602,51 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(extract_dir.join("subdir/nested.txt")).unwrap(),
             "Nested zip"
+        );
+    }
+
+    #[test]
+    fn test_sevenz_roundtrip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+
+        std::fs::write(root.join("hello.txt"), "Hello 7z").unwrap();
+        std::fs::create_dir_all(root.join("subdir/deeper")).unwrap();
+        std::fs::write(root.join("subdir/nested.txt"), "Nested 7z").unwrap();
+        std::fs::write(root.join("subdir/deeper/final.txt"), "Final 7z").unwrap();
+
+        let archive_path = root.join("test.7z");
+        create_sevenz(
+            root,
+            &["hello.txt".into(), "subdir".into()],
+            &archive_path,
+            None,
+        )
+        .unwrap();
+        assert!(archive_path.exists());
+
+        let listed = list_archive(&archive_path, None).unwrap();
+        assert!(listed.entries.iter().any(|entry| entry.path == "hello.txt"));
+        assert!(
+            listed
+                .entries
+                .iter()
+                .any(|entry| entry.path == "subdir/nested.txt")
+        );
+
+        let extract_dir = root.join("extracted");
+        extract_sevenz(&archive_path, &extract_dir, None).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(extract_dir.join("hello.txt")).unwrap(),
+            "Hello 7z"
+        );
+        assert_eq!(
+            std::fs::read_to_string(extract_dir.join("subdir/nested.txt")).unwrap(),
+            "Nested 7z"
+        );
+        assert_eq!(
+            std::fs::read_to_string(extract_dir.join("subdir/deeper/final.txt")).unwrap(),
+            "Final 7z"
         );
     }
 }

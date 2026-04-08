@@ -895,9 +895,12 @@ impl VfsManager {
                             &dest,
                             password.as_deref(),
                         ),
-                        crate::archive::ArchiveFormat::SevenZ => {
-                            Err("7z creation not yet supported".to_string())
-                        }
+                        crate::archive::ArchiveFormat::SevenZ => crate::archive::create_sevenz(
+                            root_path,
+                            &paths,
+                            &dest,
+                            password.as_deref(),
+                        ),
                     }
                 })
                 .await
@@ -917,7 +920,8 @@ impl VfsManager {
         mount: &VfsMount,
         req: &crate::archive::ArchiveRequest,
     ) -> Result<(), String> {
-        let temp_dir = tempfile::TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
+        let temp_dir =
+            tempfile::TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
         let temp_root = temp_dir.path().to_path_buf();
 
         // Download all source files/dirs to temp
@@ -942,12 +946,18 @@ impl VfsManager {
             crate::archive::ArchiveFormat::TarGz => {
                 crate::archive::create_tar_gz(&temp_root_clone, &paths, &temp_archive_clone)
             }
-            crate::archive::ArchiveFormat::Zip => {
-                crate::archive::create_zip(&temp_root_clone, &paths, &temp_archive_clone, password.as_deref())
-            }
-            crate::archive::ArchiveFormat::SevenZ => {
-                Err("7z creation not yet supported".to_string())
-            }
+            crate::archive::ArchiveFormat::Zip => crate::archive::create_zip(
+                &temp_root_clone,
+                &paths,
+                &temp_archive_clone,
+                password.as_deref(),
+            ),
+            crate::archive::ArchiveFormat::SevenZ => crate::archive::create_sevenz(
+                &temp_root_clone,
+                &paths,
+                &temp_archive_clone,
+                password.as_deref(),
+            ),
         })
         .await
         .map_err(|e| format!("Archive task failed: {e}"))??;
@@ -988,11 +998,7 @@ impl VfsManager {
                     .map_err(|e| format!("Failed to create temp dir: {e}"))?;
 
                 for node in nodes {
-                    let child_path = format!(
-                        "{}/{}",
-                        rel_path.trim_end_matches('/'),
-                        node.name
-                    );
+                    let child_path = format!("{}/{}", rel_path.trim_end_matches('/'), node.name);
                     // Box::pin the future to allow recursion in async
                     Box::pin(self.download_recursive(mount_id, mount, &child_path, temp_root))
                         .await?;
@@ -1001,7 +1007,9 @@ impl VfsManager {
             }
             _ => {
                 // It's a file (or listing failed) — download it
-                let data = self.read_file_raw(mount_id, &format!("/{}", rel_path.trim_start_matches('/'))).await?;
+                let data = self
+                    .read_file_raw(mount_id, &format!("/{}", rel_path.trim_start_matches('/')))
+                    .await?;
                 let local_path = temp_root.join(rel_path.trim_start_matches('/'));
                 if let Some(parent) = local_path.parent() {
                     tokio::fs::create_dir_all(parent)
@@ -1047,9 +1055,11 @@ impl VfsManager {
                     crate::archive::ArchiveFormat::Zip => {
                         crate::archive::extract_zip(&archive_path, &dest_dir, password.as_deref())
                     }
-                    crate::archive::ArchiveFormat::SevenZ => {
-                        Err("7z extraction not yet supported".to_string())
-                    }
+                    crate::archive::ArchiveFormat::SevenZ => crate::archive::extract_sevenz(
+                        &archive_path,
+                        &dest_dir,
+                        password.as_deref(),
+                    ),
                 })
                 .await
                 .map_err(|e| format!("Extract task failed: {e}"))?
@@ -1068,7 +1078,8 @@ impl VfsManager {
         _mount: &VfsMount,
         req: &crate::archive::ExtractRequest,
     ) -> Result<(), String> {
-        let temp_dir = tempfile::TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
+        let temp_dir =
+            tempfile::TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
         let temp_root = temp_dir.path().to_path_buf();
 
         // Download the archive file
@@ -1093,12 +1104,16 @@ impl VfsManager {
             crate::archive::ArchiveFormat::TarGz => {
                 crate::archive::extract_tar_gz(&temp_archive_clone, &temp_extract_clone)
             }
-            crate::archive::ArchiveFormat::Zip => {
-                crate::archive::extract_zip(&temp_archive_clone, &temp_extract_clone, password.as_deref())
-            }
-            crate::archive::ArchiveFormat::SevenZ => {
-                Err("7z extraction not yet supported".to_string())
-            }
+            crate::archive::ArchiveFormat::Zip => crate::archive::extract_zip(
+                &temp_archive_clone,
+                &temp_extract_clone,
+                password.as_deref(),
+            ),
+            crate::archive::ArchiveFormat::SevenZ => crate::archive::extract_sevenz(
+                &temp_archive_clone,
+                &temp_extract_clone,
+                password.as_deref(),
+            ),
         })
         .await
         .map_err(|e| format!("Extract task failed: {e}"))??;
@@ -1121,8 +1136,15 @@ impl VfsManager {
             .await
             .map_err(|e| format!("Failed to read dir: {e}"))?;
 
-        while let Some(entry) = entries.next_entry().await.map_err(|e| format!("Read dir error: {e}"))? {
-            let file_type = entry.file_type().await.map_err(|e| format!("File type error: {e}"))?;
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .map_err(|e| format!("Read dir error: {e}"))?
+        {
+            let file_type = entry
+                .file_type()
+                .await
+                .map_err(|e| format!("File type error: {e}"))?;
             let name = entry.file_name().to_string_lossy().to_string();
             let remote_path = format!("{}/{}", remote_base.trim_end_matches('/'), name);
 
@@ -1171,13 +1193,11 @@ impl VfsManager {
         } else {
             // Remote mount: download archive to temp, then list
             let data = self.read_file_raw(mount_id, path).await?;
-            let temp_dir = tempfile::TempDir::new()
-                .map_err(|e| format!("Failed to create temp dir: {e}"))?;
-            let temp_file = temp_dir.path().join(
-                std::path::Path::new(path)
-                    .file_name()
-                    .unwrap_or_default(),
-            );
+            let temp_dir =
+                tempfile::TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
+            let temp_file = temp_dir
+                .path()
+                .join(std::path::Path::new(path).file_name().unwrap_or_default());
             tokio::fs::write(&temp_file, &data)
                 .await
                 .map_err(|e: std::io::Error| format!("Failed to write temp file: {e}"))?;

@@ -13,6 +13,7 @@
 
 #![cfg(test)]
 
+use crate::archive::{ArchiveFormat, ArchiveRequest, ExtractRequest};
 use crate::manager::VfsManager;
 use crate::types::{
     CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsListReq, VfsMkdirReq, VfsMoveReq, VfsReadReq,
@@ -780,5 +781,84 @@ async fn test_webdav_test_connection() {
         result.is_ok(),
         "WebDAV test_connection failed: {:?}",
         result.err()
+    );
+}
+
+#[tokio::test]
+async fn test_local_archive_7z_roundtrip() {
+    let manager = VfsManager::new();
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+
+    std::fs::write(root.join("root.txt"), "root file").unwrap();
+    std::fs::create_dir_all(root.join("dir1/dir2")).unwrap();
+    std::fs::write(root.join("dir1/nested.txt"), "nested file").unwrap();
+    std::fs::write(root.join("dir1/dir2/deeper.txt"), "deeper file").unwrap();
+
+    let mount = manager
+        .create_mount(CreateVfsMountReq {
+            name: "local-archive-7z".to_string(),
+            kind: VfsSourceKind::Local,
+            root: root.to_string_lossy().to_string(),
+            connection_id: None,
+            group: None,
+        })
+        .await;
+
+    manager
+        .create_archive(
+            &mount.id,
+            &ArchiveRequest {
+                paths: vec!["root.txt".to_string(), "dir1".to_string()],
+                dest: "bundle.7z".to_string(),
+                format: ArchiveFormat::SevenZ,
+                password: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    let archive_path = root.join("bundle.7z");
+    assert!(archive_path.exists(), "7z archive should be created");
+
+    let listed = manager
+        .list_archive_contents(&mount.id, "/bundle.7z", None)
+        .await
+        .unwrap();
+    assert!(
+        listed.entries.iter().any(|entry| entry.path == "root.txt"),
+        "7z listing should include root file"
+    );
+    assert!(
+        listed
+            .entries
+            .iter()
+            .any(|entry| entry.path == "dir1/dir2/deeper.txt"),
+        "7z listing should include nested file"
+    );
+
+    manager
+        .extract_archive(
+            &mount.id,
+            &ExtractRequest {
+                archive_path: "bundle.7z".to_string(),
+                dest_dir: "unzipped".to_string(),
+                password: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("unzipped/root.txt")).unwrap(),
+        "root file"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("unzipped/dir1/nested.txt")).unwrap(),
+        "nested file"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("unzipped/dir1/dir2/deeper.txt")).unwrap(),
+        "deeper file"
     );
 }
