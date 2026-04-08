@@ -44,7 +44,7 @@ export function handleUnauthorized(res: Response): void {
 }
 
 /** Core HTTP request — used by both system apiClient and per-app API modules */
-export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+export async function request<T>(method: string, path: string, body?: unknown, options?: { signal?: AbortSignal }): Promise<T> {
   const token = _tokenProvider()
   const headers: Record<string, string> = {}
   if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -53,7 +53,8 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   const res = await fetch(path, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: options?.signal
   })
 
   if (!res.ok) {

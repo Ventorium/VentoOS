@@ -1322,6 +1322,18 @@ body,
   font-size: 11px;
 }
 
+.vos-btn.vos-btn-ghost {
+  background: transparent;
+  border: 0.5px solid var(--vos-border-default);
+  color: var(--vos-text-secondary);
+}
+
+.vos-btn.vos-btn-ghost:hover:not(:disabled) {
+  background: var(--vos-accent-primary);
+  border-color: var(--vos-accent-primary);
+  color: #fff;
+}
+
 .vos-icon-btn {
   display: inline-flex;
   align-items: center;

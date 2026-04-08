@@ -184,7 +184,7 @@ function ServersTab({ onToggleMonitor, monitorServerId }: { onToggleMonitor: (id
     }
   }
 
-  async function importConfigHost(host: SshConfigHost) {
+  async function importConfigHost(host: SshConfigHost, closeOnSuccess = true) {
     try {
       const authMethod: CreateSshServerReq['auth_method'] = host.identity_file
         ? { type: 'private_key', key_path: host.identity_file }
@@ -197,9 +197,25 @@ function ServersTab({ onToggleMonitor, monitorServerId }: { onToggleMonitor: (id
         auth_method: authMethod
       })
       load()
-      setSshConfigHosts(null)
+      if (closeOnSuccess) {
+        setSshConfigHosts(null)
+      }
     } catch (e) {
       console.error(e)
+    }
+  }
+
+  async function importAllConfigHosts() {
+    if (!sshConfigHosts || sshConfigHosts.length === 0) return
+    setImportingConfig(true)
+    try {
+      // 并行导入所有服务器
+      await Promise.all(
+        sshConfigHosts.map(host => importConfigHost(host, false))
+      )
+      setSshConfigHosts(null)
+    } finally {
+      setImportingConfig(false)
     }
   }
 
@@ -306,10 +322,21 @@ function ServersTab({ onToggleMonitor, monitorServerId }: { onToggleMonitor: (id
             onClick={e => e.stopPropagation()}
           >
             <div className="vos-modal-header">
-              <span>~/.ssh/config Hosts</span>
-              <button type="button" className="vos-icon-btn" onClick={() => setSshConfigHosts(null)}>
-                <X size={16} />
-              </button>
+              <span>~/.ssh/config Hosts ({sshConfigHosts.length})</span>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="vos-btn vos-btn-sm vos-btn-primary"
+                  onClick={importAllConfigHosts}
+                  disabled={importingConfig || sshConfigHosts.length === 0}
+                >
+                  {importingConfig ? <Loader2 size={12} className="vos-spin" /> : <Download size={12} />}
+                  导入全部
+                </button>
+                <button type="button" className="vos-icon-btn" onClick={() => setSshConfigHosts(null)}>
+                  <X size={16} />
+                </button>
+              </div>
             </div>
             <div className="vos-modal-body" style={{ maxHeight: 360, overflow: 'auto' }}>
               {sshConfigHosts.length === 0 && (

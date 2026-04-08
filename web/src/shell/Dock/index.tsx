@@ -371,20 +371,25 @@ export default function Dock() {
         items.push({
           id: 'quit',
           label: `退出 ${app.name}`,
-          danger: true,
           action: () => {
             for (const w of appWindows) closeWindow(w.id)
           }
         })
       }
 
-      // Determine anchor based on dock position
+      // Determine anchor and position based on dock position
       const dockPos = useSettingsStore.getState().dockPosition
       const anchor = dockPos === 'bottom' ? 'bottom-left' as const
         : dockPos === 'left' ? 'top-right' as const
         : 'top-left' as const
 
-      showCtxMenu(e.clientX, e.clientY, items, { compact: true, anchor })
+      // For bottom dock: open menu above the dock icon (use element's top edge as y)
+      const targetEl = (e.currentTarget as HTMLElement)
+      const rect = targetEl.getBoundingClientRect()
+      const menuY = dockPos === 'bottom' ? rect.top : e.clientY
+      const menuX = dockPos === 'right' ? rect.left : e.clientX
+
+      showCtxMenu(menuX, menuY, items, { compact: true, anchor, showArrow: dockPos === 'bottom' })
     },
     [showCtxMenu, openWindowFn, focusWindowFn, restoreWindowFn, pinApp, unpinApp]
   )

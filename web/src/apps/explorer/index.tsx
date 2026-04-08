@@ -50,6 +50,9 @@ import { vfsApi } from './api'
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent)
 
+// Archive file extensions (recognized for right-click extract)
+const ARCHIVE_EXTS = new Set(['zip', '7z', 'rar', 'tar', 'gz', 'bz2', 'xz', 'zst', 'tgz', 'tbz2', 'txz', 'tzst'])
+
 // ─── Mount form ────────────────────────────────────────────────────────────
 
 function parseMountFields(mount: { kind: VfsSourceKind; root: string }) {
@@ -693,19 +696,19 @@ function MountForm({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              className="vos-btn-sm vos-btn-ghost"
+              className="vos-btn vos-btn-sm vos-btn-ghost"
               style={{ opacity: isValid() ? 1 : 0.5 }}
               onClick={handleTest}
               disabled={testing || !isValid()}
             >
               {testing ? '测试中…' : '测试连接'}
             </button>
-            <button type="button" className="vos-btn-sm vos-btn-ghost" onClick={onClose}>
+            <button type="button" className="vos-btn vos-btn-sm vos-btn-ghost" onClick={onClose}>
               取消
             </button>
             <button
               type="button"
-              className="vos-btn-sm vos-btn-primary"
+              className="vos-btn vos-btn-sm vos-btn-primary"
               style={{ opacity: isValid() ? 1 : 0.5 }}
               onClick={submit}
               disabled={saving || !isValid()}
@@ -1073,8 +1076,8 @@ function ColumnView({
             style={{
               width: 220,
               borderRight: '0.5px solid var(--vos-border-subtle)',
-              outline: colIdx === activeColumn ? '1px solid var(--vos-accent-primary)' : 'none',
-              outlineOffset: -1
+              // outline: colIdx === activeColumn ? '1px solid var(--vos-accent-primary)' : 'none',
+              // outlineOffset: -1
             }}
             onDragOver={e => {
               e.preventDefault()
@@ -1128,12 +1131,12 @@ function ColumnView({
                       style={{
                         background: isDragTarget
                           ? 'var(--vos-accent-primary-hover, rgba(59,130,246,0.2))'
-                          : isHighlighted
-                            ? colIdx === activeColumn
-                              ? 'var(--vos-accent-primary)'
-                              : 'var(--vos-accent-primary-muted, rgba(59,130,246,0.25))'
-                            : 'transparent',
-                        color: isHighlighted && colIdx === activeColumn ? '#fff' : isHighlighted ? 'var(--vos-accent-primary)' : 'var(--vos-text-primary)',
+                          : isPrimary
+                            ? 'var(--vos-accent-primary)'
+                            : isMulti
+                              ? 'var(--vos-accent-primary-muted, rgba(59,130,246,0.25))'
+                              : 'transparent',
+                        color: isPrimary ? '#fff' : isMulti && colIdx === activeColumn ? '#fff' : 'var(--vos-text-primary)',
                         borderRadius: 3,
                         margin: '1px 4px',
                         outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
@@ -1145,7 +1148,7 @@ function ColumnView({
                       {entry.is_dir ? (
                         <Folder
                           size={13}
-                          style={{ color: isHighlighted && colIdx === activeColumn ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
+                          style={{ color: isPrimary ? '#fff' : (isMulti && colIdx === activeColumn) ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
                         />
                       ) : (
                         (() => {
@@ -1154,7 +1157,7 @@ function ColumnView({
                           return (
                             <IconComp
                               size={13}
-                              style={{ color: isHighlighted && colIdx === activeColumn ? '#fff' : iconInfo.color, flexShrink: 0 }}
+                              style={{ color: (isPrimary || (isMulti && colIdx === activeColumn)) ? '#fff' : iconInfo.color, flexShrink: 0 }}
                             />
                           )
                         })()
@@ -1941,7 +1944,8 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     visible: boolean
     node: VfsNode | null
     apps: AppManifest[]
-  }>({ visible: false, node: null, apps: [] })
+    showAll: boolean // Show all registered apps
+  }>({ visible: false, node: null, apps: [], showAll: false })
 
   // Set-default-open-with dialog
   const [defaultOpenState, setDefaultOpenState] = useState<{
@@ -1974,6 +1978,9 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   const clipboard = useVfsClipboardStore(s => s.clipboard)
   const setClipboard = useVfsClipboardStore(s => s.setClipboard)
   const clearClipboard = useVfsClipboardStore(s => s.clearClipboard)
+
+  // Cancel in-flight preview requests when switching files
+  const previewAbortRef = useRef<AbortController | null>(null)
 
   // Context menu
   const showContextMenu = useContextMenuStore(s => s.show)
@@ -2143,14 +2150,24 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         return updated
       })
       setSelectedNode(entry)
+      // Cancel any in-flight preview request when navigating into a directory
+      previewAbortRef.current?.abort()
+      previewAbortRef.current = null
       setPreview(null)
       setActiveColumn(colIndex + 1)
     } else {
       setSelectedNode(entry)
+      // Cancel previous preview request
+      previewAbortRef.current?.abort()
+      const abortController = new AbortController()
+      previewAbortRef.current = abortController
       try {
-        const r = await vfsApi.readVfsFile(selectedMount, entry.path)
-        setPreview(r.data)
+        const r = await vfsApi.readVfsFile(selectedMount, entry.path, undefined, abortController.signal)
+        if (!abortController.signal.aborted) {
+          setPreview(r.data)
+        }
       } catch (e) {
+        if ((e as Error)?.name === 'AbortError') return
         console.error(e)
       }
     }
@@ -2450,11 +2467,14 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     // 2. If no default, check all associated apps
     const associatedApps = getAppsForFile(ext)
     if (associatedApps.length === 1) {
-      // Single app — open directly
+      // Single app — open directly AND auto-register as default for this ext
+      if (ext) {
+        useFileDefaultsStore.getState().setDefault(ext, associatedApps[0].id)
+      }
       openWindow(associatedApps[0].id, { appState: { mountId: selectedMount, node: entry } })
     } else if (associatedApps.length > 1) {
       // Multiple apps — show "Open With" dialog
-      setOpenWithState({ visible: true, node: entry, apps: associatedApps })
+      setOpenWithState({ visible: true, node: entry, apps: associatedApps, showAll: false })
     } else {
       // 3. Fallback to file viewer
       handleOpenViewer(selectedMount, entry)
@@ -2585,27 +2605,48 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             ]
           })()),
       { type: 'separator' as const },
-      {
-        id: 'compress',
-        label: '压缩',
-        action: () => {
-          if (!selectedMount) return
-          const entries = getSelectedEntries(colIdx)
-          const items = entries.length > 0
-            ? entries.map(e => ({ mountId: selectedMount!, node: e }))
-            : [{ mountId: selectedMount!, node: entry }]
-          const defaultName = items.length === 1 ? items[0].node.name.replace(/\.[^.]+$/, '') : 'archive'
-          setCompressState({
-            visible: true,
-            items,
-            format: 'zip',
-            encrypt: false,
-            password: '',
-            confirmPassword: '',
-            archiveName: defaultName
-          })
-        }
-      },
+      ...(entry.is_dir || !ARCHIVE_EXTS.has(getFileExt(entry.name))
+        ? [{
+            id: 'compress',
+            label: '压缩',
+            action: () => {
+              if (!selectedMount) return
+              const entries = getSelectedEntries(colIdx)
+              const items = entries.length > 0
+                ? entries.map(e => ({ mountId: selectedMount!, node: e }))
+                : [{ mountId: selectedMount!, node: entry }]
+              const defaultName = items.length === 1 ? items[0].node.name.replace(/\.[^.]+$/, '') : 'archive'
+              setCompressState({
+                visible: true,
+                items,
+                format: 'zip',
+                encrypt: false,
+                password: '',
+                confirmPassword: '',
+                archiveName: defaultName
+              })
+            }
+          }]
+        : [{
+            id: 'extract',
+            label: '解压',
+            action: async () => {
+              if (!selectedMount) return
+              const parentDir = entry.path.substring(0, entry.path.lastIndexOf('/')) || '/'
+              const baseName = entry.name.replace(/\.(zip|7z|tar\.gz|tgz|tar\.bz2|tbz2|tar\.xz|txz|tar\.zst|tzst|tar|gz|bz2|xz|zst|rar)$/i, '')
+              const destPath = `${parentDir}/${baseName}`
+              try {
+                await request('POST', `/api/vfs/mounts/${encodeURIComponent(selectedMount)}/archive/extract`, {
+                  archive_path: entry.path,
+                  dest_dir: destPath
+                })
+                refreshColumn(colIdx)
+              } catch (err) {
+                console.error('Extract failed:', err)
+              }
+            }
+          }]
+      ),
       { type: 'separator' as const },
       {
         id: 'copy',
@@ -2893,61 +2934,91 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             }
           />
 
-          {mounts.map(m => {
-            const KindIcon = kindMeta[m.kind]?.icon ?? HardDrive
-            const isActive = selectedMount === m.id
+          {(() => {
+            const localMounts = mounts.filter(m => m.kind === 'local')
+            const networkMounts = mounts.filter(m => ['sftp', 'ftp', 'webdav', 'smb'].includes(m.kind))
+            const objectMounts = mounts.filter(m => m.kind === 's3')
+
+            const renderMount = (m: VfsMount) => {
+              const KindIcon = kindMeta[m.kind]?.icon ?? HardDrive
+              const isActive = selectedMount === m.id
+              return (
+                <div
+                  key={m.id}
+                  role="button"
+                  tabIndex={0}
+                  className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group"
+                  style={{
+                    background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
+                    color: isActive ? '#fff' : 'var(--vos-text-primary)',
+                    borderRadius: 4,
+                    margin: '1px 4px'
+                  }}
+                  onClick={() => selectMount(m.id)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') selectMount(m.id)
+                  }}
+                >
+                  <KindIcon size={13} style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+                  <span className="flex-1 truncate">{m.name}</span>
+                  <button
+                    type="button"
+                    className="hidden group-hover:block vos-btn-reset text-inherit"
+                    onClick={e => {
+                      e.stopPropagation()
+                      setEditingMount(m)
+                    }}
+                  >
+                    <Settings size={10} />
+                  </button>
+                  <button
+                    type="button"
+                    className="hidden group-hover:block vos-btn-reset text-inherit"
+                    onClick={e => {
+                      e.stopPropagation()
+                      deleteMount(m.id)
+                    }}
+                  >
+                    <Trash2 size={10} />
+                  </button>
+                </div>
+              )
+            }
+
+            const renderGroup = (label: string, items: VfsMount[]) => {
+              if (items.length === 0) return null
+              return (
+                <div key={label}>
+                  <div
+                    className="px-3 pt-2 pb-0.5 text-[10px] font-medium tracking-wide uppercase"
+                    style={{ color: 'var(--vos-text-tertiary)' }}
+                  >
+                    {label}
+                  </div>
+                  {items.map(renderMount)}
+                </div>
+              )
+            }
+
+            if (mounts.length === 0) {
+              return (
+                <div
+                  className="flex-1 flex items-center justify-center text-xs"
+                  style={{ color: 'var(--vos-text-tertiary)' }}
+                >
+                  无存储源
+                </div>
+              )
+            }
+
             return (
-              // Use div+role="button" instead of <button> to avoid nesting
-              // a <button> (delete) inside another <button> (select)
-              <div
-                key={m.id}
-                role="button"
-                tabIndex={0}
-                className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group"
-                style={{
-                  background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
-                  color: isActive ? '#fff' : 'var(--vos-text-primary)',
-                  borderRadius: 4,
-                  margin: '1px 4px'
-                }}
-                onClick={() => selectMount(m.id)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') selectMount(m.id)
-                }}
-              >
-                <KindIcon size={13} style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }} />
-                <span className="flex-1 truncate">{m.name}</span>
-                <button
-                  type="button"
-                  className="hidden group-hover:block vos-btn-reset text-inherit"
-                  onClick={e => {
-                    e.stopPropagation()
-                    setEditingMount(m)
-                  }}
-                >
-                  <Settings size={10} />
-                </button>
-                <button
-                  type="button"
-                  className="hidden group-hover:block vos-btn-reset text-inherit"
-                  onClick={e => {
-                    e.stopPropagation()
-                    deleteMount(m.id)
-                  }}
-                >
-                  <Trash2 size={10} />
-                </button>
-              </div>
+              <>
+                {renderGroup('本地存储', localMounts)}
+                {renderGroup('网络存储', networkMounts)}
+                {renderGroup('对象存储', objectMounts)}
+              </>
             )
-          })}
-          {mounts.length === 0 && (
-            <div
-              className="flex-1 flex items-center justify-center text-xs"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-            >
-              无存储源
-            </div>
-          )}
+          })()}
         </AppSidebar>
       }
       overlay={
@@ -3009,14 +3080,14 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    className="vos-btn-sm vos-btn-ghost"
+                    className="vos-btn vos-btn-sm vos-btn-ghost"
                     onClick={() => setNewFolderState({ visible: false, colPath: '', name: '' })}
                   >
                     取消
                   </button>
                   <button
                     type="button"
-                    className="vos-btn-sm vos-btn-primary"
+                    className="vos-btn vos-btn-sm vos-btn-primary"
                     style={{ opacity: newFolderState.name.trim() ? 1 : 0.5 }}
                     disabled={!newFolderState.name.trim()}
                     onClick={handleNewFolder}
@@ -3047,14 +3118,14 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    className="vos-btn-sm vos-btn-ghost"
+                    className="vos-btn vos-btn-sm vos-btn-ghost"
                     onClick={() => setNewFileState({ visible: false, dirPath: '', name: '' })}
                   >
                     取消
                   </button>
                   <button
                     type="button"
-                    className="vos-btn-sm vos-btn-primary"
+                    className="vos-btn vos-btn-sm vos-btn-primary"
                     style={{ opacity: newFileState.name.trim() ? 1 : 0.5 }}
                     disabled={!newFileState.name.trim()}
                     onClick={handleNewFile}
@@ -3081,53 +3152,77 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           {openWithState.visible && openWithState.node && selectedMount && (
             <div
               className="vos-modal-overlay"
-              onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
+              onClick={() => setOpenWithState({ visible: false, node: null, apps: [], showAll: false })}
             >
-              <div className="vos-modal-panel" style={{ width: 320 }} onClick={e => e.stopPropagation()}>
-                <div className="text-sm font-medium">选择打开方式</div>
+              <div className="vos-modal-panel" style={{ width: 300 }} onClick={e => e.stopPropagation()}>
+                <div className="text-sm font-medium">打开方式</div>
                 <div className="text-xs truncate" style={{ color: 'var(--vos-text-tertiary)' }}>
                   {openWithState.node.name}
                 </div>
                 <div className="flex flex-col gap-1">
-                  {openWithState.apps.map(app => (
+                  {(openWithState.showAll
+                    ? [...openWithState.apps, ...getAlwaysOpenWithApps().filter(a => !openWithState.apps.find(x => x.id === a.id))]
+                    : openWithState.apps
+                  ).map(app => (
                     <button
                       key={app.id}
                       type="button"
-                      className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 rounded cursor-pointer border-none text-left transition-colors"
                       style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
                       onClick={() => {
                         const n = openWithState.node!
-                        setOpenWithState({ visible: false, node: null, apps: [] })
+                        const ext = getFileExt(n.name)
+                        // Auto-register as default if none set
+                        if (ext && !useFileDefaultsStore.getState().getDefault(ext)) {
+                          useFileDefaultsStore.getState().setDefault(ext, app.id)
+                        }
+                        setOpenWithState({ visible: false, node: null, apps: [], showAll: false })
                         openWindow(app.id, { appState: { mountId: selectedMount, node: n } })
                       }}
                     >
-                      <span className="font-medium">{app.name}</span>
-                      {app.description && (
-                        <span style={{ color: 'var(--vos-text-tertiary)' }} className="truncate">
-                          {app.description}
-                        </span>
-                      )}
+                      <div style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 7, overflow: 'hidden' }}>
+                        {app.icon}
+                      </div>
+                      <span className="text-xs font-medium">{app.name}</span>
                     </button>
                   ))}
+                  {/* File viewer is always available */}
                   <button
                     type="button"
-                    className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded cursor-pointer border-none text-left transition-colors"
                     style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
                     onClick={() => {
                       const n = openWithState.node!
-                      setOpenWithState({ visible: false, node: null, apps: [] })
+                      const ext = getFileExt(n.name)
+                      if (ext && !useFileDefaultsStore.getState().getDefault(ext)) {
+                        useFileDefaultsStore.getState().setDefault(ext, 'file-viewer')
+                      }
+                      setOpenWithState({ visible: false, node: null, apps: [], showAll: false })
                       handleOpenViewer(selectedMount, n)
                     }}
                   >
-                    <span className="font-medium">文件查看器</span>
-                    <span style={{ color: 'var(--vos-text-tertiary)' }}>文本 / 图片预览</span>
+                    <div className="flex items-center justify-center" style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 7, background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)' }}>
+                      <File size={14} style={{ color: '#fff' }} />
+                    </div>
+                    <span className="text-xs font-medium">文件查看器</span>
                   </button>
                 </div>
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  {!openWithState.showAll ? (
+                    <button
+                      type="button"
+                      className="vos-btn vos-btn-sm vos-btn-ghost"
+                      onClick={() => setOpenWithState(s => ({ ...s, showAll: true }))}
+                    >
+                      其它应用...
+                    </button>
+                  ) : (
+                    <div />
+                  )}
                   <button
                     type="button"
-                    className="vos-btn-sm vos-btn-ghost"
-                    onClick={() => setOpenWithState({ visible: false, node: null, apps: [] })}
+                    className="vos-btn vos-btn-sm vos-btn-ghost"
+                    onClick={() => setOpenWithState({ visible: false, node: null, apps: [], showAll: false })}
                   >
                     取消
                   </button>
@@ -3200,7 +3295,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    className="vos-btn-sm vos-btn-ghost"
+                    className="vos-btn vos-btn-sm vos-btn-ghost"
                     onClick={() => setDefaultOpenState(s => ({ ...s, visible: false }))}
                   >
                     取消
@@ -3276,14 +3371,14 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    className="vos-btn-sm vos-btn-ghost"
+                    className="vos-btn vos-btn-sm vos-btn-ghost"
                     onClick={() => setCompressState(s => ({ ...s, visible: false }))}
                   >
                     取消
                   </button>
                   <button
                     type="button"
-                    className="vos-btn-sm vos-btn-primary"
+                    className="vos-btn vos-btn-sm vos-btn-primary"
                     disabled={
                       !compressState.archiveName.trim() ||
                       (compressState.encrypt && (!compressState.password || compressState.password !== compressState.confirmPassword))

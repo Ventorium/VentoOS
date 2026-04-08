@@ -901,6 +901,9 @@ impl VfsManager {
                             &dest,
                             password.as_deref(),
                         ),
+                        crate::archive::ArchiveFormat::Rar => {
+                            Err("Creating RAR archives is not supported. Use zip or 7z instead.".to_string())
+                        }
                     }
                 })
                 .await
@@ -958,6 +961,9 @@ impl VfsManager {
                 &temp_archive_clone,
                 password.as_deref(),
             ),
+            crate::archive::ArchiveFormat::Rar => {
+                Err("Creating RAR archives is not supported. Use zip or 7z instead.".to_string())
+            }
         })
         .await
         .map_err(|e| format!("Archive task failed: {e}"))??;
@@ -1060,6 +1066,11 @@ impl VfsManager {
                         &dest_dir,
                         password.as_deref(),
                     ),
+                    crate::archive::ArchiveFormat::Rar => crate::archive::extract_rar(
+                        &archive_path,
+                        &dest_dir,
+                        password.as_deref(),
+                    ),
                 })
                 .await
                 .map_err(|e| format!("Extract task failed: {e}"))?
@@ -1110,6 +1121,11 @@ impl VfsManager {
                 password.as_deref(),
             ),
             crate::archive::ArchiveFormat::SevenZ => crate::archive::extract_sevenz(
+                &temp_archive_clone,
+                &temp_extract_clone,
+                password.as_deref(),
+            ),
+            crate::archive::ArchiveFormat::Rar => crate::archive::extract_rar(
                 &temp_archive_clone,
                 &temp_extract_clone,
                 password.as_deref(),

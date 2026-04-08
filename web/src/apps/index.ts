@@ -7,6 +7,7 @@
 import type { AppManifest } from '@/kernel'
 import { aiAssistantManifest } from './ai-assistant/manifest'
 import { archiveEditorManifest } from './archive-editor/manifest'
+import { monacoEditorManifest } from './monaco-editor/manifest'
 import { databaseManifest } from './database/manifest'
 import { explorerManifest } from './explorer/manifest'
 import { fileViewerManifest } from './file-viewer/manifest'
@@ -38,12 +39,14 @@ export const builtinManifests: AppManifest[] = [
   imageEditorManifest,
   officeEditorManifest,
   archiveEditorManifest,
+  monacoEditorManifest,
   fontPreviewManifest
 ]
 
 export {
   aiAssistantManifest,
   archiveEditorManifest,
+  monacoEditorManifest,
   databaseManifest,
   explorerManifest,
   fileViewerManifest,

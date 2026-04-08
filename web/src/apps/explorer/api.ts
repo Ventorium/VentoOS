@@ -77,10 +77,10 @@ export const vfsApi = {
     if (showHidden) params.set('show_hidden', 'true')
     return request<ApiResponse<VfsNode[]>>('GET', `/api/vfs/mounts/${id}/ls?${params}`)
   },
-  readVfsFile: (id: string, path: string, maxBytes?: number) => {
+  readVfsFile: (id: string, path: string, maxBytes?: number, signal?: AbortSignal) => {
     const params = new URLSearchParams({ path })
     if (maxBytes) params.set('max_bytes', String(maxBytes))
-    return request<ApiResponse<VfsFileContent>>('GET', `/api/vfs/mounts/${id}/read?${params}`)
+    return request<ApiResponse<VfsFileContent>>('GET', `/api/vfs/mounts/${id}/read?${params}`, undefined, { signal })
   },
   readVfsFileRaw: async (id: string, path: string): Promise<Blob> => {
     const headers = getAuthHeaders()

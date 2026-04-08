@@ -20,6 +20,7 @@ pub enum ArchiveFormat {
     Zip,
     #[serde(rename = "7z")]
     SevenZ,
+    Rar,
 }
 
 impl ArchiveFormat {
@@ -32,6 +33,8 @@ impl ArchiveFormat {
             Some(Self::Zip)
         } else if lower.ends_with(".7z") {
             Some(Self::SevenZ)
+        } else if lower.ends_with(".rar") {
+            Some(Self::Rar)
         } else {
             None
         }
@@ -43,6 +46,7 @@ impl ArchiveFormat {
             Self::TarGz => ".tar.gz",
             Self::Zip => ".zip",
             Self::SevenZ => ".7z",
+            Self::Rar => ".rar",
         }
     }
 }
@@ -113,6 +117,9 @@ pub fn list_archive(
     }
     if let Some(ArchiveFormat::SevenZ) = ArchiveFormat::from_path(&path_str) {
         return list_sevenz(archive_path, password);
+    }
+    if let Some(ArchiveFormat::Rar) = ArchiveFormat::from_path(&path_str) {
+        return list_rar(archive_path, password);
     }
 
     // For unsupported formats, return error
@@ -196,6 +203,107 @@ fn list_sevenz(archive_path: &Path, password: Option<&str>) -> Result<ArchiveLis
         password_required: false,
         error: None,
     })
+}
+
+/// List RAR archive contents using the `unrar` CLI tool.
+/// Falls back to `7z` if `unrar` is not installed.
+/// Returns an error if neither tool is available.
+fn list_rar(archive_path: &Path, _password: Option<&str>) -> Result<ArchiveListResult, String> {
+    use std::process::Command;
+
+    let path_str = archive_path.to_string_lossy();
+
+    // Try `unrar lb` first (list bare - one file per line)
+    let output = Command::new("unrar")
+        .args(["lb", path_str.as_ref()])
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let entries = stdout
+                .lines()
+                .filter(|l| !l.is_empty())
+                .map(|line| {
+                    let is_dir = line.ends_with('/');
+                    ArchiveEntry {
+                        path: line.to_string(),
+                        size: 0,
+                        compressed_size: None,
+                        is_dir,
+                        modified: None,
+                        encrypted: None,
+                    }
+                })
+                .collect();
+            return Ok(ArchiveListResult {
+                entries,
+                password_required: false,
+                error: None,
+            });
+        }
+        // unrar binary found but failed (e.g., bad password)
+        let stderr = String::from_utf8_lossy(&out.stderr).to_lowercase();
+        if stderr.contains("password") || stderr.contains("encrypted") {
+            return Ok(ArchiveListResult {
+                entries: Vec::new(),
+                password_required: true,
+                error: Some("Archive is password-protected".to_string()),
+            });
+        }
+    }
+
+    // Fallback: try `7z l` which also handles RAR (when 7-Zip is installed)
+    let output7z = Command::new("7z")
+        .args(["l", "-slt", path_str.as_ref()])
+        .output();
+
+    if let Ok(out) = output7z {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let entries = parse_sevenz_list_output(&stdout);
+            return Ok(ArchiveListResult {
+                entries,
+                password_required: false,
+                error: None,
+            });
+        }
+    }
+
+    Err("RAR support requires `unrar` or `7z` (p7zip) to be installed on the system. Install with: brew install unrar  or  brew install p7zip".to_string())
+}
+
+/// Parse the output of `7z l -slt` into ArchiveEntry list.
+fn parse_sevenz_list_output(output: &str) -> Vec<ArchiveEntry> {
+    let mut entries = Vec::new();
+    let mut current: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+
+    for line in output.lines() {
+        if line.starts_with("----------") {
+            // Block separator — flush current entry
+            if let Some(path) = current.get("Path") {
+                if !path.is_empty() {
+                    let is_dir = current.get("Attributes").map(|a| a.starts_with('D')).unwrap_or(false);
+                    let size = current.get("Size").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
+                    let compressed_size = current.get("Packed Size").and_then(|s| s.parse::<u64>().ok());
+                    let modified = current.get("Modified").map(|s| s.to_string());
+                    entries.push(ArchiveEntry {
+                        path: path.to_string(),
+                        size,
+                        compressed_size,
+                        is_dir,
+                        modified,
+                        encrypted: None,
+                    });
+                }
+            }
+            current.clear();
+        } else if let Some((key, value)) = line.split_once(" = ") {
+            current.insert(key.trim(), value.trim());
+        }
+    }
+
+    entries
 }
 
 fn list_zip(archive_path: &Path) -> Result<ArchiveListResult, String> {
@@ -522,6 +630,54 @@ pub fn extract_zip(
     Ok(())
 }
 
+/// Extract a RAR archive to a local directory using the system `unrar` or `7z` tool.
+pub fn extract_rar(
+    archive_path: &Path,
+    dest_dir: &Path,
+    _password: Option<&str>,
+) -> Result<(), String> {
+    use std::process::Command;
+
+    std::fs::create_dir_all(dest_dir).map_err(|e| format!("Create dest dir failed: {e}"))?;
+    let path_str = archive_path.to_string_lossy();
+    let dest_str = dest_dir.to_string_lossy();
+
+    // Try `unrar x` first
+    let out = Command::new("unrar")
+        .args(["x", "-o+", path_str.as_ref(), dest_str.as_ref()])
+        .output();
+
+    if let Ok(o) = out {
+        if o.status.success() {
+            return Ok(());
+        }
+        let stderr = String::from_utf8_lossy(&o.stderr);
+        if !stderr.is_empty() {
+            return Err(format!("unrar extract error: {stderr}"));
+        }
+    }
+
+    // Fallback: try `7z x`
+    let out7z = Command::new("7z")
+        .args([
+            "x",
+            path_str.as_ref(),
+            &format!("-o{}", dest_str),
+            "-y",
+        ])
+        .output();
+
+    if let Ok(o) = out7z {
+        if o.status.success() {
+            return Ok(());
+        }
+        let stderr = String::from_utf8_lossy(&o.stderr);
+        return Err(format!("7z extract error: {stderr}"));
+    }
+
+    Err("RAR extraction requires `unrar` or `7z` (p7zip) installed on the system. Install with: brew install unrar  or  brew install p7zip".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -539,6 +695,14 @@ mod tests {
         assert_eq!(
             ArchiveFormat::from_path("test.zip"),
             Some(ArchiveFormat::Zip)
+        );
+        assert_eq!(
+            ArchiveFormat::from_path("test.rar"),
+            Some(ArchiveFormat::Rar)
+        );
+        assert_eq!(
+            ArchiveFormat::from_path("test.RAR"),
+            Some(ArchiveFormat::Rar)
         );
         assert_eq!(ArchiveFormat::from_path("test.txt"), None);
     }
