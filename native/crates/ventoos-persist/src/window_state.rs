@@ -28,7 +28,9 @@ impl WindowStateManager {
                 let tab_states: Option<String> = row.get(10)?;
                 let app_state: Option<String> = row.get(11)?;
                 Ok(WindowState {
-                    id: uuid::Uuid::parse_str(&id_str).unwrap_or_else(|_| uuid::Uuid::new_v4()),
+                    id: uuid::Uuid::parse_str(&id_str)
+                        .map(|id| id.to_string())
+                        .unwrap_or_else(|_| uuid::Uuid::new_v4().to_string()),
                     app_id: row.get(1)?,
                     title: row.get(2)?,
                     x: row.get(3)?,
@@ -119,7 +121,7 @@ mod tests {
 
     fn make_state(app_id: &str, z: u32) -> WindowState {
         WindowState {
-            id: new_id(),
+            id: new_id().to_string(),
             app_id: app_id.to_string(),
             title: format!("{app_id} window"),
             x: 100.0,
@@ -146,6 +148,8 @@ mod tests {
         assert_eq!(loaded.len(), 2);
         assert_eq!(loaded[0].app_id, "explorer");
         assert_eq!(loaded[1].app_id, "kubernetes");
+        assert_eq!(loaded[0].id, states[0].id);
+        assert_eq!(loaded[1].id, states[1].id);
     }
 
     #[test]

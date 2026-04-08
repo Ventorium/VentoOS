@@ -14,7 +14,7 @@ fn mem_db() -> Arc<Database> {
 
 fn make_window(app_id: &str, z: u32, status: WindowStatus) -> WindowState {
     WindowState {
-        id: new_id(),
+        id: new_id().to_string(),
         app_id: app_id.to_string(),
         title: format!("{app_id} window"),
         x: 100.0,
