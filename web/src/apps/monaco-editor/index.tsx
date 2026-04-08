@@ -11,6 +11,8 @@
  */
 
 import MonacoEditor from '@monaco-editor/react'
+import type { Monaco } from '@monaco-editor/react'
+import type { editor as MonacoEditorNS } from 'monaco-editor'
 import {
   ChevronRight,
   Code2,
@@ -173,7 +175,9 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const editorRef = useRef<Parameters<NonNullable<React.ComponentProps<typeof MonacoEditor>['onMount']>>[0] | null>(null)
+  const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null)
+  // Ref to always call the latest handleSave from Monaco keybinding
+  const handleSaveRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
   // Directory sidebar
   const [sidebarMountId, setSidebarMountId] = useState<string | null>(dirNode ? mountId : null)
@@ -195,18 +199,16 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
     ]
   })
 
-  // Keyboard shortcut
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const modKey = /Mac/.test(navigator.userAgent) ? e.metaKey : e.ctrlKey
-      if (modKey && e.key === 's') {
-        e.preventDefault()
-        handleSave()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [tab])
+  // Mount Monaco keybinding for ⌘S / Ctrl+S
+  const handleMonacoMount = useCallback((editor: MonacoEditorNS.IStandaloneCodeEditor, monaco: Monaco) => {
+    editorRef.current = editor
+    editor.addAction({
+      id: 'vos-save-file',
+      label: '保存文件',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+      run: () => { handleSaveRef.current() }
+    })
+  }, [])
 
   // Load file when app opens with a node
   useEffect(() => {
@@ -306,6 +308,11 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
       setSaving(false)
     }
   }, [tab])
+
+  // Keep ref up to date so Monaco keybinding always calls the latest version
+  useEffect(() => {
+    handleSaveRef.current = handleSave
+  }, [handleSave])
 
   const hasSidebar = tree.length > 0
 
@@ -423,7 +430,7 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
               theme="vs-dark"
               options={{
                 fontSize: 13,
-                fontFamily: 'var(--vos-font-mono, "Cascadia Code", "JetBrains Mono", "Fira Code", monospace)',
+                fontFamily: '"Cascadia Code", "JetBrains Mono", "Fira Code", "Consolas", "Menlo", monospace',
                 minimap: { enabled: true },
                 lineNumbers: 'on',
                 wordWrap: 'on',
@@ -436,9 +443,7 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
                 guides: { indentation: true },
                 padding: { top: 8, bottom: 8 }
               }}
-              onMount={editor => {
-                editorRef.current = editor
-              }}
+              onMount={handleMonacoMount}
               onChange={value => {
                 if (value !== undefined) {
                   setTab(prev => prev ? { ...prev, isDirty: value !== prev.content } : prev)
