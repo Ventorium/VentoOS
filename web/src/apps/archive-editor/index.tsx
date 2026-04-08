@@ -18,9 +18,12 @@ import {
   Loader2,
   PackageOpen
 } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
-import { apiClient } from '@/infra/api'
+import { request } from '@/infra/api'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 interface ArchiveEntry {
   path: string
@@ -33,9 +36,14 @@ interface ArchiveEntry {
 
 type Phase = 'loading' | 'listing' | 'extracting' | 'error'
 
-export default function ArchiveEditor({ initialAppState }: AppComponentProps) {
+export default function ArchiveEditor({ windowId, initialAppState }: AppComponentProps) {
   const mountId = (initialAppState?.mountId as string) ?? ''
   const node = initialAppState?.node as { name: string; path: string } | undefined
+
+  const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
+    windowId,
+    appId: 'archive-editor'
+  })
 
   const [phase, setPhase] = useState<Phase>('loading')
   const [entries, setEntries] = useState<ArchiveEntry[]>([])
@@ -57,8 +65,10 @@ export default function ArchiveEditor({ initialAppState }: AppComponentProps) {
       const params = new URLSearchParams({ path: node.path })
       if (pwd) params.set('password', pwd)
 
-      const resp = await apiClient.get(`/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/list?${params}`)
-      const data = resp.data as { entries?: ArchiveEntry[]; error?: string; password_required?: boolean }
+      const data = await request<{ entries?: ArchiveEntry[]; error?: string; password_required?: boolean }>(
+        'GET',
+        `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/list?${params}`
+      )
 
       if (data.password_required) {
         setNeedsPassword(true)
@@ -93,7 +103,7 @@ export default function ArchiveEditor({ initialAppState }: AppComponentProps) {
       const archiveName = node.name.replace(/\.[^.]+$/, '')
       const destDir = `${archiveDir}/${archiveName}`
 
-      await apiClient.post(`/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/extract`, {
+      await request('POST', `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/extract`, {
         archive_path: node.path,
         dest_dir: destDir,
         password: password || undefined
@@ -110,7 +120,7 @@ export default function ArchiveEditor({ initialAppState }: AppComponentProps) {
 
   const handleDownload = useCallback(() => {
     if (!mountId || !node) return
-    const url = `${apiClient.defaults.baseURL ?? ''}/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
+    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
     const a = document.createElement('a')
     a.href = url
     a.download = node.name
@@ -306,6 +316,11 @@ export default function ArchiveEditor({ initialAppState }: AppComponentProps) {
           })
         )}
       </div>
+      <AnimatePresence>
+        {showFilePicker && (
+          <VfsFilePickerModal mode="file" onConfirm={handleFilePickerConfirm} onClose={closeFilePicker} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
