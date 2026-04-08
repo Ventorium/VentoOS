@@ -13,7 +13,10 @@ use std::sync::Arc;
 use smolder_core::auth::NtlmCredentials;
 use smolder_core::facade::{Client, Share};
 use smolder_core::srvsvc::ShareInfo1;
-use smolder_proto::smb::smb2::{Dialect, GlobalCapabilities};
+use smolder_proto::smb::smb2::{
+    CloseRequest, CreateDisposition, CreateOptions, CreateRequest, Dialect, GlobalCapabilities,
+    QueryDirectoryFlags, QueryDirectoryRequest, ShareAccess,
+};
 use tokio::sync::Mutex;
 use tracing::debug;
 
@@ -447,6 +450,102 @@ async fn list_server_root(
     Ok(nodes)
 }
 
+async fn list_share_directory(
+    share: &mut Share,
+    share_path: &str,
+    vfs_path: &str,
+    show_hidden: bool,
+    share_name: &str,
+) -> Result<Vec<VfsNode>, String> {
+    let normalized_path = if share_path == "/" {
+        String::new()
+    } else {
+        share_path.trim_start_matches('/').to_string()
+    };
+
+    let mut create = CreateRequest::from_path(&normalized_path);
+    create.desired_access = 0x0001_0001;
+    create.share_access = ShareAccess::READ | ShareAccess::WRITE | ShareAccess::DELETE;
+    create.create_disposition = CreateDisposition::Open;
+    create.create_options = CreateOptions::DIRECTORY_FILE;
+
+    let response = share
+        .connection_mut()
+        .create(&create)
+        .await
+        .map_err(|e| format!("SMB root open failed: {e}"))?;
+    let file_id = response.file_id;
+
+    let mut req = QueryDirectoryRequest::for_pattern(file_id, "*", 4096);
+    let mut nodes = Vec::new();
+
+    loop {
+        let response = share
+            .connection_mut()
+            .query_directory(&req)
+            .await
+            .map_err(|e| format!("SMB list failed: {e}"))?;
+        let batch = response
+            .directory_entries()
+            .map_err(|e| format!("SMB list failed: {e}"))?
+            .into_iter()
+            .filter(|entry| entry.file_name != "." && entry.file_name != "..")
+            .map(|entry| {
+                let is_dir = entry
+                    .file_attributes
+                    .contains(smolder_proto::smb::smb2::FileAttributes::DIRECTORY);
+                VfsNode {
+                    path: String::new(),
+                    name: entry.file_name,
+                    is_dir,
+                    size: if is_dir {
+                        None
+                    } else {
+                        Some(entry.end_of_file)
+                    },
+                    modified: None,
+                    permissions: None,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if batch.is_empty() {
+            break;
+        }
+
+        for node in batch {
+            if !show_hidden && node.name.starts_with('.') {
+                continue;
+            }
+            nodes.push(node);
+        }
+
+        req = QueryDirectoryRequest::for_pattern(file_id, "*", 4096);
+        req.flags = QueryDirectoryFlags::empty();
+    }
+
+    let _ = share
+        .connection_mut()
+        .close(&CloseRequest { flags: 0, file_id })
+        .await;
+
+    let base_path = vfs_path.trim_end_matches('/');
+    for node in &mut nodes {
+        node.path = if base_path.is_empty() || base_path == "/" {
+            format!("/{}", node.name)
+        } else {
+            format!("{base_path}/{}", node.name)
+        };
+    }
+
+    nodes.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    debug!(
+        "Listed SMB share directory {share_name}:{share_path} with {} entries",
+        nodes.len()
+    );
+    Ok(nodes)
+}
+
 // ─── VFS operations ──────────────────────────────────────────────────────────
 
 /// List directory contents via SMB.
@@ -463,42 +562,9 @@ pub(crate) async fn list_dir(
         SmbTarget::ServerRoot => list_server_root(pool, mount_id, show_hidden).await,
         SmbTarget::Share { share, share_path } => {
             let mut smb_share = pool.get_share(mount_id, &share).await?;
-            let result = async {
-                let entries = smb_share
-                    .list(&share_path)
-                    .await
-                    .map_err(|e| format!("SMB list failed: {e}"))?;
-
-                let mut nodes = Vec::new();
-                for entry in entries {
-                    let is_dir = entry.is_directory();
-                    let name = entry.name;
-                    if !show_hidden && name.starts_with('.') {
-                        continue;
-                    }
-
-                    let size = entry.metadata.size;
-                    let modified = entry.metadata.written.map(|t| format_system_time(&t));
-                    let base_path = vfs_path.trim_end_matches('/');
-
-                    let node_path = if base_path.is_empty() || base_path == "/" {
-                        format!("/{name}")
-                    } else {
-                        format!("{base_path}/{name}")
-                    };
-
-                    nodes.push(VfsNode {
-                        name,
-                        path: node_path,
-                        is_dir,
-                        size: Some(size),
-                        modified,
-                        permissions: None,
-                    });
-                }
-                Ok(nodes)
-            }
-            .await;
+            let result =
+                list_share_directory(&mut smb_share, &share_path, vfs_path, show_hidden, &share)
+                    .await;
 
             pool.put_share(mount_id, &share, smb_share).await;
             result
@@ -769,6 +835,21 @@ pub(crate) async fn stat(
             permissions: None,
         }),
         SmbTarget::Share { share, share_path } => {
+            if share_path == "/" {
+                let trimmed = vfs_path.trim_end_matches('/');
+                return Ok(VfsNode {
+                    name: share,
+                    path: if trimmed.is_empty() {
+                        "/".to_string()
+                    } else {
+                        trimmed.to_string()
+                    },
+                    is_dir: true,
+                    size: None,
+                    modified: None,
+                    permissions: None,
+                });
+            }
             let mut smb_share = pool.get_share(mount_id, &share).await?;
             let result = async {
                 let metadata = smb_share
@@ -851,11 +932,19 @@ pub(crate) async fn test_connection(smb_uri: &str) -> Result<(), String> {
             .await
             .map_err(|e| format!("SMB connection failed: {e}"))?;
 
-        // Verify by listing the configured share root or base path.
-        share
-            .list(&info.base_path)
-            .await
-            .map_err(|e| format!("SMB share access failed: {e}"))?;
+        if info.base_path == "/" {
+            let _ = list_share_directory(&mut share, "/", "/", false, share_name).await?;
+        } else {
+            // Verify by listing the configured share subdirectory.
+            let _ = list_share_directory(
+                &mut share,
+                &info.base_path,
+                &info.base_path,
+                false,
+                share_name,
+            )
+            .await?;
+        }
 
         let _ = share.logoff().await;
     } else {

@@ -14,7 +14,10 @@
 #![cfg(test)]
 
 use crate::manager::VfsManager;
-use crate::types::{CreateVfsMountReq, VfsListReq, VfsMkdirReq, VfsSourceKind};
+use crate::types::{
+    CreateVfsMountReq, VfsCopyReq, VfsDeleteReq, VfsListReq, VfsMkdirReq, VfsMoveReq, VfsReadReq,
+    VfsSearchReq, VfsSourceKind, VfsWriteReq,
+};
 
 fn sftp_host() -> String {
     std::env::var("SFTP_HOST").unwrap_or_else(|_| "192.168.211.239".to_string())
@@ -35,13 +38,16 @@ fn smb_host() -> String {
     std::env::var("SMB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
 }
 fn smb_share() -> String {
-    std::env::var("SMB_SHARE").unwrap_or_else(|_| "testshare".to_string())
+    std::env::var("SMB_SHARE").unwrap_or_else(|_| "share1".to_string())
+}
+fn smb_share_two() -> String {
+    std::env::var("SMB_SHARE_2").unwrap_or_else(|_| "share2".to_string())
 }
 fn smb_user() -> String {
     std::env::var("SMB_USER").unwrap_or_else(|_| "testuser".to_string())
 }
 fn smb_pass() -> String {
-    std::env::var("SMB_PASS").unwrap_or_else(|_| "testpass".to_string())
+    std::env::var("SMB_PASS").unwrap_or_else(|_| "123456".to_string())
 }
 fn ftp_host() -> String {
     std::env::var("FTP_HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
@@ -214,6 +220,90 @@ async fn test_s3_list_root() {
 
 // ─── SMB ──────────────────────────────────────────────────────────────────
 
+fn smb_share_root_uri() -> String {
+    format!(
+        "smb://{}:{}@{}/{}",
+        smb_user(),
+        smb_pass(),
+        smb_host(),
+        smb_share()
+    )
+}
+
+fn smb_server_root_uri() -> String {
+    format!("smb://{}:{}@{}", smb_user(), smb_pass(), smb_host())
+}
+
+async fn create_smb_mount(manager: &VfsManager, name: &str, root: String) -> String {
+    manager
+        .create_mount(CreateVfsMountReq {
+            name: name.to_string(),
+            kind: VfsSourceKind::Smb,
+            root,
+            connection_id: None,
+            group: None,
+        })
+        .await
+        .id
+}
+
+async fn smb_list_names(manager: &VfsManager, mount_id: &str, path: &str) -> Vec<String> {
+    manager
+        .list_dir(&VfsListReq {
+            mount_id: mount_id.to_string(),
+            path: path.to_string(),
+            show_hidden: false,
+        })
+        .await
+        .unwrap_or_else(|e| panic!("SMB list_dir failed at {path}: {e}"))
+        .into_iter()
+        .map(|node| node.name)
+        .collect()
+}
+
+async fn smb_make_tree(
+    manager: &VfsManager,
+    mount_id: &str,
+    base_dir: &str,
+) -> (String, String, String, String) {
+    let dir_a = format!("{base_dir}/a");
+    let dir_b = format!("{dir_a}/b");
+    let dir_c = format!("{dir_b}/c");
+    let file_path = format!("{dir_c}/hello.txt");
+
+    for path in [base_dir, &dir_a, &dir_b, &dir_c] {
+        manager
+            .mkdir(&VfsMkdirReq {
+                mount_id: mount_id.to_string(),
+                path: path.to_string(),
+            })
+            .await
+            .unwrap_or_else(|e| panic!("SMB mkdir failed at {path}: {e}"));
+    }
+
+    manager
+        .write_file(&VfsWriteReq {
+            mount_id: mount_id.to_string(),
+            path: file_path.clone(),
+            content: "hello from ventoos smb".to_string(),
+        })
+        .await
+        .unwrap_or_else(|e| panic!("SMB write_file failed at {file_path}: {e}"));
+
+    (dir_a, dir_b, dir_c, file_path)
+}
+
+async fn smb_cleanup_tree(manager: &VfsManager, mount_id: &str, paths: &[String]) {
+    for path in paths {
+        let _ = manager
+            .delete(&VfsDeleteReq {
+                mount_id: mount_id.to_string(),
+                path: path.clone(),
+            })
+            .await;
+    }
+}
+
 #[tokio::test]
 #[ignore = "requires SMB server"]
 async fn test_smb_test_connection() {
@@ -221,13 +311,7 @@ async fn test_smb_test_connection() {
     let req = CreateVfsMountReq {
         name: "test-smb".to_string(),
         kind: VfsSourceKind::Smb,
-        root: format!(
-            "smb://{}:{}@{}/{}",
-            smb_user(),
-            smb_pass(),
-            smb_host(),
-            smb_share()
-        ),
+        root: smb_share_root_uri(),
         connection_id: None,
         group: None,
     };
@@ -246,7 +330,7 @@ async fn test_smb_server_root_list() {
     let req = CreateVfsMountReq {
         name: "test-smb-root".to_string(),
         kind: VfsSourceKind::Smb,
-        root: format!("smb://{}:{}@{}", smb_user(), smb_pass(), smb_host()),
+        root: smb_server_root_uri(),
         connection_id: None,
         group: None,
     };
@@ -272,39 +356,198 @@ async fn test_smb_server_root_list() {
     assert!(
         entries
             .iter()
-            .any(|entry| entry.name.eq_ignore_ascii_case("IPC$")),
-        "Expected SMB server-root listing to include IPC$"
+            .any(|entry| entry.name.eq_ignore_ascii_case(&smb_share())),
+        "Expected SMB server-root listing to include primary share"
     );
 }
 
 #[tokio::test]
 #[ignore = "requires SMB server"]
-async fn test_smb_list_root() {
+async fn test_smb_server_root_can_enter_share_and_list_nested_tree() {
     let manager = VfsManager::new();
-    let mount = manager
-        .create_mount(CreateVfsMountReq {
-            name: "test-smb".to_string(),
-            kind: VfsSourceKind::Smb,
-            root: format!(
-                "smb://{}:{}@{}/{}",
-                smb_user(),
-                smb_pass(),
-                smb_host(),
-                smb_share()
-            ),
-            connection_id: None,
-            group: None,
-        })
-        .await;
 
-    let result = manager
-        .list_dir(&VfsListReq {
-            mount_id: mount.id.clone(),
-            path: "/".to_string(),
-            show_hidden: false,
+    let share_mount_id = create_smb_mount(&manager, "test-smb-share", smb_share_root_uri()).await;
+    let server_mount_id =
+        create_smb_mount(&manager, "test-smb-server-root", smb_server_root_uri()).await;
+
+    let base_dir = format!("/vfs_smb_{}", uuid::Uuid::new_v4().simple());
+    let (dir_a, dir_b, dir_c, file_path) =
+        smb_make_tree(&manager, &share_mount_id, &base_dir).await;
+
+    let server_root = smb_list_names(&manager, &server_mount_id, "/").await;
+    assert!(
+        server_root
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(&smb_share())),
+        "SMB server root should list primary share"
+    );
+    assert!(
+        server_root
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(&smb_share_two())),
+        "SMB server root should list secondary share"
+    );
+
+    let share_root = smb_list_names(&manager, &server_mount_id, &format!("/{}", smb_share())).await;
+    assert!(
+        share_root
+            .iter()
+            .any(|name| name == base_dir.trim_start_matches('/')),
+        "SMB server-root share listing should expose created base directory"
+    );
+
+    let level_a = smb_list_names(
+        &manager,
+        &server_mount_id,
+        &format!("/{}/{}", smb_share(), base_dir.trim_start_matches('/')),
+    )
+    .await;
+    assert!(
+        level_a.iter().any(|name| name == "a"),
+        "Expected level-a directory"
+    );
+
+    let level_c = smb_list_names(
+        &manager,
+        &server_mount_id,
+        &format!("/{}/{}/a/b", smb_share(), base_dir.trim_start_matches('/')),
+    )
+    .await;
+    assert!(
+        level_c.iter().any(|name| name == "c"),
+        "Expected level-c directory"
+    );
+
+    let file_content = manager
+        .read_file(&VfsReadReq {
+            mount_id: share_mount_id.clone(),
+            path: file_path.clone(),
+            max_bytes: None,
         })
-        .await;
-    assert!(result.is_ok(), "SMB list_dir failed: {:?}", result.err());
+        .await
+        .unwrap();
+    assert_eq!(file_content.content, "hello from ventoos smb");
+
+    let file_node = manager.stat(&share_mount_id, &file_path).await.unwrap();
+    assert!(!file_node.is_dir);
+    assert_eq!(file_node.name, "hello.txt");
+
+    smb_cleanup_tree(
+        &manager,
+        &share_mount_id,
+        &[
+            file_path.clone(),
+            dir_c.clone(),
+            dir_b.clone(),
+            dir_a.clone(),
+            base_dir.clone(),
+        ],
+    )
+    .await;
+}
+
+#[tokio::test]
+#[ignore = "requires SMB server"]
+async fn test_smb_share_root_multilevel_crud() {
+    let manager = VfsManager::new();
+    let mount_id = create_smb_mount(&manager, "test-smb-share-root", smb_share_root_uri()).await;
+
+    let base_dir = format!("/vfs_smb_{}", uuid::Uuid::new_v4().simple());
+    let (dir_a, dir_b, dir_c, file_path) = smb_make_tree(&manager, &mount_id, &base_dir).await;
+
+    let root_names = smb_list_names(&manager, &mount_id, "/").await;
+    assert!(
+        root_names
+            .iter()
+            .any(|name| name == base_dir.trim_start_matches('/')),
+        "Expected share root listing to include created base directory"
+    );
+
+    let a_names = smb_list_names(&manager, &mount_id, &base_dir).await;
+    assert!(a_names.iter().any(|name| name == "a"));
+
+    let b_names = smb_list_names(&manager, &mount_id, &dir_a).await;
+    assert!(b_names.iter().any(|name| name == "b"));
+
+    let c_names = smb_list_names(&manager, &mount_id, &dir_b).await;
+    assert!(c_names.iter().any(|name| name == "c"));
+
+    let read_back = manager
+        .read_file(&VfsReadReq {
+            mount_id: mount_id.clone(),
+            path: file_path.clone(),
+            max_bytes: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(read_back.content, "hello from ventoos smb");
+
+    let search_hits = manager
+        .search(&VfsSearchReq {
+            mount_id: mount_id.clone(),
+            path: dir_c.clone(),
+            query: "hello".to_string(),
+            max_results: Some(10),
+        })
+        .await
+        .unwrap();
+    assert!(
+        search_hits
+            .iter()
+            .any(|node| node.path.ends_with("hello.txt")),
+        "Expected search to find created file"
+    );
+
+    manager
+        .copy_file(&VfsCopyReq {
+            mount_id: mount_id.clone(),
+            src: file_path.clone(),
+            dest: format!("{dir_c}/hello-copy.txt"),
+        })
+        .await
+        .unwrap();
+
+    manager
+        .move_file(&VfsMoveReq {
+            mount_id: mount_id.clone(),
+            src: format!("{dir_c}/hello-copy.txt"),
+            dest: format!("{dir_b}/hello-moved.txt"),
+        })
+        .await
+        .unwrap();
+
+    let moved_names = smb_list_names(&manager, &mount_id, &dir_b).await;
+    assert!(
+        moved_names.iter().any(|name| name == "hello-moved.txt"),
+        "Expected moved file to appear in destination directory"
+    );
+
+    let moved_content = manager
+        .read_file(&VfsReadReq {
+            mount_id: mount_id.clone(),
+            path: format!("{dir_b}/hello-moved.txt"),
+            max_bytes: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(moved_content.content, "hello from ventoos smb");
+
+    manager
+        .delete(&VfsDeleteReq {
+            mount_id: mount_id.clone(),
+            path: format!("{dir_b}/hello-moved.txt"),
+        })
+        .await
+        .unwrap();
+    manager
+        .delete(&VfsDeleteReq {
+            mount_id: mount_id.clone(),
+            path: file_path.clone(),
+        })
+        .await
+        .unwrap();
+
+    smb_cleanup_tree(&manager, &mount_id, &[dir_c, dir_b, dir_a, base_dir]).await;
 }
 
 // ─── FTP ──────────────────────────────────────────────────────────────────
