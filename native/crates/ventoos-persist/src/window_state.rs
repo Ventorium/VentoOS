@@ -22,15 +22,12 @@ impl WindowStateManager {
                  FROM window_states ORDER BY z_index",
             )?;
             let rows = stmt.query_map([], |row| {
-                let id_str: String = row.get(0)?;
                 let status_str: String = row.get(8)?;
                 let status = parse_window_status(&status_str);
                 let tab_states: Option<String> = row.get(10)?;
                 let app_state: Option<String> = row.get(11)?;
                 Ok(WindowState {
-                    id: uuid::Uuid::parse_str(&id_str)
-                        .map(|id| id.to_string())
-                        .unwrap_or_else(|_| uuid::Uuid::new_v4().to_string()),
+                    id: row.get(0)?,
                     app_id: row.get(1)?,
                     title: row.get(2)?,
                     x: row.get(3)?,
