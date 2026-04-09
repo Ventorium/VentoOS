@@ -4,7 +4,10 @@ use axum::middleware;
 use axum::response::{Html, IntoResponse};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
+use chrono::NaiveDate;
 use rust_embed::Embed;
+use std::sync::{Arc, OnceLock};
+use tokio::sync::Mutex;
 
 use crate::auth;
 use crate::monitor;
@@ -19,6 +22,76 @@ use ventoos_core::types::{ApiResponse, Id};
 #[derive(Embed)]
 #[folder = "../../../web/dist/"]
 struct FrontendAssets;
+
+// ─── Bing Wallpaper Daily Cache ───────────────────────────────────────────
+
+struct BingCache {
+    date: NaiveDate,
+    urls: Vec<String>,
+}
+
+static BING_CACHE: OnceLock<Arc<Mutex<Option<BingCache>>>> = OnceLock::new();
+
+fn bing_cache() -> Arc<Mutex<Option<BingCache>>> {
+    BING_CACHE
+        .get_or_init(|| Arc::new(Mutex::new(None)))
+        .clone()
+}
+
+async fn fetch_bing_wallpapers_from_api() -> anyhow::Result<Vec<String>> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let resp = client
+        .get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=6&mkt=zh-CN")
+        .send()
+        .await?;
+    let body: serde_json::Value = resp.json().await?;
+    let images = body["images"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("Bing API: missing 'images' field"))?;
+    let urls = images
+        .iter()
+        .filter_map(|img| img["url"].as_str())
+        .map(|url| {
+            if url.starts_with("http") {
+                url.to_string()
+            } else {
+                format!("https://www.bing.com{url}")
+            }
+        })
+        .collect();
+    Ok(urls)
+}
+
+async fn get_bing_wallpapers() -> impl IntoResponse {
+    let cache = bing_cache();
+    let mut guard = cache.lock().await;
+    let today = chrono::Local::now().date_naive();
+
+    if let Some(cached) = guard.as_ref() {
+        if cached.date == today {
+            return Json(ApiResponse::ok(cached.urls.clone())).into_response();
+        }
+    }
+
+    match fetch_bing_wallpapers_from_api().await {
+        Ok(urls) => {
+            *guard = Some(BingCache {
+                date: today,
+                urls: urls.clone(),
+            });
+            Json(ApiResponse::ok(urls)).into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(ApiResponse::<Vec<String>>::err(format!(
+                "Failed to fetch Bing wallpapers: {e}"
+            ))),
+        )
+            .into_response(),
+    }
+}
 
 /// Create the application router.
 pub fn create_router(state: &AppState) -> Router {
@@ -62,6 +135,8 @@ pub fn create_router(state: &AppState) -> Router {
             "/api/settings/windows",
             get(get_window_states).put(save_window_states),
         )
+        // Bing daily wallpapers (cached per-day)
+        .route("/api/bing-wallpapers", get(get_bing_wallpapers))
         // Per-app storage routes
         .route("/api/storage/{app_id}", get(list_storage_keys))
         .route(

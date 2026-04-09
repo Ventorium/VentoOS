@@ -1,8 +1,10 @@
 import { motion, useAnimationControls } from 'framer-motion'
-import { type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import type React from 'react'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { closeWindow, focusWindow, minimizeWindow, toggleMaximize, useWindowStore, type WindowInstance } from '@/kernel'
 import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
+import { useSettingsStore } from '@/services/settings'
 import { tokens } from '@/theme'
 
 const TOPBAR_H = tokens.topBar.height
@@ -13,6 +15,26 @@ const MIN_H = tokens.window.minHeight
 type ResizeDir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null
 
 /* -------- Traffic Lights -------- */
+// Inline SVG icons for pixel-perfect centering (6×6 canvas, stroke-width 1.5)
+const TlClose = () => (
+  <svg width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true">
+    <line x1="1" y1="1" x2="5" y2="5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="5" y1="1" x2="1" y2="5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+)
+const TlMinimize = () => (
+  <svg width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true">
+    <line x1="1" y1="3" x2="5" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+)
+const TlMaximize = () => (
+  <svg width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true">
+    <polyline points="1,3.5 1,5 2.5,5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    <polyline points="4.5,1 5,1 5,2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    <line x1="1" y1="5" x2="5" y2="1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+)
+
 function TrafficLights({
   focused,
   onClose,
@@ -26,7 +48,7 @@ function TrafficLights({
 }) {
   const [hovered, setHovered] = useState(false)
 
-  const dot = (color: string, label: string, sym: string, handler: () => void) => (
+  const dot = (color: string, label: string, Icon: () => React.ReactElement, handler: () => void) => (
     <button
       type="button"
       aria-label={label}
@@ -34,7 +56,6 @@ function TrafficLights({
         e.stopPropagation()
         handler()
       }}
-      className="vos-flex-center"
       style={{
         width: 14,
         height: 14,
@@ -43,15 +64,16 @@ function TrafficLights({
         border: focused ? 'none' : '0.5px solid rgba(128,128,128,0.3)',
         cursor: 'pointer',
         padding: 0,
-        fontSize: 11,
-        fontWeight: 800,
         color: 'rgba(0,0,0,0.55)',
-        lineHeight: 1,
         flexShrink: 0,
-        transition: 'background 0.1s'
+        transition: 'background 0.1s',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        lineHeight: 0,
       }}
     >
-      {hovered ? sym : null}
+      {hovered ? <Icon /> : null}
     </button>
   )
 
@@ -64,9 +86,9 @@ function TrafficLights({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {dot('var(--vos-tl-close)', '关闭', '✕', onClose)}
-      {dot('var(--vos-tl-minimize)', '最小化', '−', onMinimize)}
-      {dot('var(--vos-tl-maximize)', '最大化', '⤢', onMaximize)}
+      {dot('var(--vos-tl-close)', '关闭', TlClose, onClose)}
+      {dot('var(--vos-tl-minimize)', '最小化', TlMinimize, onMinimize)}
+      {dot('var(--vos-tl-maximize)', '最大化', TlMaximize, onMaximize)}
     </div>
   )
 }
@@ -107,6 +129,10 @@ export default function Window({ win, children }: { win: WindowInstance; childre
   const moveWindow = useWindowStore(s => s.moveWindow)
   const resizeWindow = useWindowStore(s => s.resizeWindow)
   const shouldRender = !win.isMinimized
+
+  // Wallpaper for per-window glass morphism
+  const wallpaper = useSettingsStore(s => s.wallpaper)
+  const isImageWallpaper = !wallpaper.startsWith('linear-') && !wallpaper.startsWith('radial-')
 
   // ---- Auto-reset position when title bar is off-screen ----
   // Triggered on browser resize; if the window title bar is not visible, reposition to center.
@@ -355,86 +381,113 @@ export default function Window({ win, children }: { win: WindowInstance; childre
         overflow: 'hidden',
         boxShadow: win.isFocused ? tokens.shadow.windowFocused : tokens.shadow.window,
         border: '0.5px solid var(--vos-border-subtle)',
-        background: win.isFocused ? 'var(--vos-bg-window-active)' : 'var(--vos-bg-window)',
-        backdropFilter: `blur(48px) saturate(200%)`,
-        WebkitBackdropFilter: `blur(48px) saturate(200%)`,
+        background: isImageWallpaper ? 'transparent' : (win.isFocused ? 'var(--vos-bg-window-active)' : 'var(--vos-bg-window)'),
+        backdropFilter: isImageWallpaper ? 'none' : 'blur(48px) saturate(200%)',
+        WebkitBackdropFilter: isImageWallpaper ? 'none' : 'blur(48px) saturate(200%)',
         pointerEvents: win.isMinimized ? 'none' : 'auto'
       }}
       onMouseDown={() => {
         if (!win.isFocused) focusWindow(win.id)
       }}
     >
-      {/* ---- Title bar ---- */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: title bar is a drag handle for window movement */}
-      <div
-        role="presentation"
-        className="vos-flex-row"
-        style={{
-          height: TITLE_H,
-          paddingLeft: 12,
-          paddingRight: 12,
-          flexShrink: 0,
-          WebkitBackdropFilter: 'blur(48px)',
-          borderBottom: '0.5px solid var(--vos-border-subtle)',
-          cursor: isMax ? 'default' : 'grab',
-          userSelect: 'none'
-        }}
-        onMouseDown={onDragStart}
-        onDoubleClick={() => toggleMaximize(win.id)}
-      >
-        <TrafficLights
-          focused={win.isFocused}
-          onClose={() => closeWindow(win.id)}
-          onMinimize={() => minimizeWindow(win.id)}
-          onMaximize={() => toggleMaximize(win.id)}
-        />
-        <div
-          className="vos-flex-1"
-          style={{
-            textAlign: 'center',
-            fontSize: 13,
-            fontWeight: 500,
-            color: win.isFocused ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            paddingLeft: 8,
-            paddingRight: 8
-          }}
-        >
-          {win.title}
-        </div>
-        <div style={{ width: 52, flexShrink: 0 }} />
-      </div>
+      {/* Per-window glass morphism: blurred wallpaper slice + tint */}
+      {isImageWallpaper && (
+        <>
+          <div
+            style={{
+              position: 'absolute',
+              inset: -24,
+              backgroundImage: `url(${wallpaper})`,
+              backgroundSize: '100vw 100vh',
+              backgroundPosition: `${24 - left}px ${24 - top}px`,
+              filter: 'blur(24px) saturate(180%)',
+              zIndex: 0,
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: win.isFocused ? 'rgba(28, 28, 30, 0.35)' : 'rgba(20, 20, 22, 0.28)',
+              zIndex: 1,
+            }}
+          />
+        </>
+      )}
 
-      {/* ---- Content with virtual rendering ---- */}
-      <div className="vos-flex-col vos-flex-1" style={{ overflow: 'auto' }}>
-        {shouldRender ? (
-          <Suspense
-            fallback={
-              <div className="vos-flex-center" style={{ flex: 1 }}>
-                <div
-                  style={{
-                    width: 20,
-                    height: 20,
-                    border: '2px solid var(--vos-border-default)',
-                    borderTopColor: 'var(--vos-accent-primary)',
-                    borderRadius: '50%',
-                    animation: 'vos-spin 0.7s linear infinite'
-                  }}
-                />
-              </div>
-            }
+      {/* Window body (title bar + content) — above glass layers */}
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', flex: 1 }}>
+        {/* ---- Title bar ---- */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: title bar is a drag handle for window movement */}
+        <div
+          role="presentation"
+          className="vos-flex-row"
+          style={{
+            height: TITLE_H,
+            paddingLeft: 12,
+            paddingRight: 12,
+            flexShrink: 0,
+            borderBottom: '0.5px solid var(--vos-border-subtle)',
+            cursor: isMax ? 'default' : 'grab',
+            userSelect: 'none'
+          }}
+          onMouseDown={onDragStart}
+          onDoubleClick={() => toggleMaximize(win.id)}
+        >
+          <TrafficLights
+            focused={win.isFocused}
+            onClose={() => closeWindow(win.id)}
+            onMinimize={() => minimizeWindow(win.id)}
+            onMaximize={() => toggleMaximize(win.id)}
+          />
+          <div
+            className="vos-flex-1"
+            style={{
+              textAlign: 'center',
+              fontSize: 13,
+              fontWeight: 500,
+              color: win.isFocused ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              paddingLeft: 8,
+              paddingRight: 8
+            }}
           >
-            <ErrorBoundary appId={win.appId}>
-              {children}
-            </ErrorBoundary>
-          </Suspense>
-        ) : (
-          <div className="vos-flex-center" style={{ flex: 1, color: 'var(--vos-text-tertiary)', fontSize: 13 }}>
-            进程已暂停
+            {win.title}
           </div>
-        )}
+          <div style={{ width: 52, flexShrink: 0 }} />
+        </div>
+
+        {/* ---- Content with virtual rendering ---- */}
+        <div className="vos-flex-col vos-flex-1" style={{ overflow: 'auto' }}>
+          {shouldRender ? (
+            <Suspense
+              fallback={
+                <div className="vos-flex-center" style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      width: 20,
+                      height: 20,
+                      border: '2px solid var(--vos-border-default)',
+                      borderTopColor: 'var(--vos-accent-primary)',
+                      borderRadius: '50%',
+                      animation: 'vos-spin 0.7s linear infinite'
+                    }}
+                  />
+                </div>
+              }
+            >
+              <ErrorBoundary appId={win.appId}>
+                {children}
+              </ErrorBoundary>
+            </Suspense>
+          ) : (
+            <div className="vos-flex-center" style={{ flex: 1, color: 'var(--vos-text-tertiary)', fontSize: 13 }}>
+              进程已暂停
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ---- Resize handles ---- */}

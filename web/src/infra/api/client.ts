@@ -128,5 +128,8 @@ export const apiClient = {
     if (path) params.set('path', path)
     if (dirsOnly) params.set('dirs_only', 'true')
     return request<ApiResponse<LocalFsNode[]>>('GET', `/api/fs/browse?${params}`)
-  }
+  },
+
+  // Bing daily wallpapers
+  getBingWallpapers: () => request<ApiResponse<string[]>>('GET', '/api/bing-wallpapers')
 }

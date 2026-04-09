@@ -33,6 +33,7 @@ import type {
 } from '@/apps/ai-assistant/api'
 import { agentApi } from '@/apps/ai-assistant/api'
 import { useWindowStore } from '@/kernel'
+import { apiClient } from '@/infra/api'
 import { useNotificationStore } from '@/services/notification'
 import { type ThemeMode, useSettingsStore } from '@/services/settings'
 
@@ -49,6 +50,21 @@ const CATEGORIES = [
 /* ---- Appearance Settings ---- */
 function AppearancePanel() {
   const { themeMode, setThemeMode, wallpaper, setWallpaper } = useSettingsStore()
+  const [bingWallpapers, setBingWallpapers] = useState<string[]>([])
+  const [bingLoading, setBingLoading] = useState(false)
+
+  useEffect(() => {
+    setBingLoading(true)
+    apiClient
+      .getBingWallpapers()
+      .then(res => {
+        if (res.data) setBingWallpapers(res.data)
+      })
+      .catch(() => {
+        // silently ignore — Bing might not be reachable
+      })
+      .finally(() => setBingLoading(false))
+  }, [])
 
   const themes: { value: ThemeMode; label: string; desc: string }[] = [
     { value: 'light', label: '浅色', desc: '始终使用浅色外观' },
@@ -138,6 +154,32 @@ function AppearancePanel() {
             />
           ))}
         </div>
+      </div>
+
+      {/* Bing daily wallpapers */}
+      <div className="vos-settings-group">
+        <label className="vos-settings-label">
+          Bing 每日壁纸
+          {bingLoading && (
+            <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--vos-text-tertiary)' }}>加载中…</span>
+          )}
+        </label>
+        {!bingLoading && bingWallpapers.length === 0 ? (
+          <p style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>暂无 Bing 壁纸（网络不可用）</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {bingWallpapers.map((url, i) => (
+              <button
+                key={url}
+                type="button"
+                className={`vos-settings-wallpaper ${wallpaper === url ? 'active' : ''}`}
+                style={{ background: `url(${url}) center/cover no-repeat` }}
+                onClick={() => setWallpaper(url)}
+                aria-label={`Bing 壁纸 ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
