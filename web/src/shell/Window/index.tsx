@@ -408,7 +408,7 @@ export default function Window({ win, children }: { win: WindowInstance; childre
             style={{
               position: 'absolute',
               inset: 0,
-              background: win.isFocused ? 'rgba(28, 28, 30, 0.35)' : 'rgba(20, 20, 22, 0.28)',
+              background: win.isFocused ? 'rgba(28, 28, 30, 0.70)' : 'rgba(20, 20, 22, 0.8)',
               zIndex: 1,
             }}
           />
@@ -416,7 +416,7 @@ export default function Window({ win, children }: { win: WindowInstance; childre
       )}
 
       {/* Window body (title bar + content) — above glass layers */}
-      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* ---- Title bar ---- */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: title bar is a drag handle for window movement */}
         <div
@@ -460,7 +460,7 @@ export default function Window({ win, children }: { win: WindowInstance; childre
         </div>
 
         {/* ---- Content with virtual rendering ---- */}
-        <div className="vos-flex-col vos-flex-1" style={{ overflow: 'auto' }}>
+        <div className="vos-flex-col vos-flex-1" style={{ overflow: 'hidden', minHeight: 0 }}>
           {shouldRender ? (
             <Suspense
               fallback={
