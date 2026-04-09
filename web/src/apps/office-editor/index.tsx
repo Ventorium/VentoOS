@@ -16,8 +16,10 @@ import { Download, FileText, Loader2 } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
+import { useWindowActions } from '@/kernel'
 import { getAuthHeaders } from '@/infra/api'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 type ViewMode = 'loading' | 'docx' | 'xlsx' | 'csv' | 'unsupported' | 'error'
@@ -29,12 +31,22 @@ interface SheetData {
 }
 
 export default function OfficeEditor({ windowId, initialAppState }: AppComponentProps) {
-  const mountId = (initialAppState?.mountId as string) ?? ''
-  const node = initialAppState?.node as { name: string; path: string } | undefined
+  const [mountId, setMountId] = useState((initialAppState?.mountId as string) ?? '')
+  const [node, setNode] = useState(initialAppState?.node as { name: string; path: string } | undefined)
+
+  const { setTitle } = useWindowActions(windowId)
+
+  const handleOpenFile = useCallback((result: VfsPickerResult) => {
+    const name = result.path.split('/').filter(Boolean).pop() ?? result.path
+    setMountId(result.mountId)
+    setNode({ path: result.path, name })
+    setTitle(name)
+  }, [setTitle])
 
   const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
     windowId,
-    appId: 'office-editor'
+    appId: 'office-editor',
+    onOpenFile: handleOpenFile
   })
 
   const docxContainerRef = useRef<HTMLDivElement>(null)

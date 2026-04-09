@@ -135,9 +135,9 @@ export const darkTheme = {
     launchpad: 'rgba(0, 0, 0, 0.60)'
   },
   text: {
-    primary: '#f5f5f7',
+    primary: '#dcdcdc',
     secondary: '#a1a1a6',
-    tertiary: '#6e6e73',
+    tertiary: '#8f8f8f',
     inverse: '#1d1d1f'
   },
   border: {

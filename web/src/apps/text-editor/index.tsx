@@ -12,8 +12,10 @@ import { Save } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
+import { useWindowActions } from '@/kernel'
 import { Spinner } from '@/components'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 import { vfsApi } from '../explorer/api'
 
@@ -38,8 +40,10 @@ function getFileLanguage(name: string): string {
 
 export default function TextEditor({ windowId, initialAppState }: AppComponentProps) {
   const appState = initialAppState as TextEditorState | undefined
-  const mountId = appState?.mountId
-  const node = appState?.node
+  const [mountId, setMountId] = useState(appState?.mountId ?? '')
+  const [node, setNode] = useState(appState?.node as { path: string; name: string; is_dir: boolean } | undefined)
+
+  const { setTitle } = useWindowActions(windowId)
 
   const [content, setContent] = useState('')
   const [savedContent, setSavedContent] = useState('')
@@ -96,11 +100,20 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave])
 
+  // In-place file open handler
+  const handleOpenFile = useCallback((result: VfsPickerResult) => {
+    const name = result.path.split('/').filter(Boolean).pop() ?? result.path
+    setMountId(result.mountId)
+    setNode({ path: result.path, name, is_dir: false })
+    setTitle(name)
+  }, [setTitle])
+
   // Register menus (uses useFileOpenMenu for "打开" + Ctrl+O)
   const isMac = /Mac/.test(navigator.userAgent)
   const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
     windowId,
     appId: 'text-editor',
+    onOpenFile: handleOpenFile,
     extraFileItems: [
       {
         id: 'save',

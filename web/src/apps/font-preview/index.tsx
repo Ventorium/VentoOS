@@ -9,8 +9,10 @@ import { Download, Type } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
+import { useWindowActions } from '@/kernel'
 import { apiClient } from '@/infra/api'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 const SAMPLE_TEXT_EN = 'The quick brown fox jumps over the lazy dog'
@@ -21,12 +23,22 @@ const SAMPLE_CHARS = '!"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXY
 const PREVIEW_SIZES = [12, 14, 16, 20, 24, 32, 48, 64, 72]
 
 export default function FontPreview({ windowId, initialAppState }: AppComponentProps) {
-  const mountId = (initialAppState?.mountId as string) ?? ''
-  const node = initialAppState?.node as { name: string; path: string } | undefined
+  const [mountId, setMountId] = useState((initialAppState?.mountId as string) ?? '')
+  const [node, setNode] = useState(initialAppState?.node as { name: string; path: string } | undefined)
+
+  const { setTitle } = useWindowActions(windowId)
+
+  const handleOpenFile = useCallback((result: VfsPickerResult) => {
+    const name = result.path.split('/').filter(Boolean).pop() ?? result.path
+    setMountId(result.mountId)
+    setNode({ path: result.path, name })
+    setTitle(name)
+  }, [setTitle])
 
   const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
     windowId,
-    appId: 'font-preview'
+    appId: 'font-preview',
+    onOpenFile: handleOpenFile
   })
 
   const [fontFamily, setFontFamily] = useState('')
