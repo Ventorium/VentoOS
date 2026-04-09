@@ -521,18 +521,10 @@ export function VfsFilePickerModal({
         setFetchingContent(false)
       }
     } else {
-      // Local mount: reconstruct actual path from mount's root + node path
-      const mountRoot = selectedMount.root ?? ''
-      let realPath: string
-      if (mountRoot) {
-        // Remove trailing slash from root to avoid double slashes
-        const base = mountRoot.endsWith('/') ? mountRoot.slice(0, -1) : mountRoot
-        realPath = finalPath === '/' ? base : `${base}${finalPath}`
-      } else {
-        realPath = finalPath
-      }
+      // Local mount: path is already mount-relative (e.g. /teleport-kubeconfig.yaml).
+      // The backend joins mount.root + path, so we must NOT prepend the root here.
       onConfirm({
-        path: realPath,
+        path: finalPath,
         mountId: selectedMount.id,
         mountKind: selectedMount.kind,
         isRemote: false
