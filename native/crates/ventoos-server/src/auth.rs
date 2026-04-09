@@ -243,6 +243,11 @@ pub async fn auth_middleware(
         return next.run(req).await;
     }
 
+    // Skip VentoOS auth for WebDAV paths — WebDAV has its own Basic Auth
+    if req.uri().path().starts_with("/webdav") {
+        return next.run(req).await;
+    }
+
     let token = extract_token(&req);
     match token {
         Some(t) if auth.validate_token(&t).await => next.run(req).await,
