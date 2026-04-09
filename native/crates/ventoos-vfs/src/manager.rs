@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
-use ventoos_persist::{Database, PersistedVfsMount, VfsMountStore};
+use ventoos_persist::{Database, PersistedVfsMount, SettingsManager, VfsMountStore};
 
 use crate::ftp::FtpPool;
 use crate::sftp::{InlineSftpProvider, SftpPool, SshInfoProvider};
@@ -18,6 +18,7 @@ use crate::types::{
 pub struct VfsManager {
     mounts: Arc<RwLock<HashMap<String, VfsMount>>>,
     mount_store: Option<VfsMountStore>,
+    settings_mgr: Option<SettingsManager>,
     sftp_pool: SftpPool,
     ssh_provider: Option<Arc<dyn SshInfoProvider>>,
     ftp_pool: FtpPool,
@@ -30,6 +31,7 @@ impl VfsManager {
         Self {
             mounts: Arc::new(RwLock::new(HashMap::new())),
             mount_store: None,
+            settings_mgr: None,
             sftp_pool: SftpPool::new(),
             ssh_provider: None,
             ftp_pool: FtpPool::new(),
@@ -43,6 +45,7 @@ impl VfsManager {
         Self {
             mounts: Arc::new(RwLock::new(HashMap::new())),
             mount_store: None,
+            settings_mgr: None,
             sftp_pool: SftpPool::new(),
             ssh_provider: Some(provider),
             ftp_pool: FtpPool::new(),
@@ -57,6 +60,7 @@ impl VfsManager {
         provider: Arc<dyn SshInfoProvider>,
     ) -> Self {
         let store = VfsMountStore::new(Arc::clone(&db));
+        let settings_mgr = SettingsManager::new(Arc::clone(&db));
         // Load persisted mounts from DB
         let mut initial_mounts = HashMap::new();
         match store.load_all() {
@@ -85,14 +89,24 @@ impl VfsManager {
             }
             Err(e) => tracing::error!("Failed to load VFS mounts from DB: {e}"),
         }
+        // Load persisted WebDAV server settings from DB
+        let webdav_settings = match settings_mgr.get("webdav_server_settings") {
+            Ok(Some(json)) => serde_json::from_str::<WebDavServerSettings>(&json)
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to parse persisted WebDAV settings: {e}");
+                    WebDavServerSettings::default()
+                }),
+            _ => WebDavServerSettings::default(),
+        };
         let mgr = Self {
             mounts: Arc::new(RwLock::new(initial_mounts)),
             mount_store: Some(store),
+            settings_mgr: Some(settings_mgr),
             sftp_pool: SftpPool::new(),
             ssh_provider: Some(provider),
             ftp_pool: FtpPool::new(),
             smb_pool: SmbClientPool::new(),
-            webdav_server_settings: Arc::new(RwLock::new(WebDavServerSettings::default())),
+            webdav_server_settings: Arc::new(RwLock::new(webdav_settings)),
         };
         // Re-register any SMB mounts loaded from the database
         let smb_ids: Vec<(String, String)> = {
@@ -117,7 +131,15 @@ impl VfsManager {
     }
 
     pub async fn update_webdav_server_settings(&self, settings: WebDavServerSettings) {
-        *self.webdav_server_settings.write().await = settings;
+        *self.webdav_server_settings.write().await = settings.clone();
+        // Persist to database
+        if let Some(mgr) = &self.settings_mgr {
+            if let Ok(json) = serde_json::to_string(&settings) {
+                if let Err(e) = mgr.set("webdav_server_settings", &json) {
+                    tracing::error!("Failed to persist WebDAV server settings: {e}");
+                }
+            }
+        }
     }
 
     /// Expand `~` to the user's home directory in a path string.
