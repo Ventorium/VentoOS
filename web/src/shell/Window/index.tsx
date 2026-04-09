@@ -9,6 +9,9 @@ import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
 import { useSettingsStore } from '@/services/settings'
 import { tokens } from '@/theme'
 
+// Stable empty reference — must NOT be recreated inline or Zustand snapshot loop triggers
+const EMPTY_MENUS: AppMenuGroup[] = []
+
 const TOPBAR_H = tokens.topBar.height
 const TITLE_H = tokens.window.titleBarHeight
 const MIN_W = tokens.window.minWidth
@@ -341,10 +344,13 @@ export default function Window({ win, children }: { win: WindowInstance; childre
   const resizeWindow = useWindowStore(s => s.resizeWindow)
   const shouldRender = !win.isMinimized
 
-  // Menus registered by windowId first, fall back to appId
-  const menus = useMenuStore(s =>
-    (s.menus.get(win.id)?.length ? s.menus.get(win.id) : s.menus.get(win.appId)) ?? []
-  )
+  // Menus registered by windowId first, fall back to appId.
+  // IMPORTANT: both get() calls must return the same reference across renders,
+  // otherwise Zustand's useSyncExternalStore snapshot comparison fails → infinite loop.
+  // We read the raw Map and let Zustand compare Map identity (stable reference).
+  const winId = win.id
+  const appId = win.appId
+  const menus = useMenuStore(s => s.menus.get(winId) ?? s.menus.get(appId) ?? EMPTY_MENUS)
 
   // Wallpaper for per-window glass morphism
   const wallpaper = useSettingsStore(s => s.wallpaper)
