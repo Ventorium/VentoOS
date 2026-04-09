@@ -75,15 +75,12 @@ function AppearancePanel() {
   const accentColors = ['#007AFF', '#FF3B30', '#FF9500', '#30D158', '#5AC8FA', '#BF5AF2', '#FF2D55', '#A2845E']
 
   const gradientWallpapers = [
-    '/wallpapers/dark-aurora.jpg',
     '/wallpapers/dark-mountain.jpg',
-    '/wallpapers/dark-ocean.jpg',
-    '/wallpapers/light-beach.jpg',
-    '/wallpapers/light-sunset.jpg',
     '/wallpapers/light-field.jpg',
-    'linear-gradient(145deg, #0d1117 0%, #161b27 30%, #1a2035 60%, #0f1a2e 100%)',
-    'linear-gradient(135deg, #1a1a2e 0%, #16213e 30%, #0f3460 60%, #533483 100%)',
-    'linear-gradient(160deg, #0f2027 0%, #203a43 50%, #2c5364 100%)'
+    '/wallpapers/light-sunset.jpg',
+    '/wallpapers/dark-aurora.jpg',
+    '/wallpapers/light-beach.jpg',
+    '/wallpapers/dark-ocean.jpg',
   ]
 
   return (
@@ -1225,7 +1222,7 @@ export default function SettingsApp(_props: { windowId: string; processId: numbe
   const Panel = PANELS[activeCategory]
 
   return (
-    <div className="vos-flex-row h-full items-stretch">
+    <div className="flex h-full items-stretch">
       {/* Sidebar */}
       <div className="vos-settings-sidebar">
         <div className="vos-label p-3 pb-2">设置</div>
