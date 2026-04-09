@@ -29,11 +29,10 @@ import {
   Zap
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import type { PreferenceGroup } from '@/components/PreferencesPanel'
+import PreferencesPanel from '@/components/PreferencesPanel'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow, registerAppMenus, unregisterAppMenus, useAppStorage } from '@/kernel'
-import PreferencesPanel from '@/components/PreferencesPanel'
-import type { PreferenceGroup } from '@/components/PreferencesPanel'
-import ResourceMonitorPanel from './ResourceMonitorPanel'
 import {
   sshApi as api,
   type CreatePortMappingReq,
@@ -45,6 +44,7 @@ import {
   type SshKeyFile,
   type SshServer
 } from './api'
+import ResourceMonitorPanel from './ResourceMonitorPanel'
 
 type TabId = 'servers' | 'port-mappings' | 'exposures'
 
@@ -74,7 +74,7 @@ function DelBtn({ onConfirm }: { onConfirm: () => void }) {
     return (
       <button
         type="button"
-        className="vos-btn vos-btn-danger"
+        className="ml-auto vos-btn vos-btn-danger"
         style={{ padding: '3px 10px', fontSize: 12 }}
         onClick={onConfirm}
       >
@@ -91,7 +91,13 @@ function DelBtn({ onConfirm }: { onConfirm: () => void }) {
 /* ═══════════════════════════════════════════════════════════
    SSH Server Section
 ═══════════════════════════════════════════════════════════ */
-function ServersTab({ onToggleMonitor, monitorServerId }: { onToggleMonitor: (id: string) => void; monitorServerId: string | null }) {
+function ServersTab({
+  onToggleMonitor,
+  monitorServerId
+}: {
+  onToggleMonitor: (id: string) => void
+  monitorServerId: string | null
+}) {
   const [servers, setServers] = useState<SshServer[]>([])
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -210,9 +216,7 @@ function ServersTab({ onToggleMonitor, monitorServerId }: { onToggleMonitor: (id
     setImportingConfig(true)
     try {
       // 并行导入所有服务器
-      await Promise.all(
-        sshConfigHosts.map(host => importConfigHost(host, false))
-      )
+      await Promise.all(sshConfigHosts.map(host => importConfigHost(host, false)))
       setSshConfigHosts(null)
     } finally {
       setImportingConfig(false)
@@ -323,7 +327,7 @@ function ServersTab({ onToggleMonitor, monitorServerId }: { onToggleMonitor: (id
           >
             <div className="vos-modal-header">
               <span>~/.ssh/config Hosts ({sshConfigHosts.length})</span>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <div className="ml-auto flex items-center gap-6px">
                 <button
                   type="button"
                   className="vos-btn vos-btn-sm vos-btn-primary"
@@ -1284,10 +1288,10 @@ export default function SshApp(_props: AppComponentProps) {
             id: 'preferences',
             label: '偏好设置',
             shortcut: '⌘,',
-            action: () => setShowPreferences(true),
-          },
-        ],
-      },
+            action: () => setShowPreferences(true)
+          }
+        ]
+      }
     ])
     return () => unregisterAppMenus('ssh')
   }, [])
@@ -1348,7 +1352,7 @@ export default function SshApp(_props: AppComponentProps) {
             >
               {tab === 'servers' && (
                 <ServersTab
-                  onToggleMonitor={(id) => setMonitorPanelServerId(prev => prev === id ? null : id)}
+                  onToggleMonitor={id => setMonitorPanelServerId(prev => (prev === id ? null : id))}
                   monitorServerId={monitorPanelServerId}
                 />
               )}
@@ -1373,25 +1377,27 @@ export default function SshApp(_props: AppComponentProps) {
         <PreferencesPanel
           title="SSH 偏好设置"
           onClose={() => setShowPreferences(false)}
-          groups={[
-            {
-              id: 'general',
-              title: '通用',
-              items: [
-                {
-                  id: 'autoOpenMonitor',
-                  label: '连接后自动打开资源监控',
-                  type: 'switch',
-                  value: autoOpenMonitor,
-                  onChange: (v) => {
-                    const val = v as boolean
-                    setAutoOpenMonitor(val)
-                    storage.setJSON('autoOpenMonitor', val)
-                  },
-                },
-              ],
-            },
-          ] satisfies PreferenceGroup[]}
+          groups={
+            [
+              {
+                id: 'general',
+                title: '通用',
+                items: [
+                  {
+                    id: 'autoOpenMonitor',
+                    label: '连接后自动打开资源监控',
+                    type: 'switch',
+                    value: autoOpenMonitor,
+                    onChange: v => {
+                      const val = v as boolean
+                      setAutoOpenMonitor(val)
+                      storage.setJSON('autoOpenMonitor', val)
+                    }
+                  }
+                ]
+              }
+            ] satisfies PreferenceGroup[]
+          }
         />
       )}
     </div>

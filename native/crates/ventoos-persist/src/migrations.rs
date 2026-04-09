@@ -21,6 +21,7 @@ pub fn run(conn: &Connection) -> Result<(), rusqlite::Error> {
         (1, include_str!("../migrations/001_initial.sql")),
         (2, include_str!("../migrations/002_vfs_mounts.sql")),
         (3, include_str!("../migrations/003_tokens.sql")),
+        (4, include_str!("../migrations/004_vfs_mount_config.sql")),
     ];
 
     for (version, sql) in migrations {

@@ -7,7 +7,6 @@
 import type { AppManifest } from '@/kernel'
 import { aiAssistantManifest } from './ai-assistant/manifest'
 import { archiveEditorManifest } from './archive-editor/manifest'
-import { monacoEditorManifest } from './monaco-editor/manifest'
 import { databaseManifest } from './database/manifest'
 import { explorerManifest } from './explorer/manifest'
 import { fileViewerManifest } from './file-viewer/manifest'
@@ -15,6 +14,7 @@ import { fontPreviewManifest } from './font-preview/manifest'
 import { imageEditorManifest } from './image-editor/manifest'
 import { kubernetesManifest } from './kubernetes/manifest'
 import { logCenterManifest } from './log-center/manifest'
+import { monacoEditorManifest } from './monaco-editor/manifest'
 import { monitorManifest } from './monitor/manifest'
 import { officeEditorManifest } from './office-editor/manifest'
 import { redisManifest } from './redis/manifest'
@@ -46,7 +46,6 @@ export const builtinManifests: AppManifest[] = [
 export {
   aiAssistantManifest,
   archiveEditorManifest,
-  monacoEditorManifest,
   databaseManifest,
   explorerManifest,
   fileViewerManifest,
@@ -54,6 +53,7 @@ export {
   imageEditorManifest,
   kubernetesManifest,
   logCenterManifest,
+  monacoEditorManifest,
   monitorManifest,
   officeEditorManifest,
   redisManifest,

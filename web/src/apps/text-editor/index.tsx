@@ -8,14 +8,15 @@
  * - Keyboard shortcuts (Cmd/Ctrl+S to save)
  * - Unsaved changes indicator
  */
-import { Save } from 'lucide-react'
+
 import { AnimatePresence } from 'framer-motion'
+import { Save } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Spinner } from '@/components'
+import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
-import { Spinner } from '@/components'
-import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
-import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 import { vfsApi } from '../explorer/api'
 
@@ -27,13 +28,35 @@ interface TextEditorState {
 function getFileLanguage(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase() ?? ''
   const map: Record<string, string> = {
-    js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
-    py: 'python', rb: 'ruby', rs: 'rust', go: 'go', java: 'java',
-    c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', cs: 'csharp',
-    php: 'php', sh: 'shell', bash: 'shell', zsh: 'shell',
-    sql: 'sql', html: 'html', htm: 'html', css: 'css',
-    xml: 'xml', json: 'json', yaml: 'yaml', yml: 'yaml',
-    toml: 'toml', md: 'markdown', markdown: 'markdown'
+    js: 'javascript',
+    jsx: 'javascript',
+    ts: 'typescript',
+    tsx: 'typescript',
+    py: 'python',
+    rb: 'ruby',
+    rs: 'rust',
+    go: 'go',
+    java: 'java',
+    c: 'c',
+    cpp: 'cpp',
+    h: 'c',
+    hpp: 'cpp',
+    cs: 'csharp',
+    php: 'php',
+    sh: 'shell',
+    bash: 'shell',
+    zsh: 'shell',
+    sql: 'sql',
+    html: 'html',
+    htm: 'html',
+    css: 'css',
+    xml: 'xml',
+    json: 'json',
+    yaml: 'yaml',
+    yml: 'yaml',
+    toml: 'toml',
+    md: 'markdown',
+    markdown: 'markdown'
   }
   return map[ext] ?? 'text'
 }
@@ -101,12 +124,15 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
   }, [handleSave])
 
   // In-place file open handler
-  const handleOpenFile = useCallback((result: VfsPickerResult) => {
-    const name = result.path.split('/').filter(Boolean).pop() ?? result.path
-    setMountId(result.mountId)
-    setNode({ path: result.path, name, is_dir: false })
-    setTitle(name)
-  }, [setTitle])
+  const handleOpenFile = useCallback(
+    (result: VfsPickerResult) => {
+      const name = result.path.split('/').filter(Boolean).pop() ?? result.path
+      setMountId(result.mountId)
+      setNode({ path: result.path, name, is_dir: false })
+      setTitle(name)
+    },
+    [setTitle]
+  )
 
   // Register menus (uses useFileOpenMenu for "打开" + Ctrl+O)
   const isMac = /Mac/.test(navigator.userAgent)
@@ -144,10 +170,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
 
   if (loading) {
     return (
-      <div
-        className="flex-1 flex items-center justify-center"
-        style={{ background: 'var(--vos-bg-primary)' }}
-      >
+      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--vos-bg-primary)' }}>
         <Spinner size={20} />
       </div>
     )

@@ -12,6 +12,11 @@ import { getAuthHeaders, handleUnauthorized, request } from '@/infra/api'
 
 export type VfsSourceKind = 'local' | 'sftp' | 'ftp' | 'smb' | 's3' | 'webdav'
 
+export interface LocalMountConfig {
+  enabled: boolean
+  mount_point: string
+}
+
 export interface VfsMount {
   id: string
   name: string
@@ -19,6 +24,7 @@ export interface VfsMount {
   root: string
   connection_id?: string
   group?: string
+  local_mount?: LocalMountConfig
 }
 
 export interface CreateVfsMountReq {
@@ -27,6 +33,7 @@ export interface CreateVfsMountReq {
   root: string
   connection_id?: string
   group?: string
+  local_mount?: LocalMountConfig
 }
 
 export interface VfsNode {
@@ -152,5 +159,19 @@ export const vfsApi = {
   // WebDAV
   getWebDavServerSettings: () => request<ApiResponse<WebDavServerSettings>>('GET', '/api/vfs/webdav-server/settings'),
   updateWebDavServerSettings: (body: WebDavServerSettings) =>
-    request<ApiResponse<WebDavServerSettings>>('PUT', '/api/vfs/webdav-server/settings', body)
+    request<ApiResponse<WebDavServerSettings>>('PUT', '/api/vfs/webdav-server/settings', body),
+
+  // Local FUSE mount
+  localMountVfs: (id: string) =>
+    request<ApiResponse<{ mounted: boolean; mount_point: string | null; error: string | null }>>(
+      'POST',
+      `/api/vfs/mounts/${id}/local-mount`
+    ),
+  localUnmountVfs: (id: string) =>
+    request<ApiResponse<{ unmounted: boolean }>>('DELETE', `/api/vfs/mounts/${id}/local-mount`),
+  localMountStatus: (id: string) =>
+    request<ApiResponse<{ mounted: boolean; mount_point: string | null; error: string | null }>>(
+      'GET',
+      `/api/vfs/mounts/${id}/local-mount`
+    )
 }

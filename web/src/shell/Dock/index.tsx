@@ -271,9 +271,7 @@ export default function Dock() {
   const apps = useMemo(() => {
     if (!pinnedApps) return allVisibleApps // Not loaded yet: show all
     const pinned = allVisibleApps.filter(a => pinnedApps.has(a.id))
-    const runningUnpinned = Array.from(appsMap.values()).filter(
-      a => !pinnedApps.has(a.id) && runningAppIds.has(a.id)
-    )
+    const runningUnpinned = Array.from(appsMap.values()).filter(a => !pinnedApps.has(a.id) && runningAppIds.has(a.id))
     return [...pinned, ...runningUnpinned]
   }, [allVisibleApps, appsMap, pinnedApps, runningAppIds])
 
@@ -379,12 +377,15 @@ export default function Dock() {
 
       // Determine anchor and position based on dock position
       const dockPos = useSettingsStore.getState().dockPosition
-      const anchor = dockPos === 'bottom' ? 'bottom-left' as const
-        : dockPos === 'left' ? 'top-right' as const
-        : 'top-left' as const
+      const anchor =
+        dockPos === 'bottom'
+          ? ('bottom-left' as const)
+          : dockPos === 'left'
+            ? ('top-right' as const)
+            : ('top-left' as const)
 
       // For bottom dock: open menu above the dock icon (use element's top edge as y)
-      const targetEl = (e.currentTarget as HTMLElement)
+      const targetEl = e.currentTarget as HTMLElement
       const rect = targetEl.getBoundingClientRect()
       const menuY = dockPos === 'bottom' ? rect.top : e.clientY
       const menuX = dockPos === 'right' ? rect.left : e.clientX

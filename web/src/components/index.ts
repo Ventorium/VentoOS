@@ -1,5 +1,5 @@
 export { default as BrandLogo } from './BrandLogo'
-export { default as PreferencesPanel } from './PreferencesPanel'
-export type { PreferenceItem, PreferenceGroup, PreferencesPanelProps } from './PreferencesPanel'
 export * from './charts'
+export type { PreferenceGroup, PreferenceItem, PreferencesPanelProps } from './PreferencesPanel'
+export { default as PreferencesPanel } from './PreferencesPanel'
 export * from './ui'

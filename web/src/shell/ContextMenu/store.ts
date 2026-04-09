@@ -37,7 +37,12 @@ interface ContextMenuStore {
   /** Show a small directional caret arrow pointing away from the anchor point */
   showArrow: boolean
 
-  show: (x: number, y: number, items: ContextMenuItems, options?: { compact?: boolean; anchor?: ContextMenuAnchor; showArrow?: boolean }) => void
+  show: (
+    x: number,
+    y: number,
+    items: ContextMenuItems,
+    options?: { compact?: boolean; anchor?: ContextMenuAnchor; showArrow?: boolean }
+  ) => void
   hide: () => void
 }
 
@@ -51,7 +56,15 @@ export const useContextMenuStore = create<ContextMenuStore>(set => ({
   showArrow: false,
 
   show(x, y, items, options) {
-    set({ visible: true, x, y, items, compact: options?.compact ?? false, anchor: options?.anchor ?? 'top-left', showArrow: options?.showArrow ?? false })
+    set({
+      visible: true,
+      x,
+      y,
+      items,
+      compact: options?.compact ?? false,
+      anchor: options?.anchor ?? 'top-left',
+      showArrow: options?.showArrow ?? false
+    })
   },
 
   hide() {

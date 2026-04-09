@@ -5,14 +5,14 @@
  * various sizes, and character grid. Supports custom preview text.
  */
 
-import { Download, Type } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
+import { Download, Type } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
-import { apiClient } from '@/infra/api'
-import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
-import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 const SAMPLE_TEXT_EN = 'The quick brown fox jumps over the lazy dog'
@@ -28,12 +28,15 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
 
   const { setTitle } = useWindowActions(windowId)
 
-  const handleOpenFile = useCallback((result: VfsPickerResult) => {
-    const name = result.path.split('/').filter(Boolean).pop() ?? result.path
-    setMountId(result.mountId)
-    setNode({ path: result.path, name })
-    setTitle(name)
-  }, [setTitle])
+  const handleOpenFile = useCallback(
+    (result: VfsPickerResult) => {
+      const name = result.path.split('/').filter(Boolean).pop() ?? result.path
+      setMountId(result.mountId)
+      setNode({ path: result.path, name })
+      setTitle(name)
+    },
+    [setTitle]
+  )
 
   const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
     windowId,
@@ -91,7 +94,18 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
 
   if (error) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'var(--vos-bg-primary)' }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          background: 'var(--vos-bg-primary)'
+        }}
+      >
         <Type size={48} style={{ opacity: 0.3, color: 'var(--vos-text-tertiary)' }} />
         <div style={{ fontSize: 14, color: 'var(--vos-text-secondary)' }}>无法预览字体</div>
         <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>{error}</div>
@@ -101,7 +115,18 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
 
   if (!loaded) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'var(--vos-bg-primary)' }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          background: 'var(--vos-bg-primary)'
+        }}
+      >
         <Type size={32} style={{ opacity: 0.4, color: 'var(--vos-text-tertiary)' }} />
         <div style={{ fontSize: 13, color: 'var(--vos-text-tertiary)' }}>正在加载字体…</div>
       </div>
@@ -111,12 +136,27 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
   const fontStyle = { fontFamily: `"${fontFamily}"` }
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--vos-bg-primary)' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--vos-bg-primary)'
+      }}
+    >
       {/* Toolbar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-        borderBottom: '1px solid var(--vos-border-subtle)', background: 'var(--vos-bg-secondary)', flexShrink: 0
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 12px',
+          borderBottom: '1px solid var(--vos-border-subtle)',
+          background: 'var(--vos-bg-secondary)',
+          flexShrink: 0
+        }}
+      >
         <Type size={16} style={{ color: 'var(--vos-accent-info)' }} />
         <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--vos-text-primary)', flex: 1, ...fontStyle }}>
           {node?.name ?? 'Font'}
@@ -129,7 +169,11 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
             type="button"
             onClick={() => setActiveTab(tab)}
             style={{
-              padding: '3px 10px', fontSize: 11, borderRadius: 4, border: 'none', cursor: 'pointer',
+              padding: '3px 10px',
+              fontSize: 11,
+              borderRadius: 4,
+              border: 'none',
+              cursor: 'pointer',
               background: activeTab === tab ? 'var(--vos-accent-primary)' : 'transparent',
               color: activeTab === tab ? '#fff' : 'var(--vos-text-secondary)'
             }}
@@ -142,9 +186,16 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
           type="button"
           onClick={handleDownload}
           style={{
-            display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-            fontSize: 12, borderRadius: 6, border: 'none', cursor: 'pointer',
-            background: 'transparent', color: 'var(--vos-text-secondary)'
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '4px 10px',
+            fontSize: 12,
+            borderRadius: 6,
+            border: 'none',
+            cursor: 'pointer',
+            background: 'transparent',
+            color: 'var(--vos-text-secondary)'
           }}
         >
           <Download size={14} />
@@ -153,19 +204,28 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
       </div>
 
       {/* Custom text input */}
-      <div style={{
-        padding: '6px 12px', borderBottom: '1px solid var(--vos-border-subtle)',
-        flexShrink: 0
-      }}>
+      <div
+        style={{
+          padding: '6px 12px',
+          borderBottom: '1px solid var(--vos-border-subtle)',
+          flexShrink: 0
+        }}
+      >
         <input
           type="text"
           placeholder="输入自定义预览文本…"
           value={customText}
           onChange={e => setCustomText(e.target.value)}
           style={{
-            width: '100%', padding: '6px 8px', fontSize: 14, borderRadius: 6,
-            border: '1px solid var(--vos-border-subtle)', background: 'var(--vos-bg-secondary)',
-            color: 'var(--vos-text-primary)', outline: 'none', ...fontStyle
+            width: '100%',
+            padding: '6px 8px',
+            fontSize: 14,
+            borderRadius: 6,
+            border: '1px solid var(--vos-border-subtle)',
+            background: 'var(--vos-bg-secondary)',
+            color: 'var(--vos-text-primary)',
+            outline: 'none',
+            ...fontStyle
           }}
         />
       </div>
@@ -175,18 +235,41 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
         {activeTab === 'preview' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             {/* Large hero preview */}
-            <div style={{ ...fontStyle, fontSize: 48, lineHeight: 1.3, color: 'var(--vos-text-primary)', wordBreak: 'break-word' }}>
+            <div
+              style={{
+                ...fontStyle,
+                fontSize: 48,
+                lineHeight: 1.3,
+                color: 'var(--vos-text-primary)',
+                wordBreak: 'break-word'
+              }}
+            >
               {customText || SAMPLE_TEXT_EN}
             </div>
 
             {/* Chinese sample */}
-            <div style={{ ...fontStyle, fontSize: 32, lineHeight: 1.5, color: 'var(--vos-text-primary)', wordBreak: 'break-word' }}>
+            <div
+              style={{
+                ...fontStyle,
+                fontSize: 32,
+                lineHeight: 1.5,
+                color: 'var(--vos-text-primary)',
+                wordBreak: 'break-word'
+              }}
+            >
               {customText || SAMPLE_TEXT_CN}
             </div>
 
             {/* All sizes */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', textTransform: 'uppercase', letterSpacing: 1 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: 'var(--vos-text-tertiary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1
+                }}
+              >
                 各尺寸预览
               </div>
               {PREVIEW_SIZES.map(size => (
@@ -203,15 +286,24 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
           </div>
         ) : (
           /* Character grid */
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))', gap: 4
-          }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))',
+              gap: 4
+            }}
+          >
             {SAMPLE_CHARS.split('').map((char, i) => (
               <div
                 key={`${char}-${i}`}
                 style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  padding: 6, borderRadius: 6, border: '1px solid var(--vos-border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 6,
+                  borderRadius: 6,
+                  border: '1px solid var(--vos-border-subtle)',
                   background: 'var(--vos-bg-secondary)'
                 }}
               >

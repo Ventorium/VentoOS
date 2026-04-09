@@ -341,7 +341,9 @@ function MenuBarRight() {
               }
             }}
           >
-            {config.render ? config.render() : (
+            {config.render ? (
+              config.render()
+            ) : (
               <>
                 {config.icon ?? <span style={{ fontSize: 13 }}>●</span>}
                 {config.badge && (
@@ -358,7 +360,7 @@ function MenuBarRight() {
                       backgroundColor: config.badgeColor ?? 'var(--vos-accent-primary)',
                       color: '#fff',
                       fontWeight: 600,
-                      pointerEvents: 'none',
+                      pointerEvents: 'none'
                     }}
                   >
                     {config.badge}

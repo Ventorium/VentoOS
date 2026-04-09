@@ -7,11 +7,7 @@ interface BarChartProps {
   formatValue?: (v: number) => string
 }
 
-export default function BarChart({
-  items,
-  className,
-  formatValue = defaultFormat,
-}: BarChartProps) {
+export default function BarChart({ items, className, formatValue = defaultFormat }: BarChartProps) {
   return (
     <div className={className} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {items.map(item => {
@@ -26,20 +22,18 @@ export default function BarChart({
                 justifyContent: 'space-between',
                 alignItems: 'baseline',
                 marginBottom: 3,
-                fontSize: 12,
+                fontSize: 12
               }}
             >
               <span style={{ color: 'var(--vos-text-secondary)' }}>{item.label}</span>
-              <span style={{ color: 'var(--vos-text-tertiary)', fontSize: 11 }}>
-                {formatValue(item.value)}
-              </span>
+              <span style={{ color: 'var(--vos-text-tertiary)', fontSize: 11 }}>{formatValue(item.value)}</span>
             </div>
             <div
               style={{
                 height: 6,
                 borderRadius: 3,
                 backgroundColor: 'var(--vos-border-secondary)',
-                overflow: 'hidden',
+                overflow: 'hidden'
               }}
             >
               <div
@@ -48,7 +42,7 @@ export default function BarChart({
                   width: `${pct}%`,
                   borderRadius: 3,
                   backgroundColor: barColor,
-                  transition: 'width 0.6s ease',
+                  transition: 'width 0.6s ease'
                 }}
               />
             </div>

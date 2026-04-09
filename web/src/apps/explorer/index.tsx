@@ -13,6 +13,8 @@ import {
   Globe,
   HardDrive,
   Key,
+  Link,
+  Unlink,
   Monitor,
   PanelRight,
   Pencil,
@@ -36,9 +38,20 @@ import {
   ConfirmDialog as SharedConfirmDialog,
   Spinner
 } from '@/components'
-import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
-import { getAlwaysOpenWithApps, getAllAppsForFile, getApp, getAppsForFile, getFileIconByName, openWindow, registerAppMenus, unregisterAppMenus, useAppStorage, useFileDefaultsStore } from '@/kernel'
 import { request } from '@/infra/api'
+import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
+import {
+  getAllAppsForFile,
+  getAlwaysOpenWithApps,
+  getApp,
+  getAppsForFile,
+  getFileIconByName,
+  openWindow,
+  registerAppMenus,
+  unregisterAppMenus,
+  useAppStorage,
+  useFileDefaultsStore
+} from '@/kernel'
 import { taskService } from '@/services/task'
 import { useVfsClipboardStore } from '@/services/vfs'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -162,6 +175,15 @@ function MountForm({
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [testing, setTesting] = useState(false)
 
+  // local mount config
+  const [localMountEnabled, setLocalMountEnabled] = useState(
+    mountToEdit?.local_mount?.enabled ?? false
+  )
+  const [localMountPath, setLocalMountPath] = useState(
+    mountToEdit?.local_mount?.mount_point ?? ''
+  )
+  const [localMountPathError, setLocalMountPathError] = useState<string | null>(null)
+
   // Auto-parse a pasted WebDAV URL and populate https/host/port/basePath fields
   const handleWebDavHostChange = (value: string) => {
     const trimmed = value.trim()
@@ -189,9 +211,30 @@ function MountForm({
     return null
   }
 
+  const validateMountPath = (v: string): string | null => {
+    if (!v.trim()) return '挂载路径不能为空'
+    if (v.length > 512) return '路径长度不能超过 512 字符'
+    const segments = v.replace(/^~\//, '').split('/')
+    for (const seg of segments) {
+      if (seg === '.' || seg === '..') return '路径段不能为 . 或 ..'
+      if (seg.length > 255) return `路径段 "${seg.slice(0, 20)}…" 超过 255 字符`
+      if (/[\0*?"<>|]/.test(seg)) return '路径段含有非法字符（* ? " < > | 或空字节）'
+    }
+    return null
+  }
+
+  const handleLocalMountPathChange = (v: string) => {
+    setLocalMountPath(v)
+    setLocalMountPathError(validateMountPath(v))
+  }
+
+  // When name changes, auto-update default mount path if user hasn't customized it
   const handleNameChange = (v: string) => {
     setName(v)
     setNameError(validateName(v))
+    if (!localMountEnabled) {
+      setLocalMountPath(`~/mnt/${v || 'source'}`)
+    }
   }
 
   const buildRoot = (): string => {
@@ -239,6 +282,7 @@ function MountForm({
 
   const isValid = (): boolean => {
     if (!name || nameError) return false
+    if (localMountEnabled && (!!localMountPathError || !localMountPath)) return false
     switch (kind) {
       case 'local':
         return !!localPath
@@ -307,7 +351,11 @@ function MountForm({
     if (!isValid()) return
     setSaving(true)
     try {
-      const body: CreateVfsMountReq = { name, kind, root: buildRoot() }
+      const localMount =
+        kind !== 'local' && localMountEnabled
+          ? { enabled: true, mount_point: localMountPath }
+          : undefined
+      const body: CreateVfsMountReq = { name, kind, root: buildRoot(), local_mount: localMount }
       if (isEditing && mountToEdit) {
         const res = await vfsApi.updateVfsMount(mountToEdit.id, body)
         onUpdated?.(res.data)
@@ -664,6 +712,56 @@ function MountForm({
             />
           </>
         )}
+
+        {/* ── Local FUSE Mount Config (non-local sources only) ── */}
+        {kind !== 'local' && (
+          <div
+            className="flex flex-col gap-1.5 rounded px-2 py-2 mt-1"
+            style={{ background: 'var(--vos-bg-item)', border: '0.5px solid var(--vos-border-subtle)' }}
+          >
+            <label
+              className="flex items-center justify-between gap-2 cursor-pointer"
+              htmlFor="local-mount-toggle"
+            >
+              <span className="text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+                启用本地挂载（FUSE）
+              </span>
+              <input
+                id="local-mount-toggle"
+                type="checkbox"
+                checked={localMountEnabled}
+                onChange={e => {
+                  const enabled = e.target.checked
+                  setLocalMountEnabled(enabled)
+                  if (enabled && !localMountPath) {
+                    const defaultPath = `~/mnt/${name || 'source'}`
+                    setLocalMountPath(defaultPath)
+                    setLocalMountPathError(null)
+                  }
+                }}
+              />
+            </label>
+            {localMountEnabled && (
+              <div>
+                <input
+                  className="vos-input vos-input-sm"
+                  placeholder={`~/mnt/${name || 'source'}`}
+                  value={localMountPath}
+                  onChange={e => handleLocalMountPathChange(e.target.value)}
+                />
+                {localMountPathError && (
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--vos-accent-danger)' }}>
+                    {localMountPathError}
+                  </div>
+                )}
+                <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  将远程文件系统挂载到本机目录，需安装 macFUSE / FUSE-T（macOS）或 libfuse3（Linux）
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-col gap-2 mt-1">
           {testResult && (
             <div
@@ -1073,7 +1171,11 @@ function ColumnView({
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 flex overflow-x-auto overflow-y-hidden" style={{ scrollBehavior: 'smooth', minWidth: 0 }}>
+    <div
+      ref={scrollRef}
+      className="flex-1 flex overflow-x-auto overflow-y-hidden"
+      style={{ scrollBehavior: 'smooth', minWidth: 0 }}
+    >
       {columns.map((col, colIdx) => {
         const colSelected = multiSelect.get(colIdx)
         return (
@@ -1083,7 +1185,7 @@ function ColumnView({
             className="flex flex-col flex-shrink-0 overflow-hidden"
             style={{
               width: 220,
-              borderRight: '0.5px solid var(--vos-border-subtle)',
+              borderRight: '0.5px solid var(--vos-border-subtle)'
               // outline: colIdx === activeColumn ? '1px solid var(--vos-accent-primary)' : 'none',
               // outlineOffset: -1
             }}
@@ -1151,7 +1253,13 @@ function ColumnView({
                               : isMulti
                                 ? 'var(--vos-accent-primary-muted, rgba(59,130,246,0.25))'
                                 : 'transparent',
-                        color: isCurrentSel ? '#fff' : isAncestorSel ? 'var(--vos-accent-primary)' : isMulti && colIdx === activeColumn ? '#fff' : 'var(--vos-text-primary)',
+                        color: isCurrentSel
+                          ? '#fff'
+                          : isAncestorSel
+                            ? 'var(--vos-accent-primary)'
+                            : isMulti && colIdx === activeColumn
+                              ? '#fff'
+                              : 'var(--vos-text-primary)',
                         borderRadius: 3,
                         margin: '1px 4px',
                         outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
@@ -1163,7 +1271,16 @@ function ColumnView({
                       {entry.is_dir ? (
                         <Folder
                           size={13}
-                          style={{ color: isCurrentSel ? '#fff' : isAncestorSel ? 'var(--vos-accent-primary)' : (isMulti && colIdx === activeColumn) ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
+                          style={{
+                            color: isCurrentSel
+                              ? '#fff'
+                              : isAncestorSel
+                                ? 'var(--vos-accent-primary)'
+                                : isMulti && colIdx === activeColumn
+                                  ? '#fff'
+                                  : 'var(--vos-accent-warning)',
+                            flexShrink: 0
+                          }}
                         />
                       ) : (
                         (() => {
@@ -1172,7 +1289,15 @@ function ColumnView({
                           return (
                             <IconComp
                               size={13}
-                              style={{ color: (isCurrentSel || (isMulti && colIdx === activeColumn)) ? '#fff' : isAncestorSel ? 'var(--vos-accent-primary)' : iconInfo.color, flexShrink: 0 }}
+                              style={{
+                                color:
+                                  isCurrentSel || (isMulti && colIdx === activeColumn)
+                                    ? '#fff'
+                                    : isAncestorSel
+                                      ? 'var(--vos-accent-primary)'
+                                      : iconInfo.color,
+                                flexShrink: 0
+                              }}
                             />
                           )
                         })()
@@ -1911,6 +2036,10 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   const [editingMount, setEditingMount] = useState<VfsMount | null>(null)
   const [showExplorerSettings, setShowExplorerSettings] = useState(false)
   const [selectedMount, setSelectedMount] = useState<string | null>(null)
+  // local mount statuses: id -> { mounted, mount_point, error }
+  const [localMountStatuses, setLocalMountStatuses] = useState<
+    Record<string, { mounted: boolean; mount_point: string | null; error: string | null }>
+  >({})
   const [columns, setColumns] = useState<ColumnData[]>([])
   const [preview, setPreview] = useState<VfsFileContent | null>(null)
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
@@ -2045,6 +2174,20 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       // Auto-select first mount if nothing selected
       if (!selectedMount && mountList.length > 0) {
         selectMount(mountList[0].id)
+      }
+      // Fetch local mount statuses for enabled mounts
+      const enabledMounts = mountList.filter(m => m.local_mount?.enabled)
+      if (enabledMounts.length > 0) {
+        const statuses = await Promise.allSettled(
+          enabledMounts.map(m => vfsApi.localMountStatus(m.id).then(res => ({ id: m.id, ...res.data })))
+        )
+        const statusMap: Record<string, { mounted: boolean; mount_point: string | null; error: string | null }> = {}
+        for (const s of statuses) {
+          if (s.status === 'fulfilled') {
+            statusMap[s.value.id] = { mounted: s.value.mounted, mount_point: s.value.mount_point, error: s.value.error }
+          }
+        }
+        setLocalMountStatuses(statusMap)
       }
     } catch (e) {
       console.error(e)
@@ -2584,7 +2727,8 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               openWithItems.push({
                 id: `ow-${defaultApp.id}`,
                 label: `${defaultApp.name}（默认）`,
-                action: () => selectedMount && openWindow(defaultApp.id, { appState: { mountId: selectedMount, node: entry } })
+                action: () =>
+                  selectedMount && openWindow(defaultApp.id, { appState: { mountId: selectedMount, node: entry } })
               })
               openWithItems.push({ type: 'separator' as const })
             }
@@ -2647,60 +2791,67 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           })()),
       { type: 'separator' as const },
       ...(entry.is_dir || !ARCHIVE_EXTS.has(getFileExt(entry.name))
-        ? [{
-            id: 'compress',
-            label: '压缩',
-            action: () => {
-              if (!selectedMount) return
-              const entries = getSelectedEntries(colIdx)
-              const items = entries.length > 0
-                ? entries.map(e => ({ mountId: selectedMount!, node: e }))
-                : [{ mountId: selectedMount!, node: entry }]
-              const defaultName = items.length === 1 ? items[0].node.name.replace(/\.[^.]+$/, '') : 'archive'
-              setCompressState({
-                visible: true,
-                items,
-                format: 'zip',
-                encrypt: false,
-                password: '',
-                confirmPassword: '',
-                archiveName: defaultName
-              })
-            }
-          }]
-        : [{
-            id: 'extract',
-            label: '解压',
-            action: async () => {
-              if (!selectedMount) return
-              const parentDir = entry.path.substring(0, entry.path.lastIndexOf('/')) || '/'
-              const baseName = entry.name.replace(/\.(zip|7z|tar\.gz|tgz|tar\.bz2|tbz2|tar\.xz|txz|tar\.zst|tzst|tar|gz|bz2|xz|zst|rar)$/i, '')
-              const destPath = `${parentDir}/${baseName}`
-              try {
-                // Check if archive is password-protected
-                const listResult = await vfsApi.listArchiveContents(selectedMount, entry.path)
-                if (listResult.data.password_required) {
-                  setExtractPasswordState({
-                    visible: true,
-                    mountId: selectedMount,
-                    archivePath: entry.path,
-                    destDir: destPath,
-                    colIdx,
-                    password: ''
-                  })
-                  return
-                }
-                await request('POST', `/api/vfs/mounts/${encodeURIComponent(selectedMount)}/archive/extract`, {
-                  archive_path: entry.path,
-                  dest_dir: destPath
+        ? [
+            {
+              id: 'compress',
+              label: '压缩',
+              action: () => {
+                if (!selectedMount) return
+                const entries = getSelectedEntries(colIdx)
+                const items =
+                  entries.length > 0
+                    ? entries.map(e => ({ mountId: selectedMount!, node: e }))
+                    : [{ mountId: selectedMount!, node: entry }]
+                const defaultName = items.length === 1 ? items[0].node.name.replace(/\.[^.]+$/, '') : 'archive'
+                setCompressState({
+                  visible: true,
+                  items,
+                  format: 'zip',
+                  encrypt: false,
+                  password: '',
+                  confirmPassword: '',
+                  archiveName: defaultName
                 })
-                refreshColumn(colIdx)
-              } catch (err) {
-                console.error('Extract failed:', err)
               }
             }
-          }]
-      ),
+          ]
+        : [
+            {
+              id: 'extract',
+              label: '解压',
+              action: async () => {
+                if (!selectedMount) return
+                const parentDir = entry.path.substring(0, entry.path.lastIndexOf('/')) || '/'
+                const baseName = entry.name.replace(
+                  /\.(zip|7z|tar\.gz|tgz|tar\.bz2|tbz2|tar\.xz|txz|tar\.zst|tzst|tar|gz|bz2|xz|zst|rar)$/i,
+                  ''
+                )
+                const destPath = `${parentDir}/${baseName}`
+                try {
+                  // Check if archive is password-protected
+                  const listResult = await vfsApi.listArchiveContents(selectedMount, entry.path)
+                  if (listResult.data.password_required) {
+                    setExtractPasswordState({
+                      visible: true,
+                      mountId: selectedMount,
+                      archivePath: entry.path,
+                      destDir: destPath,
+                      colIdx,
+                      password: ''
+                    })
+                    return
+                  }
+                  await request('POST', `/api/vfs/mounts/${encodeURIComponent(selectedMount)}/archive/extract`, {
+                    archive_path: entry.path,
+                    dest_dir: destPath
+                  })
+                  refreshColumn(colIdx)
+                } catch (err) {
+                  console.error('Extract failed:', err)
+                }
+              }
+            }
+          ]),
       { type: 'separator' as const },
       {
         id: 'copy',
@@ -2752,17 +2903,19 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             }
           },
           ...(mounts.find(m => m.id === selectedMount)?.kind === 'local'
-            ? [{
-                id: 'copy-absolute-path',
-                label: '复制绝对路径',
-                action: () => {
-                  const mount = mounts.find(m => m.id === selectedMount)
-                  if (mount) {
-                    const absPath = mount.root.replace(/\/+$/, '') + entry.path
-                    navigator.clipboard.writeText(shellEscape(absPath))
+            ? [
+                {
+                  id: 'copy-absolute-path',
+                  label: '复制绝对路径',
+                  action: () => {
+                    const mount = mounts.find(m => m.id === selectedMount)
+                    if (mount) {
+                      const absPath = mount.root.replace(/\/+$/, '') + entry.path
+                      navigator.clipboard.writeText(shellEscape(absPath))
+                    }
                   }
                 }
-              }]
+              ]
             : []),
           {
             id: 'copy-vfs-path',
@@ -3031,6 +3184,25 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             const renderMount = (m: VfsMount) => {
               const KindIcon = kindMeta[m.kind]?.icon ?? HardDrive
               const isActive = selectedMount === m.id
+              const fuseStatus = m.local_mount?.enabled ? localMountStatuses[m.id] : undefined
+              const isFuseMounted = fuseStatus?.mounted === true
+
+              const handleFuseToggle = async (e: React.MouseEvent) => {
+                e.stopPropagation()
+                try {
+                  if (isFuseMounted) {
+                    await vfsApi.localUnmountVfs(m.id)
+                    setLocalMountStatuses(prev => ({ ...prev, [m.id]: { mounted: false, mount_point: null, error: null } }))
+                  } else {
+                    const res = await vfsApi.localMountVfs(m.id)
+                    setLocalMountStatuses(prev => ({ ...prev, [m.id]: res.data }))
+                  }
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : '挂载操作失败'
+                  setLocalMountStatuses(prev => ({ ...prev, [m.id]: { mounted: false, mount_point: null, error: msg } }))
+                }
+              }
+
               return (
                 <div
                   key={m.id}
@@ -3048,8 +3220,22 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     if (e.key === 'Enter' || e.key === ' ') selectMount(m.id)
                   }}
                 >
-                  <KindIcon size={13} style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+                  <KindIcon
+                    size={13}
+                    style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }}
+                  />
                   <span className="flex-1 truncate">{m.name}</span>
+                  {m.local_mount?.enabled && (
+                    <button
+                      type="button"
+                      className="vos-btn-reset flex-shrink-0"
+                      title={isFuseMounted ? `已挂载到 ${fuseStatus?.mount_point ?? ''}，点击卸载` : '点击挂载到本机'}
+                      style={{ color: isFuseMounted ? 'var(--vos-accent-success)' : isActive ? 'rgba(255,255,255,0.5)' : 'var(--vos-text-tertiary)' }}
+                      onClick={handleFuseToggle}
+                    >
+                      {isFuseMounted ? <Link size={10} /> : <Unlink size={10} />}
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="hidden group-hover:block vos-btn-reset text-inherit"
@@ -3250,7 +3436,10 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 </div>
                 <div className="flex flex-col gap-1">
                   {(openWithState.showAll
-                    ? [...openWithState.apps, ...getAlwaysOpenWithApps().filter(a => !openWithState.apps.find(x => x.id === a.id))]
+                    ? [
+                        ...openWithState.apps,
+                        ...getAlwaysOpenWithApps().filter(a => !openWithState.apps.find(x => x.id === a.id))
+                      ]
                     : openWithState.apps
                   ).map(app => (
                     <button
@@ -3290,7 +3479,16 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                       handleOpenViewer(selectedMount, n)
                     }}
                   >
-                    <div className="flex items-center justify-center" style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 7, background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)' }}>
+                    <div
+                      className="flex items-center justify-center"
+                      style={{
+                        width: 28,
+                        height: 28,
+                        flexShrink: 0,
+                        borderRadius: 7,
+                        background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
+                      }}
+                    >
                       <File size={14} style={{ color: '#fff' }} />
                     </div>
                     <span className="text-xs font-medium">文件查看器</span>
@@ -3322,10 +3520,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
 
           {/* Set default open-with dialog */}
           {defaultOpenState.visible && defaultOpenState.node && selectedMount && (
-            <div
-              className="vos-modal-overlay"
-              onClick={() => setDefaultOpenState(s => ({ ...s, visible: false }))}
-            >
+            <div className="vos-modal-overlay" onClick={() => setDefaultOpenState(s => ({ ...s, visible: false }))}>
               <div className="vos-modal-panel" style={{ width: 360 }} onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">设置默认打开方式</div>
                 <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
@@ -3375,9 +3570,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                   <input
                     type="checkbox"
                     checked={defaultOpenState.alsoOpenFile}
-                    onChange={e =>
-                      setDefaultOpenState(s => ({ ...s, alsoOpenFile: e.target.checked }))
-                    }
+                    onChange={e => setDefaultOpenState(s => ({ ...s, alsoOpenFile: e.target.checked }))}
                   />
                   同时打开该文件
                 </label>
@@ -3396,10 +3589,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
 
           {/* Compress dialog */}
           {compressState.visible && (
-            <div
-              className="vos-modal-overlay"
-              onClick={() => setCompressState(s => ({ ...s, visible: false }))}
-            >
+            <div className="vos-modal-overlay" onClick={() => setCompressState(s => ({ ...s, visible: false }))}>
               <div className="vos-modal-panel" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">压缩文件</div>
                 <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
@@ -3407,7 +3597,9 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 </div>
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>文件名</label>
+                    <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                      文件名
+                    </label>
                     <input
                       className="vos-input text-xs"
                       value={compressState.archiveName}
@@ -3416,7 +3608,9 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>格式</label>
+                    <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                      格式
+                    </label>
                     <select
                       className="vos-input text-xs"
                       value={compressState.format}
@@ -3451,9 +3645,13 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                         value={compressState.confirmPassword}
                         onChange={e => setCompressState(s => ({ ...s, confirmPassword: e.target.value }))}
                       />
-                      {compressState.password && compressState.confirmPassword && compressState.password !== compressState.confirmPassword && (
-                        <div className="text-xs" style={{ color: 'var(--vos-accent-danger)' }}>密码不一致</div>
-                      )}
+                      {compressState.password &&
+                        compressState.confirmPassword &&
+                        compressState.password !== compressState.confirmPassword && (
+                          <div className="text-xs" style={{ color: 'var(--vos-accent-danger)' }}>
+                            密码不一致
+                          </div>
+                        )}
                     </div>
                   )}
                 </div>
@@ -3470,7 +3668,8 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     className="vos-btn vos-btn-sm vos-btn-primary"
                     disabled={
                       !compressState.archiveName.trim() ||
-                      (compressState.encrypt && (!compressState.password || compressState.password !== compressState.confirmPassword))
+                      (compressState.encrypt &&
+                        (!compressState.password || compressState.password !== compressState.confirmPassword))
                     }
                     onClick={async () => {
                       if (compressState.items.length === 0) return
@@ -3514,17 +3713,16 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
 
           {/* Extract password dialog */}
           {extractPasswordState.visible && (
-            <div
-              className="vos-modal-overlay"
-              onClick={() => setExtractPasswordState(s => ({ ...s, visible: false }))}
-            >
+            <div className="vos-modal-overlay" onClick={() => setExtractPasswordState(s => ({ ...s, visible: false }))}>
               <div className="vos-modal-panel" style={{ width: 340 }} onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">解压需要密码</div>
                 <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
                   该压缩文件已加密，请输入密码后解压
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>解压密码</label>
+                  <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                    解压密码
+                  </label>
                   <input
                     type="password"
                     className="vos-input text-xs"

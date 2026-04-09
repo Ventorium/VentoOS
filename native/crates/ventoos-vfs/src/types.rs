@@ -84,6 +84,15 @@ pub fn validate_mount_name(name: &str) -> Option<String> {
     None
 }
 
+/// Local filesystem mount configuration (FUSE/WinFSP).
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct LocalMountConfig {
+    /// Whether local FUSE mounting is enabled.
+    pub enabled: bool,
+    /// Target directory on the local filesystem (`~` will be expanded by the server).
+    pub mount_point: String,
+}
+
 /// A mount source configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VfsMount {
@@ -95,6 +104,9 @@ pub struct VfsMount {
     /// Optional connection ID (for SFTP, it references an SSH connection).
     pub connection_id: Option<String>,
     pub group: Option<String>,
+    /// Optional local FUSE mount configuration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_mount: Option<LocalMountConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +116,34 @@ pub struct CreateVfsMountReq {
     pub root: String,
     pub connection_id: Option<String>,
     pub group: Option<String>,
+    /// Optional local FUSE mount configuration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_mount: Option<LocalMountConfig>,
+}
+
+/// Validate a local mount path for safety. Returns `None` if valid, or an error message.
+pub fn validate_mount_path(path: &str) -> Option<String> {
+    if path.is_empty() {
+        return Some("挂载路径不能为空".to_string());
+    }
+    if path.len() > 512 {
+        return Some("挂载路径不能超过 512 字符".to_string());
+    }
+    // Normalize separators for check (accept both / and \)
+    let normalized = path.replace('\\', "/");
+    for segment in normalized.split('/').filter(|s| !s.is_empty()) {
+        if segment == "." || segment == ".." {
+            return Some("挂载路径不能包含 . 或 .. 路径段".to_string());
+        }
+        if segment.len() > 255 {
+            return Some(format!("路径段 '{segment}' 超过 255 字符限制"));
+        }
+        let forbidden: &[char] = &['\0', '*', '?', '"', '<', '>', '|'];
+        if let Some(c) = segment.chars().find(|c| forbidden.contains(c)) {
+            return Some(format!("路径段 '{segment}' 不能包含字符 '{c}'"));
+        }
+    }
+    None
 }
 
 /// A single file or directory node.

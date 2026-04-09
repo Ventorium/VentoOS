@@ -13,10 +13,10 @@ function MonitorIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
-    React.createElement(Activity, { size: 22 }),
+    React.createElement(Activity, { size: 22 })
   )
 }
 
@@ -31,5 +31,5 @@ export const monitorManifest: AppManifest = {
   defaultSize: { width: 900, height: 650 },
   minSize: { width: 700, height: 500 },
   permissions: ['storage'],
-  component: () => import('./index'),
+  component: () => import('./index')
 }

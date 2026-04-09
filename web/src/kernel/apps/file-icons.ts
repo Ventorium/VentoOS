@@ -111,11 +111,7 @@ register(['yaml', 'yml', 'toml', 'ini', 'conf', 'cfg', 'env', 'properties'], Cod
 register(['xml', 'xsl', 'xslt', 'xsd', 'dtd', 'wsdl', 'svg'], Code, '#fb923c')
 
 // ── Shell / Scripts ──
-register(
-  ['sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd', 'csh', 'ksh'],
-  Terminal,
-  '#a3e635'
-)
+register(['sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd', 'csh', 'ksh'], Terminal, '#a3e635')
 
 // ── Markup / Text ──
 register(['md', 'markdown', 'mdx', 'rst', 'adoc', 'tex', 'latex'], FileText, '#818cf8')
@@ -128,7 +124,25 @@ register(['db', 'sqlite', 'sqlite3', 'sql', 'mdb', 'accdb'], Database, '#8b5cf6'
 
 // ── Archives ──
 register(
-  ['zip', '7z', 'rar', 'tar', 'gz', 'bz2', 'xz', 'zst', 'tgz', 'tbz2', 'txz', 'tzst', 'lz', 'lzma', 'cab', 'iso', 'dmg'],
+  [
+    'zip',
+    '7z',
+    'rar',
+    'tar',
+    'gz',
+    'bz2',
+    'xz',
+    'zst',
+    'tgz',
+    'tbz2',
+    'txz',
+    'tzst',
+    'lz',
+    'lzma',
+    'cab',
+    'iso',
+    'dmg'
+  ],
   Archive,
   '#f97316'
 )

@@ -32,8 +32,8 @@ import type {
   ProviderTemplate
 } from '@/apps/ai-assistant/api'
 import { agentApi } from '@/apps/ai-assistant/api'
-import { useWindowStore } from '@/kernel'
 import { apiClient } from '@/infra/api'
+import { useWindowStore } from '@/kernel'
 import { useNotificationStore } from '@/services/notification'
 import { type ThemeMode, useSettingsStore } from '@/services/settings'
 
@@ -80,7 +80,7 @@ function AppearancePanel() {
     '/wallpapers/light-sunset.jpg',
     '/wallpapers/dark-aurora.jpg',
     '/wallpapers/light-beach.jpg',
-    '/wallpapers/dark-ocean.jpg',
+    '/wallpapers/dark-ocean.jpg'
   ]
 
   return (

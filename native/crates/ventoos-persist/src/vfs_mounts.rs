@@ -12,6 +12,8 @@ pub struct PersistedVfsMount {
     pub root: String,
     pub connection_id: Option<String>,
     pub group_name: Option<String>,
+    /// JSON-serialized `LocalMountConfig`, or `None` if not configured.
+    pub mount_config: Option<String>,
 }
 
 /// Persistence layer for VFS mount configurations.
@@ -28,7 +30,7 @@ impl VfsMountStore {
     pub fn load_all(&self) -> Result<Vec<PersistedVfsMount>, rusqlite::Error> {
         self.db.with_conn(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, kind, root, connection_id, group_name \
+                "SELECT id, name, kind, root, connection_id, group_name, mount_config \
                  FROM vfs_mounts ORDER BY name",
             )?;
             let rows = stmt.query_map([], |row| {
@@ -39,6 +41,7 @@ impl VfsMountStore {
                     root: row.get(3)?,
                     connection_id: row.get(4)?,
                     group_name: row.get(5)?,
+                    mount_config: row.get(6)?,
                 })
             })?;
             rows.collect()
@@ -49,8 +52,8 @@ impl VfsMountStore {
     pub fn insert(&self, mount: &PersistedVfsMount) -> Result<(), rusqlite::Error> {
         self.db.with_conn(|conn| {
             conn.execute(
-                "INSERT INTO vfs_mounts (id, name, kind, root, connection_id, group_name) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO vfs_mounts (id, name, kind, root, connection_id, group_name, mount_config) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 rusqlite::params![
                     mount.id,
                     mount.name,
@@ -58,6 +61,7 @@ impl VfsMountStore {
                     mount.root,
                     mount.connection_id,
                     mount.group_name,
+                    mount.mount_config,
                 ],
             )?;
             Ok(())
@@ -68,14 +72,15 @@ impl VfsMountStore {
     pub fn update(&self, mount: &PersistedVfsMount) -> Result<(), rusqlite::Error> {
         self.db.with_conn(|conn| {
             conn.execute(
-                "UPDATE vfs_mounts SET name=?1, kind=?2, root=?3, connection_id=?4, group_name=?5 \
-                 WHERE id=?6",
+                "UPDATE vfs_mounts SET name=?1, kind=?2, root=?3, connection_id=?4, group_name=?5, mount_config=?6 \
+                 WHERE id=?7",
                 rusqlite::params![
                     mount.name,
                     mount.kind,
                     mount.root,
                     mount.connection_id,
                     mount.group_name,
+                    mount.mount_config,
                     mount.id,
                 ],
             )?;

@@ -582,10 +582,7 @@ impl S3Client {
             body,
         );
 
-        let mut all_headers = auth_headers;
-        for (k, v) in extra_headers {
-            all_headers.push((k.to_string(), v.to_string()));
-        }
+        let all_headers = auth_headers;
 
         https_request(
             &connect_host,

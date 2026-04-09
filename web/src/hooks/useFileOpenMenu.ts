@@ -13,8 +13,8 @@
  * - If `onOpenDirectory` is provided: adds "打开文件夹…" item and calls the callback on confirm
  */
 import { useCallback, useEffect, useState } from 'react'
-import { registerAppMenus, unregisterAppMenus, openWindow } from '@/kernel'
 import type { AppMenuGroup } from '@/kernel'
+import { openWindow, registerAppMenus, unregisterAppMenus } from '@/kernel'
 import type { VfsPickerResult } from '@/shell/FilePicker'
 
 export type { VfsPickerResult }

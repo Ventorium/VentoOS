@@ -11,6 +11,7 @@
  * - Export to PNG / JPG / WEBP with quality control
  */
 
+import { AnimatePresence } from 'framer-motion'
 import {
   Crop,
   Download,
@@ -29,13 +30,12 @@ import {
   ZoomIn
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppComponentProps } from '@/kernel'
-import { apiClient } from '@/infra/api'
-import { useWindowActions } from '@/kernel'
-import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import { apiClient } from '@/infra/api'
+import type { AppComponentProps } from '@/kernel'
+import { useWindowActions } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
-import { AnimatePresence } from 'framer-motion'
 
 type Tool = 'move' | 'brush' | 'eraser' | 'crop'
 
@@ -49,12 +49,15 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
 
   const { setTitle } = useWindowActions(windowId)
 
-  const handleOpenFile = useCallback((result: VfsPickerResult) => {
-    const name = result.path.split('/').filter(Boolean).pop() ?? result.path
-    setMountId(result.mountId)
-    setNode({ path: result.path, name })
-    setTitle(name)
-  }, [setTitle])
+  const handleOpenFile = useCallback(
+    (result: VfsPickerResult) => {
+      const name = result.path.split('/').filter(Boolean).pop() ?? result.path
+      setMountId(result.mountId)
+      setNode({ path: result.path, name })
+      setTitle(name)
+    },
+    [setTitle]
+  )
 
   const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
     windowId,
@@ -413,7 +416,15 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
   }
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--vos-bg-primary)' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--vos-bg-primary)'
+      }}
+    >
       {/* Toolbar */}
       <div
         style={{
@@ -455,7 +466,15 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
                 title="画笔颜色"
               />
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--vos-text-secondary)' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 11,
+                color: 'var(--vos-text-secondary)'
+              }}
+            >
               <Minus size={12} />
               <input
                 type="range"
@@ -657,7 +676,10 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
                       flex: 1,
                       padding: '6px 0',
                       borderRadius: 6,
-                      border: exportFormat === fmt ? '2px solid var(--vos-accent-primary)' : '1px solid var(--vos-border-subtle)',
+                      border:
+                        exportFormat === fmt
+                          ? '2px solid var(--vos-accent-primary)'
+                          : '1px solid var(--vos-border-subtle)',
                       background: exportFormat === fmt ? 'var(--vos-accent-primary-bg)' : 'transparent',
                       color: 'var(--vos-text-primary)',
                       cursor: 'pointer',

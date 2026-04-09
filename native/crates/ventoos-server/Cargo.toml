@@ -16,6 +16,7 @@ ventoos-k8s = { workspace = true }
 ventoos-db = { workspace = true }
 ventoos-redis = { workspace = true }
 ventoos-vfs = { workspace = true }
+ventoos-mount = { workspace = true }
 ventoos-agent = { workspace = true }
 
 axum = { workspace = true }

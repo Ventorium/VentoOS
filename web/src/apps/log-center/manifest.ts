@@ -13,10 +13,10 @@ function LogCenterIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
-    React.createElement(ScrollText, { size: 22 }),
+    React.createElement(ScrollText, { size: 22 })
   )
 }
 
@@ -32,5 +32,5 @@ export const logCenterManifest: AppManifest = {
   defaultSize: { width: 900, height: 600 },
   minSize: { width: 600, height: 400 },
   permissions: [],
-  component: () => import('./index'),
+  component: () => import('./index')
 }

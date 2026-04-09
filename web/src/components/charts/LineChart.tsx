@@ -23,7 +23,7 @@ export default function LineChart({
   showGrid = true,
   showLabels = true,
   formatValue = defaultFormat,
-  className,
+  className
 }: LineChartProps) {
   const uid = useId()
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
@@ -90,13 +90,7 @@ export default function LineChart({
                 strokeWidth={0.5}
                 strokeDasharray="3,3"
               />
-              <text
-                x={PADDING.left - 4}
-                y={y + 3}
-                textAnchor="end"
-                fill="var(--vos-text-tertiary)"
-                fontSize={9}
-              >
+              <text x={PADDING.left - 4} y={y + 3} textAnchor="end" fill="var(--vos-text-tertiary)" fontSize={9}>
                 {formatValue(v)}
               </text>
             </g>
@@ -164,7 +158,7 @@ export default function LineChart({
         width={plotW}
         height={plotH}
         fill="transparent"
-        onMouseMove={(e) => {
+        onMouseMove={e => {
           const svg = e.currentTarget.closest('svg')
           if (!svg) return
           const rect = svg.getBoundingClientRect()
@@ -179,34 +173,49 @@ export default function LineChart({
       />
 
       {/* Hover guide line + dots + tooltip */}
-      {hoverIdx !== null && data.length > 0 && (() => {
-        const pts = data[0].data.slice(-maxPoints)
-        if (hoverIdx >= pts.length) return null
-        const x = toX(hoverIdx, pts.length)
+      {hoverIdx !== null &&
+        data.length > 0 &&
+        (() => {
+          const pts = data[0].data.slice(-maxPoints)
+          if (hoverIdx >= pts.length) return null
+          const x = toX(hoverIdx, pts.length)
 
-        return (
-          <g>
-            <line x1={x} y1={PADDING.top} x2={x} y2={PADDING.top + plotH}
-              stroke="var(--vos-text-tertiary)" strokeWidth={0.5} strokeDasharray="3,3" />
-            {data.map(series => {
-              const seriesPts = series.data.slice(-maxPoints)
-              if (hoverIdx >= seriesPts.length) return null
-              const val = seriesPts[hoverIdx]
-              const cy = toY(val)
-              return (
-                <g key={series.id}>
-                  <circle cx={x} cy={cy} r={3} fill={series.color} stroke="#fff" strokeWidth={1} />
-                  <rect x={x + 6} y={cy - 10} width={60} height={18} rx={3}
-                    fill="var(--vos-bg-elevated, rgba(0,0,0,0.75))" />
-                  <text x={x + 10} y={cy + 1} fill="#fff" fontSize={10}>
-                    {formatValue(val)}
-                  </text>
-                </g>
-              )
-            })}
-          </g>
-        )
-      })()}
+          return (
+            <g>
+              <line
+                x1={x}
+                y1={PADDING.top}
+                x2={x}
+                y2={PADDING.top + plotH}
+                stroke="var(--vos-text-tertiary)"
+                strokeWidth={0.5}
+                strokeDasharray="3,3"
+              />
+              {data.map(series => {
+                const seriesPts = series.data.slice(-maxPoints)
+                if (hoverIdx >= seriesPts.length) return null
+                const val = seriesPts[hoverIdx]
+                const cy = toY(val)
+                return (
+                  <g key={series.id}>
+                    <circle cx={x} cy={cy} r={3} fill={series.color} stroke="#fff" strokeWidth={1} />
+                    <rect
+                      x={x + 6}
+                      y={cy - 10}
+                      width={60}
+                      height={18}
+                      rx={3}
+                      fill="var(--vos-bg-elevated, rgba(0,0,0,0.75))"
+                    />
+                    <text x={x + 10} y={cy + 1} fill="#fff" fontSize={10}>
+                      {formatValue(val)}
+                    </text>
+                  </g>
+                )
+              })}
+            </g>
+          )
+        })()}
     </svg>
   )
 }

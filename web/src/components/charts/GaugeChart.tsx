@@ -21,7 +21,7 @@ export default function GaugeChart({
   backgroundColor = 'var(--vos-border-secondary)',
   label,
   formatValue = defaultFormat,
-  className,
+  className
 }: GaugeChartProps) {
   const radius = (size - thickness) / 2
   const circumference = 2 * Math.PI * radius
@@ -37,14 +37,7 @@ export default function GaugeChart({
       style={{ overflow: 'visible' }}
     >
       {/* Background ring */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke={backgroundColor}
-        strokeWidth={thickness}
-      />
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={backgroundColor} strokeWidth={thickness} />
 
       {/* Foreground ring */}
       <circle

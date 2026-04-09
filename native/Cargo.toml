@@ -7,6 +7,7 @@ members = [
     "crates/ventoos-db",
     "crates/ventoos-redis",
     "crates/ventoos-vfs",
+    "crates/ventoos-mount",
     "crates/ventoos-task",
     "crates/ventoos-agent",
     "crates/ventoos-persist",
@@ -85,6 +86,7 @@ ventoos-k8s = { path = "crates/ventoos-k8s" }
 ventoos-db = { path = "crates/ventoos-db" }
 ventoos-redis = { path = "crates/ventoos-redis" }
 ventoos-vfs = { path = "crates/ventoos-vfs" }
+ventoos-mount = { path = "crates/ventoos-mount" }
 ventoos-task = { path = "crates/ventoos-task" }
 ventoos-agent = { path = "crates/ventoos-agent" }
 ventoos-persist = { path = "crates/ventoos-persist" }

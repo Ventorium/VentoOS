@@ -15,10 +15,10 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronRight, File, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { LocalFsNode } from '@/infra/api'
 import type { VfsMount, VfsNode } from '@/apps/explorer/api'
-import { apiClient } from '@/infra/api'
 import { vfsApi } from '@/apps/explorer/api'
+import type { LocalFsNode } from '@/infra/api'
+import { apiClient } from '@/infra/api'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 

@@ -150,6 +150,11 @@ pub fn create_router(state: &AppState) -> Router {
         // Monitor routes
         .route("/api/monitor/system", get(monitor::get_system_metrics))
         .route("/api/monitor/process", get(monitor::get_process_metrics))
+        // Local FUSE mount routes
+        .route(
+            "/api/vfs/mounts/{id}/local-mount",
+            post(fuse_mount_handler).delete(fuse_unmount_handler).get(fuse_status_handler),
+        )
         // WebSocket (task events)
         .route("/ws", get(websocket::ws_handler))
         // WebShell WebSocket
@@ -539,6 +544,83 @@ async fn browse_local_fs(Query(query): Query<FsBrowseQuery>) -> impl IntoRespons
     });
 
     Json(ApiResponse::ok(nodes)).into_response()
+}
+
+// ── Local FUSE Mount handlers ─────────────────────────────────────────────
+
+async fn fuse_mount_handler(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    // Look up mount to get the local_mount config
+    let Some(mount) = state.vfs.get_mount(&id).await else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("VFS mount not found")),
+        )
+            .into_response();
+    };
+    let Some(local_cfg) = mount.local_mount else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::err("本地挂载未配置")),
+        )
+            .into_response();
+    };
+    if !local_cfg.enabled {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::err("本地挂载未启用")),
+        )
+            .into_response();
+    }
+    match state
+        .mount_mgr
+        .mount(&id, &local_cfg, Arc::clone(&state.vfs))
+        .await
+    {
+        Ok(()) => Json(ApiResponse::ok(
+            serde_json::json!({"mounted": true, "mount_point": local_cfg.mount_point}),
+        ))
+        .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::err(&e.to_string())),
+        )
+            .into_response(),
+    }
+}
+
+async fn fuse_unmount_handler(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.mount_mgr.unmount(&id).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"unmounted": true}))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::err(&e.to_string())),
+        )
+            .into_response(),
+    }
+}
+
+async fn fuse_status_handler(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Json<ApiResponse<serde_json::Value>> {
+    let payload = match state.mount_mgr.status(&id).await {
+        ventoos_mount::MountStatus::Unmounted => {
+            serde_json::json!({"mounted": false, "mount_point": null, "error": null})
+        }
+        ventoos_mount::MountStatus::Mounted { mount_point } => {
+            serde_json::json!({"mounted": true, "mount_point": mount_point, "error": null})
+        }
+        ventoos_mount::MountStatus::Error { error } => {
+            serde_json::json!({"mounted": false, "mount_point": null, "error": error})
+        }
+    };
+    Json(ApiResponse::ok(payload))
 }
 
 #[cfg(test)]

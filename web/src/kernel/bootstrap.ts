@@ -31,7 +31,10 @@ export function bootKernel(opts: { tokenProvider: () => string | null; onUnautho
   wsClient.setTokenProvider(opts.tokenProvider)
 
   // Load file-default preferences from persistent storage
-  useFileDefaultsStore.getState().load().catch(() => {})
+  useFileDefaultsStore
+    .getState()
+    .load()
+    .catch(() => {})
 
   logger.info('Kernel booted')
 

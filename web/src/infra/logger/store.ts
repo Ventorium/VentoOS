@@ -30,7 +30,7 @@ interface LogStore {
   clear: () => void
 }
 
-export const useLogStore = create<LogStore>((set) => ({
+export const useLogStore = create<LogStore>(set => ({
   entries: [],
 
   push: (level, module, message, details) => {
@@ -40,13 +40,13 @@ export const useLogStore = create<LogStore>((set) => ({
       level,
       module,
       message,
-      details,
+      details
     }
-    set((state) => {
+    set(state => {
       const next = [...state.entries, entry]
       return { entries: next.length > MAX_ENTRIES ? next.slice(next.length - MAX_ENTRIES) : next }
     })
   },
 
-  clear: () => set({ entries: [] }),
+  clear: () => set({ entries: [] })
 }))

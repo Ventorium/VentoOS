@@ -5,6 +5,7 @@ use ventoos_agent::{AgentManager, AgentPlugin};
 use ventoos_core::plugin::AppPlugin;
 use ventoos_db::{DbManager, DbPlugin};
 use ventoos_k8s::{K8sManager, K8sPlugin};
+use ventoos_mount::LocalMountManager;
 use ventoos_persist::{Database, SettingsManager, StorageManager, WindowStateManager};
 use ventoos_redis::{RedisManager, RedisPlugin};
 use ventoos_ssh::{SshManager, SshPlugin};
@@ -28,6 +29,10 @@ pub struct AppState {
     pub storage: Arc<StorageManager>,
     /// Application plugins (K8s, DB, Redis, VFS, Agent, SSH).
     pub plugins: Arc<Vec<Box<dyn AppPlugin>>>,
+    /// VFS source manager (shared with VfsPlugin).
+    pub vfs: Arc<VfsManager>,
+    /// Local FUSE mount manager.
+    pub mount_mgr: Arc<LocalMountManager>,
 }
 
 impl AppState {
@@ -47,7 +52,7 @@ impl AppState {
             Box::new(K8sPlugin::new(k8s_manager)),
             Box::new(DbPlugin::new(db_manager)),
             Box::new(RedisPlugin::new(redis_manager)),
-            Box::new(VfsPlugin::new(vfs_manager)),
+            Box::new(VfsPlugin::new(Arc::clone(&vfs_manager))),
             Box::new(AgentPlugin::new(agent_manager)),
             Box::new(SshPlugin::new(Arc::clone(&ssh))),
         ];
@@ -62,6 +67,8 @@ impl AppState {
             ssh,
             processes: Arc::new(ProcessManager::new()),
             plugins: Arc::new(plugins),
+            vfs: vfs_manager,
+            mount_mgr: Arc::new(LocalMountManager::new()),
         })
     }
 
@@ -81,7 +88,7 @@ impl AppState {
             Box::new(K8sPlugin::new(k8s_manager)),
             Box::new(DbPlugin::new(db_manager)),
             Box::new(RedisPlugin::new(redis_manager)),
-            Box::new(VfsPlugin::new(vfs_manager)),
+            Box::new(VfsPlugin::new(Arc::clone(&vfs_manager))),
             Box::new(AgentPlugin::new(agent_manager)),
             Box::new(SshPlugin::new(Arc::clone(&ssh))),
         ];
@@ -98,6 +105,8 @@ impl AppState {
             ssh,
             processes: Arc::new(ProcessManager::new()),
             plugins: Arc::new(plugins),
+            vfs: vfs_manager,
+            mount_mgr: Arc::new(LocalMountManager::new()),
         })
     }
 }

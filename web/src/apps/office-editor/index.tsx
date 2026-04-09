@@ -12,14 +12,14 @@
  * This MVP provides direct rendering for common formats.
  */
 
-import { Download, FileText, Loader2 } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
+import { Download, FileText, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import { getAuthHeaders } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
-import { getAuthHeaders } from '@/infra/api'
-import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
-import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 type ViewMode = 'loading' | 'docx' | 'xlsx' | 'csv' | 'unsupported' | 'error'
@@ -36,12 +36,15 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   const { setTitle } = useWindowActions(windowId)
 
-  const handleOpenFile = useCallback((result: VfsPickerResult) => {
-    const name = result.path.split('/').filter(Boolean).pop() ?? result.path
-    setMountId(result.mountId)
-    setNode({ path: result.path, name })
-    setTitle(name)
-  }, [setTitle])
+  const handleOpenFile = useCallback(
+    (result: VfsPickerResult) => {
+      const name = result.path.split('/').filter(Boolean).pop() ?? result.path
+      setMountId(result.mountId)
+      setNode({ path: result.path, name })
+      setTitle(name)
+    },
+    [setTitle]
+  )
 
   const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
     windowId,
@@ -153,10 +156,17 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   // Shared toolbar
   const Toolbar = () => (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-      borderBottom: '1px solid var(--vos-border-subtle)', background: 'var(--vos-bg-secondary)', flexShrink: 0
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '6px 12px',
+        borderBottom: '1px solid var(--vos-border-subtle)',
+        background: 'var(--vos-bg-secondary)',
+        flexShrink: 0
+      }}
+    >
       <FileText size={16} style={{ color: 'var(--vos-text-tertiary)' }} />
       <span style={{ fontSize: 13, color: 'var(--vos-text-primary)', fontWeight: 500, flex: 1 }}>
         {node?.name ?? 'Untitled'}
@@ -165,9 +175,16 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
         type="button"
         onClick={handleDownload}
         style={{
-          display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-          fontSize: 12, borderRadius: 6, border: 'none', cursor: 'pointer',
-          background: 'var(--vos-accent-primary)', color: '#fff'
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          padding: '4px 10px',
+          fontSize: 12,
+          borderRadius: 6,
+          border: 'none',
+          cursor: 'pointer',
+          background: 'var(--vos-accent-primary)',
+          color: '#fff'
         }}
       >
         <Download size={14} />
@@ -186,11 +203,19 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   if (mode === 'loading') {
     return (
-      <div style={{
-        width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 12,
-        background: 'var(--vos-bg-primary)', color: 'var(--vos-text-tertiary)'
-      }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          background: 'var(--vos-bg-primary)',
+          color: 'var(--vos-text-tertiary)'
+        }}
+      >
         <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
         <div style={{ fontSize: 13 }}>正在加载文档…</div>
         <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
@@ -201,11 +226,19 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   if (mode === 'error') {
     return (
-      <div style={{
-        width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 12,
-        background: 'var(--vos-bg-primary)', color: 'var(--vos-text-tertiary)'
-      }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          background: 'var(--vos-bg-primary)',
+          color: 'var(--vos-text-tertiary)'
+        }}
+      >
         <FileText size={48} style={{ opacity: 0.3 }} />
         <div style={{ fontSize: 14, fontWeight: 500 }}>无法打开文档</div>
         <div style={{ fontSize: 12, maxWidth: 400, textAlign: 'center' }}>{errorMsg}</div>
@@ -216,18 +249,29 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   if (mode === 'unsupported') {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--vos-bg-primary)' }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'var(--vos-bg-primary)'
+        }}
+      >
         <Toolbar />
-        <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12
-        }}>
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12
+          }}
+        >
           <FileText size={48} style={{ opacity: 0.3, color: 'var(--vos-text-tertiary)' }} />
-          <div style={{ fontSize: 14, color: 'var(--vos-text-secondary)' }}>
-            暂不支持在线预览此格式
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>
-            请下载后使用本地应用打开
-          </div>
+          <div style={{ fontSize: 14, color: 'var(--vos-text-secondary)' }}>暂不支持在线预览此格式</div>
+          <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>请下载后使用本地应用打开</div>
         </div>
         {filePicker}
       </div>
@@ -237,12 +281,22 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
   // DOCX view
   if (mode === 'docx') {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--vos-bg-primary)' }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'var(--vos-bg-primary)'
+        }}
+      >
         <Toolbar />
         <div
           ref={docxContainerRef}
           style={{
-            flex: 1, overflow: 'auto', padding: 16,
+            flex: 1,
+            overflow: 'auto',
+            padding: 16,
             background: '#f5f5f5'
           }}
         />
@@ -258,27 +312,59 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
   // XLSX / CSV table view
   if ((mode === 'xlsx' || mode === 'csv') && sheetData) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--vos-bg-primary)' }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'var(--vos-bg-primary)'
+        }}
+      >
         <Toolbar />
         <div style={{ flex: 1, overflow: 'auto' }}>
-          <table style={{
-            borderCollapse: 'collapse', width: '100%', fontSize: 12,
-            color: 'var(--vos-text-primary)'
-          }}>
+          <table
+            style={{
+              borderCollapse: 'collapse',
+              width: '100%',
+              fontSize: 12,
+              color: 'var(--vos-text-primary)'
+            }}
+          >
             {sheetData.headers.length > 0 && (
               <thead>
                 <tr>
-                  <th style={{
-                    padding: '6px 10px', borderBottom: '2px solid var(--vos-border-subtle)',
-                    background: 'var(--vos-bg-secondary)', textAlign: 'left', fontWeight: 600,
-                    position: 'sticky', top: 0, width: 40, color: 'var(--vos-text-tertiary)'
-                  }}>#</th>
+                  <th
+                    style={{
+                      padding: '6px 10px',
+                      borderBottom: '2px solid var(--vos-border-subtle)',
+                      background: 'var(--vos-bg-secondary)',
+                      textAlign: 'left',
+                      fontWeight: 600,
+                      position: 'sticky',
+                      top: 0,
+                      width: 40,
+                      color: 'var(--vos-text-tertiary)'
+                    }}
+                  >
+                    #
+                  </th>
                   {sheetData.headers.map((h, i) => (
-                    <th key={i} style={{
-                      padding: '6px 10px', borderBottom: '2px solid var(--vos-border-subtle)',
-                      background: 'var(--vos-bg-secondary)', textAlign: 'left', fontWeight: 600,
-                      position: 'sticky', top: 0, whiteSpace: 'nowrap'
-                    }}>{h || `Column ${i + 1}`}</th>
+                    <th
+                      key={i}
+                      style={{
+                        padding: '6px 10px',
+                        borderBottom: '2px solid var(--vos-border-subtle)',
+                        background: 'var(--vos-bg-secondary)',
+                        textAlign: 'left',
+                        fontWeight: 600,
+                        position: 'sticky',
+                        top: 0,
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {h || `Column ${i + 1}`}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -286,15 +372,30 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
             <tbody>
               {sheetData.rows.map((row, ri) => (
                 <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : 'var(--vos-bg-secondary)' }}>
-                  <td style={{
-                    padding: '4px 10px', borderBottom: '1px solid var(--vos-border-subtle)',
-                    color: 'var(--vos-text-tertiary)', fontSize: 11
-                  }}>{ri + 1}</td>
+                  <td
+                    style={{
+                      padding: '4px 10px',
+                      borderBottom: '1px solid var(--vos-border-subtle)',
+                      color: 'var(--vos-text-tertiary)',
+                      fontSize: 11
+                    }}
+                  >
+                    {ri + 1}
+                  </td>
                   {row.map((cell, ci) => (
-                    <td key={ci} style={{
-                      padding: '4px 10px', borderBottom: '1px solid var(--vos-border-subtle)',
-                      whiteSpace: 'nowrap', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis'
-                    }}>{cell}</td>
+                    <td
+                      key={ci}
+                      style={{
+                        padding: '4px 10px',
+                        borderBottom: '1px solid var(--vos-border-subtle)',
+                        whiteSpace: 'nowrap',
+                        maxWidth: 300,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {cell}
+                    </td>
                   ))}
                 </tr>
               ))}

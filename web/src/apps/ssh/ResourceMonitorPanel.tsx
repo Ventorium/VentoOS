@@ -5,8 +5,8 @@
 import { motion } from 'framer-motion'
 import { AlertCircle, ChevronDown, ChevronRight, Cpu, HardDrive, Loader2, MemoryStick, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BarChart, GaugeChart, LineChart } from '@/components/charts'
 import type { BarItem, ChartSeries } from '@/components/charts'
+import { BarChart, GaugeChart, LineChart } from '@/components/charts'
 import { sshApi } from './api'
 
 interface ResourceMonitorPanelProps {
@@ -64,10 +64,10 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
   const toggle = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
 
   const cpuSeries: ChartSeries[] = [
-    { id: 'cpu', label: 'CPU', color: 'var(--vos-accent-primary)', data: cpuHistory.current },
+    { id: 'cpu', label: 'CPU', color: 'var(--vos-accent-primary)', data: cpuHistory.current }
   ]
   const memSeries: ChartSeries[] = [
-    { id: 'mem', label: 'Memory', color: 'var(--vos-accent-warning)', data: memHistory.current },
+    { id: 'mem', label: 'Memory', color: 'var(--vos-accent-warning)', data: memHistory.current }
   ]
 
   const diskItems: BarItem[] = metrics
@@ -75,7 +75,7 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
         label: d.name,
         value: d.used,
         max: d.total,
-        color: d.total > 0 && d.used / d.total > 0.9 ? 'var(--vos-accent-danger)' : 'var(--vos-accent-primary)',
+        color: d.total > 0 && d.used / d.total > 0.9 ? 'var(--vos-accent-danger)' : 'var(--vos-accent-primary)'
       }))
     : []
 
@@ -103,7 +103,7 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
         background: 'var(--vos-bg-primary)',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
+        overflow: 'hidden'
       }}
     >
       {/* Header */}
@@ -114,7 +114,7 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
           justifyContent: 'space-between',
           padding: '10px 12px',
           borderBottom: '1px solid var(--vos-border)',
-          flexShrink: 0,
+          flexShrink: 0
         }}
       >
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vos-text-primary)' }}>资源监控</span>
@@ -141,7 +141,7 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
               padding: '40px 12px',
               color: 'var(--vos-text-tertiary)',
               fontSize: 12,
-              textAlign: 'center',
+              textAlign: 'center'
             }}
           >
             <AlertCircle size={24} style={{ opacity: 0.4 }} />
@@ -239,7 +239,7 @@ function Section({
   icon,
   collapsed,
   onToggle,
-  children,
+  children
 }: {
   title: string
   icon: React.ReactNode
@@ -263,7 +263,7 @@ function Section({
           cursor: 'pointer',
           color: 'var(--vos-text-primary)',
           fontSize: 12,
-          fontWeight: 600,
+          fontWeight: 600
         }}
       >
         {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}

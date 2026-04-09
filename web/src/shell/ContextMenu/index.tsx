@@ -68,22 +68,14 @@ function MenuItemRow({ item, close, compact }: { item: MenuItem; close: () => vo
   }
 
   return (
-    <div
-      style={{ position: 'relative' }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <div style={{ position: 'relative' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         ref={rowRef}
         type="button"
         disabled={item.disabled}
         className={`vos-ctx-item${item.danger ? ' danger' : ''}`}
         style={{
-          color: item.danger
-            ? undefined
-            : item.disabled
-              ? 'var(--vos-text-tertiary)'
-              : 'var(--vos-text-primary)',
+          color: item.danger ? undefined : item.disabled ? 'var(--vos-text-tertiary)' : 'var(--vos-text-primary)',
           cursor: item.disabled ? 'default' : 'pointer',
           background: showSub ? 'var(--vos-accent-primary)' : undefined,
           ...(showSub ? { color: '#fff' } : {})
@@ -177,9 +169,10 @@ export default function ContextMenu() {
   }, [visible, hide])
 
   // Arrow (caret) position relative to x click point
-  const arrowLeft = showArrow && (anchor === 'bottom-left' || anchor === 'top-left')
-    ? Math.max(8, Math.min(x - finalPos.left, (menuRef.current?.offsetWidth ?? 180) - 24))
-    : undefined
+  const arrowLeft =
+    showArrow && (anchor === 'bottom-left' || anchor === 'top-left')
+      ? Math.max(8, Math.min(x - finalPos.left, (menuRef.current?.offsetWidth ?? 180) - 24))
+      : undefined
 
   return createPortal(
     <AnimatePresence>
@@ -211,7 +204,14 @@ export default function ContextMenu() {
               left: finalPos.left,
               top: finalPos.top,
               zIndex: 9995,
-              transformOrigin: anchor === 'bottom-left' ? 'bottom left' : anchor === 'bottom-right' ? 'bottom right' : anchor === 'top-right' ? 'top right' : 'top left'
+              transformOrigin:
+                anchor === 'bottom-left'
+                  ? 'bottom left'
+                  : anchor === 'bottom-right'
+                    ? 'bottom right'
+                    : anchor === 'top-right'
+                      ? 'top right'
+                      : 'top left'
             }}
           >
             <MenuPanel items={items} compact={compact} />

@@ -10,7 +10,7 @@
 import type { LogLevel } from './store'
 import { useLogStore } from './store'
 
-export type { LogLevel, LogEntry } from './store'
+export type { LogEntry, LogLevel } from './store'
 export { useLogStore } from './store'
 
 const isDev = import.meta.env.DEV

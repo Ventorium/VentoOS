@@ -8,23 +8,14 @@
  * Frontend: Lists archive contents, extract/compress UI, password support
  */
 
-import {
-  Archive,
-  ArrowLeft,
-  Download,
-  FileText,
-  Folder,
-  Key,
-  Loader2,
-  PackageOpen
-} from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
+import { Archive, ArrowLeft, Download, FileText, Folder, Key, Loader2, PackageOpen } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
+import { request } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
-import { request } from '@/infra/api'
-import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
-import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 interface ArchiveEntry {
@@ -44,12 +35,15 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
   const { setTitle } = useWindowActions(windowId)
 
-  const handleOpenFile = useCallback((result: VfsPickerResult) => {
-    const name = result.path.split('/').filter(Boolean).pop() ?? result.path
-    setMountId(result.mountId)
-    setNode({ path: result.path, name })
-    setTitle(name)
-  }, [setTitle])
+  const handleOpenFile = useCallback(
+    (result: VfsPickerResult) => {
+      const name = result.path.split('/').filter(Boolean).pop() ?? result.path
+      setMountId(result.mountId)
+      setNode({ path: result.path, name })
+      setTitle(name)
+    },
+    [setTitle]
+  )
 
   const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
     windowId,
@@ -65,40 +59,43 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
   const [needsPassword, setNeedsPassword] = useState(false)
   const [extractProgress, setExtractProgress] = useState('')
 
-  const loadArchiveContents = useCallback(async (pwd?: string) => {
-    if (!mountId || !node) {
-      setErrorMsg('No file specified')
-      setPhase('error')
-      return
-    }
-
-    try {
-      setPhase('loading')
-      const params = new URLSearchParams({ path: node.path })
-      if (pwd) params.set('password', pwd)
-
-      const data = await request<{ entries?: ArchiveEntry[]; error?: string; password_required?: boolean }>(
-        'GET',
-        `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/list?${params}`
-      )
-
-      if (data.password_required) {
-        setNeedsPassword(true)
-        setPhase('listing')
+  const loadArchiveContents = useCallback(
+    async (pwd?: string) => {
+      if (!mountId || !node) {
+        setErrorMsg('No file specified')
+        setPhase('error')
         return
       }
 
-      if (data.error) throw new Error(data.error)
+      try {
+        setPhase('loading')
+        const params = new URLSearchParams({ path: node.path })
+        if (pwd) params.set('password', pwd)
 
-      setEntries(data.entries ?? [])
-      setNeedsPassword(false)
-      setPhase('listing')
-    } catch (err) {
-      console.error('Archive list error:', err)
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to list archive')
-      setPhase('error')
-    }
-  }, [mountId, node])
+        const data = await request<{ entries?: ArchiveEntry[]; error?: string; password_required?: boolean }>(
+          'GET',
+          `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/list?${params}`
+        )
+
+        if (data.password_required) {
+          setNeedsPassword(true)
+          setPhase('listing')
+          return
+        }
+
+        if (data.error) throw new Error(data.error)
+
+        setEntries(data.entries ?? [])
+        setNeedsPassword(false)
+        setPhase('listing')
+      } catch (err) {
+        console.error('Archive list error:', err)
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to list archive')
+        setPhase('error')
+      }
+    },
+    [mountId, node]
+  )
 
   useEffect(() => {
     loadArchiveContents()
@@ -162,7 +159,18 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
   if (phase === 'error') {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'var(--vos-bg-primary)' }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          background: 'var(--vos-bg-primary)'
+        }}
+      >
         <Archive size={48} style={{ opacity: 0.3, color: 'var(--vos-text-tertiary)' }} />
         <div style={{ fontSize: 14, color: 'var(--vos-text-secondary)' }}>无法打开压缩文件</div>
         <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>{errorMsg}</div>
@@ -172,7 +180,18 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
   if (phase === 'loading') {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'var(--vos-bg-primary)' }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          background: 'var(--vos-bg-primary)'
+        }}
+      >
         <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'var(--vos-text-tertiary)' }} />
         <div style={{ fontSize: 13, color: 'var(--vos-text-tertiary)' }}>正在读取压缩文件…</div>
         <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
@@ -182,7 +201,18 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
   if (phase === 'extracting') {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'var(--vos-bg-primary)' }}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          background: 'var(--vos-bg-primary)'
+        }}
+      >
         <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'var(--vos-accent-primary)' }} />
         <div style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>{extractProgress}</div>
         <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
@@ -191,26 +221,46 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
   }
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--vos-bg-primary)' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--vos-bg-primary)'
+      }}
+    >
       {/* Toolbar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-        borderBottom: '1px solid var(--vos-border-subtle)', background: 'var(--vos-bg-secondary)', flexShrink: 0
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 12px',
+          borderBottom: '1px solid var(--vos-border-subtle)',
+          background: 'var(--vos-bg-secondary)',
+          flexShrink: 0
+        }}
+      >
         <Archive size={16} style={{ color: 'var(--vos-accent-warning)' }} />
         <span style={{ fontSize: 13, fontWeight: 500, flex: 1, color: 'var(--vos-text-primary)' }}>
           {node?.name ?? 'Archive'}
         </span>
-        <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>
-          {entries.length} 项
-        </span>
+        <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>{entries.length} 项</span>
         <button
           type="button"
           onClick={handleExtractAll}
           style={{
-            display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-            fontSize: 12, borderRadius: 6, border: 'none', cursor: 'pointer',
-            background: 'var(--vos-accent-primary)', color: '#fff'
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '4px 10px',
+            fontSize: 12,
+            borderRadius: 6,
+            border: 'none',
+            cursor: 'pointer',
+            background: 'var(--vos-accent-primary)',
+            color: '#fff'
           }}
         >
           <PackageOpen size={14} />
@@ -220,9 +270,16 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
           type="button"
           onClick={handleDownload}
           style={{
-            display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-            fontSize: 12, borderRadius: 6, border: 'none', cursor: 'pointer',
-            background: 'transparent', color: 'var(--vos-text-secondary)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '4px 10px',
+            fontSize: 12,
+            borderRadius: 6,
+            border: 'none',
+            cursor: 'pointer',
+            background: 'transparent',
+            color: 'var(--vos-text-secondary)',
             border_: '1px solid var(--vos-border-subtle)'
           }}
         >
@@ -233,10 +290,16 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
       {/* Password prompt */}
       {needsPassword && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-          background: 'var(--vos-accent-warning-bg)', borderBottom: '1px solid var(--vos-border-subtle)'
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 12px',
+            background: 'var(--vos-accent-warning-bg)',
+            borderBottom: '1px solid var(--vos-border-subtle)'
+          }}
+        >
           <Key size={14} style={{ color: 'var(--vos-accent-warning)' }} />
           <span style={{ fontSize: 12, color: 'var(--vos-text-secondary)' }}>此压缩文件需要密码</span>
           <input
@@ -245,9 +308,15 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
             value={password}
             onChange={e => setPassword(e.target.value)}
             style={{
-              flex: 1, maxWidth: 200, padding: '4px 8px', fontSize: 12, borderRadius: 4,
-              border: '1px solid var(--vos-border-subtle)', background: 'var(--vos-bg-primary)',
-              color: 'var(--vos-text-primary)', outline: 'none'
+              flex: 1,
+              maxWidth: 200,
+              padding: '4px 8px',
+              fontSize: 12,
+              borderRadius: 4,
+              border: '1px solid var(--vos-border-subtle)',
+              background: 'var(--vos-bg-primary)',
+              color: 'var(--vos-text-primary)',
+              outline: 'none'
             }}
             onKeyDown={e => e.key === 'Enter' && loadArchiveContents(password)}
           />
@@ -255,8 +324,13 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
             type="button"
             onClick={() => loadArchiveContents(password)}
             style={{
-              padding: '4px 12px', fontSize: 12, borderRadius: 4, border: 'none',
-              background: 'var(--vos-accent-primary)', color: '#fff', cursor: 'pointer'
+              padding: '4px 12px',
+              fontSize: 12,
+              borderRadius: 4,
+              border: 'none',
+              background: 'var(--vos-accent-primary)',
+              color: '#fff',
+              cursor: 'pointer'
             }}
           >
             确定
@@ -266,16 +340,27 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
       {/* Breadcrumb */}
       {currentDir && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 4, padding: '4px 12px',
-          borderBottom: '1px solid var(--vos-border-subtle)', fontSize: 12
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '4px 12px',
+            borderBottom: '1px solid var(--vos-border-subtle)',
+            fontSize: 12
+          }}
+        >
           <button
             type="button"
             onClick={() => setCurrentDir('')}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--vos-accent-primary)', display: 'flex', alignItems: 'center', gap: 2
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--vos-accent-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2
             }}
           >
             <ArrowLeft size={12} />
@@ -299,7 +384,10 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
               <div
                 key={entry.path}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 12px',
                   borderBottom: '1px solid var(--vos-border-subtle)',
                   cursor: entry.is_dir ? 'pointer' : 'default',
                   fontSize: 12
@@ -319,9 +407,7 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
                 <span style={{ flex: 1, color: 'var(--vos-text-primary)' }}>{name}</span>
                 {entry.encrypted && <Key size={12} style={{ color: 'var(--vos-accent-warning)' }} />}
                 {!entry.is_dir && (
-                  <span style={{ color: 'var(--vos-text-tertiary)', fontSize: 11 }}>
-                    {formatSize(entry.size)}
-                  </span>
+                  <span style={{ color: 'var(--vos-text-tertiary)', fontSize: 11 }}>{formatSize(entry.size)}</span>
                 )}
               </div>
             )

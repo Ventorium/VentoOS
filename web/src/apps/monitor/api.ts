@@ -1,5 +1,5 @@
-import { request } from '@/infra/api'
 import type { ApiResponse } from '@/infra/api'
+import { request } from '@/infra/api'
 
 export interface CpuCoreInfo {
   core_id: number
@@ -52,5 +52,5 @@ export interface SystemMetrics {
 
 export const monitorApi = {
   getSystemMetrics: () => request<ApiResponse<SystemMetrics>>('GET', '/api/monitor/system'),
-  getProcessMetrics: () => request<ApiResponse<ProcessMetrics>>('GET', '/api/monitor/process'),
+  getProcessMetrics: () => request<ApiResponse<ProcessMetrics>>('GET', '/api/monitor/process')
 }

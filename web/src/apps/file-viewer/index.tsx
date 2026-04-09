@@ -20,9 +20,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { VfsFileContent, VfsNode } from '@/apps/explorer/api'
 import { vfsApi } from '@/apps/explorer/api'
+import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import type { AppComponentProps } from '@/kernel'
 import { useWindow, useWindowActions } from '@/kernel'
-import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 // ─── Utilities ────────────────────────────────────────────────────────────

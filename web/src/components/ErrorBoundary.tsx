@@ -5,8 +5,8 @@
  */
 
 import { AlertTriangle, RotateCcw, ScrollText } from 'lucide-react'
-import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
+import { Component } from 'react'
 import { createLogger } from '@/infra/logger'
 import { openWindow } from '@/kernel'
 
@@ -31,10 +31,10 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    logger.error(
-      `App "${this.props.appId ?? 'unknown'}" crashed: ${error.message}`,
-      { stack: error.stack, componentStack: info.componentStack },
-    )
+    logger.error(`App "${this.props.appId ?? 'unknown'}" crashed: ${error.message}`, {
+      stack: error.stack,
+      componentStack: info.componentStack
+    })
   }
 
   handleRetry = () => {
@@ -61,16 +61,12 @@ export default class ErrorBoundary extends Component<Props, State> {
           gap: 12,
           padding: 32,
           color: 'var(--vos-text-secondary)',
-          textAlign: 'center',
+          textAlign: 'center'
         }}
       >
         <AlertTriangle size={36} color="var(--vos-accent-warning)" />
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
-          应用发生错误
-        </div>
-        <div style={{ fontSize: 12, maxWidth: 360, lineHeight: 1.5 }}>
-          {this.state.error?.message ?? '未知错误'}
-        </div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--vos-text-primary)' }}>应用发生错误</div>
+        <div style={{ fontSize: 12, maxWidth: 360, lineHeight: 1.5 }}>{this.state.error?.message ?? '未知错误'}</div>
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button
             type="button"
@@ -85,7 +81,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               borderRadius: 6,
               background: 'var(--vos-bg-secondary)',
               color: 'var(--vos-text-primary)',
-              cursor: 'pointer',
+              cursor: 'pointer'
             }}
           >
             <RotateCcw size={12} />
@@ -104,7 +100,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               borderRadius: 6,
               background: 'var(--vos-bg-secondary)',
               color: 'var(--vos-text-primary)',
-              cursor: 'pointer',
+              cursor: 'pointer'
             }}
           >
             <ScrollText size={12} />

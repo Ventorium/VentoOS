@@ -7,21 +7,21 @@
 
 import { Activity, Cpu, Globe, HardDrive, MemoryStick, Server } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ProcessMetrics, SystemMetrics } from './api'
-import { monitorApi } from './api'
-import { BarChart, GaugeChart, LineChart } from '@/components/charts'
 import type { ChartSeries } from '@/components/charts'
-import PreferencesPanel from '@/components/PreferencesPanel'
+import { BarChart, GaugeChart, LineChart } from '@/components/charts'
 import type { PreferenceGroup } from '@/components/PreferencesPanel'
+import PreferencesPanel from '@/components/PreferencesPanel'
+import type { AppComponentProps } from '@/kernel'
 import {
   openWindow,
   registerAppMenus,
   registerAppTray,
   unregisterAppMenus,
   unregisterAppTray,
-  useAppStorage,
+  useAppStorage
 } from '@/kernel'
-import type { AppComponentProps } from '@/kernel'
+import type { ProcessMetrics, SystemMetrics } from './api'
+import { monitorApi } from './api'
 
 // ─── Settings Types ────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ const DEFAULT_SETTINGS: MonitorSettings = {
   webInterval: 5,
   diskInterval: 60,
   trayEnabled: false,
-  trayInterval: 5,
+  trayInterval: 5
 }
 
 const MAX_HISTORY = 60
@@ -94,7 +94,7 @@ const styles = {
     height: '100%',
     background: 'var(--vos-bg-primary)',
     color: 'var(--vos-text-primary)',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   header: {
     display: 'flex',
@@ -104,12 +104,12 @@ const styles = {
     borderBottom: '1px solid var(--vos-border-primary)',
     fontSize: 12,
     color: 'var(--vos-text-secondary)',
-    flexShrink: 0,
+    flexShrink: 0
   },
   body: {
     display: 'flex',
     flex: 1,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   sidebar: {
     width: 120,
@@ -118,7 +118,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column' as const,
     padding: '8px 0',
-    gap: 2,
+    gap: 2
   },
   tabButton: (active: boolean) => ({
     display: 'flex',
@@ -132,15 +132,15 @@ const styles = {
     fontSize: 13,
     borderRadius: 6,
     margin: '0 8px',
-    transition: 'background 0.15s',
+    transition: 'background 0.15s'
   }),
   content: {
     flex: 1,
     overflow: 'auto',
-    padding: 16,
+    padding: 16
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 24
   },
   sectionTitle: {
     display: 'flex',
@@ -149,43 +149,43 @@ const styles = {
     fontSize: 14,
     fontWeight: 600,
     marginBottom: 12,
-    color: 'var(--vos-text-primary)',
+    color: 'var(--vos-text-primary)'
   },
   row: {
     display: 'flex',
     gap: 16,
     flexWrap: 'wrap' as const,
-    alignItems: 'flex-start',
+    alignItems: 'flex-start'
   },
   card: {
     background: 'var(--vos-bg-secondary)',
     borderRadius: 8,
     padding: 12,
-    border: '1px solid var(--vos-border-primary)',
+    border: '1px solid var(--vos-border-primary)'
   },
   coreGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
-    gap: 8,
+    gap: 8
   },
   infoGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: 12,
+    gap: 12
   },
   infoItem: {
     display: 'flex',
     justifyContent: 'space-between',
     padding: '6px 0',
     fontSize: 12,
-    borderBottom: '1px solid var(--vos-border-secondary)',
+    borderBottom: '1px solid var(--vos-border-secondary)'
   },
   infoLabel: {
-    color: 'var(--vos-text-secondary)',
+    color: 'var(--vos-text-secondary)'
   },
   infoValue: {
     fontWeight: 500,
-    fontVariantNumeric: 'tabular-nums',
+    fontVariantNumeric: 'tabular-nums'
   },
   emptyState: {
     display: 'flex',
@@ -195,8 +195,8 @@ const styles = {
     gap: 8,
     padding: 40,
     color: 'var(--vos-text-tertiary)',
-    fontSize: 13,
-  },
+    fontSize: 13
+  }
 }
 
 // ─── Tab Content Components ────────────────────────────────────────────────
@@ -204,7 +204,7 @@ const styles = {
 function SystemTab({
   metrics,
   cpuHistory,
-  memHistory,
+  memHistory
 }: {
   metrics: SystemMetrics | null
   cpuHistory: number[]
@@ -219,17 +219,15 @@ function SystemTab({
     )
   }
 
-  const cpuSeries: ChartSeries[] = [
-    { id: 'cpu', label: 'CPU', color: 'var(--vos-accent-primary)', data: cpuHistory },
-  ]
+  const cpuSeries: ChartSeries[] = [{ id: 'cpu', label: 'CPU', color: 'var(--vos-accent-primary)', data: cpuHistory }]
   const memSeries: ChartSeries[] = [
-    { id: 'mem', label: '内存', color: 'var(--vos-accent-secondary, #a78bfa)', data: memHistory },
+    { id: 'mem', label: '内存', color: 'var(--vos-accent-secondary, #a78bfa)', data: memHistory }
   ]
 
   // Deduplicate disks: keep only one entry per physical device prefix,
   // preferring the root mount '/' or the one with the largest total size.
   const uniqueDisks = (() => {
-    const grouped = new Map<string, typeof metrics.disks[0]>()
+    const grouped = new Map<string, (typeof metrics.disks)[0]>()
     for (const d of metrics.disks) {
       const devKey = d.device.replace(/s\d+$/, '')
       const existing = grouped.get(devKey)
@@ -257,12 +255,7 @@ function SystemTab({
             />
           </div>
           <div style={{ ...styles.card, flex: 1, minWidth: 260 }}>
-            <LineChart
-              data={cpuSeries}
-              width={400}
-              height={120}
-              formatValue={formatPercent}
-            />
+            <LineChart data={cpuSeries} width={400} height={120} formatValue={formatPercent} />
           </div>
         </div>
         {metrics.cpu.cores.length > 0 && (
@@ -300,39 +293,51 @@ function SystemTab({
               label="使用率"
               formatValue={formatPercent}
             />
-            <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginTop: 6, textAlign: 'center' as const }}>
+            <div
+              style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginTop: 6, textAlign: 'center' as const }}
+            >
               {formatBytes(metrics.memory.used_bytes)} / {formatBytes(metrics.memory.total_bytes)}
             </div>
           </div>
           <div style={{ ...styles.card, flex: 1, minWidth: 260 }}>
-            <LineChart
-              data={memSeries}
-              width={400}
-              height={120}
-              formatValue={formatPercent}
-            />
+            <LineChart data={memSeries} width={400} height={120} formatValue={formatPercent} />
           </div>
         </div>
-        {metrics.memory.swap_total_bytes > 0 && (() => {
-          const swapPct = (metrics.memory.swap_used_bytes / metrics.memory.swap_total_bytes) * 100
-          return (
-            <div style={{ ...styles.card, marginTop: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
-                <span>Swap</span>
-                <span>{formatBytes(metrics.memory.swap_used_bytes)} / {formatBytes(metrics.memory.swap_total_bytes)}</span>
+        {metrics.memory.swap_total_bytes > 0 &&
+          (() => {
+            const swapPct = (metrics.memory.swap_used_bytes / metrics.memory.swap_total_bytes) * 100
+            return (
+              <div style={{ ...styles.card, marginTop: 12 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: 12,
+                    color: 'var(--vos-text-secondary)',
+                    marginBottom: 6
+                  }}
+                >
+                  <span>Swap</span>
+                  <span>
+                    {formatBytes(metrics.memory.swap_used_bytes)} / {formatBytes(metrics.memory.swap_total_bytes)}
+                  </span>
+                </div>
+                <div
+                  style={{ height: 6, borderRadius: 3, background: 'var(--vos-border-secondary)', overflow: 'hidden' }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      borderRadius: 3,
+                      width: `${Math.min(swapPct, 100)}%`,
+                      background: usageColor(swapPct),
+                      transition: 'width 0.6s ease'
+                    }}
+                  />
+                </div>
               </div>
-              <div style={{ height: 6, borderRadius: 3, background: 'var(--vos-border-secondary)', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  borderRadius: 3,
-                  width: `${Math.min(swapPct, 100)}%`,
-                  background: usageColor(swapPct),
-                  transition: 'width 0.6s ease',
-                }} />
-              </div>
-            </div>
-          )
-        })()}
+            )
+          })()}
       </div>
 
       {/* Disk Section */}
@@ -345,18 +350,34 @@ function SystemTab({
             const pct = d.total_bytes > 0 ? (d.used_bytes / d.total_bytes) * 100 : 0
             return (
               <div key={d.device + d.mount_point} style={{ ...styles.card, marginBottom: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
-                  <span>{d.mount_point} ({d.device})</span>
-                  <span>{formatBytes(d.used_bytes)} / {formatBytes(d.total_bytes)}</span>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: 12,
+                    color: 'var(--vos-text-secondary)',
+                    marginBottom: 6
+                  }}
+                >
+                  <span>
+                    {d.mount_point} ({d.device})
+                  </span>
+                  <span>
+                    {formatBytes(d.used_bytes)} / {formatBytes(d.total_bytes)}
+                  </span>
                 </div>
-                <div style={{ height: 6, borderRadius: 3, background: 'var(--vos-border-secondary)', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    borderRadius: 3,
-                    width: `${Math.min(pct, 100)}%`,
-                    background: usageColor(pct),
-                    transition: 'width 0.6s ease',
-                  }} />
+                <div
+                  style={{ height: 6, borderRadius: 3, background: 'var(--vos-border-secondary)', overflow: 'hidden' }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      borderRadius: 3,
+                      width: `${Math.min(pct, 100)}%`,
+                      background: usageColor(pct),
+                      transition: 'width 0.6s ease'
+                    }}
+                  />
                 </div>
               </div>
             )
@@ -371,7 +392,7 @@ function VentosTab({
   process: proc,
   cpuHistory,
   memHistory,
-  totalMemoryBytes,
+  totalMemoryBytes
 }: {
   process: ProcessMetrics | null
   cpuHistory: number[]
@@ -387,11 +408,9 @@ function VentosTab({
     )
   }
 
-  const cpuSeries: ChartSeries[] = [
-    { id: 'pcpu', label: 'CPU', color: 'var(--vos-accent-primary)', data: cpuHistory },
-  ]
+  const cpuSeries: ChartSeries[] = [{ id: 'pcpu', label: 'CPU', color: 'var(--vos-accent-primary)', data: cpuHistory }]
   const memSeries: ChartSeries[] = [
-    { id: 'pmem', label: '内存', color: 'var(--vos-accent-secondary, #a78bfa)', data: memHistory },
+    { id: 'pmem', label: '内存', color: 'var(--vos-accent-secondary, #a78bfa)', data: memHistory }
   ]
 
   return (
@@ -458,12 +477,7 @@ function VentosTab({
             />
           </div>
           <div style={{ ...styles.card, flex: 1, minWidth: 260 }}>
-            <LineChart
-              data={memSeries}
-              width={400}
-              height={120}
-              formatValue={v => formatBytes(v)}
-            />
+            <LineChart data={memSeries} width={400} height={120} formatValue={v => formatBytes(v)} />
           </div>
         </div>
       </div>
@@ -472,72 +486,97 @@ function VentosTab({
 }
 
 function WebTab() {
-  const [memInfo, setMemInfo] = useState<{ jsHeap: number; total: number; breakdown: { name: string; bytes: number }[] } | null>(null)
+  const [memInfo, setMemInfo] = useState<{
+    used: number
+    total: number
+    limit: number
+    breakdown?: { name: string; bytes: number }[]
+  } | null>(null)
   const [cpuPressure, setCpuPressure] = useState<string | null>(null)
-  const [memSupported] = useState(() => 'measureUserAgentSpecificMemory' in performance)
-  const [pressureSupported] = useState(() => 'PressureObserver' in globalThis)
 
+  const hasPreciseMem = typeof performance !== 'undefined' && 'measureUserAgentSpecificMemory' in performance
+  const hasLegacyMem = typeof performance !== 'undefined' && 'memory' in performance
+  const hasPressure = 'PressureObserver' in globalThis
+
+  // Device memory (static)
+  const deviceMemory =
+    typeof navigator !== 'undefined' ? (navigator as { deviceMemory?: number }).deviceMemory : undefined
+
+  // Memory measurement — prefer precise API, fall back to performance.memory
   useEffect(() => {
-    if (!memSupported) return
-
     let cancelled = false
+
     const measure = async () => {
+      if (cancelled) return
       try {
-        // @ts-expect-error - Experimental API
-        const result = await performance.measureUserAgentSpecificMemory()
-        if (cancelled) return
-        const breakdown = (result.breakdown ?? [])
-          .filter((b: { bytes: number }) => b.bytes > 0)
-          .map((b: { types: string[]; bytes: number }) => ({
-            name: b.types?.join(', ') || 'unknown',
-            bytes: b.bytes,
-          }))
-        setMemInfo({
-          jsHeap: result.bytes,
-          total: result.bytes,
-          breakdown,
-        })
+        if (hasPreciseMem) {
+          // @ts-expect-error Experimental API
+          const result = await performance.measureUserAgentSpecificMemory()
+          if (cancelled) return
+          const breakdown = (result.breakdown ?? [])
+            .filter((b: { bytes: number }) => b.bytes > 0)
+            .map((b: { types: string[]; bytes: number }) => ({
+              name: b.types?.join(', ') || 'unknown',
+              bytes: b.bytes
+            }))
+          setMemInfo({
+            used: result.bytes,
+            total: result.bytes,
+            limit: result.bytes,
+            breakdown
+          })
+        } else if (hasLegacyMem) {
+          // @ts-expect-error Chrome-only API
+          const m = performance.memory as { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number }
+          setMemInfo({
+            used: m.usedJSHeapSize,
+            total: m.totalJSHeapSize,
+            limit: m.jsHeapSizeLimit
+          })
+        }
       } catch {
-        // API may not be available in all contexts
+        // API not available in this context
       }
     }
+
     measure()
-    const id = setInterval(measure, 10000)
+    const id = setInterval(measure, 5000)
     return () => {
       cancelled = true
       clearInterval(id)
     }
-  }, [memSupported])
+  }, [hasPreciseMem, hasLegacyMem])
 
+  // CPU Pressure observer
   useEffect(() => {
-    if (!pressureSupported) return
-
+    if (!hasPressure) return
     let observer: unknown
     try {
-      // @ts-expect-error - Experimental API
+      // @ts-expect-error Experimental API
       observer = new PressureObserver((records: { state: string }[]) => {
         if (records.length > 0) {
           setCpuPressure(records[records.length - 1].state)
         }
       })
-      // @ts-expect-error - Experimental API
+      // @ts-expect-error Experimental API
       observer.observe('cpu', { sampleInterval: 2000 })
     } catch {
       // Not available
     }
-
     return () => {
-      // @ts-expect-error - Experimental API
+      // @ts-expect-error Experimental API
       if (observer?.disconnect) observer.disconnect()
     }
-  }, [pressureSupported])
+  }, [hasPressure])
 
   const pressureLabel: Record<string, string> = {
     nominal: '正常',
     fair: '较低',
     serious: '较高',
-    critical: '严重',
+    critical: '严重'
   }
+
+  const hasAnyMem = hasPreciseMem || hasLegacyMem
 
   return (
     <>
@@ -551,38 +590,88 @@ function WebTab() {
           <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
             CPU 压力 (Compute Pressure API)
           </div>
-          {pressureSupported ? (
+          {hasPressure ? (
             <div style={{ fontSize: 14, fontWeight: 500 }}>
-              {cpuPressure ? pressureLabel[cpuPressure] ?? cpuPressure : '等待采样…'}
+              {cpuPressure ? (pressureLabel[cpuPressure] ?? cpuPressure) : '等待采样…'}
             </div>
           ) : (
-            <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>
-              当前浏览器不支持 Compute Pressure API
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>当前浏览器不支持 Compute Pressure API</div>
           )}
         </div>
 
-        {/* Memory */}
+        {/* Device Memory */}
+        {deviceMemory != null && (
+          <div style={{ ...styles.card, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
+              设备内存 (navigator.deviceMemory)
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>约 {deviceMemory} GB</div>
+          </div>
+        )}
+
+        {/* JS Heap Memory */}
         <div style={styles.card}>
           <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
-            内存使用 (performance.measureUserAgentSpecificMemory)
+            JS 堆内存
+            {hasPreciseMem && ' (measureUserAgentSpecificMemory)'}
+            {!hasPreciseMem && hasLegacyMem && ' (performance.memory)'}
           </div>
-          {memSupported ? (
+          {hasAnyMem ? (
             memInfo ? (
               <>
-                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-                  总计: {formatBytes(memInfo.total)}
-                </div>
-                {memInfo.breakdown.length > 0 && (
+                <div style={{ display: 'flex', gap: 16, marginBottom: 8, flexWrap: 'wrap' as const }}>
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginBottom: 4 }}>
-                      内存分布
+                    <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>已使用</div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{formatBytes(memInfo.used)}</div>
+                  </div>
+                  {memInfo.total !== memInfo.used && (
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>已分配</div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{formatBytes(memInfo.total)}</div>
                     </div>
+                  )}
+                  {memInfo.limit > 0 && memInfo.limit !== memInfo.used && (
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>上限</div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{formatBytes(memInfo.limit)}</div>
+                    </div>
+                  )}
+                </div>
+                {/* Usage bar */}
+                {memInfo.limit > 0 && (
+                  <div style={{ marginBottom: memInfo.breakdown?.length ? 12 : 0 }}>
+                    <div
+                      style={{
+                        height: 8,
+                        borderRadius: 4,
+                        background: 'var(--vos-border-secondary)',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          borderRadius: 4,
+                          width: `${Math.min((memInfo.used / memInfo.limit) * 100, 100)}%`,
+                          background: usageColor((memInfo.used / memInfo.limit) * 100),
+                          transition: 'width 0.6s ease'
+                        }}
+                      />
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 4 }}>
+                      {((memInfo.used / memInfo.limit) * 100).toFixed(1)}% 已使用
+                    </div>
+                  </div>
+                )}
+                {/* Breakdown (only from precise API) */}
+                {memInfo.breakdown && memInfo.breakdown.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginBottom: 4 }}>内存分布</div>
                     <BarChart
                       items={memInfo.breakdown.map(b => ({
                         label: b.name,
                         value: b.bytes,
-                        max: memInfo.total,
+                        max: memInfo.used
                       }))}
                       formatValue={formatBytes}
                     />
@@ -590,16 +679,10 @@ function WebTab() {
                 )}
               </>
             ) : (
-              <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>
-                正在测量…
-              </div>
+              <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>正在测量…</div>
             )
           ) : (
-            <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>
-              当前浏览器不支持 measureUserAgentSpecificMemory API。
-              <br />
-              需要启用 Cross-Origin-Isolated 头。
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>当前浏览器不支持内存测量 API</div>
           )}
         </div>
       </div>
@@ -652,7 +735,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
         return next
       })
     },
-    [storage],
+    [storage]
   )
 
   // ── Fetch functions ────────────────────────────────────────────────────
@@ -724,7 +807,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
         badgeColor: usageColor(cpu),
         visible: true,
         priority: 5,
-        onClick: () => openWindow('monitor'),
+        onClick: () => openWindow('monitor')
       })
     }
 
@@ -749,10 +832,10 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
             id: 'preferences',
             label: '偏好设置',
             shortcut: '⌘,',
-            action: () => setShowPreferences(true),
-          },
-        ],
-      },
+            action: () => setShowPreferences(true)
+          }
+        ]
+      }
     ])
     return () => unregisterAppMenus('monitor')
   }, [])
@@ -764,19 +847,19 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
     { label: '10 秒', value: 10 },
     { label: '15 秒', value: 15 },
     { label: '30 秒', value: 30 },
-    { label: '60 秒', value: 60 },
+    { label: '60 秒', value: 60 }
   ]
   const webIntervalOptions = [
     { label: '5 秒', value: 5 },
     { label: '10 秒', value: 10 },
     { label: '15 秒', value: 15 },
-    { label: '30 秒', value: 30 },
+    { label: '30 秒', value: 30 }
   ]
   const diskIntervalOptions = [
     { label: '30 秒', value: 30 },
     { label: '60 秒', value: 60 },
     { label: '120 秒', value: 120 },
-    { label: '300 秒', value: 300 },
+    { label: '300 秒', value: 300 }
   ]
 
   const prefGroups: PreferenceGroup[] = [
@@ -791,7 +874,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
           type: 'select',
           value: settings.systemInterval,
           onChange: v => updateSettings({ systemInterval: v as number }),
-          options: intervalOptions,
+          options: intervalOptions
         },
         {
           id: 'ventosInterval',
@@ -800,7 +883,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
           type: 'select',
           value: settings.ventosInterval,
           onChange: v => updateSettings({ ventosInterval: v as number }),
-          options: intervalOptions,
+          options: intervalOptions
         },
         {
           id: 'webInterval',
@@ -809,7 +892,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
           type: 'select',
           value: settings.webInterval,
           onChange: v => updateSettings({ webInterval: v as number }),
-          options: webIntervalOptions,
+          options: webIntervalOptions
         },
         {
           id: 'diskInterval',
@@ -818,9 +901,9 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
           type: 'select',
           value: settings.diskInterval,
           onChange: v => updateSettings({ diskInterval: v as number }),
-          options: diskIntervalOptions,
-        },
-      ],
+          options: diskIntervalOptions
+        }
+      ]
     },
     {
       id: 'tray',
@@ -832,7 +915,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
           description: '在系统托盘显示 CPU 使用率',
           type: 'switch',
           value: settings.trayEnabled,
-          onChange: v => updateSettings({ trayEnabled: v as boolean }),
+          onChange: v => updateSettings({ trayEnabled: v as boolean })
         },
         ...(settings.trayEnabled
           ? [
@@ -846,13 +929,13 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
                   { label: '5 秒', value: 5 },
                   { label: '10 秒', value: 10 },
                   { label: '15 秒', value: 15 },
-                  { label: '30 秒', value: 30 },
-                ],
-              },
+                  { label: '30 秒', value: 30 }
+                ]
+              }
             ]
-          : []),
-      ],
-    },
+          : [])
+      ]
+    }
   ]
 
   // ── Tabs config ────────────────────────────────────────────────────────
@@ -860,7 +943,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
   const tabs: { id: Tab; label: string; icon: typeof Cpu }[] = [
     { id: 'system', label: '系统', icon: Cpu },
     { id: 'ventos', label: 'VentoOS', icon: Server },
-    { id: 'web', label: '网页', icon: Globe },
+    { id: 'web', label: '网页', icon: Globe }
   ]
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -889,12 +972,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
         {/* Sidebar */}
         <div style={styles.sidebar}>
           {tabs.map(t => (
-            <button
-              key={t.id}
-              type="button"
-              style={styles.tabButton(tab === t.id)}
-              onClick={() => setTab(t.id)}
-            >
+            <button key={t.id} type="button" style={styles.tabButton(tab === t.id)} onClick={() => setTab(t.id)}>
               <t.icon size={14} />
               {t.label}
             </button>
@@ -903,11 +981,14 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
 
         {/* Content */}
         <div style={styles.content}>
-          {tab === 'system' && (
-            <SystemTab metrics={systemMetrics} cpuHistory={cpuHistory} memHistory={memHistory} />
-          )}
+          {tab === 'system' && <SystemTab metrics={systemMetrics} cpuHistory={cpuHistory} memHistory={memHistory} />}
           {tab === 'ventos' && (
-            <VentosTab process={processMetrics} cpuHistory={procCpuHistory} memHistory={procMemHistory} totalMemoryBytes={systemMetrics?.memory.total_bytes ?? 0} />
+            <VentosTab
+              process={processMetrics}
+              cpuHistory={procCpuHistory}
+              memHistory={procMemHistory}
+              totalMemoryBytes={systemMetrics?.memory.total_bytes ?? 0}
+            />
           )}
           {tab === 'web' && <WebTab />}
         </div>
@@ -915,11 +996,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
 
       {/* Preferences */}
       {showPreferences && (
-        <PreferencesPanel
-          title="监控面板偏好设置"
-          groups={prefGroups}
-          onClose={() => setShowPreferences(false)}
-        />
+        <PreferencesPanel title="监控面板偏好设置" groups={prefGroups} onClose={() => setShowPreferences(false)} />
       )}
     </div>
   )

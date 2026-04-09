@@ -41,7 +41,7 @@ function SwitchControl({ checked, onChange }: { checked: boolean; onChange: (v: 
         backgroundColor: checked ? 'var(--vos-accent-primary)' : 'var(--vos-border-primary)',
         position: 'relative',
         transition: 'background-color 0.2s ease',
-        flexShrink: 0,
+        flexShrink: 0
       }}
     >
       <span
@@ -54,7 +54,7 @@ function SwitchControl({ checked, onChange }: { checked: boolean; onChange: (v: 
           borderRadius: '50%',
           backgroundColor: '#fff',
           transition: 'left 0.2s ease',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
         }}
       />
     </button>
@@ -69,25 +69,18 @@ function PrefItemRow({ item }: { item: PreferenceItem }) {
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '8px 0',
-        gap: 16,
+        gap: 16
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, color: 'var(--vos-text-primary)' }}>{item.label}</div>
         {item.description && (
-          <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 2 }}>
-            {item.description}
-          </div>
+          <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 2 }}>{item.description}</div>
         )}
       </div>
 
       <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-        {item.type === 'switch' && (
-          <SwitchControl
-            checked={Boolean(item.value)}
-            onChange={v => item.onChange(v)}
-          />
-        )}
+        {item.type === 'switch' && <SwitchControl checked={Boolean(item.value)} onChange={v => item.onChange(v)} />}
 
         {item.type === 'select' && (
           <select
@@ -103,7 +96,7 @@ function PrefItemRow({ item }: { item: PreferenceItem }) {
               border: '1px solid var(--vos-border-primary)',
               backgroundColor: 'var(--vos-bg-secondary)',
               color: 'var(--vos-text-primary)',
-              outline: 'none',
+              outline: 'none'
             }}
           >
             {item.options?.map(opt => (
@@ -132,12 +125,10 @@ function PrefItemRow({ item }: { item: PreferenceItem }) {
                 backgroundColor: 'var(--vos-bg-secondary)',
                 color: 'var(--vos-text-primary)',
                 outline: 'none',
-                textAlign: 'right',
+                textAlign: 'right'
               }}
             />
-            {item.suffix && (
-              <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>{item.suffix}</span>
-            )}
+            {item.suffix && <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>{item.suffix}</span>}
           </>
         )}
 
@@ -154,7 +145,7 @@ function PrefItemRow({ item }: { item: PreferenceItem }) {
               border: '1px solid var(--vos-border-primary)',
               backgroundColor: 'var(--vos-bg-secondary)',
               color: 'var(--vos-text-primary)',
-              outline: 'none',
+              outline: 'none'
             }}
           />
         )}
@@ -163,7 +154,7 @@ function PrefItemRow({ item }: { item: PreferenceItem }) {
   )
 }
 
-export type { PreferenceItem, PreferenceGroup, PreferencesPanelProps }
+export type { PreferenceGroup, PreferenceItem, PreferencesPanelProps }
 
 export default function PreferencesPanel({ title, groups, onClose }: PreferencesPanelProps) {
   return (
@@ -183,12 +174,10 @@ export default function PreferencesPanel({ title, groups, onClose }: Preferences
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '14px 16px 12px',
-            borderBottom: '1px solid var(--vos-border-secondary)',
+            borderBottom: '1px solid var(--vos-border-secondary)'
           }}
         >
-          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
-            {title}
-          </span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--vos-text-primary)' }}>{title}</span>
           <button
             type="button"
             onClick={onClose}
@@ -200,7 +189,7 @@ export default function PreferencesPanel({ title, groups, onClose }: Preferences
               padding: 4,
               borderRadius: 6,
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'center'
             }}
           >
             <X size={16} />
@@ -218,7 +207,7 @@ export default function PreferencesPanel({ title, groups, onClose }: Preferences
                   color: 'var(--vos-text-tertiary)',
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
-                  marginBottom: 4,
+                  marginBottom: 4
                 }}
               >
                 {group.title}

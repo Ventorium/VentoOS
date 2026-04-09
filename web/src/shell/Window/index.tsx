@@ -1,12 +1,20 @@
 import { motion, useAnimationControls } from 'framer-motion'
-import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
+import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ErrorBoundary from '@/components/ErrorBoundary'
-import { closeWindow, focusWindow, minimizeWindow, toggleMaximize, useWindowStore, useMenuStore, type WindowInstance } from '@/kernel'
 import type { AppMenuEntry, AppMenuGroup, AppMenuItem } from '@/kernel'
-import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
+import {
+  closeWindow,
+  focusWindow,
+  minimizeWindow,
+  toggleMaximize,
+  useMenuStore,
+  useWindowStore,
+  type WindowInstance
+} from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
+import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
 import { tokens } from '@/theme'
 
 // Stable empty reference — must NOT be recreated inline or Zustand snapshot loop triggers
@@ -34,8 +42,20 @@ const TlMinimize = () => (
 )
 const TlMaximize = () => (
   <svg width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true">
-    <polyline points="1,3.5 1,5 2.5,5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    <polyline points="4.5,1 5,1 5,2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    <polyline
+      points="1,3.5 1,5 2.5,5"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <polyline
+      points="4.5,1 5,1 5,2.5"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
     <line x1="1" y1="5" x2="5" y2="1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
   </svg>
 )
@@ -75,7 +95,7 @@ function TrafficLights({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        lineHeight: 0,
+        lineHeight: 0
       }}
     >
       {hovered ? <Icon /> : null}
@@ -135,7 +155,7 @@ function MenuDropdown({
   group,
   anchorEl,
   onClose,
-  onHoverGroup,
+  onHoverGroup
 }: {
   group: AppMenuGroup
   anchorEl: HTMLElement
@@ -154,16 +174,25 @@ function MenuDropdown({
     }
     // Slight delay so the opener click doesn't immediately close
     const id = setTimeout(() => document.addEventListener('mousedown', handler), 50)
-    return () => { clearTimeout(id); document.removeEventListener('mousedown', handler) }
+    return () => {
+      clearTimeout(id)
+      document.removeEventListener('mousedown', handler)
+    }
   }, [anchorEl, onClose])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const visible = group.items.filter(item => !('type' in item) || item.type !== 'separator')
-      if (e.key === 'Escape') { e.preventDefault(); onClose() }
-      else if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedIdx(i => Math.min(i + 1, visible.length - 1)) }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusedIdx(i => Math.max(i - 1, 0)) }
-      else if (e.key === 'Enter') {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setFocusedIdx(i => Math.min(i + 1, visible.length - 1))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setFocusedIdx(i => Math.max(i - 1, 0))
+      } else if (e.key === 'Enter') {
         e.preventDefault()
         const idx = group.items.findIndex((item, i) => {
           if ('type' in item) return false
@@ -172,7 +201,10 @@ function MenuDropdown({
         })
         if (idx >= 0) {
           const item = group.items[idx] as AppMenuItem
-          if (!item.disabled) { item.action?.(); onClose() }
+          if (!item.disabled) {
+            item.action?.()
+            onClose()
+          }
         }
       }
     }
@@ -197,7 +229,7 @@ function MenuDropdown({
         boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
         zIndex: 99999,
         padding: '4px 0',
-        overflow: 'hidden',
+        overflow: 'hidden'
       }}
     >
       {group.items.map((entry, i) => {
@@ -219,28 +251,39 @@ function MenuDropdown({
               background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
               color: item.disabled
                 ? 'var(--vos-text-tertiary)'
-                : isActive ? '#fff' : item.danger ? '#ff4d4f' : 'var(--vos-text-primary)',
+                : isActive
+                  ? '#fff'
+                  : item.danger
+                    ? '#ff4d4f'
+                    : 'var(--vos-text-primary)',
               border: 'none',
               cursor: item.disabled ? 'default' : 'pointer',
-              opacity: item.disabled ? 0.5 : 1,
+              opacity: item.disabled ? 0.5 : 1
             }}
             onMouseEnter={() => setFocusedIdx(vIdx)}
             onMouseLeave={() => setFocusedIdx(-1)}
             onMouseDown={e => e.stopPropagation()}
             onClick={() => {
-              if (!item.disabled) { item.action?.(); onClose() }
+              if (!item.disabled) {
+                item.action?.()
+                onClose()
+              }
             }}
           >
             <span style={{ flex: 1 }}>{item.label}</span>
-            {item.checked && (
-              <span style={{ opacity: 0.8, fontSize: 12 }}>✓</span>
-            )}
+            {item.checked && <span style={{ opacity: 0.8, fontSize: 12 }}>✓</span>}
             {item.shortcut && (
-              <kbd style={{
-                fontFamily: 'monospace', fontSize: 11,
-                color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--vos-text-tertiary)',
-                background: 'transparent', border: 'none', padding: 0, flexShrink: 0
-              }}>
+              <kbd
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--vos-text-tertiary)',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  flexShrink: 0
+                }}
+              >
                 {item.shortcut}
               </kbd>
             )}
@@ -248,19 +291,13 @@ function MenuDropdown({
         )
       })}
     </div>,
-    document.body,
+    document.body
   )
 }
 
 /* -------- Window Menu Bar -------- */
 
-function WindowMenuBar({
-  groups,
-  isFocused,
-}: {
-  groups: AppMenuGroup[]
-  isFocused: boolean
-}) {
+function WindowMenuBar({ groups, isFocused }: { groups: AppMenuGroup[]; isFocused: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
@@ -295,9 +332,7 @@ function WindowMenuBar({
               borderRadius: 4,
               fontSize: 13,
               background: isOpen ? 'var(--vos-accent-primary)' : 'transparent',
-              color: isOpen
-                ? '#fff'
-                : isFocused ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
+              color: isOpen ? '#fff' : isFocused ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
               border: 'none',
               cursor: 'pointer',
               userSelect: 'none',
@@ -305,7 +340,7 @@ function WindowMenuBar({
               lineHeight: 1,
               display: 'flex',
               alignItems: 'center',
-              transition: 'background 0.1s, color 0.1s',
+              transition: 'background 0.1s, color 0.1s'
             }}
             onMouseDown={e => {
               e.stopPropagation()
@@ -321,19 +356,20 @@ function WindowMenuBar({
         )
       })}
 
-      {openId && (() => {
-        const group = groups.find(g => g.id === openId)
-        const btn = buttonRefs.current.get(openId)
-        if (!group || !btn) return null
-        return (
-          <MenuDropdown
-            group={group}
-            anchorEl={btn}
-            onClose={() => setOpenId(null)}
-            onHoverGroup={id => setOpenId(id)}
-          />
-        )
-      })()}
+      {openId &&
+        (() => {
+          const group = groups.find(g => g.id === openId)
+          const btn = buttonRefs.current.get(openId)
+          if (!group || !btn) return null
+          return (
+            <MenuDropdown
+              group={group}
+              anchorEl={btn}
+              onClose={() => setOpenId(null)}
+              onHoverGroup={id => setOpenId(id)}
+            />
+          )
+        })()}
     </div>
   )
 }
@@ -533,7 +569,8 @@ export default function Window({ win, children }: { win: WindowInstance; childre
   const windowRef = useRef<HTMLDivElement>(null)
   const prevMinimized = useRef(win.isMinimized)
 
-  const dockTarget = useDockPositionStore(s => s.getTargetRect(win.appId))
+  // Read directly from snapshot to avoid get() bypassing useSyncExternalStore contract.
+  const dockTarget = useDockPositionStore(s => s.iconRects.get(win.appId) ?? s.thumbnailAreaRect)
 
   useEffect(() => {
     const wasMinimized = prevMinimized.current
@@ -603,7 +640,11 @@ export default function Window({ win, children }: { win: WindowInstance; childre
         overflow: 'hidden',
         boxShadow: win.isFocused ? tokens.shadow.windowFocused : tokens.shadow.window,
         border: '0.5px solid var(--vos-border-subtle)',
-        background: isImageWallpaper ? 'transparent' : (win.isFocused ? 'var(--vos-bg-window-active)' : 'var(--vos-bg-window)'),
+        background: isImageWallpaper
+          ? 'transparent'
+          : win.isFocused
+            ? 'var(--vos-bg-window-active)'
+            : 'var(--vos-bg-window)',
         backdropFilter: isImageWallpaper ? 'none' : 'blur(48px) saturate(200%)',
         WebkitBackdropFilter: isImageWallpaper ? 'none' : 'blur(48px) saturate(200%)',
         pointerEvents: win.isMinimized ? 'none' : 'auto'
@@ -623,7 +664,7 @@ export default function Window({ win, children }: { win: WindowInstance; childre
               backgroundSize: '100vw 100vh',
               backgroundPosition: `${24 - left}px ${24 - top}px`,
               filter: 'blur(24px) saturate(180%)',
-              zIndex: 0,
+              zIndex: 0
             }}
           />
           <div
@@ -631,14 +672,24 @@ export default function Window({ win, children }: { win: WindowInstance; childre
               position: 'absolute',
               inset: 0,
               background: win.isFocused ? 'rgba(28, 28, 30, 0.70)' : 'rgba(20, 20, 22, 0.8)',
-              zIndex: 1,
+              zIndex: 1
             }}
           />
         </>
       )}
 
       {/* Window body (title bar + content) — above glass layers */}
-      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+          overflow: 'hidden'
+        }}
+      >
         {/* ---- Title bar ---- */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: title bar is a drag handle for window movement */}
         <div
@@ -701,9 +752,7 @@ export default function Window({ win, children }: { win: WindowInstance; childre
                 </div>
               }
             >
-              <ErrorBoundary appId={win.appId}>
-                {children}
-              </ErrorBoundary>
+              <ErrorBoundary appId={win.appId}>{children}</ErrorBoundary>
             </Suspense>
           ) : (
             <div className="vos-flex-center" style={{ flex: 1, color: 'var(--vos-text-tertiary)', fontSize: 13 }}>

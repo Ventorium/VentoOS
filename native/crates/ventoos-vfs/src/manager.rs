@@ -74,6 +74,10 @@ impl VfsManager {
                         );
                         VfsSourceKind::Local
                     });
+                    let local_mount = row
+                        .mount_config
+                        .as_deref()
+                        .and_then(|j| serde_json::from_str(j).ok());
                     initial_mounts.insert(
                         row.id.clone(),
                         VfsMount {
@@ -83,6 +87,7 @@ impl VfsManager {
                             root: row.root,
                             connection_id: row.connection_id,
                             group: row.group_name,
+                            local_mount,
                         },
                     );
                 }
@@ -233,6 +238,7 @@ impl VfsManager {
             root: root.clone(),
             connection_id: req.connection_id,
             group: req.group,
+            local_mount: req.local_mount,
         };
 
         // Register SMB connections in the pool for lazy connect
@@ -245,6 +251,10 @@ impl VfsManager {
         self.mounts.write().await.insert(id, mount.clone());
         // Persist to database
         if let Some(store) = &self.mount_store {
+            let mount_config = mount
+                .local_mount
+                .as_ref()
+                .and_then(|c| serde_json::to_string(c).ok());
             let record = PersistedVfsMount {
                 id: mount.id.clone(),
                 name: mount.name.clone(),
@@ -252,6 +262,7 @@ impl VfsManager {
                 root: mount.root.clone(),
                 connection_id: mount.connection_id.clone(),
                 group_name: mount.group.clone(),
+                mount_config,
             };
             if let Err(e) = store.insert(&record) {
                 tracing::error!("Failed to persist VFS mount '{}': {e}", mount.id);
@@ -298,6 +309,7 @@ impl VfsManager {
                 mount.root = root.clone();
                 mount.connection_id = req.connection_id;
                 mount.group = req.group;
+                mount.local_mount = req.local_mount;
 
                 if matches!(mount.kind, VfsSourceKind::Smb) {
                     if let Err(e) = self.smb_pool.register(id, &root).await {
@@ -318,6 +330,10 @@ impl VfsManager {
 
     fn persist_mount_update(&self, mount: &VfsMount) {
         if let Some(store) = &self.mount_store {
+            let mount_config = mount
+                .local_mount
+                .as_ref()
+                .and_then(|c| serde_json::to_string(c).ok());
             let record = PersistedVfsMount {
                 id: mount.id.clone(),
                 name: mount.name.clone(),
@@ -325,6 +341,7 @@ impl VfsManager {
                 root: mount.root.clone(),
                 connection_id: mount.connection_id.clone(),
                 group_name: mount.group.clone(),
+                mount_config,
             };
             if let Err(e) = store.update(&record) {
                 tracing::error!("Failed to update VFS mount '{}' in DB: {e}", mount.id);
@@ -347,6 +364,7 @@ impl VfsManager {
                     root: root.clone(),
                     connection_id: req.connection_id.clone(),
                     group: None,
+                    local_mount: None,
                 },
             );
         }

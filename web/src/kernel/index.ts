@@ -5,8 +5,23 @@
  * This is what shell components and apps import from the kernel.
  */
 
+// ── File defaults ──────────────────────────────────────────────────────────
+export { useFileDefaultsStore } from './apps/file-defaults'
+// ── File icons ─────────────────────────────────────────────────────────────
+export { getFileIcon, getFileIconByName } from './apps/file-icons'
 export { useApp, useAppComponent, useAppList } from './apps/hooks'
-export { getAlwaysOpenWithApps, getAllApps, getAllAppsForFile, getApp, getAppComponent, getAppsForFile, getOpenAppsForFile, getPreviewAppsForFile, registerApp, registerApps } from './apps/manager'
+export {
+  getAllApps,
+  getAllAppsForFile,
+  getAlwaysOpenWithApps,
+  getApp,
+  getAppComponent,
+  getAppsForFile,
+  getOpenAppsForFile,
+  getPreviewAppsForFile,
+  registerApp,
+  registerApps
+} from './apps/manager'
 export type { AppComponentProps, AppLifecycle, AppManifest, AppPermission } from './apps/manifest'
 export type { AppMenuEntry, AppMenuGroup, AppMenuItem, AppTrayConfig } from './apps/menu'
 export { useActiveAppMenus, useAllTrays, useAppMenus, useAppTray } from './apps/menu-hooks'
@@ -19,10 +34,6 @@ export {
 } from './apps/menu-store'
 // ── App registry ───────────────────────────────────────────────────────────
 export { useAppStore } from './apps/store'
-// ── File defaults ──────────────────────────────────────────────────────────
-export { useFileDefaultsStore } from './apps/file-defaults'
-// ── File icons ─────────────────────────────────────────────────────────────
-export { getFileIcon, getFileIconByName } from './apps/file-icons'
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 export { bootKernel } from './bootstrap'
 export type { SystemNotifications } from './channel'

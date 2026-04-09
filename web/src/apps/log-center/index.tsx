@@ -20,14 +20,14 @@ const LEVEL_COLORS: Record<LogLevel, string> = {
   debug: 'var(--vos-text-tertiary)',
   info: 'var(--vos-accent-primary)',
   warn: 'var(--vos-accent-warning)',
-  error: 'var(--vos-accent-danger)',
+  error: 'var(--vos-accent-danger)'
 }
 
 const LEVEL_LABELS: Record<LogLevel, string> = {
   debug: 'DEBUG',
   info: 'INFO',
   warn: 'WARN',
-  error: 'ERROR',
+  error: 'ERROR'
 }
 
 const ALL_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error']
@@ -42,7 +42,7 @@ const s = {
     background: 'var(--vos-bg-primary)',
     color: 'var(--vos-text-primary)',
     fontSize: 12,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   toolbar: {
     display: 'flex',
@@ -50,7 +50,7 @@ const s = {
     gap: 8,
     padding: '6px 12px',
     borderBottom: '1px solid var(--vos-border-primary)',
-    flexShrink: 0,
+    flexShrink: 0
   },
   filterInput: {
     flex: 1,
@@ -60,7 +60,7 @@ const s = {
     borderRadius: 4,
     background: 'var(--vos-bg-secondary)',
     color: 'var(--vos-text-primary)',
-    outline: 'none',
+    outline: 'none'
   },
   levelBtn: (active: boolean) => ({
     padding: '2px 8px',
@@ -69,7 +69,7 @@ const s = {
     borderRadius: 4,
     background: active ? 'var(--vos-accent-primary)' : 'transparent',
     color: active ? '#fff' : 'var(--vos-text-secondary)',
-    cursor: 'pointer',
+    cursor: 'pointer'
   }),
   iconBtn: {
     display: 'inline-flex',
@@ -81,31 +81,27 @@ const s = {
     borderRadius: 4,
     background: 'transparent',
     color: 'var(--vos-text-secondary)',
-    cursor: 'pointer',
+    cursor: 'pointer'
   },
   list: {
     flex: 1,
     overflow: 'auto',
     fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
     fontSize: 11,
-    lineHeight: '20px',
+    lineHeight: '20px'
   },
   row: (level: LogLevel) => ({
     display: 'flex',
     gap: 8,
     padding: '0 12px',
     borderBottom: '0.5px solid var(--vos-border-subtle, var(--vos-border-secondary))',
-    background: level === 'error'
-      ? 'rgba(239,68,68,0.06)'
-      : level === 'warn'
-        ? 'rgba(245,158,11,0.04)'
-        : 'transparent',
+    background: level === 'error' ? 'rgba(239,68,68,0.06)' : level === 'warn' ? 'rgba(245,158,11,0.04)' : 'transparent'
   }),
   cell: {
     flexShrink: 0,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const,
+    whiteSpace: 'nowrap' as const
   },
   empty: {
     display: 'flex',
@@ -114,7 +110,7 @@ const s = {
     justifyContent: 'center',
     flex: 1,
     gap: 8,
-    color: 'var(--vos-text-tertiary)',
+    color: 'var(--vos-text-tertiary)'
   },
   footer: {
     display: 'flex',
@@ -124,8 +120,8 @@ const s = {
     borderTop: '1px solid var(--vos-border-primary)',
     fontSize: 11,
     color: 'var(--vos-text-tertiary)',
-    flexShrink: 0,
-  },
+    flexShrink: 0
+  }
 }
 
 function formatTime(ts: number): string {
@@ -154,7 +150,12 @@ export default function LogCenterApp(_props: AppComponentProps) {
     const lowerFilter = filter.toLowerCase()
     return entries.filter(e => {
       if (!activeLevels.has(e.level)) return false
-      if (lowerFilter && !e.module.toLowerCase().includes(lowerFilter) && !e.message.toLowerCase().includes(lowerFilter)) return false
+      if (
+        lowerFilter &&
+        !e.module.toLowerCase().includes(lowerFilter) &&
+        !e.message.toLowerCase().includes(lowerFilter)
+      )
+        return false
       return true
     })
   }, [entries, activeLevels, filter])
@@ -208,12 +209,7 @@ export default function LogCenterApp(_props: AppComponentProps) {
         >
           <ChevronDown size={14} />
         </button>
-        <button
-          type="button"
-          title="清空日志"
-          style={s.iconBtn}
-          onClick={clearEntries}
-        >
+        <button type="button" title="清空日志" style={s.iconBtn} onClick={clearEntries}>
           <Trash2 size={14} />
         </button>
       </div>
@@ -236,7 +232,7 @@ export default function LogCenterApp(_props: AppComponentProps) {
                   ...s.cell,
                   width: 44,
                   fontWeight: 600,
-                  color: LEVEL_COLORS[entry.level],
+                  color: LEVEL_COLORS[entry.level]
                 }}
               >
                 {LEVEL_LABELS[entry.level]}
@@ -254,7 +250,9 @@ export default function LogCenterApp(_props: AppComponentProps) {
 
       {/* Footer */}
       <div style={s.footer}>
-        <span>共 {filtered.length} / {entries.length} 条</span>
+        <span>
+          共 {filtered.length} / {entries.length} 条
+        </span>
         <span>最大 2000 条</span>
       </div>
     </div>
