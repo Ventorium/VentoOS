@@ -53,7 +53,8 @@ export default function DependencyManager(_props: AppComponentProps) {
     }
   }, [])
 
-  const allInstalled = deps.length > 0 && deps.every(d => d.installed)
+  const allInstalled = deps.length === 0 || deps.every(d => d.installed)
+  const hasUninstalled = deps.length > 0 && deps.some(d => !d.installed)
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--vos-bg-window)' }}>
@@ -89,24 +90,24 @@ export default function DependencyManager(_props: AppComponentProps) {
       <div
         className="px-5 py-3 flex items-center gap-2"
         style={{
-          background: allInstalled
-            ? 'color-mix(in srgb, var(--vos-accent-success) 8%, transparent)'
-            : 'color-mix(in srgb, var(--vos-accent-warning) 8%, transparent)',
+          background: hasUninstalled
+            ? 'color-mix(in srgb, var(--vos-accent-warning) 8%, transparent)'
+            : 'color-mix(in srgb, var(--vos-accent-success) 8%, transparent)',
           borderBottom: '0.5px solid var(--vos-border-subtle)'
         }}
       >
-        {allInstalled ? (
-          <>
-            <CheckCircle2 size={16} style={{ color: 'var(--vos-accent-success)' }} />
-            <span className="text-xs" style={{ color: 'var(--vos-accent-success)' }}>
-              所有依赖已安装
-            </span>
-          </>
-        ) : (
+        {hasUninstalled ? (
           <>
             <AlertTriangle size={16} style={{ color: 'var(--vos-accent-warning)' }} />
             <span className="text-xs" style={{ color: 'var(--vos-accent-warning)' }}>
               部分依赖未安装，某些功能可能不可用
+            </span>
+          </>
+        ) : (
+          <>
+            <CheckCircle2 size={16} style={{ color: 'var(--vos-accent-success)' }} />
+            <span className="text-xs" style={{ color: 'var(--vos-accent-success)' }}>
+              所有依赖已安装
             </span>
           </>
         )}
