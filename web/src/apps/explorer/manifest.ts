@@ -32,5 +32,6 @@ export const explorerManifest: AppManifest = {
   minSize: { width: 700, height: 440 },
   permissions: ['network', 'connections', 'storage', 'notifications'],
   hasBackendPlugin: true,
+  dependencies: ['fuse'],
   component: () => import('./index')
 }

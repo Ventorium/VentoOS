@@ -21,8 +21,6 @@ import {
   RefreshCw,
   RotateCcw,
   RotateCw,
-  Settings,
-  Trash2,
   Unlink,
   X
 } from 'lucide-react'
@@ -2083,6 +2081,8 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   const [localMountStatuses, setLocalMountStatuses] = useState<
     Record<string, { mounted: boolean; mount_point: string | null; error: string | null }>
   >({})
+  // Track mount/unmount operation loading state per mount id
+  const [mountOpLoading, setMountOpLoading] = useState<Record<string, boolean>>({})
   const [columns, setColumns] = useState<ColumnData[]>([])
   const [preview, setPreview] = useState<VfsFileContent | null>(null)
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
@@ -2163,6 +2163,12 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     colIdx: number
     password: string
   }>({ visible: false, mountId: '', archivePath: '', destDir: '', colIdx: 0, password: '' })
+
+  // Properties dialog
+  const [propertiesState, setPropertiesState] = useState<{
+    visible: boolean
+    node: VfsNode | null
+  }>({ visible: false, node: null })
 
   // Upload
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -2659,9 +2665,26 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     const mount = mounts.find(m => m.id === selectedMount)
     if (!mount) return
     const dirPath = entry.is_dir ? entry.path : entry.path.substring(0, entry.path.lastIndexOf('/')) || '/'
-    openWindow('ssh', {
-      title: `Shell — ${entry.name}`,
-      appState: { mountId: selectedMount, mountKind: mount.kind, mountRoot: mount.root, initialPath: dirPath }
+
+    // Determine absolute path for terminal cwd
+    let absPath: string | undefined
+    if (mount.kind === 'local') {
+      // For local mounts, compute absolute path from mount root
+      const root = mount.root.replace(/\/+$/, '')
+      absPath = root === '~' ? `~${dirPath}` : `${root}${dirPath}`
+    } else {
+      // For remote mounts, use the FUSE mount point if mounted
+      const fuseStatus = localMountStatuses[mount.id]
+      if (fuseStatus?.mounted && fuseStatus.mount_point) {
+        absPath = `${fuseStatus.mount_point.replace(/\/+$/, '')}${dirPath}`
+      }
+    }
+
+    if (!absPath) return
+
+    openWindow('terminal', {
+      title: `终端 — ${entry.name}`,
+      appState: { cwd: absPath }
     })
   }
 
@@ -2735,11 +2758,19 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       },
       ...(entry.is_dir
         ? [
-            {
-              id: 'open-shell',
-              label: '在终端中打开',
-              action: () => handleOpenInShell(entry)
-            },
+            ...(() => {
+              // Only show "Open in Terminal" for local or FUSE-mounted sources
+              const mount = mounts.find(m => m.id === selectedMount)
+              const canOpenTerminal = mount && (
+                mount.kind === 'local' ||
+                (mount.local_mount?.enabled && localMountStatuses[mount.id]?.mounted)
+              )
+              return canOpenTerminal ? [{
+                id: 'open-shell',
+                label: '在终端中打开',
+                action: () => handleOpenInShell(entry)
+              }] : []
+            })(),
             { type: 'separator' as const },
             {
               id: 'new-folder',
@@ -3002,6 +3033,14 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             }
           })
         }
+      },
+      { type: 'separator' as const },
+      {
+        id: 'properties',
+        label: '属性',
+        action: () => {
+          setPropertiesState({ visible: true, node: entry })
+        }
       }
     ])
   }
@@ -3229,9 +3268,10 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               const isActive = selectedMount === m.id
               const fuseStatus = m.local_mount?.enabled ? localMountStatuses[m.id] : undefined
               const isFuseMounted = fuseStatus?.mounted === true
+              const isLoading = mountOpLoading[m.id] === true
 
-              const handleFuseToggle = async (e: React.MouseEvent) => {
-                e.stopPropagation()
+              const handleFuseToggle = async () => {
+                setMountOpLoading(prev => ({ ...prev, [m.id]: true }))
                 try {
                   if (isFuseMounted) {
                     await vfsApi.localUnmountVfs(m.id)
@@ -3241,15 +3281,87 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     }))
                   } else {
                     const res = await vfsApi.localMountVfs(m.id)
+                    if (res.data?.error) {
+                      if (res.data.error.includes('FUSE') || res.data.error.includes('macFUSE') || res.data.error.includes('libfuse')) {
+                        openWindow('dependency-manager')
+                      }
+                    }
                     setLocalMountStatuses(prev => ({ ...prev, [m.id]: res.data }))
                   }
                 } catch (err) {
                   const msg = err instanceof Error ? err.message : '挂载操作失败'
+                  if (msg.includes('FUSE') || msg.includes('macFUSE') || msg.includes('libfuse')) {
+                    openWindow('dependency-manager')
+                  }
                   setLocalMountStatuses(prev => ({
                     ...prev,
                     [m.id]: { mounted: false, mount_point: null, error: msg }
                   }))
+                } finally {
+                  setMountOpLoading(prev => ({ ...prev, [m.id]: false }))
                 }
+              }
+
+              const handleMountContextMenu = (e: React.MouseEvent) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const items: import('@/shell/ContextMenu/store').ContextMenuItems = [
+                  {
+                    id: 'mount-settings',
+                    label: '设置',
+                    action: () => setEditingMount(m)
+                  }
+                ]
+                // Mount/unmount option (only when local_mount is enabled)
+                if (m.local_mount?.enabled) {
+                  items.push({
+                    id: 'mount-toggle',
+                    label: isFuseMounted ? '取消挂载' : '挂载到本机',
+                    action: handleFuseToggle
+                  })
+                }
+                items.push({ type: 'separator' as const })
+                // Enable/disable toggle (not for local kind)
+                if (m.kind !== 'local') {
+                  items.push({
+                    id: 'mount-toggle-enabled',
+                    label: m.local_mount?.enabled ? '禁用本地挂载' : '启用本地挂载',
+                    action: async () => {
+                      const newEnabled = !m.local_mount?.enabled
+                      const mountPath = m.local_mount?.mount_point || `~/mnt/${m.name}`
+                      try {
+                        await vfsApi.updateVfsMount(m.id, {
+                          name: m.name,
+                          kind: m.kind,
+                          root: m.root,
+                          connection_id: m.connection_id,
+                          group: m.group,
+                          local_mount: { enabled: newEnabled, mount_point: mountPath }
+                        })
+                        reload()
+                      } catch (err) {
+                        console.error('Toggle mount enabled failed:', err)
+                      }
+                    }
+                  })
+                }
+                items.push({ type: 'separator' as const })
+                items.push({
+                  id: 'mount-delete',
+                  label: '删除',
+                  danger: true,
+                  action: () => {
+                    setConfirmState({
+                      visible: true,
+                      message: `确认删除存储源「${m.name}」？此操作不可恢复。`,
+                      onConfirm: async () => {
+                        setConfirmState(s => ({ ...s, visible: false }))
+                        await deleteMount(m.id)
+                      }
+                    })
+                  }
+                })
+                showContextMenu(e.clientX, e.clientY, items)
               }
 
               return (
@@ -3265,6 +3377,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     margin: '1px 4px'
                   }}
                   onClick={() => selectMount(m.id)}
+                  onContextMenu={handleMountContextMenu}
                   onKeyDown={e => {
                     if (e.key === 'Enter' || e.key === ' ') selectMount(m.id)
                   }}
@@ -3275,17 +3388,17 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                   />
                   <span className="flex-1 truncate">{m.name}</span>
                   {m.local_mount?.enabled && (
-                    <button
-                      type="button"
-                      className="vos-btn-reset flex-shrink-0 flex items-center gap-0.5"
+                    <span
+                      className="flex-shrink-0 flex items-center gap-0.5"
                       title={
-                        fuseStatus?.error
-                          ? `挂载失败: ${fuseStatus.error}，点击重试`
-                          : isFuseMounted
-                            ? `已挂载到 ${fuseStatus?.mount_point ?? ''}，点击卸载`
-                            : '点击挂载到本机'
+                        isLoading
+                          ? '操作中…'
+                          : fuseStatus?.error
+                            ? `挂载失败: ${fuseStatus.error}`
+                            : isFuseMounted
+                              ? `已挂载到 ${fuseStatus?.mount_point ?? ''}`
+                              : '未挂载'
                       }
-                      onClick={handleFuseToggle}
                     >
                       <span
                         style={{
@@ -3302,7 +3415,9 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                           flexShrink: 0
                         }}
                       />
-                      {isFuseMounted ? (
+                      {isLoading ? (
+                        <Spinner style={{ width: 11, height: 11, color: isActive ? '#fff' : 'var(--vos-text-tertiary)' }} />
+                      ) : isFuseMounted ? (
                         <Link size={11} style={{ color: isActive ? '#fff' : 'var(--vos-accent-success, #22c55e)' }} />
                       ) : (
                         <Unlink
@@ -3310,28 +3425,8 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                           style={{ color: isActive ? 'rgba(255,255,255,0.5)' : 'var(--vos-text-tertiary)' }}
                         />
                       )}
-                    </button>
+                    </span>
                   )}
-                  <button
-                    type="button"
-                    className="hidden group-hover:block vos-btn-reset text-inherit"
-                    onClick={e => {
-                      e.stopPropagation()
-                      setEditingMount(m)
-                    }}
-                  >
-                    <Settings size={10} />
-                  </button>
-                  <button
-                    type="button"
-                    className="hidden group-hover:block vos-btn-reset text-inherit"
-                    onClick={e => {
-                      e.stopPropagation()
-                      deleteMount(m.id)
-                    }}
-                  >
-                    <Trash2 size={10} />
-                  </button>
                 </div>
               )
             }
@@ -3862,6 +3957,138 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     }}
                   >
                     解压
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Properties dialog */}
+          {propertiesState.visible && propertiesState.node && (
+            <div className="vos-modal-overlay" onClick={() => setPropertiesState({ visible: false, node: null })}>
+              <div className="vos-modal-panel" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
+                <div className="text-sm font-medium mb-3">属性</div>
+                <div className="flex flex-col gap-2 text-xs">
+                  {/* Icon + Name */}
+                  <div className="flex items-center gap-3 pb-2" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+                    {propertiesState.node.is_dir ? (
+                      <FolderOpen size={28} style={{ color: 'var(--vos-accent-primary)', flexShrink: 0 }} />
+                    ) : (
+                      (() => {
+                        const iconInfo = getFileIconByName(propertiesState.node.name)
+                        const IconComp = iconInfo.icon
+                        return <IconComp size={28} style={{ color: iconInfo.color, flexShrink: 0 }} />
+                      })()
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate" style={{ color: 'var(--vos-text-primary)' }}>
+                        {propertiesState.node.name}
+                      </div>
+                      <div style={{ color: 'var(--vos-text-tertiary)' }}>
+                        {propertiesState.node.is_dir ? '目录' : (getFileExt(propertiesState.node.name).toUpperCase() || '文件')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Basic info */}
+                  <div className="flex flex-col gap-1.5 py-1" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--vos-text-tertiary)' }}>名称</span>
+                      <span className="text-right max-w-[60%] truncate" style={{ color: 'var(--vos-text-primary)' }}>
+                        {propertiesState.node.name}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--vos-text-tertiary)' }}>路径</span>
+                      <span className="text-right max-w-[60%] truncate" title={propertiesState.node.path} style={{ color: 'var(--vos-text-primary)' }}>
+                        {propertiesState.node.path}
+                      </span>
+                    </div>
+                    {!propertiesState.node.is_dir && propertiesState.node.size != null && (
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--vos-text-tertiary)' }}>大小</span>
+                        <span style={{ color: 'var(--vos-text-primary)' }}>{fmtSize(propertiesState.node.size)}</span>
+                      </div>
+                    )}
+                    {propertiesState.node.modified && (
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--vos-text-tertiary)' }}>修改时间</span>
+                        <span style={{ color: 'var(--vos-text-primary)' }}>
+                          {new Date(propertiesState.node.modified).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Permissions */}
+                  {propertiesState.node.permissions && (
+                    <div className="flex flex-col gap-1.5 py-1" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--vos-text-tertiary)' }}>权限</span>
+                        <span style={{ color: 'var(--vos-text-primary)', fontFamily: 'var(--vos-font-mono, monospace)' }}>
+                          {propertiesState.node.permissions}
+                        </span>
+                      </div>
+                      {/* Parse rwx permissions for display */}
+                      {(() => {
+                        const perm = propertiesState.node.permissions!
+                        // Unix permission string like "rwxr-xr-x" or "-rw-r--r--"
+                        const permStr = perm.length >= 9 ? perm.slice(-9) : perm
+                        const ownerPerm = permStr.slice(0, 3)
+                        const groupPerm = permStr.slice(3, 6)
+                        const otherPerm = permStr.slice(6, 9)
+                        const describe = (p: string) => {
+                          const parts: string[] = []
+                          if (p[0] === 'r') parts.push('读取')
+                          if (p[1] === 'w') parts.push('写入')
+                          if (p[2] === 'x' || p[2] === 's' || p[2] === 't') parts.push('执行')
+                          return parts.length > 0 ? parts.join('、') : '无'
+                        }
+                        return (
+                          <>
+                            <div className="flex justify-between">
+                              <span style={{ color: 'var(--vos-text-tertiary)' }}>所有者权限</span>
+                              <span style={{ color: 'var(--vos-text-primary)' }}>{describe(ownerPerm)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span style={{ color: 'var(--vos-text-tertiary)' }}>组权限</span>
+                              <span style={{ color: 'var(--vos-text-primary)' }}>{describe(groupPerm)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span style={{ color: 'var(--vos-text-tertiary)' }}>其他权限</span>
+                              <span style={{ color: 'var(--vos-text-primary)' }}>{describe(otherPerm)}</span>
+                            </div>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Default open-with app (files only) */}
+                  {!propertiesState.node.is_dir && (() => {
+                    const fileExt = getFileExt(propertiesState.node.name)
+                    const defaultAppId = useFileDefaultsStore.getState().getDefault(fileExt)
+                    const defaultApp = defaultAppId ? getApp(defaultAppId) : null
+                    const associatedApps = getAppsForFile(fileExt)
+                    return (
+                      <div className="flex flex-col gap-1.5 py-1">
+                        <div className="flex justify-between items-center">
+                          <span style={{ color: 'var(--vos-text-tertiary)' }}>打开方式</span>
+                          <span style={{ color: 'var(--vos-text-primary)' }}>
+                            {defaultApp?.name ?? (associatedApps.length > 0 ? associatedApps[0].name : '文件查看器')}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+                <div className="flex justify-end mt-3">
+                  <button
+                    type="button"
+                    className="vos-btn vos-btn-sm vos-btn-primary"
+                    onClick={() => setPropertiesState({ visible: false, node: null })}
+                  >
+                    关闭
                   </button>
                 </div>
               </div>

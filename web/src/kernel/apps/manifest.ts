@@ -114,6 +114,11 @@ export interface AppManifest {
   minSystemVersion?: string
   /** App needs a persistent data directory under ~/Library/.../apps/{id}/ */
   requiresDataDir?: boolean
+  /**
+   * System-level dependencies this app requires, e.g. ['fuse'].
+   * Declared dependencies are checked against the dependency manager at runtime.
+   */
+  dependencies?: string[]
 
   // ── Loading ───────────────────────────────────────────────────────────────
   /**
