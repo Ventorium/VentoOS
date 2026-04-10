@@ -189,11 +189,22 @@ function AIStatusIcon({ size }: { size: number }) {
   }[status]
 
   return (
-    <div className={animationClass} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div
+      className={animationClass}
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(145deg, #7c3aed 0%, #4f46e5 100%)',
+        color: '#fff'
+      }}
+    >
       <Sparkles
         style={{
           ...iconStyle,
-          color: status === 'error' ? 'var(--vos-accent-danger, #ff3b30)' : undefined,
+          color: status === 'error' ? 'var(--vos-accent-danger, #ff3b30)' : '#fff',
           opacity: 0.85
         }}
       />
@@ -502,6 +513,33 @@ export default function Dock() {
         onMouseEnter={showDock}
       >
         <div style={dockStyle}>
+          {/* Launchpad — leftmost */}
+          <DockIcon
+            label="启动台"
+            icon={
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(145deg, #6d28d9 0%, #4c1d95 100%)',
+                  color: '#fff'
+                }}
+              >
+                <Grid3X3 size={iconSize * 0.5} style={{ opacity: 0.85 }} />
+              </div>
+            }
+            onClick={toggleLaunchpad}
+            mouseX={mouseX}
+            iconSize={iconSize}
+            magnification={magnification}
+            isHorizontal={isHorizontal}
+          />
+
+          {apps.length > 0 && <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />}
+
           {/* App icons */}
           {apps.map(app => (
             <DockIcon
@@ -541,17 +579,6 @@ export default function Dock() {
           )}
 
           {apps.length > 0 && <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />}
-
-          {/* Launchpad */}
-          <DockIcon
-            label="启动台"
-            icon={<Grid3X3 size={iconSize * 0.5} style={{ opacity: 0.85 }} />}
-            onClick={toggleLaunchpad}
-            mouseX={mouseX}
-            iconSize={iconSize}
-            magnification={magnification}
-            isHorizontal={isHorizontal}
-          />
 
           {/* AI Assistant */}
           <DockIcon

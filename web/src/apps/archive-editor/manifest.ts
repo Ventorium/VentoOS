@@ -52,5 +52,6 @@ export const archiveEditorManifest: AppManifest = {
   permissions: ['storage'],
   hasBackendPlugin: true,
   hidden: true,
+  group: '其它',
   component: () => import('./index')
 }

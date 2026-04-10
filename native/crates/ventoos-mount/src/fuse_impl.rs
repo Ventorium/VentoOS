@@ -76,10 +76,18 @@ pub(crate) struct VfsFuse {
     inodes: StdRwLock<InodeTable>,
     open_files: Mutex<HashMap<u64, OpenFile>>,
     next_fh: Mutex<u64>,
+    /// One-shot channel to notify mount result (success or failure).
+    /// Sent in `init()` on success, consumed by caller on failure.
+    notify: Mutex<Option<tokio::sync::oneshot::Sender<Result<(), String>>>>,
 }
 
 impl VfsFuse {
-    fn new(mount_id: String, vfs: Arc<VfsManager>, rt: tokio::runtime::Handle) -> Self {
+    fn new(
+        mount_id: String,
+        vfs: Arc<VfsManager>,
+        rt: tokio::runtime::Handle,
+        notify: tokio::sync::oneshot::Sender<Result<(), String>>,
+    ) -> Self {
         Self {
             mount_id,
             vfs,
@@ -87,6 +95,7 @@ impl VfsFuse {
             inodes: StdRwLock::new(InodeTable::new()),
             open_files: Mutex::new(HashMap::new()),
             next_fh: Mutex::new(1),
+            notify: Mutex::new(Some(notify)),
         }
     }
     fn alloc_fh(&self) -> u64 {
@@ -154,6 +163,10 @@ impl VfsFuse {
 impl Filesystem for VfsFuse {
     fn init(&mut self, _req: &Request, _config: &mut KernelConfig) -> std::io::Result<()> {
         tracing::info!("FUSE init: mount_id={}", self.mount_id);
+        // Signal mount success to the caller.
+        if let Some(tx) = self.notify.lock().unwrap().take() {
+            let _ = tx.send(Ok(()));
+        }
         Ok(())
     }
     fn destroy(&mut self) {
@@ -326,11 +339,12 @@ pub(crate) async fn run_fuse_mount(
     mount_point: String,
     vfs: Arc<VfsManager>,
     state: Arc<tokio::sync::RwLock<std::collections::HashMap<String, crate::manager::MountState>>>,
+    notify: tokio::sync::oneshot::Sender<Result<(), String>>,
 ) {
     let rt = tokio::runtime::Handle::current();
     let id_clone = mount_id.clone();
     let result = tokio::task::spawn_blocking(move || {
-        let fs = VfsFuse::new(mount_id.clone(), vfs, rt);
+        let fs = VfsFuse::new(mount_id.clone(), vfs, rt, notify);
         let mut config = fuser::Config::default();
         config.mount_options = vec![
             MountOption::FSName(format!("ventoos-{mount_id}")),

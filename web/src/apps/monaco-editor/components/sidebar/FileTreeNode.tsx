@@ -222,29 +222,30 @@ export default function FileTreeNode({
         />
       )}
 
-      {entry.is_dir && entry.expanded && entry.children &&
-          entry.children.map(child => (
-            <FileTreeNode
-              key={child.path}
-              entry={child}
-              depth={depth + 1}
-              activeFilePath={activeFilePath}
-              renamingPath={renamingPath}
-              renameValue={renameValue}
-              newItem={newItem}
-              onSelect={onSelect}
-              onExpand={onExpand}
-              onContextMenu={onContextMenu}
-              onRenameChange={onRenameChange}
-              onRenameConfirm={onRenameConfirm}
-              onRenameCancel={onRenameCancel}
-              onNewItemChange={onNewItemChange}
-              onNewItemConfirm={onNewItemConfirm}
-              onNewItemCancel={onNewItemCancel}
-              onDoubleClick={onDoubleClick}
-            />
-          ))
-      }
+      {entry.is_dir &&
+        entry.expanded &&
+        entry.children &&
+        entry.children.map(child => (
+          <FileTreeNode
+            key={child.path}
+            entry={child}
+            depth={depth + 1}
+            activeFilePath={activeFilePath}
+            renamingPath={renamingPath}
+            renameValue={renameValue}
+            newItem={newItem}
+            onSelect={onSelect}
+            onExpand={onExpand}
+            onContextMenu={onContextMenu}
+            onRenameChange={onRenameChange}
+            onRenameConfirm={onRenameConfirm}
+            onRenameCancel={onRenameCancel}
+            onNewItemChange={onNewItemChange}
+            onNewItemConfirm={onNewItemConfirm}
+            onNewItemCancel={onNewItemCancel}
+            onDoubleClick={onDoubleClick}
+          />
+        ))}
     </>
   )
 }

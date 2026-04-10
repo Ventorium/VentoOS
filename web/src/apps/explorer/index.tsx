@@ -14,7 +14,6 @@ import {
   HardDrive,
   Key,
   Link,
-  Unlink,
   Monitor,
   PanelRight,
   Pencil,
@@ -24,6 +23,7 @@ import {
   RotateCw,
   Settings,
   Trash2,
+  Unlink,
   X
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -176,13 +176,24 @@ function MountForm({
   const [testing, setTesting] = useState(false)
 
   // local mount config
-  const [localMountEnabled, setLocalMountEnabled] = useState(
-    mountToEdit?.local_mount?.enabled ?? false
-  )
-  const [localMountPath, setLocalMountPath] = useState(
-    mountToEdit?.local_mount?.mount_point ?? ''
-  )
+  const [localMountEnabled, setLocalMountEnabled] = useState(mountToEdit?.local_mount?.enabled ?? false)
+  const [localMountPath, setLocalMountPath] = useState(mountToEdit?.local_mount?.mount_point ?? '')
   const [localMountPathError, setLocalMountPathError] = useState<string | null>(null)
+  const [fuseAvailable, setFuseAvailable] = useState<boolean | null>(null)
+  const [fuseChecking, setFuseChecking] = useState(false)
+
+  // Check FUSE dependency when local mount is enabled
+  const checkFuseDep = useCallback(async () => {
+    setFuseChecking(true)
+    try {
+      const res = await request<{ code: number; data: { available: boolean } }>('/api/dependencies/check-fuse')
+      setFuseAvailable(res.data?.available ?? false)
+    } catch {
+      setFuseAvailable(false)
+    } finally {
+      setFuseChecking(false)
+    }
+  }, [])
 
   // Auto-parse a pasted WebDAV URL and populate https/host/port/basePath fields
   const handleWebDavHostChange = (value: string) => {
@@ -352,9 +363,7 @@ function MountForm({
     setSaving(true)
     try {
       const localMount =
-        kind !== 'local' && localMountEnabled
-          ? { enabled: true, mount_point: localMountPath }
-          : undefined
+        kind !== 'local' && localMountEnabled ? { enabled: true, mount_point: localMountPath } : undefined
       const body: CreateVfsMountReq = { name, kind, root: buildRoot(), local_mount: localMount }
       if (isEditing && mountToEdit) {
         const res = await vfsApi.updateVfsMount(mountToEdit.id, body)
@@ -719,10 +728,7 @@ function MountForm({
             className="flex flex-col gap-1.5 rounded px-2 py-2 mt-1"
             style={{ background: 'var(--vos-bg-item)', border: '0.5px solid var(--vos-border-subtle)' }}
           >
-            <label
-              className="flex items-center justify-between gap-2 cursor-pointer"
-              htmlFor="local-mount-toggle"
-            >
+            <label className="flex items-center justify-between gap-2 cursor-pointer" htmlFor="local-mount-toggle">
               <span className="text-xs" style={{ color: 'var(--vos-text-primary)' }}>
                 启用本地挂载（FUSE）
               </span>
@@ -733,16 +739,53 @@ function MountForm({
                 onChange={e => {
                   const enabled = e.target.checked
                   setLocalMountEnabled(enabled)
-                  if (enabled && !localMountPath) {
-                    const defaultPath = `~/mnt/${name || 'source'}`
-                    setLocalMountPath(defaultPath)
-                    setLocalMountPathError(null)
+                  if (enabled) {
+                    checkFuseDep()
+                    if (!localMountPath) {
+                      const defaultPath = `~/mnt/${name || 'source'}`
+                      setLocalMountPath(defaultPath)
+                      setLocalMountPathError(null)
+                    }
                   }
                 }}
               />
             </label>
             {localMountEnabled && (
               <div>
+                {fuseChecking && (
+                  <div className="text-xs mb-1 flex items-center gap-1" style={{ color: 'var(--vos-text-secondary)' }}>
+                    <Spinner style={{ width: 12, height: 12 }} /> 正在检测 FUSE 依赖…
+                  </div>
+                )}
+                {!fuseChecking && fuseAvailable === false && (
+                  <div
+                    className="text-xs mb-1 px-2 py-1.5 rounded flex items-center justify-between"
+                    style={{ background: 'rgba(255, 59, 48, 0.1)', color: 'var(--vos-accent-danger)' }}
+                  >
+                    <span>未检测到 FUSE 依赖，挂载可能失败</span>
+                    <button
+                      type="button"
+                      className="text-[10px] px-1.5 py-0.5 rounded"
+                      style={{
+                        background: 'var(--vos-accent-primary)',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => openWindow('dependency-manager')}
+                    >
+                      安装依赖
+                    </button>
+                  </div>
+                )}
+                {!fuseChecking && fuseAvailable === true && (
+                  <div
+                    className="text-xs mb-1 px-2 py-1.5 rounded"
+                    style={{ background: 'rgba(52, 199, 89, 0.1)', color: 'var(--vos-accent-success)' }}
+                  >
+                    FUSE 依赖已安装
+                  </div>
+                )}
                 <input
                   className="vos-input vos-input-sm"
                   placeholder={`~/mnt/${name || 'source'}`}
@@ -3192,14 +3235,20 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 try {
                   if (isFuseMounted) {
                     await vfsApi.localUnmountVfs(m.id)
-                    setLocalMountStatuses(prev => ({ ...prev, [m.id]: { mounted: false, mount_point: null, error: null } }))
+                    setLocalMountStatuses(prev => ({
+                      ...prev,
+                      [m.id]: { mounted: false, mount_point: null, error: null }
+                    }))
                   } else {
                     const res = await vfsApi.localMountVfs(m.id)
                     setLocalMountStatuses(prev => ({ ...prev, [m.id]: res.data }))
                   }
                 } catch (err) {
                   const msg = err instanceof Error ? err.message : '挂载操作失败'
-                  setLocalMountStatuses(prev => ({ ...prev, [m.id]: { mounted: false, mount_point: null, error: msg } }))
+                  setLocalMountStatuses(prev => ({
+                    ...prev,
+                    [m.id]: { mounted: false, mount_point: null, error: msg }
+                  }))
                 }
               }
 
@@ -3250,12 +3299,17 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                               : isActive
                                 ? 'rgba(255,255,255,0.3)'
                                 : 'var(--vos-text-tertiary)',
-                          flexShrink: 0,
+                          flexShrink: 0
                         }}
                       />
-                      {isFuseMounted
-                        ? <Link size={11} style={{ color: isActive ? '#fff' : 'var(--vos-accent-success, #22c55e)' }} />
-                        : <Unlink size={11} style={{ color: isActive ? 'rgba(255,255,255,0.5)' : 'var(--vos-text-tertiary)' }} />}
+                      {isFuseMounted ? (
+                        <Link size={11} style={{ color: isActive ? '#fff' : 'var(--vos-accent-success, #22c55e)' }} />
+                      ) : (
+                        <Unlink
+                          size={11}
+                          style={{ color: isActive ? 'rgba(255,255,255,0.5)' : 'var(--vos-text-tertiary)' }}
+                        />
+                      )}
                     </button>
                   )}
                   <button

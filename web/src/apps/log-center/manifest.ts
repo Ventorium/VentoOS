@@ -29,6 +29,7 @@ export const logCenterManifest: AppManifest = {
   icon: React.createElement(LogCenterIcon),
   multiWindow: false,
   hidden: true,
+  group: '其它',
   defaultSize: { width: 900, height: 600 },
   minSize: { width: 600, height: 400 },
   permissions: [],

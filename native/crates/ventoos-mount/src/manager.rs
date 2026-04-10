@@ -61,29 +61,59 @@ impl LocalMountManager {
         // Ensure mount point directory exists.
         tokio::fs::create_dir_all(&mount_point).await?;
 
+        // Clean up any stale mount at the same point.
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        crate::fuse_impl::force_unmount(&mount_point);
+
         let mount_id_owned = mount_id.to_string();
         let mp_clone = mount_point.clone();
         let state_ref = Arc::clone(&self.state);
 
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         {
+            let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
+
             let task = tokio::task::spawn(crate::fuse_impl::run_fuse_mount(
                 mount_id_owned.clone(),
                 mp_clone.clone(),
                 Arc::clone(&vfs),
                 Arc::clone(&state_ref),
+                tx,
             ));
 
-            let abort = task.abort_handle();
-            self.state.write().await.insert(
-                mount_id_owned,
-                MountState::Mounted(MountHandle {
-                    mount_point: mp_clone,
-                    abort,
-                }),
-            );
+            // Wait for the FUSE init callback or mount failure (with timeout).
+            let mount_result = tokio::time::timeout(std::time::Duration::from_secs(15), rx).await;
 
-            Ok(())
+            match mount_result {
+                Ok(Ok(Ok(()))) => {
+                    // FUSE init succeeded — mount is live.
+                    let abort = task.abort_handle();
+                    self.state.write().await.insert(
+                        mount_id_owned,
+                        MountState::Mounted(MountHandle {
+                            mount_point: mp_clone,
+                            abort,
+                        }),
+                    );
+                    Ok(())
+                }
+                Ok(Ok(Err(e))) => {
+                    // FUSE mount failed.
+                    tracing::error!("FUSE mount for {mount_id_owned} failed: {e}");
+                    Err(MountError::Fuse(e))
+                }
+                Ok(Err(_)) => {
+                    // oneshot sender dropped without sending — mount task panicked.
+                    Err(MountError::Fuse("FUSE mount task terminated unexpectedly".to_string()))
+                }
+                Err(_) => {
+                    // Timeout — mount didn't complete in time.
+                    task.abort();
+                    Err(MountError::Fuse(
+                        "FUSE mount timed out after 15 seconds".to_string(),
+                    ))
+                }
+            }
         }
 
         #[cfg(not(any(target_os = "linux", target_os = "macos")))]

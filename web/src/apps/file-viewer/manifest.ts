@@ -101,5 +101,6 @@ export const fileViewerManifest: AppManifest = {
   permissions: ['storage'],
   hasBackendPlugin: false,
   hidden: true,
+  group: '其它',
   component: () => import('./index')
 }

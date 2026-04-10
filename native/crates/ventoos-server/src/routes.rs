@@ -10,6 +10,7 @@ use std::sync::{Arc, OnceLock};
 use tokio::sync::Mutex;
 
 use crate::auth;
+use crate::deps;
 use crate::monitor;
 use crate::shell;
 use crate::state::AppState;
@@ -159,6 +160,8 @@ pub fn create_router(state: &AppState) -> Router {
         .route("/ws", get(websocket::ws_handler))
         // WebShell WebSocket
         .route("/ws/shell", get(shell::ws_shell_handler))
+        // Dependency management routes (no state needed)
+        .merge(deps::dependency_routes())
         .with_state(state.clone());
 
     // Start with system routes (Router<()>), then merge plugin routes (also Router<()>)

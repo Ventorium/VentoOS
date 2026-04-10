@@ -126,6 +126,9 @@ export interface AppManifest {
   /** Hide from Dock (still launchable via other apps) */
   hidden?: boolean
 
+  /** Launchpad folder group name (apps with same group are grouped into a folder) */
+  group?: string
+
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   lifecycle?: AppLifecycle
 }

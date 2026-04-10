@@ -8,6 +8,7 @@ import type { AppManifest } from '@/kernel'
 import { aiAssistantManifest } from './ai-assistant/manifest'
 import { archiveEditorManifest } from './archive-editor/manifest'
 import { databaseManifest } from './database/manifest'
+import { dependencyManagerManifest } from './dependency-manager/manifest'
 import { explorerManifest } from './explorer/manifest'
 import { fileViewerManifest } from './file-viewer/manifest'
 import { fontPreviewManifest } from './font-preview/manifest'
@@ -33,6 +34,7 @@ export const builtinManifests: AppManifest[] = [
   aiAssistantManifest,
   monitorManifest,
   settingsManifest,
+  dependencyManagerManifest,
   fileViewerManifest,
   logCenterManifest,
   textEditorManifest,
@@ -47,6 +49,7 @@ export {
   aiAssistantManifest,
   archiveEditorManifest,
   databaseManifest,
+  dependencyManagerManifest,
   explorerManifest,
   fileViewerManifest,
   fontPreviewManifest,
