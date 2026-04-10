@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::sync::{Arc, Mutex, RwLock as StdRwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use fuser::{
     Errno, FileAttr, FileType, Filesystem, FopenFlags, Generation, INodeNo, KernelConfig,
@@ -18,6 +18,8 @@ use ventoos_vfs::types::{VfsDeleteReq, VfsListReq, VfsMkdirReq, VfsMoveReq, VfsW
 use ventoos_vfs::VfsManager;
 
 const TTL: Duration = Duration::from_secs(1);
+/// Cache TTL for node metadata — avoids redundant remote stat calls after readdir.
+const CACHE_TTL: Duration = Duration::from_secs(5);
 const ROOT_INO: u64 = 1;
 
 // ── Inode table ──────────────────────────────────────────────────────────────
@@ -59,6 +61,36 @@ impl InodeTable {
     }
 }
 
+// ── Node metadata cache ───────────────────────────────────────────────────────
+
+/// Short-lived cache for node metadata, keyed by VFS path.
+/// Populated during `readdir` so that subsequent `lookup`/`getattr` calls
+/// for entries returned in the same listing can skip a remote round trip.
+struct NodeCache {
+    entries: HashMap<String, (ventoos_vfs::types::VfsNode, Instant)>,
+}
+
+impl NodeCache {
+    fn new() -> Self {
+        Self { entries: HashMap::new() }
+    }
+
+    fn get(&self, path: &str) -> Option<&ventoos_vfs::types::VfsNode> {
+        self.entries.get(path).and_then(|(node, cached_at)| {
+            if cached_at.elapsed() < CACHE_TTL { Some(node) } else { None }
+        })
+    }
+
+    fn insert(&mut self, node: ventoos_vfs::types::VfsNode) {
+        let path = node.path.clone();
+        self.entries.insert(path, (node, Instant::now()));
+    }
+
+    fn invalidate(&mut self, path: &str) {
+        self.entries.remove(path);
+    }
+}
+
 // ── Open file handle ─────────────────────────────────────────────────────────
 
 struct OpenFile {
@@ -76,6 +108,7 @@ pub(crate) struct VfsFuse {
     inodes: StdRwLock<InodeTable>,
     open_files: Mutex<HashMap<u64, OpenFile>>,
     next_fh: Mutex<u64>,
+    node_cache: Mutex<NodeCache>,
     /// One-shot channel to notify mount result (success or failure).
     /// Sent in `init()` on success, consumed by caller on failure.
     notify: Mutex<Option<tokio::sync::oneshot::Sender<Result<(), String>>>>,
@@ -95,6 +128,7 @@ impl VfsFuse {
             inodes: StdRwLock::new(InodeTable::new()),
             open_files: Mutex::new(HashMap::new()),
             next_fh: Mutex::new(1),
+            node_cache: Mutex::new(NodeCache::new()),
             notify: Mutex::new(Some(notify)),
         }
     }
@@ -176,13 +210,24 @@ impl Filesystem for VfsFuse {
     fn lookup(&self, _req: &Request, parent: INodeNo, name: &OsStr, reply: ReplyEntry) {
         let Some(pp) = self.path_for(parent.0) else { reply.error(Errno::ENOENT); return; };
         let path = Self::child_path(&pp, name);
+
+        // Check cache first to avoid a remote round trip
+        if let Some(node) = self.node_cache.lock().unwrap().get(&path) {
+            let ino = self.intern_path(path);
+            let mtime = Self::parse_mtime(node.modified.as_deref());
+            let attr = self.make_attr(ino, node.is_dir, node.size.unwrap_or(0), mtime);
+            reply.entry(&TTL, &attr, Generation(0));
+            return;
+        }
+
         let vfs = Arc::clone(&self.vfs);
         let mid = self.mount_id.clone();
         match self.rt.block_on(vfs.stat(&mid, &path)) {
             Ok(node) => {
-                let ino = self.intern_path(path);
+                let ino = self.intern_path(path.clone());
                 let mtime = Self::parse_mtime(node.modified.as_deref());
                 let attr = self.make_attr(ino, node.is_dir, node.size.unwrap_or(0), mtime);
+                self.node_cache.lock().unwrap().insert(node);
                 reply.entry(&TTL, &attr, Generation(0));
             }
             Err(_) => reply.error(Errno::ENOENT),
@@ -191,12 +236,22 @@ impl Filesystem for VfsFuse {
 
     fn getattr(&self, _req: &Request, ino: INodeNo, _fh: Option<fuser::FileHandle>, reply: ReplyAttr) {
         let Some(path) = self.path_for(ino.0) else { reply.error(Errno::ENOENT); return; };
+
+        // Check cache first
+        if let Some(node) = self.node_cache.lock().unwrap().get(&path) {
+            let mtime = Self::parse_mtime(node.modified.as_deref());
+            let attr = self.make_attr(ino.0, node.is_dir, node.size.unwrap_or(0), mtime);
+            reply.attr(&TTL, &attr);
+            return;
+        }
+
         let vfs = Arc::clone(&self.vfs);
         let mid = self.mount_id.clone();
         match self.rt.block_on(vfs.stat(&mid, &path)) {
             Ok(node) => {
                 let mtime = Self::parse_mtime(node.modified.as_deref());
                 let attr = self.make_attr(ino.0, node.is_dir, node.size.unwrap_or(0), mtime);
+                self.node_cache.lock().unwrap().insert(node);
                 reply.attr(&TTL, &attr);
             }
             Err(_) => reply.error(Errno::ENOENT),
@@ -217,10 +272,14 @@ impl Filesystem for VfsFuse {
                     (dot_ino, true, ".".to_string()),
                     (par_ino, true, "..".to_string()),
                 ];
+                // Cache each returned node so lookup/getattr don't need remote calls
+                let mut cache = self.node_cache.lock().unwrap();
                 for node in &nodes {
                     let child_ino = self.intern_path(node.path.clone());
                     all.push((child_ino, node.is_dir, node.name.clone()));
+                    cache.insert(node.clone());
                 }
+                drop(cache);
                 for (i, (child_ino, is_dir, name)) in all.iter().enumerate().skip(offset as usize) {
                     let kind = if *is_dir { FileType::Directory } else { FileType::RegularFile };
                     if reply.add(INodeNo(*child_ino), (i + 1) as u64, kind, name.as_str()) { break; }
@@ -270,6 +329,8 @@ impl Filesystem for VfsFuse {
         if let Some(file) = file {
             if file.dirty {
                 let content = String::from_utf8_lossy(&file.data).to_string();
+                // Invalidate cache for the written file
+                self.node_cache.lock().unwrap().invalidate(&file.path);
                 let req = VfsWriteReq { mount_id: self.mount_id.clone(), path: file.path, content };
                 let vfs = Arc::clone(&self.vfs);
                 if let Err(e) = self.rt.block_on(vfs.write_file(&req)) {
@@ -290,6 +351,8 @@ impl Filesystem for VfsFuse {
             reply.error(Errno::EIO);
             return;
         }
+        // Invalidate parent directory cache
+        self.node_cache.lock().unwrap().invalidate(&pp);
         let ino = self.intern_path(path.clone());
         let fh = self.alloc_fh();
         self.open_files.lock().unwrap().insert(fh, OpenFile { path, data: vec![], dirty: false });
@@ -305,15 +368,22 @@ impl Filesystem for VfsFuse {
         if let Err(e) = self.rt.block_on(vfs.mkdir(&req)) {
             tracing::warn!("FUSE mkdir failed: {e}"); reply.error(Errno::EIO); return;
         }
+        self.node_cache.lock().unwrap().invalidate(&pp);
         let ino = self.intern_path(path);
         let attr = self.make_attr(ino, true, 0, SystemTime::now());
         reply.entry(&TTL, &attr, Generation(0));
     }
 
     fn unlink(&self, _req: &Request, parent: INodeNo, name: &OsStr, reply: ReplyEmpty) {
+        let pp = self.path_for(parent.0);
+        let path = pp.as_deref().map(|p| Self::child_path(p, name));
+        if let Some(ref p) = path { self.node_cache.lock().unwrap().invalidate(p); }
         self.remove_entry(parent, name, reply);
     }
     fn rmdir(&self, _req: &Request, parent: INodeNo, name: &OsStr, reply: ReplyEmpty) {
+        let pp = self.path_for(parent.0);
+        let path = pp.as_deref().map(|p| Self::child_path(p, name));
+        if let Some(ref p) = path { self.node_cache.lock().unwrap().invalidate(p); }
         self.remove_entry(parent, name, reply);
     }
 
@@ -326,7 +396,13 @@ impl Filesystem for VfsFuse {
         let req = VfsMoveReq { mount_id: self.mount_id.clone(), src: src.clone(), dest: dst };
         let vfs = Arc::clone(&self.vfs);
         match self.rt.block_on(vfs.move_file(&req)) {
-            Ok(()) => { self.inodes.write().unwrap().remove(&src); reply.ok(); }
+            Ok(()) => {
+                let mut cache = self.node_cache.lock().unwrap();
+                cache.invalidate(&src);
+                drop(cache);
+                self.inodes.write().unwrap().remove(&src);
+                reply.ok();
+            }
             Err(e) => { tracing::warn!("FUSE rename failed: {e}"); reply.error(Errno::EIO); }
         }
     }
@@ -336,6 +412,7 @@ impl Filesystem for VfsFuse {
 
 pub(crate) async fn run_fuse_mount(
     mount_id: String,
+    mount_name: String,
     mount_point: String,
     vfs: Arc<VfsManager>,
     state: Arc<tokio::sync::RwLock<std::collections::HashMap<String, crate::manager::MountState>>>,
@@ -349,6 +426,8 @@ pub(crate) async fn run_fuse_mount(
         config.mount_options = vec![
             MountOption::FSName(format!("ventoos-{mount_id}")),
             MountOption::DefaultPermissions,
+            // Set volume name so Finder shows the source name instead of "macFUSE Volume 0"
+            MountOption::CUSTOM(format!("volname={mount_name}")),
         ];
         fuser::mount2(fs, &mount_point, &config)
     })
