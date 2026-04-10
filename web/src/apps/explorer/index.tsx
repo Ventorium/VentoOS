@@ -36,7 +36,7 @@ import {
   ConfirmDialog as SharedConfirmDialog,
   Spinner
 } from '@/components'
-import { request } from '@/infra/api'
+import { type ApiResponse, request } from '@/infra/api'
 import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
 import {
   getAllAppsForFile,
@@ -184,7 +184,7 @@ function MountForm({
   const checkFuseDep = useCallback(async () => {
     setFuseChecking(true)
     try {
-      const res = await request<{ code: number; data: { available: boolean } }>('/api/dependencies/check-fuse')
+      const res = await request<ApiResponse<{ available: boolean }>>('GET', '/api/dependencies/check-fuse')
       setFuseAvailable(res.data?.available ?? false)
     } catch {
       setFuseAvailable(false)
@@ -3416,7 +3416,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                         }}
                       />
                       {isLoading ? (
-                        <Spinner style={{ width: 11, height: 11, color: isActive ? '#fff' : 'var(--vos-text-tertiary)' }} />
+                        <Spinner size={11} color={isActive ? '#fff' : 'var(--vos-text-tertiary)'} />
                       ) : isFuseMounted ? (
                         <Link size={11} style={{ color: isActive ? '#fff' : 'var(--vos-accent-success, #22c55e)' }} />
                       ) : (
