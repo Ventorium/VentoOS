@@ -6,9 +6,10 @@
  * Modals:       server create/edit form, SSH config import
  */
 
-import { CircleDot, Copy, Download, FolderOpen, Link, Monitor, Pencil, Plus, Server, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleDot, Copy, Download, FolderOpen, Link, Monitor, Pencil, Plus, Server, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { superTerminalApi } from '@/apps/super-terminal/api'
+import { PathPickerInput } from '@/shell/FilePicker'
 import { useSuperTerminalStore } from '@/apps/super-terminal/store'
 import type {
   CreateSshServerReq,
@@ -335,12 +336,30 @@ function ServerFormModal({
   const [form, setForm] = useState<ServerFormData>(emptyFormData)
   const [activeTab, setActiveTab] = useState('basic')
   const [submitting, setSubmitting] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; latency_ms?: number } | null>(null)
+
+  const handleTest = async () => {
+    if (!editingServer) return
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await superTerminalApi.testSshServer(editingServer.id)
+      setTestResult(res.data ?? null)
+    } catch {
+      setTestResult({ success: false, message: '连接测试失败' })
+    } finally {
+      setTesting(false)
+    }
+  }
 
   useEffect(() => {
     if (open) {
       setForm(editingServer ? serverToFormData(editingServer) : emptyFormData())
       setActiveTab('basic')
       setSubmitting(false)
+      setTesting(false)
+      setTestResult(null)
     }
   }, [open, editingServer])
 
@@ -396,19 +415,41 @@ function ServerFormModal({
       onClose={onClose}
       title={editingServer ? '编辑服务器' : '新建服务器'}
       width={520}
+      top={60}
+      maxHeight="calc(100% - 32px)"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
-            取消
-          </button>
-          <button
-            type="button"
-            className="vos-btn vos-btn-primary vos-btn-sm"
-            disabled={submitting || !form.name.trim() || !form.host.trim() || !form.username.trim()}
-            onClick={handleSubmit}
-          >
-            {submitting ? '保存中…' : '保存'}
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, fontSize: 12 }}>
+            {testResult && (
+              <span style={{ color: testResult.success ? '#4caf50' : '#ff453a' }}>
+                {testResult.success
+                  ? `连接成功${testResult.latency_ms != null ? ` (${testResult.latency_ms}ms)` : ''}`
+                  : testResult.message}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="vos-btn vos-btn-ghost vos-btn-sm"
+              disabled={testing || !editingServer}
+              title={!editingServer ? '请先保存服务器后再测试' : ''}
+              onClick={handleTest}
+            >
+              {testing ? '测试中…' : '测试连接'}
+            </button>
+            <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
+              取消
+            </button>
+            <button
+              type="button"
+              className="vos-btn vos-btn-primary vos-btn-sm"
+              disabled={submitting || !form.name.trim() || !form.host.trim() || !form.username.trim()}
+              onClick={handleSubmit}
+            >
+              {submitting ? '保存中…' : '保存'}
+            </button>
+          </div>
         </div>
       }
     >
@@ -519,11 +560,12 @@ function ServerFormModal({
             <>
               <div style={rowStyle}>
                 <label style={labelStyle}>密钥路径</label>
-                <input
-                  style={inputStyle}
+                <PathPickerInput
                   value={form.keyPath}
-                  onChange={e => updateField('keyPath', e.target.value)}
+                  onChange={v => updateField('keyPath', v)}
+                  mode="file"
                   placeholder="~/.ssh/id_rsa"
+                  style={{ width: '100%' }}
                 />
               </div>
               <div style={rowStyle}>
@@ -774,6 +816,7 @@ function ImportConfigModal({
       title="导入 SSH 配置"
       icon={<Download size={16} />}
       width={560}
+      top={60}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>
@@ -995,6 +1038,11 @@ export default function SshServers() {
   // Context menu
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null)
 
+  // Expanded groups in sidebar
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  // Drag-drop state
+  const [dragServerId, setDragServerId] = useState<string | null>(null)
+
   // ── Data loading ─────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -1009,7 +1057,7 @@ export default function SshServers() {
   // ── Derived ──────────────────────────────────────────────────────────
 
   const filteredServers = useMemo(() => {
-    if (!selectedGroup) return servers
+    if (selectedGroup === null) return servers
     return servers.filter(s => (s.group ?? '') === selectedGroup)
   }, [servers, selectedGroup])
 
@@ -1247,9 +1295,11 @@ export default function SshServers() {
   const handleImportConfirm = useCallback(
     async (hosts: SshConfigHost[]) => {
       const reqs: CreateSshServerReq[] = hosts.map(h => {
-        const authMethod: SshAuthMethod = h.identity_file
-          ? { type: 'private_key', key_path: h.identity_file }
-          : { type: 'password' }
+        const authMethod: SshAuthMethod = h.auto_detected_key
+          ? { type: 'private_key', key_path: h.auto_detected_key }
+          : h.identity_file
+            ? { type: 'private_key', key_path: h.identity_file }
+            : { type: 'agent' }
 
         let jumpHost: JumpHost | undefined
         if (h.proxy_jump) {
@@ -1272,7 +1322,7 @@ export default function SshServers() {
           port: h.port ?? 22,
           username: h.user ?? 'root',
           auth_method: authMethod,
-          group: 'SSH Config',
+          group: undefined,
           jump_host: jumpHost
         }
       })
@@ -1442,51 +1492,112 @@ export default function SshServers() {
           </div>
 
           {/* Groups */}
-          {groups.map(g => (
-            <div
-              key={g}
-              data-group={g}
-              className={`ssh-group-item ${selectedGroup === g ? 'active' : ''}`}
-              style={{
-                padding: '8px 12px',
-                fontSize: 13,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderRadius: 4,
-                margin: '0 4px'
-              }}
-              onClick={() => setSelectedGroup(g)}
-              onContextMenu={e => {
-                e.preventDefault()
-                e.stopPropagation()
-                setCtxMenu({
-                  x: e.clientX,
-                  y: e.clientY,
-                  type: 'group',
-                  groupName: g
-                })
-              }}
-            >
-              <span
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <FolderOpen size={14} style={{ color: 'var(--vos-text-tertiary)' }} />
-                {g}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', flexShrink: 0 }}>
-                {groupCounts[g] ?? 0}
-              </span>
-            </div>
-          ))}
+          {groups.map(g => {
+            const isExpanded = expandedGroups.has(g)
+            const groupServers = servers.filter(s => (s.group ?? '') === g)
+            return (
+              <div key={g}>
+                <div
+                  data-group={g}
+                  className={`ssh-group-item ${selectedGroup === g ? 'active' : ''}`}
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderRadius: 4,
+                    margin: '0 4px'
+                  }}
+                  onClick={() => setSelectedGroup(g)}
+                  onContextMenu={e => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setCtxMenu({
+                      x: e.clientX,
+                      y: e.clientY,
+                      type: 'group',
+                      groupName: g
+                    })
+                  }}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault()
+                    const sid = dragServerId ?? e.dataTransfer.getData('text/plain')
+                    if (sid) {
+                      superTerminalApi.updateSshServer(sid, { group: g }).then(res => {
+                        if (res.data) setServers(servers.map(s => s.id === sid ? res.data! : s))
+                      })
+                      setDragServerId(null)
+                    }
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      flex: 1
+                    }}
+                  >
+                    <span
+                      style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}
+                      onClick={e => {
+                        e.stopPropagation()
+                        setExpandedGroups(prev => {
+                          const next = new Set(prev)
+                          if (next.has(g)) next.delete(g); else next.add(g)
+                          return next
+                        })
+                      }}
+                    >
+                      {isExpanded
+                        ? <ChevronDown size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
+                        : <ChevronRight size={12} style={{ color: 'var(--vos-text-tertiary)' }} />}
+                    </span>
+                    <FolderOpen size={14} style={{ color: 'var(--vos-text-tertiary)' }} />
+                    {g}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', flexShrink: 0 }}>
+                    {groupCounts[g] ?? 0}
+                  </span>
+                </div>
+                {/* Expanded servers under group */}
+                {isExpanded && groupServers.map(s => (
+                  <div
+                    key={s.id}
+                    className="ssh-group-item"
+                    draggable
+                    onDragStart={e => {
+                      setDragServerId(s.id)
+                      e.dataTransfer.setData('text/plain', s.id)
+                    }}
+                    style={{
+                      padding: '5px 12px 5px 34px',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      color: 'var(--vos-text-secondary)',
+                      borderRadius: 4,
+                      margin: '0 4px'
+                    }}
+                    onClick={() => connectServer(s)}
+                  >
+                    <Server size={11} style={{ flexShrink: 0, color: 'var(--vos-text-tertiary)' }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
 
           {/* Ungrouped if any */}
           {(groupCounts[''] ?? 0) > 0 && (
@@ -1505,6 +1616,17 @@ export default function SshServers() {
                 color: 'var(--vos-text-tertiary)'
               }}
               onClick={() => setSelectedGroup('')}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => {
+                e.preventDefault()
+                const sid = dragServerId ?? e.dataTransfer.getData('text/plain')
+                if (sid) {
+                  superTerminalApi.updateSshServer(sid, { group: undefined }).then(res => {
+                    if (res.data) setServers(servers.map(s => s.id === sid ? res.data! : s))
+                  })
+                  setDragServerId(null)
+                }
+              }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <FolderOpen size={14} />
@@ -1636,6 +1758,11 @@ export default function SshServers() {
                 <div
                   key={server.id}
                   className={`ssh-row ${isSelected ? 'selected' : ''}`}
+                  draggable={true}
+                  onDragStart={e => {
+                    setDragServerId(server.id)
+                    e.dataTransfer.setData('text/plain', server.id)
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

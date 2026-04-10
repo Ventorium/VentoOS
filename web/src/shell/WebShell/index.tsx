@@ -3,6 +3,7 @@
  *
  * Props:
  *   target  'local' | SSH server UUID
+ *   paneId  optional pane registry key (for clear/write actions)
  *   onClose optional callback when connection closes
  */
 import { FitAddon } from '@xterm/addon-fit'
@@ -11,28 +12,35 @@ import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { useEffect, useRef } from 'react'
 import { useAuthStore } from '@/services/auth'
+import { terminalRegistry } from '@/apps/super-terminal/terminalRegistry'
+import { useSuperTerminalStore } from '@/apps/super-terminal/store'
 
 interface WebShellProps {
   target?: string
+  paneId?: string
   cwd?: string
   onClose?: () => void
 }
 
-export default function WebShell({ target = 'local', cwd, onClose }: WebShellProps) {
+export default function WebShell({ target = 'local', paneId, cwd, onClose }: WebShellProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
 
+  // Read terminal settings from store
+  const terminalSettings = useSuperTerminalStore(s => s.terminalSettings)
+
+  // Main terminal init effect
   useEffect(() => {
     if (!containerRef.current) return
 
     const term = new Terminal({
       cursorBlink: true,
-      fontSize: 13,
-      fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Monaco, monospace',
+      fontSize: terminalSettings.fontSize,
+      fontFamily: terminalSettings.fontFamily,
       theme: {
-        background: '#0d0d0d',
+        background: terminalSettings.backgroundColor ?? '#0d0d0d',
         foreground: '#d4d4d4',
         cursor: '#d4d4d4',
         black: '#000000',
@@ -52,8 +60,8 @@ export default function WebShell({ target = 'local', cwd, onClose }: WebShellPro
         brightCyan: '#29b8db',
         brightWhite: '#e5e5e5'
       },
-      scrollback: 5000,
-      allowTransparency: false,
+      scrollback: terminalSettings.scrollback,
+      allowTransparency: true,
       convertEol: true
     })
 
@@ -68,6 +76,19 @@ export default function WebShell({ target = 'local', cwd, onClose }: WebShellPro
     term.open(containerRef.current)
     fitAddon.fit()
 
+    // Register clear/write actions for this pane
+    if (paneId) {
+      terminalRegistry.set(paneId, {
+        clear: () => term.clear(),
+        write: (text: string) => {
+          // Write text as if user typed it
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(text)
+          }
+        }
+      })
+    }
+
     // Determine WebSocket URL — dev uses proxy, prod same origin
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsBase = `${wsProtocol}//${window.location.host}`
@@ -81,7 +102,6 @@ export default function WebShell({ target = 'local', cwd, onClose }: WebShellPro
     wsRef.current = ws
 
     ws.onopen = () => {
-      // Send initial terminal size
       const cols = term.cols
       const rows = term.rows
       ws.send(`\x1b[resize:${cols}x${rows}`)
@@ -91,7 +111,6 @@ export default function WebShell({ target = 'local', cwd, onClose }: WebShellPro
       if (typeof ev.data === 'string') {
         term.write(ev.data)
       } else {
-        // Blob/ArrayBuffer
         ev.data.text?.().then((t: string) => term.write(t))
       }
     }
@@ -105,21 +124,18 @@ export default function WebShell({ target = 'local', cwd, onClose }: WebShellPro
       term.writeln('\r\n\x1b[31m[连接错误]\x1b[0m')
     }
 
-    // Forward keyboard input to WebSocket
     term.onData(data => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(data)
       }
     })
 
-    // Send resize events
     term.onResize(({ cols, rows }) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(`\x1b[resize:${cols}x${rows}`)
       }
     })
 
-    // ResizeObserver to auto-fit
     const ro = new ResizeObserver(() => {
       try {
         fitAddon.fit()
@@ -133,20 +149,82 @@ export default function WebShell({ target = 'local', cwd, onClose }: WebShellPro
       ro.disconnect()
       ws.close()
       term.dispose()
+      if (paneId) terminalRegistry.delete(paneId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, cwd])
+  }, [target, cwd, paneId])
+
+  // Dynamically update font size / font family when settings change
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) return
+    term.options.fontSize = terminalSettings.fontSize
+    term.options.fontFamily = terminalSettings.fontFamily
+    try {
+      fitAddonRef.current?.fit()
+    } catch {
+      /* ignore */
+    }
+  }, [terminalSettings.fontSize, terminalSettings.fontFamily])
+
+  // Dynamically update scrollback
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) return
+    term.options.scrollback = terminalSettings.scrollback
+  }, [terminalSettings.scrollback])
+
+  // Dynamically update background color
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) return
+    term.options.theme = {
+      ...term.options.theme,
+      background: terminalSettings.backgroundColor ?? '#0d0d0d'
+    }
+  }, [terminalSettings.backgroundColor])
+
+  const opacity = terminalSettings.backgroundOpacity ?? 1
+  const bgImage = terminalSettings.backgroundImage
 
   return (
     <div
-      ref={containerRef}
       style={{
         width: '100%',
         height: '100%',
-        background: '#0d0d0d',
-        padding: '4px 6px',
+        position: 'relative',
         overflow: 'hidden'
       }}
-    />
+    >
+      {bgImage && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${bgImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: 1 - opacity,
+            pointerEvents: 'none',
+            zIndex: 0
+          }}
+        />
+      )}
+      <div
+        ref={containerRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          background: terminalSettings.backgroundColor ?? '#0d0d0d',
+          padding: '4px 6px',
+          overflow: 'hidden',
+          position: 'relative',
+          zIndex: 1,
+          opacity
+        }}
+      />
+    </div>
   )
 }
+
+

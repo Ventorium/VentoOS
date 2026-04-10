@@ -129,8 +129,32 @@ function TunnelCard({
         </span>
       </div>
 
-      {/* Public URL (if running and port assigned) */}
-      {isRunning && exposure.public_port > 0 && (
+      {/* Public URL (if tunnel provides one) */}
+      {isRunning && exposure.public_url && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+          <span style={{ color: 'var(--vos-text-tertiary)' }}>公网地址:</span>
+          <a
+            href={exposure.public_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pa-url"
+            style={{
+              fontFamily: 'monospace',
+              color: 'var(--vos-accent-primary)',
+              textDecoration: 'none',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: 220
+            }}
+          >
+            {exposure.public_url}
+          </a>
+        </div>
+      )}
+
+      {/* Public port (fallback when no URL) */}
+      {isRunning && !exposure.public_url && exposure.public_port > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
           <span style={{ color: 'var(--vos-text-tertiary)' }}>公网端口:</span>
           <span
@@ -158,12 +182,12 @@ function TunnelCard({
           </button>
         )}
 
-        {isRunning && exposure.public_port > 0 && (
+        {isRunning && (exposure.public_url || exposure.public_port > 0) && (
           <button
             type="button"
             className="vos-btn vos-btn-ghost vos-btn-sm pa-action-btn"
             style={{ opacity: 1 }}
-            onClick={() => window.open(`http://localhost:${exposure.public_port}`, '_blank')}
+            onClick={() => window.open(exposure.public_url ?? `http://localhost:${exposure.public_port}`, '_blank')}
           >
             <ExternalLink size={14} style={{ marginRight: 4 }} />
             打开

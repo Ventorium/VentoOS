@@ -75,6 +75,7 @@ impl LocalMountManager {
 
             let task = tokio::task::spawn(crate::fuse_impl::run_fuse_mount(
                 mount_id_owned.clone(),
+                mount_id_owned.clone(),
                 mp_clone.clone(),
                 Arc::clone(&vfs),
                 Arc::clone(&state_ref),

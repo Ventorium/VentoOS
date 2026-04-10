@@ -187,8 +187,8 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
             )
           })}
 
-          {/* Separator */}
-          <div style={{ width: 1, height: 20, background: '#444', margin: '0 2px', flexShrink: 0 }} />
+          {/* Separator — adds space between public-access nav tab and SSH session tabs */}
+          <div style={{ width: 16, flexShrink: 0, borderRight: '1px solid #333', height: '100%' }} />
 
           {/* Session tabs */}
           <div className="flex items-center flex-1 min-w-0 overflow-hidden">
@@ -392,6 +392,8 @@ function LeftPanelContent({ tab, onClose, storage }: LeftPanelContentProps) {
 function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> }) {
   const { commands, addCommand, removeCommand, updateCommand, setCommands } = useSuperTerminalStore()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editCmd, setEditCmd] = useState('')
   const [newName, setNewName] = useState('')
   const [newCmd, setNewCmd] = useState('')
   const [showAdd, setShowAdd] = useState(false)
@@ -402,6 +404,12 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
     },
     [storage]
   )
+
+  const startEdit = (cmd: { id: string; name: string; command: string }) => {
+    setEditingId(cmd.id)
+    setEditName(cmd.name)
+    setEditCmd(cmd.command)
+  }
 
   const handleAdd = () => {
     if (!newName.trim() || !newCmd.trim()) return
@@ -420,9 +428,10 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
     persist(next)
   }
 
-  const handleUpdate = (id: string, name: string, command: string) => {
-    updateCommand(id, { name, command })
-    const next = commands.map(c => (c.id === id ? { ...c, name, command } : c))
+  const handleUpdate = () => {
+    if (!editingId || !editName.trim() || !editCmd.trim()) return
+    updateCommand(editingId, { name: editName, command: editCmd })
+    const next = commands.map(c => (c.id === editingId ? { ...c, name: editName, command: editCmd } : c))
     persist(next)
     setEditingId(null)
   }
@@ -432,6 +441,8 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
     navigator.clipboard.writeText(cmd)
   }
 
+  const inputStyle: React.CSSProperties = { background: '#252525', color: '#d4d4d4', borderRadius: 4 }
+
   return (
     <div className="flex flex-col gap-1">
       {commands.map(cmd =>
@@ -439,17 +450,18 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
           <div key={cmd.id} className="flex flex-col gap-1 p-2" style={{ background: '#1a1a1a', borderRadius: 6 }}>
             <input
               className="text-xs px-2 py-1 border-none outline-none"
-              style={{ background: '#252525', color: '#d4d4d4', borderRadius: 4 }}
-              defaultValue={cmd.name}
-              id={`cmd-name-${cmd.id}`}
+              style={inputStyle}
+              value={editName}
+              onChange={e => setEditName(e.target.value)}
               placeholder="名称"
             />
-            <input
+            <textarea
               className="text-xs px-2 py-1 border-none outline-none"
-              style={{ background: '#252525', color: '#d4d4d4', borderRadius: 4 }}
-              defaultValue={cmd.command}
-              id={`cmd-val-${cmd.id}`}
-              placeholder="命令"
+              style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace', overflowY: 'auto' }}
+              value={editCmd}
+              onChange={e => setEditCmd(e.target.value)}
+              placeholder="命令内容"
+              rows={3}
             />
             <div className="flex gap-1 justify-end">
               <button
@@ -464,11 +476,7 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
                 type="button"
                 className="text-[10px] px-2 py-0.5 border-none cursor-pointer"
                 style={{ background: '#1668dc', color: '#fff', borderRadius: 4 }}
-                onClick={() => {
-                  const nameEl = document.getElementById(`cmd-name-${cmd.id}`) as HTMLInputElement
-                  const valEl = document.getElementById(`cmd-val-${cmd.id}`) as HTMLInputElement
-                  handleUpdate(cmd.id, nameEl.value, valEl.value)
-                }}
+                onClick={handleUpdate}
               >
                 保存
               </button>
@@ -477,9 +485,9 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
         ) : (
           <div
             key={cmd.id}
-            className="flex items-center gap-1 px-2 py-1.5 cursor-pointer text-xs"
+            className="flex items-start gap-1 px-2 py-1.5 cursor-pointer text-xs"
             style={{ borderRadius: 4 }}
-            onDoubleClick={() => setEditingId(cmd.id)}
+            onDoubleClick={() => startEdit(cmd)}
             onClick={() => handleCopy(cmd.command)}
             onContextMenu={e => {
               e.preventDefault()
@@ -488,10 +496,18 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
             onKeyDown={() => {}}
             title={`${cmd.command}\n双击编辑 | 右键删除 | 点击复制`}
           >
-            <Zap size={11} style={{ color: '#666', flexShrink: 0 }} />
-            <span className="truncate" style={{ color: '#ccc' }}>
-              {cmd.name}
-            </span>
+            <Zap size={11} style={{ color: '#666', flexShrink: 0, marginTop: 2 }} />
+            <div className="flex flex-col min-w-0">
+              <span className="truncate" style={{ color: '#ccc' }}>
+                {cmd.name}
+              </span>
+              <span
+                className="text-[10px]"
+                style={{ color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}
+              >
+                {cmd.command}
+              </span>
+            </div>
           </div>
         )
       )}
@@ -500,18 +516,18 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
         <div className="flex flex-col gap-1 p-2 mt-1" style={{ background: '#1a1a1a', borderRadius: 6 }}>
           <input
             className="text-xs px-2 py-1 border-none outline-none"
-            style={{ background: '#252525', color: '#d4d4d4', borderRadius: 4 }}
+            style={inputStyle}
             value={newName}
             onChange={e => setNewName(e.target.value)}
             placeholder="命令名称"
           />
-          <input
+          <textarea
             className="text-xs px-2 py-1 border-none outline-none"
-            style={{ background: '#252525', color: '#d4d4d4', borderRadius: 4 }}
+            style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace', overflowY: 'auto' }}
             value={newCmd}
             onChange={e => setNewCmd(e.target.value)}
             placeholder="命令内容"
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            rows={3}
           />
           <div className="flex gap-1 justify-end">
             <button
@@ -554,16 +570,47 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
   )
 }
 
+// ── Settings group heading ────────────────────────────────────────────────
+
+function SettingGroup({ title }: { title: string }) {
+  return (
+    <div
+      style={{
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: 0.8,
+        color: '#555',
+        textTransform: 'uppercase',
+        padding: '10px 0 4px',
+        borderBottom: '1px solid #2a2a2a',
+        marginBottom: 4
+      }}
+    >
+      {title}
+    </div>
+  )
+}
+
 // ── Settings Panel ────────────────────────────────────────────────────────
 
 function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> }) {
   const { terminalSettings, setTerminalSettings } = useSuperTerminalStore()
   const [shells, setShells] = useState<{ name: string; path: string; is_default: boolean }[]>([])
+  const [shellsLoaded, setShellsLoaded] = useState(false)
 
   useEffect(() => {
     superTerminalApi.detectShells().then(res => {
-      if (res.success && res.data) setShells(res.data)
+      if (res.success && res.data) {
+        setShells(res.data)
+        // If no shell set yet and we have shells, auto-select the default one
+        if (!terminalSettings.shell && res.data.length > 0) {
+          const defaultShell = res.data.find(s => s.is_default) ?? res.data[0]
+          handleChange('shell', defaultShell.path)
+        }
+      }
+      setShellsLoaded(true)
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleChange = (key: string, value: unknown) => {
@@ -573,32 +620,49 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
     storage.setJSON('terminal-settings', newSettings)
   }
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    background: '#252525',
+    color: '#d4d4d4',
+    borderRadius: 4,
+    border: 'none',
+    outline: 'none',
+    fontSize: 11,
+    padding: '4px 8px',
+    boxSizing: 'border-box'
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      {/* Shell program */}
+    <div className="flex flex-col gap-2">
+      {/* ── 终端设置 ── */}
+      <SettingGroup title="终端" />
+
+      {/* Shell program — only installed shells, no "auto-detect" */}
       <div>
         <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
-          默认终端程序
+          默认 Shell
         </label>
-        <select
-          className="w-full text-xs px-2 py-1 border-none outline-none"
-          style={{ background: '#252525', color: '#d4d4d4', borderRadius: 4 }}
-          value={terminalSettings.shell || ''}
-          onChange={e => handleChange('shell', e.target.value || undefined)}
-        >
-          <option value="">自动检测</option>
-          {shells.map(s => (
-            <option key={s.path} value={s.path}>
-              {s.name} {s.is_default ? '(推荐)' : ''} — {s.path}
-            </option>
-          ))}
-        </select>
+        {shellsLoaded && shells.length === 0 ? (
+          <span className="text-[11px]" style={{ color: '#666' }}>未检测到可用的 Shell</span>
+        ) : (
+          <select
+            style={inputStyle}
+            value={terminalSettings.shell || ''}
+            onChange={e => handleChange('shell', e.target.value)}
+          >
+            {shells.map(s => (
+              <option key={s.path} value={s.path}>
+                {s.name}{s.is_default ? ' ★' : ''} — {s.path}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Font size */}
       <div>
         <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
-          字体大小
+          字体大小 ({terminalSettings.fontSize}px)
         </label>
         <input
           type="range"
@@ -607,35 +671,22 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
           value={terminalSettings.fontSize}
           onChange={e => handleChange('fontSize', Number(e.target.value))}
           className="w-full"
+          style={{ accentColor: '#1668dc' }}
         />
-        <span className="text-[10px]" style={{ color: '#666' }}>
-          {terminalSettings.fontSize}px
-        </span>
       </div>
 
-      {/* Cursor style */}
+      {/* Font family */}
       <div>
         <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
-          光标样式
+          字体
         </label>
-        <select
-          className="w-full text-xs px-2 py-1 border-none outline-none"
-          style={{ background: '#252525', color: '#d4d4d4', borderRadius: 4 }}
-          value={terminalSettings.cursorStyle}
-          onChange={e => handleChange('cursorStyle', e.target.value)}
-        >
-          <option value="block">方块 (Block)</option>
-          <option value="underline">下划线 (Underline)</option>
-          <option value="bar">竖线 (Bar)</option>
-        </select>
+        <input
+          style={inputStyle}
+          value={terminalSettings.fontFamily}
+          onChange={e => handleChange('fontFamily', e.target.value)}
+          placeholder="JetBrains Mono, monospace"
+        />
       </div>
-
-      {/* Cursor blink */}
-      <SettingToggle
-        label="光标闪烁"
-        value={terminalSettings.cursorBlink}
-        onChange={v => handleChange('cursorBlink', v)}
-      />
 
       {/* Scrollback */}
       <div>
@@ -644,8 +695,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
         </label>
         <input
           type="number"
-          className="w-full text-xs px-2 py-1 border-none outline-none"
-          style={{ background: '#252525', color: '#d4d4d4', borderRadius: 4 }}
+          style={inputStyle}
           value={terminalSettings.scrollback}
           onChange={e => handleChange('scrollback', Number(e.target.value))}
           min={100}
@@ -654,22 +704,73 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
         />
       </div>
 
-      {/* Copy on select */}
-      <SettingToggle
-        label="选中即复制"
-        value={terminalSettings.copyOnSelect}
-        onChange={v => handleChange('copyOnSelect', v)}
-      />
+      {/* Background color */}
+      <div>
+        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+          背景颜色
+        </label>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input
+            type="color"
+            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
+            onChange={e => handleChange('backgroundColor', e.target.value)}
+            style={{ width: 28, height: 24, border: 'none', borderRadius: 3, cursor: 'pointer', padding: 0 }}
+          />
+          <input
+            style={{ ...inputStyle, flex: 1 }}
+            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
+            onChange={e => handleChange('backgroundColor', e.target.value)}
+            placeholder="#0d0d0d"
+          />
+        </div>
+      </div>
 
-      {/* Right click paste */}
-      <SettingToggle
-        label="右键粘贴"
-        value={terminalSettings.rightClickPaste}
-        onChange={v => handleChange('rightClickPaste', v)}
-      />
+      {/* Background opacity */}
+      <div>
+        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+          背景不透明度 ({Math.round((terminalSettings.backgroundOpacity ?? 1) * 100)}%)
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={Math.round((terminalSettings.backgroundOpacity ?? 1) * 100)}
+          onChange={e => handleChange('backgroundOpacity', Number(e.target.value) / 100)}
+          className="w-full"
+          style={{ accentColor: '#1668dc' }}
+        />
+      </div>
 
-      {/* Bell sound */}
-      <SettingToggle label="响铃声音" value={terminalSettings.bellSound} onChange={v => handleChange('bellSound', v)} />
+      {/* Background image */}
+      <div>
+        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+          背景图片 URL
+        </label>
+        <input
+          style={inputStyle}
+          value={terminalSettings.backgroundImage ?? ''}
+          onChange={e => handleChange('backgroundImage', e.target.value || undefined)}
+          placeholder="https://... 或留空"
+        />
+      </div>
+
+      {/* ── SSH 服务器设置 ── */}
+      <SettingGroup title="SSH 服务器" />
+      <div className="text-[11px]" style={{ color: '#666', lineHeight: 1.5 }}>
+        连接超时、心跳间隔等可在新建/编辑服务器时按服务器配置。
+      </div>
+
+      {/* ── 端口映射设置 ── */}
+      <SettingGroup title="端口映射" />
+      <div className="text-[11px]" style={{ color: '#666', lineHeight: 1.5 }}>
+        端口映射规则在「端口映射」标签页内管理。
+      </div>
+
+      {/* ── 外网访问设置 ── */}
+      <SettingGroup title="外网访问" />
+      <div className="text-[11px]" style={{ color: '#666', lineHeight: 1.5 }}>
+        通过 SSH 隧道将本地服务暴露到公网。在「外网访问」标签页内管理隧道。
+      </div>
     </div>
   )
 }

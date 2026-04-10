@@ -262,6 +262,7 @@ impl SshManager {
             basic_auth_username: req.basic_auth_username,
             basic_auth_credential_id: None, // TODO: store credential securely
             status: ServiceExposureStatus::Stopped,
+            public_url: None,
             created_at: Utc::now(),
         };
         let mut exposures = self.service_exposures.write().await;

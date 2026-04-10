@@ -108,6 +108,7 @@ export interface ServiceExposure {
   source_host: string
   source_port: number
   public_port: number
+  public_url?: string
   basic_auth_enabled: boolean
   basic_auth_username?: string
   status: 'stopped' | 'starting' | 'active' | 'error'
@@ -167,25 +168,19 @@ export interface TerminalSettings {
   shell?: string
   fontSize: number
   fontFamily: string
-  cursorStyle: 'block' | 'underline' | 'bar'
-  cursorBlink: boolean
   scrollback: number
   theme: 'dark' | 'light' | 'custom'
-  copyOnSelect: boolean
-  rightClickPaste: boolean
-  bellSound: boolean
+  backgroundColor?: string
+  backgroundImage?: string
+  backgroundOpacity?: number
 }
 
 export const defaultTerminalSettings: TerminalSettings = {
   fontSize: 13,
   fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Monaco, monospace',
-  cursorStyle: 'block',
-  cursorBlink: true,
   scrollback: 5000,
   theme: 'dark',
-  copyOnSelect: false,
-  rightClickPaste: true,
-  bellSound: false
+  backgroundOpacity: 1
 }
 
 // ── Navigation ─────────────────────────────────────────────────────────────

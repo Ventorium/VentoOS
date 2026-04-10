@@ -209,6 +209,8 @@ pub struct ServiceExposure {
     /// Credential ID for basic auth password.
     pub basic_auth_credential_id: Option<Id>,
     pub status: ServiceExposureStatus,
+    /// Public URL returned by the tunnel provider (e.g. Pinggy, Serveo).
+    pub public_url: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 

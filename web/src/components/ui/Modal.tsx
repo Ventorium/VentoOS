@@ -10,20 +10,28 @@ export interface ModalProps {
   children: ReactNode
   footer?: ReactNode
   width?: number | string
+  /** When provided, modal is anchored to this top offset (px) instead of being vertically centered */
+  top?: number | string
+  /** Override max-height for the modal container (default: 90vh) */
+  maxHeight?: string
 }
 
-export function Modal({ open, onClose, title, icon, children, footer, width = 420 }: ModalProps) {
+export function Modal({ open, onClose, title, icon, children, footer, width = 420, top, maxHeight }: ModalProps) {
+  const overlayStyle: React.CSSProperties = top !== undefined
+    ? { alignItems: 'flex-start', paddingTop: typeof top === 'number' ? `${top}px` : top }
+    : {}
+
   return (
     <AnimatePresence>
       {open && (
         <div
           className="absolute inset-0 flex items-center justify-center z-50"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', ...overlayStyle }}
           onClick={onClose}
         >
           <motion.div
             className="vos-modal"
-            style={{ maxWidth: width }}
+            style={{ maxWidth: width, maxHeight: maxHeight ?? '90vh' }}
             initial={{ scale: 0.93, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.93, opacity: 0 }}
