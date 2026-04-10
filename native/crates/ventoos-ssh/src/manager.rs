@@ -55,7 +55,15 @@ impl SshManager {
             auth_method: req.auth_method,
             group: req.group,
             tags: req.tags.unwrap_or_default(),
+            remark: req.remark,
+            os_type: None,
             status: SshServerStatus::Disconnected,
+            connect_timeout_ms: req.connect_timeout_ms.unwrap_or(10000),
+            heartbeat_ms: req.heartbeat_ms.unwrap_or(30000),
+            default_path: req.default_path,
+            init_script: req.init_script,
+            jump_host: req.jump_host,
+            proxy: req.proxy,
             created_at: now,
             updated_at: now,
             last_connected_at: None,
@@ -117,6 +125,27 @@ impl SshManager {
             if let Some(tags) = req.tags {
                 server.tags = tags;
             }
+            if req.remark.is_some() {
+                server.remark = req.remark;
+            }
+            if let Some(timeout) = req.connect_timeout_ms {
+                server.connect_timeout_ms = timeout;
+            }
+            if let Some(heartbeat) = req.heartbeat_ms {
+                server.heartbeat_ms = heartbeat;
+            }
+            if req.default_path.is_some() {
+                server.default_path = req.default_path;
+            }
+            if req.init_script.is_some() {
+                server.init_script = req.init_script;
+            }
+            if req.jump_host.is_some() {
+                server.jump_host = req.jump_host;
+            }
+            if req.proxy.is_some() {
+                server.proxy = req.proxy;
+            }
             server.updated_at = Utc::now();
 
             // Update credentials if provided
@@ -167,6 +196,8 @@ impl SshManager {
             remote_host: req.remote_host,
             remote_port: req.remote_port,
             local_port: req.local_port,
+            auto_start: req.auto_start,
+            remark: req.remark,
             status: PortMappingStatus::Stopped,
             created_at: Utc::now(),
         };
@@ -325,6 +356,39 @@ impl SshInfoProvider for SshManager {
                                 passphrase: None,
                             }
                         }
+                        SshAuthMethod::Agent => {
+                            // Try default key files like SSH client does
+                            let home =
+                                std::env::var("HOME").unwrap_or_else(|_| "/root".into());
+                            let ssh_dir = std::path::Path::new(&home).join(".ssh");
+                            let default_keys = ["id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"];
+                            let mut found: Option<std::path::PathBuf> = None;
+                            for name in &default_keys {
+                                let p = ssh_dir.join(name);
+                                if p.exists() {
+                                    found = Some(p);
+                                    break;
+                                }
+                            }
+                            match found {
+                                Some(path) => {
+                                    let key_pem = tokio::fs::read_to_string(&path)
+                                        .await
+                                        .map_err(|e| {
+                                            format!("无法读取默认密钥文件 {}: {e}", path.display())
+                                        })?;
+                                    SshAuth::PrivateKey {
+                                        key_pem,
+                                        passphrase: None,
+                                    }
+                                }
+                                None => {
+                                    return Err(
+                                        "未找到默认 SSH 密钥文件（~/.ssh/id_ed25519 等），请为此服务器配置认证方式".into(),
+                                    );
+                                }
+                            }
+                        }
                         SshAuthMethod::Password { .. } => {
                             return Err(
                                 "密码认证未配置，请在 SSH 管理中编辑此服务器并设置连接密码".into(),
@@ -359,24 +423,35 @@ mod tests {
     use super::*;
     use crate::types::{ServiceSourceType, SshAuthMethod};
 
+    fn test_server_req(name: &str) -> CreateSshServerRequest {
+        CreateSshServerRequest {
+            name: name.to_string(),
+            host: "10.0.0.1".to_string(),
+            port: None,
+            username: "root".to_string(),
+            auth_method: SshAuthMethod::Password {
+                credential_id: None,
+            },
+            group: None,
+            tags: None,
+            remark: None,
+            connect_timeout_ms: None,
+            heartbeat_ms: None,
+            default_path: None,
+            init_script: None,
+            jump_host: None,
+            proxy: None,
+            password: None,
+            private_key: None,
+        }
+    }
+
     #[tokio::test]
     async fn test_create_and_list_servers() {
         let mgr = SshManager::new();
-        let server = mgr
-            .create_server(CreateSshServerRequest {
-                name: "dev-server".to_string(),
-                host: "10.0.0.1".to_string(),
-                port: None,
-                username: "root".to_string(),
-                auth_method: SshAuthMethod::Password {
-                    credential_id: None,
-                },
-                group: Some("dev".to_string()),
-                tags: None,
-                password: None,
-                private_key: None,
-            })
-            .await;
+        let mut req = test_server_req("dev-server");
+        req.group = Some("dev".to_string());
+        let server = mgr.create_server(req).await;
 
         assert_eq!(server.name, "dev-server");
         assert_eq!(server.port, 22);
@@ -388,21 +463,9 @@ mod tests {
     #[tokio::test]
     async fn test_update_server() {
         let mgr = SshManager::new();
-        let server = mgr
-            .create_server(CreateSshServerRequest {
-                name: "old-name".to_string(),
-                host: "10.0.0.1".to_string(),
-                port: Some(22),
-                username: "root".to_string(),
-                auth_method: SshAuthMethod::Password {
-                    credential_id: None,
-                },
-                group: None,
-                tags: None,
-                password: None,
-                private_key: None,
-            })
-            .await;
+        let mut req = test_server_req("old-name");
+        req.port = Some(22);
+        let server = mgr.create_server(req).await;
 
         let updated = mgr
             .update_server(
@@ -415,6 +478,13 @@ mod tests {
                     auth_method: None,
                     group: None,
                     tags: None,
+                    remark: None,
+                    connect_timeout_ms: None,
+                    heartbeat_ms: None,
+                    default_path: None,
+                    init_script: None,
+                    jump_host: None,
+                    proxy: None,
                     password: None,
                     private_key: None,
                 },
@@ -429,21 +499,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_server() {
         let mgr = SshManager::new();
-        let server = mgr
-            .create_server(CreateSshServerRequest {
-                name: "temp".to_string(),
-                host: "10.0.0.1".to_string(),
-                port: None,
-                username: "root".to_string(),
-                auth_method: SshAuthMethod::Password {
-                    credential_id: None,
-                },
-                group: None,
-                tags: None,
-                password: None,
-                private_key: None,
-            })
-            .await;
+        let server = mgr.create_server(test_server_req("temp")).await;
 
         assert!(mgr.delete_server(server.id).await);
         assert!(mgr.get_server(server.id).await.is_none());
@@ -452,21 +508,7 @@ mod tests {
     #[tokio::test]
     async fn test_port_mapping_lifecycle() {
         let mgr = SshManager::new();
-        let server = mgr
-            .create_server(CreateSshServerRequest {
-                name: "test".to_string(),
-                host: "10.0.0.1".to_string(),
-                port: None,
-                username: "root".to_string(),
-                auth_method: SshAuthMethod::Password {
-                    credential_id: None,
-                },
-                group: None,
-                tags: None,
-                password: None,
-                private_key: None,
-            })
-            .await;
+        let server = mgr.create_server(test_server_req("test")).await;
 
         let mapping = mgr
             .create_port_mapping(CreatePortMappingRequest {
@@ -475,6 +517,8 @@ mod tests {
                 remote_host: "localhost".to_string(),
                 remote_port: 5432,
                 local_port: 15432,
+                auto_start: false,
+                remark: None,
             })
             .await;
 

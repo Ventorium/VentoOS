@@ -10,7 +10,7 @@ import { create } from 'zustand'
 import { createAppStorage } from '@/kernel'
 
 const STORAGE_KEY = 'dock-pins'
-const ALWAYS_PINNED = ['terminal'] // Cannot be unpinned
+const ALWAYS_PINNED = ['super-terminal'] // Cannot be unpinned
 
 interface DockPinsState {
   /** Set of pinned app IDs. null = not yet loaded (show all non-hidden by default) */

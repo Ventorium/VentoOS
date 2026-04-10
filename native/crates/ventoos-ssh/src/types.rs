@@ -15,10 +15,62 @@ pub struct SshServer {
     pub auth_method: SshAuthMethod,
     pub group: Option<String>,
     pub tags: Vec<String>,
+    pub remark: Option<String>,
+    /// Detected OS type (probed after first connection).
+    #[serde(default)]
+    pub os_type: Option<String>,
     pub status: SshServerStatus,
+    /// Connection timeout in milliseconds (default: 10000).
+    #[serde(default = "default_connect_timeout")]
+    pub connect_timeout_ms: u32,
+    /// Heartbeat interval in milliseconds (default: 30000, 0 = disabled).
+    #[serde(default = "default_heartbeat")]
+    pub heartbeat_ms: u32,
+    /// Default directory to open on connect.
+    pub default_path: Option<String>,
+    /// Script to run after connection is established.
+    pub init_script: Option<String>,
+    /// Jump host (ProxyJump) configuration.
+    pub jump_host: Option<JumpHost>,
+    /// Proxy configuration.
+    pub proxy: Option<ProxyConfig>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_connected_at: Option<DateTime<Utc>>,
+}
+
+fn default_connect_timeout() -> u32 {
+    10000
+}
+fn default_heartbeat() -> u32 {
+    30000
+}
+
+/// Jump host (ProxyJump) configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum JumpHost {
+    /// Reference an existing SSH server as jump host.
+    Existing { server_id: Id },
+    /// Manual jump host configuration.
+    Manual {
+        host: String,
+        port: Option<u16>,
+        username: String,
+        auth_method: SshAuthMethod,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        password: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        private_key: Option<String>,
+    },
+}
+
+/// Proxy configuration for SSH connections.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyConfig {
+    pub enabled: bool,
+    /// Proxy address, e.g. "socks5://127.0.0.1:1080" or "http://proxy:8080"
+    pub address: String,
 }
 
 /// SSH authentication method.
@@ -39,6 +91,9 @@ pub enum SshAuthMethod {
         #[serde(default)]
         passphrase_credential_id: Option<Id>,
     },
+    /// Use system SSH behavior: try default key files (~/.ssh/id_ed25519, id_rsa, etc.)
+    /// and ssh-agent. Used when no explicit key is configured.
+    Agent,
 }
 
 /// SSH server status.
@@ -61,6 +116,13 @@ pub struct CreateSshServerRequest {
     pub auth_method: SshAuthMethod,
     pub group: Option<String>,
     pub tags: Option<Vec<String>>,
+    pub remark: Option<String>,
+    pub connect_timeout_ms: Option<u32>,
+    pub heartbeat_ms: Option<u32>,
+    pub default_path: Option<String>,
+    pub init_script: Option<String>,
+    pub jump_host: Option<JumpHost>,
+    pub proxy: Option<ProxyConfig>,
     /// Raw password (will be stored securely, not kept in plain text).
     pub password: Option<String>,
     /// Raw private key content (will be stored securely).
@@ -77,6 +139,13 @@ pub struct UpdateSshServerRequest {
     pub auth_method: Option<SshAuthMethod>,
     pub group: Option<String>,
     pub tags: Option<Vec<String>>,
+    pub remark: Option<String>,
+    pub connect_timeout_ms: Option<u32>,
+    pub heartbeat_ms: Option<u32>,
+    pub default_path: Option<String>,
+    pub init_script: Option<String>,
+    pub jump_host: Option<JumpHost>,
+    pub proxy: Option<ProxyConfig>,
     pub password: Option<String>,
     pub private_key: Option<String>,
 }
@@ -90,6 +159,10 @@ pub struct PortMapping {
     pub remote_host: String,
     pub remote_port: u16,
     pub local_port: u16,
+    /// Automatically start this mapping when the app launches.
+    #[serde(default)]
+    pub auto_start: bool,
+    pub remark: Option<String>,
     pub status: PortMappingStatus,
     pub created_at: DateTime<Utc>,
 }
@@ -112,6 +185,9 @@ pub struct CreatePortMappingRequest {
     pub remote_host: String,
     pub remote_port: u16,
     pub local_port: u16,
+    #[serde(default)]
+    pub auto_start: bool,
+    pub remark: Option<String>,
 }
 
 /// Service exposure definition.
@@ -203,7 +279,15 @@ mod tests {
             },
             group: Some("dev".to_string()),
             tags: vec!["linux".to_string()],
+            remark: None,
+            os_type: None,
             status: SshServerStatus::Disconnected,
+            connect_timeout_ms: 10000,
+            heartbeat_ms: 30000,
+            default_path: None,
+            init_script: None,
+            jump_host: None,
+            proxy: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
             last_connected_at: None,
@@ -223,6 +307,8 @@ mod tests {
             remote_host: "localhost".to_string(),
             remote_port: 5432,
             local_port: 15432,
+            auto_start: false,
+            remark: None,
             status: PortMappingStatus::Stopped,
             created_at: Utc::now(),
         };

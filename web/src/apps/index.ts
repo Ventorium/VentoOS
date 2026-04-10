@@ -20,8 +20,7 @@ import { monitorManifest } from './monitor/manifest'
 import { officeEditorManifest } from './office-editor/manifest'
 import { redisManifest } from './redis/manifest'
 import { settingsManifest } from './settings/manifest'
-import { sshManifest } from './ssh/manifest'
-import { terminalManifest } from './terminal/manifest'
+import { superTerminalManifest } from './super-terminal/manifest'
 import { textEditorManifest } from './text-editor/manifest'
 
 export const builtinManifests: AppManifest[] = [
@@ -29,8 +28,7 @@ export const builtinManifests: AppManifest[] = [
   databaseManifest,
   redisManifest,
   explorerManifest,
-  sshManifest,
-  terminalManifest,
+  superTerminalManifest,
   aiAssistantManifest,
   monitorManifest,
   settingsManifest,
@@ -61,7 +59,6 @@ export {
   officeEditorManifest,
   redisManifest,
   settingsManifest,
-  sshManifest,
-  terminalManifest,
+  superTerminalManifest,
   textEditorManifest
 }

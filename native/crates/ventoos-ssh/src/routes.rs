@@ -85,6 +85,8 @@ impl AppPlugin for SshPlugin {
             // SSH config import & key file listing
             .route("/api/ssh/config-hosts", get(list_ssh_config_hosts))
             .route("/api/ssh/key-files", get(list_ssh_key_files))
+            // Shell detection
+            .route("/api/ssh/detect-shells", get(detect_shells))
             .with_state(self.state.clone())
     }
 }
@@ -319,6 +321,21 @@ async fn stop_service_exposure(
 
 // --- SSH Config Import & Key Files ---
 
+/// Default SSH private key file names, in the same order SSH client tries them.
+const DEFAULT_SSH_KEY_NAMES: &[&str] = &["id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"];
+
+/// Detect the first existing default private key in `~/.ssh/`.
+fn detect_default_key(home: &str) -> Option<String> {
+    let ssh_dir = std::path::Path::new(home).join(".ssh");
+    for name in DEFAULT_SSH_KEY_NAMES {
+        let path = ssh_dir.join(name);
+        if path.exists() {
+            return Some(path.to_string_lossy().to_string());
+        }
+    }
+    None
+}
+
 /// Parsed SSH config host entry
 #[derive(serde::Serialize)]
 struct SshConfigHost {
@@ -327,6 +344,10 @@ struct SshConfigHost {
     user: Option<String>,
     port: Option<u16>,
     identity_file: Option<String>,
+    /// Auto-detected default key when no IdentityFile is set in config.
+    auto_detected_key: Option<String>,
+    /// ProxyJump host alias (if configured).
+    proxy_jump: Option<String>,
 }
 
 async fn list_ssh_config_hosts() -> impl IntoResponse {
@@ -358,6 +379,8 @@ async fn list_ssh_config_hosts() -> impl IntoResponse {
                         user: None,
                         port: None,
                         identity_file: None,
+                        auto_detected_key: None,
+                        proxy_jump: None,
                     });
                 } else if let Some(entry) = current.as_mut() {
                     // Parse key-value (split at first whitespace or '=')
@@ -381,6 +404,8 @@ async fn list_ssh_config_hosts() -> impl IntoResponse {
                             value
                         };
                         entry.identity_file = Some(expanded);
+                    } else if lower.starts_with("proxyjump") {
+                        entry.proxy_jump = Some(value);
                     }
                 }
             }
@@ -389,6 +414,12 @@ async fn list_ssh_config_hosts() -> impl IntoResponse {
                 && !entry.alias.contains('*')
             {
                 hosts.push(entry);
+            }
+            // Auto-detect default keys for hosts without explicit IdentityFile
+            for host in &mut hosts {
+                if host.identity_file.is_none() {
+                    host.auto_detected_key = detect_default_key(&home);
+                }
             }
             Json(ApiResponse::ok(hosts)).into_response()
         }
@@ -437,4 +468,72 @@ async fn list_ssh_key_files() -> impl IntoResponse {
     // Sort: private keys first, then public
     files.sort_by(|a, b| a.is_public.cmp(&b.is_public).then(a.name.cmp(&b.name)));
     Json(ApiResponse::ok(files))
+}
+
+// --- Shell Detection ---
+
+/// Detected shell info.
+#[derive(serde::Serialize)]
+struct DetectedShell {
+    name: String,
+    path: String,
+    is_default: bool,
+}
+
+/// Detect available shells on the local system.
+async fn detect_shells() -> impl IntoResponse {
+    let mut shells: Vec<DetectedShell> = Vec::new();
+    let current_shell = std::env::var("SHELL").unwrap_or_default();
+
+    // On macOS/Linux, parse /etc/shells
+    if let Ok(content) = tokio::fs::read_to_string("/etc/shells").await {
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            let path = std::path::Path::new(trimmed);
+            if path.exists() {
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let is_default = trimmed == current_shell;
+                shells.push(DetectedShell {
+                    name,
+                    path: trimmed.to_string(),
+                    is_default,
+                });
+            }
+        }
+    }
+
+    // If no shells found (e.g. /etc/shells not available), try common paths
+    if shells.is_empty() {
+        let common = ["/bin/bash", "/bin/sh", "/bin/zsh", "/usr/bin/fish"];
+        for path_str in &common {
+            let path = std::path::Path::new(path_str);
+            if path.exists() {
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let is_default = *path_str == current_shell;
+                shells.push(DetectedShell {
+                    name,
+                    path: path_str.to_string(),
+                    is_default,
+                });
+            }
+        }
+    }
+
+    // Ensure the default shell is marked
+    if !shells.iter().any(|s| s.is_default) {
+        if let Some(first) = shells.first_mut() {
+            first.is_default = true;
+        }
+    }
+
+    Json(ApiResponse::ok(shells))
 }
