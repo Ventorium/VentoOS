@@ -13,12 +13,13 @@
  *   />
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronRight, File, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
+import { ChevronRight, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VfsMount, VfsNode } from '@/apps/explorer/api'
 import { vfsApi } from '@/apps/explorer/api'
 import type { LocalFsNode } from '@/infra/api'
 import { apiClient } from '@/infra/api'
+import { getFileIconByName } from '@/kernel'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -269,7 +270,16 @@ function FilePickerModal({
                       style={{ flexShrink: 0, color: isSelected ? '#fff' : 'var(--vos-accent-primary)', opacity: 0.9 }}
                     />
                   ) : (
-                    <File size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
+                    (() => {
+                      const iconInfo = getFileIconByName(node.name)
+                      const IconComp = iconInfo.icon
+                      return (
+                        <IconComp
+                          size={14}
+                          style={{ flexShrink: 0, color: isSelected ? '#fff' : iconInfo.color }}
+                        />
+                      )
+                    })()
                   )}
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {node.name}
