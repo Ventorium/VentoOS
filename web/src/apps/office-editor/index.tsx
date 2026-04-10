@@ -57,6 +57,8 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
   const [errorMsg, setErrorMsg] = useState('')
   const [sheetData, setSheetData] = useState<SheetData | null>(null)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  // Store blob for deferred DOCX rendering after container mounts
+  const [docxBlob, setDocxBlob] = useState<Blob | null>(null)
 
   const getFileExt = (name: string) => {
     const dot = name.lastIndexOf('.')
@@ -69,6 +71,37 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
     if (!resp.ok) throw new Error(`Failed to fetch: ${resp.statusText}`)
     return resp.blob()
   }, [mountId, node])
+
+  // Render DOCX after container is mounted via mode change
+  useEffect(() => {
+    if (mode !== 'docx' || !docxBlob) return
+    let cancelled = false
+    ;(async () => {
+      // Wait for next frame to ensure ref is populated
+      await new Promise(r => requestAnimationFrame(r))
+      if (cancelled || !docxContainerRef.current) return
+      try {
+        const { renderAsync } = await import('docx-preview')
+        if (!cancelled && docxContainerRef.current) {
+          await renderAsync(docxBlob, docxContainerRef.current, undefined, {
+            className: 'vos-docx-viewer',
+            inWrapper: true,
+            ignoreWidth: false,
+            ignoreHeight: false,
+            ignoreFonts: false,
+            breakPages: true,
+            ignoreLastRenderedPageBreak: true,
+            experimental: false,
+            trimXmlDeclaration: true,
+            useBase64URL: true
+          })
+        }
+      } catch (err) {
+        console.error('DOCX render error:', err)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [mode, docxBlob])
 
   const loadDocument = useCallback(async () => {
     if (!mountId || !node) {
@@ -84,23 +117,9 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
       setBlobUrl(url)
 
       if (ext === 'docx' || ext === 'doc') {
+        // Store blob and set mode; rendering deferred to useEffect
+        setDocxBlob(blob)
         setMode('docx')
-        // Render DOCX using docx-preview
-        const { renderAsync } = await import('docx-preview')
-        if (docxContainerRef.current) {
-          await renderAsync(blob, docxContainerRef.current, undefined, {
-            className: 'vos-docx-viewer',
-            inWrapper: true,
-            ignoreWidth: false,
-            ignoreHeight: false,
-            ignoreFonts: false,
-            breakPages: true,
-            ignoreLastRenderedPageBreak: true,
-            experimental: false,
-            trimXmlDeclaration: true,
-            useBase64URL: true
-          })
-        }
       } else if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
         // Parse spreadsheet
         const text = ext === 'csv' ? await blob.text() : null
@@ -114,9 +133,6 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
         } else {
           // XLSX binary parsing via ArrayBuffer
           const buffer = await blob.arrayBuffer()
-          // Simple XLSX parsing — extract shared strings and sheet data
-          // For a full implementation, use SheetJS
-          // For now, show as binary with download option
           try {
             const { parseXlsx } = await import('./xlsx-parser')
             const data = parseXlsx(buffer)
