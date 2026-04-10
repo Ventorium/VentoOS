@@ -468,7 +468,14 @@ impl VfsManager {
             if !show_hidden && name.starts_with('.') {
                 continue;
             }
-            let metadata = entry.metadata().await.ok();
+            // Use timeout to avoid hanging on unresponsive FUSE mount points
+            let metadata = tokio::time::timeout(
+                std::time::Duration::from_millis(500),
+                entry.metadata(),
+            )
+            .await
+            .ok()
+            .and_then(|r| r.ok());
             let is_dir = metadata.as_ref().is_some_and(std::fs::Metadata::is_dir);
             let size = metadata
                 .as_ref()
@@ -1513,9 +1520,13 @@ impl VfsManager {
     async fn stat_local(&self, root: &str, rel_path: &str) -> Result<VfsNode, String> {
         let root_path = std::path::Path::new(root);
         let target = Self::resolve_local_path(root_path, rel_path)?;
-        let metadata = tokio::fs::metadata(&target)
-            .await
-            .map_err(|e| format!("stat failed: {e}"))?;
+        let metadata = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            tokio::fs::metadata(&target),
+        )
+        .await
+        .map_err(|_| "stat timed out (possible unresponsive mount)".to_string())?
+        .map_err(|e| format!("stat failed: {e}"))?;
 
         let name = target
             .file_name()
