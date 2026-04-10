@@ -334,7 +334,6 @@ pub(crate) async fn run_fuse_mount(
         let mut config = fuser::Config::default();
         config.mount_options = vec![
             MountOption::FSName(format!("ventoos-{mount_id}")),
-            MountOption::AutoUnmount,
             MountOption::DefaultPermissions,
         ];
         fuser::mount2(fs, &mount_point, &config)

@@ -16,7 +16,7 @@ chrono = { workspace = true }
 
 # FUSE for Linux and macOS
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
-fuser = { version = "0.17" }
+fuser = { version = "0.17", features = ["macos-no-mount"] }
 libc = "0.2"
 
 [dev-dependencies]

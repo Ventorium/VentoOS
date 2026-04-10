@@ -3228,12 +3228,34 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                   {m.local_mount?.enabled && (
                     <button
                       type="button"
-                      className="vos-btn-reset flex-shrink-0"
-                      title={isFuseMounted ? `已挂载到 ${fuseStatus?.mount_point ?? ''}，点击卸载` : '点击挂载到本机'}
-                      style={{ color: isFuseMounted ? 'var(--vos-accent-success)' : isActive ? 'rgba(255,255,255,0.5)' : 'var(--vos-text-tertiary)' }}
+                      className="vos-btn-reset flex-shrink-0 flex items-center gap-0.5"
+                      title={
+                        fuseStatus?.error
+                          ? `挂载失败: ${fuseStatus.error}，点击重试`
+                          : isFuseMounted
+                            ? `已挂载到 ${fuseStatus?.mount_point ?? ''}，点击卸载`
+                            : '点击挂载到本机'
+                      }
                       onClick={handleFuseToggle}
                     >
-                      {isFuseMounted ? <Link size={10} /> : <Unlink size={10} />}
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          background: fuseStatus?.error
+                            ? 'var(--vos-accent-danger, #ef4444)'
+                            : isFuseMounted
+                              ? 'var(--vos-accent-success, #22c55e)'
+                              : isActive
+                                ? 'rgba(255,255,255,0.3)'
+                                : 'var(--vos-text-tertiary)',
+                          flexShrink: 0,
+                        }}
+                      />
+                      {isFuseMounted
+                        ? <Link size={11} style={{ color: isActive ? '#fff' : 'var(--vos-accent-success, #22c55e)' }} />
+                        : <Unlink size={11} style={{ color: isActive ? 'rgba(255,255,255,0.5)' : 'var(--vos-text-tertiary)' }} />}
                     </button>
                   )}
                   <button
@@ -3313,9 +3335,18 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             <MountForm
               mountToEdit={editingMount}
               onClose={() => setEditingMount(null)}
-              onUpdated={m => {
+              onUpdated={async m => {
                 setMounts(p => p.map(x => (x.id === m.id ? m : x)))
                 setEditingMount(null)
+                // Auto-mount if local_mount was just enabled
+                if (m.local_mount?.enabled && !localMountStatuses[m.id]?.mounted) {
+                  try {
+                    const res = await vfsApi.localMountVfs(m.id)
+                    setLocalMountStatuses(s => ({ ...s, [m.id]: res.data }))
+                  } catch (e) {
+                    console.error('Auto-mount after edit failed:', e)
+                  }
+                }
                 reload()
               }}
             />
