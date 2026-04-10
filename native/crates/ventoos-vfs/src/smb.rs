@@ -457,10 +457,11 @@ async fn list_share_directory(
     show_hidden: bool,
     share_name: &str,
 ) -> Result<Vec<VfsNode>, String> {
+    // SMB paths use backslash separators. Strip leading slash and convert.
     let normalized_path = if share_path == "/" {
         String::new()
     } else {
-        share_path.trim_start_matches('/').to_string()
+        share_path.trim_start_matches('/').replace('/', "\\")
     };
 
     let mut create = CreateRequest::from_path(&normalized_path);
@@ -473,51 +474,59 @@ async fn list_share_directory(
         .connection_mut()
         .create(&create)
         .await
-        .map_err(|e| format!("SMB root open failed: {e}"))?;
+        .map_err(|e| format!("SMB dir open failed: {e}"))?;
     let file_id = response.file_id;
 
     let mut req = QueryDirectoryRequest::for_pattern(file_id, "*", 4096);
     let mut nodes = Vec::new();
 
     loop {
-        let response = share
-            .connection_mut()
-            .query_directory(&req)
-            .await
-            .map_err(|e| format!("SMB list failed: {e}"))?;
-        let batch = response
-            .directory_entries()
-            .map_err(|e| format!("SMB list failed: {e}"))?
-            .into_iter()
-            .filter(|entry| entry.file_name != "." && entry.file_name != "..")
-            .map(|entry| {
-                let is_dir = entry
-                    .file_attributes
-                    .contains(smolder_proto::smb::smb2::FileAttributes::DIRECTORY);
-                VfsNode {
-                    path: String::new(),
-                    name: entry.file_name,
-                    is_dir,
-                    size: if is_dir {
-                        None
-                    } else {
-                        Some(entry.end_of_file)
-                    },
-                    modified: None,
-                    permissions: None,
+        // Some servers return STATUS_NO_MORE_FILES instead of an empty response
+        let response = match share.connection_mut().query_directory(&req).await {
+            Ok(r) => r,
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("NO_MORE_FILES")
+                    || msg.contains("no more files")
+                    || msg.contains("0x80000006")
+                {
+                    break;
                 }
-            })
-            .collect::<Vec<_>>();
+                let _ = share
+                    .connection_mut()
+                    .close(&CloseRequest { flags: 0, file_id })
+                    .await;
+                return Err(format!("SMB list failed: {e}"));
+            }
+        };
+        let all_entries = response
+            .directory_entries()
+            .map_err(|e| format!("SMB list failed: {e}"))?;
 
-        if batch.is_empty() {
+        // Break only when the server returns no entries at all (truly done).
+        // Do NOT break when entries only contain "." and ".." — more batches may follow.
+        if all_entries.is_empty() {
             break;
         }
 
-        for node in batch {
-            if !show_hidden && node.name.starts_with('.') {
+        for entry in all_entries {
+            if entry.file_name == "." || entry.file_name == ".." {
                 continue;
             }
-            nodes.push(node);
+            if !show_hidden && entry.file_name.starts_with('.') {
+                continue;
+            }
+            let is_dir = entry
+                .file_attributes
+                .contains(smolder_proto::smb::smb2::FileAttributes::DIRECTORY);
+            nodes.push(VfsNode {
+                path: String::new(),
+                name: entry.file_name,
+                is_dir,
+                size: if is_dir { None } else { Some(entry.end_of_file) },
+                modified: None,
+                permissions: None,
+            });
         }
 
         req = QueryDirectoryRequest::for_pattern(file_id, "*", 4096);
