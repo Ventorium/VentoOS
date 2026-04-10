@@ -12,7 +12,7 @@
  * - AI status animated icon
  */
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
-import { Grid3X3, Sparkles } from 'lucide-react'
+import { Grid3X3 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   type AppManifest,
@@ -25,11 +25,9 @@ import {
   useWindowStore
 } from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
-import { useAISidePanelStore } from '@/shell/AISidePanel/store'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { tokens } from '@/theme'
-import { type AIStatus, useAIStatusStore } from './aiStatusStore'
 import { useDockPinsStore } from './dockPinsStore'
 import { useDockPositionStore } from './dockPositionStore'
 
@@ -172,46 +170,6 @@ function DockSeparator({ iconSize, isHorizontal }: { iconSize: number; isHorizon
   )
 }
 
-/* ---- AI Status Icon ---- */
-function AIStatusIcon({ size }: { size: number }) {
-  const status = useAIStatusStore(s => s.status)
-
-  const iconStyle: React.CSSProperties = {
-    width: size * 0.5,
-    height: size * 0.5
-  }
-
-  const animationClass = {
-    idle: '',
-    thinking: 'vos-ai-pulse',
-    executing: 'vos-ai-spin',
-    error: 'vos-ai-error-blink'
-  }[status]
-
-  return (
-    <div
-      className={animationClass}
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(145deg, #7c3aed 0%, #4f46e5 100%)',
-        color: '#fff'
-      }}
-    >
-      <Sparkles
-        style={{
-          ...iconStyle,
-          color: status === 'error' ? 'var(--vos-accent-danger, #ff3b30)' : '#fff',
-          opacity: 0.85
-        }}
-      />
-    </div>
-  )
-}
-
 /* ---- Minimized Thumbnail ---- */
 function MinimizedThumbnail({
   win,
@@ -264,7 +222,6 @@ export default function Dock() {
   const focusWindowFn = focusWindow
   const restoreWindowFn = restoreWindow
   const toggleLaunchpad = useLaunchpadStore(s => s.toggle)
-  const toggleAI = useAISidePanelStore(s => s.toggle)
   const showCtxMenu = useContextMenuStore(s => s.show)
   const pinnedApps = useDockPinsStore(s => s.pinnedApps)
   const pinApp = useDockPinsStore(s => s.pin)
@@ -578,19 +535,7 @@ export default function Dock() {
             </>
           )}
 
-          {apps.length > 0 && <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />}
-
-          {/* AI Assistant */}
-          <DockIcon
-            label="AI 助手"
-            icon={<AIStatusIcon size={iconSize} />}
-            appId="ai-assistant"
-            onClick={toggleAI}
-            mouseX={mouseX}
-            iconSize={iconSize}
-            magnification={magnification}
-            isHorizontal={isHorizontal}
-          />
+          
         </div>
       </div>
     </>
