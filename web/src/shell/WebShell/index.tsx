@@ -14,10 +14,11 @@ import { useAuthStore } from '@/services/auth'
 
 interface WebShellProps {
   target?: string
+  cwd?: string
   onClose?: () => void
 }
 
-export default function WebShell({ target = 'local', onClose }: WebShellProps) {
+export default function WebShell({ target = 'local', cwd, onClose }: WebShellProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -71,7 +72,10 @@ export default function WebShell({ target = 'local', onClose }: WebShellProps) {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsBase = `${wsProtocol}//${window.location.host}`
     const token = useAuthStore.getState().token ?? ''
-    const url = `${wsBase}/ws/shell?target=${encodeURIComponent(target)}&token=${encodeURIComponent(token)}`
+    let url = `${wsBase}/ws/shell?target=${encodeURIComponent(target)}&token=${encodeURIComponent(token)}`
+    if (cwd) {
+      url += `&cwd=${encodeURIComponent(cwd)}`
+    }
 
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -131,7 +135,7 @@ export default function WebShell({ target = 'local', onClose }: WebShellProps) {
       term.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target])
+  }, [target, cwd])
 
   return (
     <div

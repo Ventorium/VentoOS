@@ -15,6 +15,7 @@ interface Tab {
   id: string
   title: string
   target: string
+  cwd?: string
 }
 
 let tabCounter = 0
@@ -28,12 +29,13 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
   const win = useWindowStore(s => s.windows.find(w => w.id === _props.windowId))
   const sshTarget = win?.appState?.sshTarget as string | undefined
   const sshName = win?.appState?.sshName as string | undefined
+  const initialCwd = win?.appState?.cwd as string | undefined
 
   const [tabs, setTabs] = useState<Tab[]>(() => {
     const id = nextTabId()
     const title = sshName ? `SSH: ${sshName}` : 'Shell 1'
     const target = sshTarget ?? 'local'
-    return [{ id, title, target }]
+    return [{ id, title, target, cwd: initialCwd }]
   })
   const [activeTab, setActiveTab] = useState(tabs[0].id)
   const [fontSize, setFontSize] = useState(13)
@@ -207,7 +209,7 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
                 </div>
               }
             >
-              <WebShell target={tab.target} />
+              <WebShell target={tab.target} cwd={tab.cwd} />
             </Suspense>
           </div>
         ))}

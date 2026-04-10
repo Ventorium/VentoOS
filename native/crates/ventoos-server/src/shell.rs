@@ -18,6 +18,8 @@ pub struct ShellQuery {
     pub target: Option<String>,
     pub cols: Option<u16>,
     pub rows: Option<u16>,
+    /// Initial working directory for local shell.
+    pub cwd: Option<String>,
 }
 
 /// WebSocket upgrade handler for `WebShell`.
@@ -29,8 +31,9 @@ pub async fn ws_shell_handler(
     let cols = query.cols.unwrap_or(80);
     let rows = query.rows.unwrap_or(24);
     let target = query.target.unwrap_or_else(|| "local".to_string());
+    let cwd = query.cwd;
 
-    ws.on_upgrade(move |socket| handle_shell(socket, target, cols, rows, state))
+    ws.on_upgrade(move |socket| handle_shell(socket, target, cols, rows, cwd, state))
 }
 
 async fn handle_shell(
@@ -38,10 +41,11 @@ async fn handle_shell(
     target: String,
     cols: u16,
     rows: u16,
+    cwd: Option<String>,
     state: AppState,
 ) {
     if target == "local" {
-        handle_local_shell(&mut socket, cols, rows).await;
+        handle_local_shell(&mut socket, cols, rows, cwd).await;
     } else {
         // SSH shell target — parse server_id
         match uuid::Uuid::parse_str(&target) {
@@ -59,7 +63,7 @@ async fn handle_shell(
     }
 }
 
-async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16) {
+async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16, cwd: Option<String>) {
     info!("Starting local shell session ({}x{})", cols, rows);
 
     let pty_system = native_pty_system();
@@ -85,6 +89,21 @@ async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16) {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
     let mut cmd = CommandBuilder::new(&shell);
     cmd.env("TERM", "xterm-256color");
+    // Set initial working directory if specified
+    if let Some(ref dir) = cwd {
+        let expanded = if dir.starts_with('~') {
+            if let Ok(home) = std::env::var("HOME") {
+                std::path::PathBuf::from(home).join(dir.strip_prefix("~/").unwrap_or(&dir[1..]))
+            } else {
+                std::path::PathBuf::from(dir)
+            }
+        } else {
+            std::path::PathBuf::from(dir)
+        };
+        if expanded.is_dir() {
+            cmd.cwd(&expanded);
+        }
+    }
 
     let mut child = match pair.slave.spawn_command(cmd) {
         Ok(child) => child,
