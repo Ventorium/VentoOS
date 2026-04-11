@@ -20,6 +20,8 @@ pub struct ShellQuery {
     pub rows: Option<u16>,
     /// Initial working directory for local shell.
     pub cwd: Option<String>,
+    /// Shell executable path (e.g. /bin/zsh). Falls back to $SHELL env var.
+    pub shell: Option<String>,
 }
 
 /// WebSocket upgrade handler for `WebShell`.
@@ -32,8 +34,9 @@ pub async fn ws_shell_handler(
     let rows = query.rows.unwrap_or(24);
     let target = query.target.unwrap_or_else(|| "local".to_string());
     let cwd = query.cwd;
+    let shell = query.shell;
 
-    ws.on_upgrade(move |socket| handle_shell(socket, target, cols, rows, cwd, state))
+    ws.on_upgrade(move |socket| handle_shell(socket, target, cols, rows, cwd, shell, state))
 }
 
 async fn handle_shell(
@@ -42,10 +45,11 @@ async fn handle_shell(
     cols: u16,
     rows: u16,
     cwd: Option<String>,
+    shell: Option<String>,
     state: AppState,
 ) {
     if target == "local" {
-        handle_local_shell(&mut socket, cols, rows, cwd).await;
+        handle_local_shell(&mut socket, cols, rows, cwd, shell).await;
     } else {
         // SSH shell target — parse server_id
         match uuid::Uuid::parse_str(&target) {
@@ -63,7 +67,7 @@ async fn handle_shell(
     }
 }
 
-async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16, cwd: Option<String>) {
+async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16, cwd: Option<String>, shell_override: Option<String>) {
     info!("Starting local shell session ({}x{})", cols, rows);
 
     let pty_system = native_pty_system();
@@ -85,8 +89,10 @@ async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16, cwd: O
         }
     };
 
-    // Determine shell
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    // Determine shell: prefer explicit override, then $SHELL env, then /bin/sh
+    let shell = shell_override
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()));
     let mut cmd = CommandBuilder::new(&shell);
     cmd.env("TERM", "xterm-256color");
     // Set initial working directory if specified

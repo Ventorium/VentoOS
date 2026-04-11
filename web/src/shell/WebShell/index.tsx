@@ -19,10 +19,11 @@ interface WebShellProps {
   target?: string
   paneId?: string
   cwd?: string
+  shell?: string
   onClose?: () => void
 }
 
-export default function WebShell({ target = 'local', paneId, cwd, onClose }: WebShellProps) {
+export default function WebShell({ target = 'local', paneId, cwd, shell, onClose }: WebShellProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -96,6 +97,9 @@ export default function WebShell({ target = 'local', paneId, cwd, onClose }: Web
     let url = `${wsBase}/ws/shell?target=${encodeURIComponent(target)}&token=${encodeURIComponent(token)}`
     if (cwd) {
       url += `&cwd=${encodeURIComponent(cwd)}`
+    }
+    if (shell) {
+      url += `&shell=${encodeURIComponent(shell)}`
     }
 
     const ws = new WebSocket(url)

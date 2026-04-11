@@ -9,9 +9,11 @@
  * │      │                                              │
  * └──────┴──────────────────────────────────────────────┘
  */
-import { ChevronLeft, ChevronRight, Globe, Network, Server, Settings, TerminalSquare, X, Zap } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Folder, Globe, Network, Plus, Server, Settings, TerminalSquare, X, Zap } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStorage } from '@/kernel'
+import { VfsFilePickerModal } from '@/shell/FilePicker'
 import { superTerminalApi } from './api'
 import { useSuperTerminalStore } from './store'
 import type { CustomCommand, NavTab } from './types'
@@ -51,7 +53,8 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
     leftPanelTab,
     setLeftPanelTab,
     setCommands,
-    setTerminalSettings
+    setTerminalSettings,
+    terminalSettings
   } = useSuperTerminalStore()
 
   const [leftPanelWidth] = useState(44)
@@ -107,7 +110,21 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
   const activeSession = sessionTabs.find(t => t.id === activeSessionTabId)
 
   return (
-    <div className="flex h-full" style={{ background: '#0e0e0e', color: '#d4d4d4' }}>
+    <div className="flex h-full" style={{ background: terminalSettings.backgroundColor ?? '#0e0e0e', color: '#d4d4d4', position: 'relative' }}>
+      {terminalSettings.backgroundImage && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${terminalSettings.backgroundImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: 1 - (terminalSettings.backgroundOpacity ?? 1),
+            pointerEvents: 'none',
+            zIndex: 0
+          }}
+        />
+      )}
       {/* Left narrow panel */}
       <div
         className="flex flex-col flex-shrink-0"
@@ -355,6 +372,8 @@ interface LeftPanelContentProps {
 }
 
 function LeftPanelContent({ tab, onClose, storage }: LeftPanelContentProps) {
+  const [showAdd, setShowAdd] = useState(false)
+
   return (
     <div
       className="flex flex-col flex-shrink-0"
@@ -371,17 +390,34 @@ function LeftPanelContent({ tab, onClose, storage }: LeftPanelContentProps) {
         <span className="text-xs font-medium" style={{ color: '#ccc' }}>
           {tab === 'commands' ? '常用命令' : '终端设置'}
         </span>
-        <button
-          type="button"
-          className="bg-transparent border-none cursor-pointer p-0"
-          style={{ color: '#888', lineHeight: 0 }}
-          onClick={onClose}
-        >
-          <X size={14} />
-        </button>
+        <div className="flex items-center gap-1">
+          {tab === 'commands' && (
+            <button
+              type="button"
+              className="bg-transparent border-none cursor-pointer p-0"
+              style={{ color: '#888', lineHeight: 0 }}
+              onClick={() => setShowAdd(true)}
+              title="添加命令"
+            >
+              <Plus size={14} />
+            </button>
+          )}
+          <button
+            type="button"
+            className="bg-transparent border-none cursor-pointer p-0"
+            style={{ color: '#888', lineHeight: 0 }}
+            onClick={onClose}
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto p-2">
-        {tab === 'commands' ? <CommandsPanel storage={storage} /> : <SettingsPanel storage={storage} />}
+        {tab === 'commands' ? (
+          <CommandsPanel storage={storage} showAdd={showAdd} setShowAdd={setShowAdd} />
+        ) : (
+          <SettingsPanel storage={storage} />
+        )}
       </div>
     </div>
   )
@@ -389,14 +425,22 @@ function LeftPanelContent({ tab, onClose, storage }: LeftPanelContentProps) {
 
 // ── Commands Panel ────────────────────────────────────────────────────────
 
-function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> }) {
+function CommandsPanel({
+  storage,
+  showAdd,
+  setShowAdd
+}: {
+  storage: ReturnType<typeof useAppStorage>
+  showAdd: boolean
+  setShowAdd: (v: boolean) => void
+}) {
   const { commands, addCommand, removeCommand, updateCommand, setCommands } = useSuperTerminalStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editCmd, setEditCmd] = useState('')
   const [newName, setNewName] = useState('')
   const [newCmd, setNewCmd] = useState('')
-  const [showAdd, setShowAdd] = useState(false)
+  const [cmdContextMenu, setCmdContextMenu] = useState<{ cmd: CustomCommand; x: number; y: number } | null>(null)
 
   const persist = useCallback(
     (cmds: typeof commands) => {
@@ -444,7 +488,7 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
   const inputStyle: React.CSSProperties = { background: '#252525', color: '#d4d4d4', borderRadius: 4 }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" style={{ position: 'relative' }}>
       {commands.map(cmd =>
         editingId === cmd.id ? (
           <div key={cmd.id} className="flex flex-col gap-1 p-2" style={{ background: '#1a1a1a', borderRadius: 6 }}>
@@ -487,14 +531,14 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
             key={cmd.id}
             className="flex items-start gap-1 px-2 py-1.5 cursor-pointer text-xs"
             style={{ borderRadius: 4 }}
-            onDoubleClick={() => startEdit(cmd)}
             onClick={() => handleCopy(cmd.command)}
             onContextMenu={e => {
               e.preventDefault()
-              handleDelete(cmd.id)
+              e.stopPropagation()
+              setCmdContextMenu({ cmd, x: e.clientX, y: e.clientY })
             }}
             onKeyDown={() => {}}
-            title={`${cmd.command}\n双击编辑 | 右键删除 | 点击复制`}
+            title={`${cmd.command}\n点击复制 | 右键菜单`}
           >
             <Zap size={11} style={{ color: '#666', flexShrink: 0, marginTop: 2 }} />
             <div className="flex flex-col min-w-0">
@@ -512,7 +556,7 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
         )
       )}
 
-      {showAdd ? (
+      {showAdd && (
         <div className="flex flex-col gap-1 p-2 mt-1" style={{ background: '#1a1a1a', borderRadius: 6 }}>
           <input
             className="text-xs px-2 py-1 border-none outline-none"
@@ -548,24 +592,108 @@ function CommandsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
             </button>
           </div>
         </div>
-      ) : (
-        <button
-          type="button"
-          className="text-xs px-2 py-1.5 border-none cursor-pointer mt-1"
-          style={{ background: 'transparent', color: '#1668dc', textAlign: 'left' }}
-          onClick={() => setShowAdd(true)}
-        >
-          + 添加命令
-        </button>
       )}
 
       {commands.length === 0 && !showAdd && (
         <div className="text-[11px] py-4 text-center" style={{ color: '#555' }}>
           暂无常用命令
           <br />
-          点击上方按钮添加
+          点击右上角 + 添加
         </div>
       )}
+
+      {/* Right-click context menu */}
+      {cmdContextMenu && (
+        <CmdContextMenu
+          x={cmdContextMenu.x}
+          y={cmdContextMenu.y}
+          onEdit={() => {
+            startEdit(cmdContextMenu.cmd)
+            setCmdContextMenu(null)
+          }}
+          onCopyCommand={() => {
+            handleCopy(cmdContextMenu.cmd.command)
+            setCmdContextMenu(null)
+          }}
+          onDelete={() => {
+            handleDelete(cmdContextMenu.cmd.id)
+            setCmdContextMenu(null)
+          }}
+          onDismiss={() => setCmdContextMenu(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Command Right-click Context Menu ─────────────────────────────────────
+
+function CmdContextMenu({
+  x,
+  y,
+  onEdit,
+  onCopyCommand,
+  onDelete,
+  onDismiss
+}: {
+  x: number
+  y: number
+  onEdit: () => void
+  onCopyCommand: () => void
+  onDelete: () => void
+  onDismiss: () => void
+}) {
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ x, y })
+
+  useEffect(() => {
+    if (!menuRef.current) return
+    const rect = menuRef.current.getBoundingClientRect()
+    const nx = x + rect.width > window.innerWidth ? window.innerWidth - rect.width - 4 : x
+    const ny = y + rect.height > window.innerHeight ? window.innerHeight - rect.height - 4 : y
+    setPos({ x: nx, y: ny })
+  }, [x, y])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onDismiss()
+      }
+    }
+    document.addEventListener('mousedown', handler, true)
+    return () => document.removeEventListener('mousedown', handler, true)
+  }, [onDismiss])
+
+  const itemStyle: React.CSSProperties = {
+    padding: '5px 14px',
+    cursor: 'pointer',
+    fontSize: 12,
+    color: '#d4d4d4',
+    whiteSpace: 'nowrap'
+  }
+
+  return (
+    <div
+      ref={menuRef}
+      style={{
+        position: 'fixed',
+        left: pos.x,
+        top: pos.y,
+        zIndex: 9999,
+        background: '#252525',
+        border: '1px solid #444',
+        borderRadius: 6,
+        padding: '4px 0',
+        minWidth: 140,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        userSelect: 'none'
+      }}
+    >
+      <div style={itemStyle} className="cmd-ctx-item" onClick={onEdit}>编辑</div>
+      <div style={itemStyle} className="cmd-ctx-item" onClick={onCopyCommand}>复制命令</div>
+      <div style={{ height: 1, background: '#3a3a3a', margin: '4px 0' }} />
+      <div style={{ ...itemStyle, color: '#f14c4c' }} className="cmd-ctx-item" onClick={onDelete}>删除</div>
+      <style>{`.cmd-ctx-item:hover { background: #333 !important; }`}</style>
     </div>
   )
 }
@@ -632,31 +760,136 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
     boxSizing: 'border-box'
   }
 
+  const [showVfsBgPicker, setShowVfsBgPicker] = useState(false)
+
   return (
     <div className="flex flex-col gap-2">
+      {/* ── 通用设置（全局背景） ── */}
+      <SettingGroup title="通用" />
+
+      {/* Background color */}
+      <div>
+        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+          背景颜色（全局）
+        </label>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input
+            type="color"
+            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
+            onChange={e => handleChange('backgroundColor', e.target.value)}
+            style={{ width: 28, height: 24, border: 'none', borderRadius: 3, cursor: 'pointer', padding: 0 }}
+          />
+          <input
+            style={{ ...inputStyle, flex: 1 }}
+            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
+            onChange={e => handleChange('backgroundColor', e.target.value)}
+            placeholder="#0d0d0d"
+          />
+        </div>
+      </div>
+
+      {/* Background opacity */}
+      <div>
+        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+          背景不透明度 ({Math.round((terminalSettings.backgroundOpacity ?? 1) * 100)}%)
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={Math.round((terminalSettings.backgroundOpacity ?? 1) * 100)}
+          onChange={e => handleChange('backgroundOpacity', Number(e.target.value) / 100)}
+          className="w-full"
+          style={{ accentColor: '#1668dc' }}
+        />
+      </div>
+
+      {/* Background image */}
+      <div>
+        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+          背景图片（全局）
+        </label>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input
+            style={{ ...inputStyle, flex: 1 }}
+            value={terminalSettings.backgroundImage ?? ''}
+            onChange={e => handleChange('backgroundImage', e.target.value || undefined)}
+            placeholder="https://... 或留空"
+          />
+          <button
+            type="button"
+            style={{
+              background: '#333',
+              color: '#aaa',
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer',
+              padding: '3px 7px',
+              fontSize: 11,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              flexShrink: 0
+            }}
+            onClick={() => setShowVfsBgPicker(true)}
+            title="从 VFS 选择图片"
+          >
+            <Folder size={12} />
+            浏览
+          </button>
+        </div>
+        {terminalSettings.backgroundImage && (
+          <div style={{ marginTop: 4 }}>
+            <img
+              src={terminalSettings.backgroundImage}
+              alt="背景预览"
+              style={{ width: '100%', height: 60, objectFit: 'cover', borderRadius: 4, opacity: 0.7 }}
+            />
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {showVfsBgPicker && (
+          <VfsFilePickerModal
+            key="vfs-bg-picker"
+            mode="file"
+            onConfirm={result => {
+              // Convert VFS result to an accessible URL
+              const filePath = result.isRemote
+                ? result.path.replace(`vfs://${result.mountId}`, '')
+                : result.path
+              const bgUrl = `/api/vfs/mounts/${result.mountId}/raw?path=${encodeURIComponent(filePath)}`
+              handleChange('backgroundImage', bgUrl)
+              setShowVfsBgPicker(false)
+            }}
+            onClose={() => setShowVfsBgPicker(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── 终端设置 ── */}
       <SettingGroup title="终端" />
 
-      {/* Shell program — only installed shells, no "auto-detect" */}
+      {/* Shell program — supports free text input + datalist suggestions */}
       <div>
         <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
           默认 Shell
         </label>
-        {shellsLoaded && shells.length === 0 ? (
-          <span className="text-[11px]" style={{ color: '#666' }}>未检测到可用的 Shell</span>
-        ) : (
-          <select
-            style={inputStyle}
-            value={terminalSettings.shell || ''}
-            onChange={e => handleChange('shell', e.target.value)}
-          >
-            {shells.map(s => (
-              <option key={s.path} value={s.path}>
-                {s.name}{s.is_default ? ' ★' : ''} — {s.path}
-              </option>
-            ))}
-          </select>
-        )}
+        <input
+          list="super-terminal-shells-list"
+          style={inputStyle}
+          value={terminalSettings.shell ?? ''}
+          onChange={e => handleChange('shell', e.target.value)}
+          placeholder={shellsLoaded && shells.length === 0 ? '未检测到可用的 Shell' : '输入或选择 Shell 路径…'}
+        />
+        <datalist id="super-terminal-shells-list">
+          {shells.map(s => (
+            <option key={s.path} value={s.path}>
+              {s.name}{s.is_default ? ' ★' : ''} — {s.path}
+            </option>
+          ))}
+        </datalist>
       </div>
 
       {/* Font size */}
@@ -701,56 +934,6 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
           min={100}
           max={100000}
           step={100}
-        />
-      </div>
-
-      {/* Background color */}
-      <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
-          背景颜色
-        </label>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input
-            type="color"
-            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
-            onChange={e => handleChange('backgroundColor', e.target.value)}
-            style={{ width: 28, height: 24, border: 'none', borderRadius: 3, cursor: 'pointer', padding: 0 }}
-          />
-          <input
-            style={{ ...inputStyle, flex: 1 }}
-            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
-            onChange={e => handleChange('backgroundColor', e.target.value)}
-            placeholder="#0d0d0d"
-          />
-        </div>
-      </div>
-
-      {/* Background opacity */}
-      <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
-          背景不透明度 ({Math.round((terminalSettings.backgroundOpacity ?? 1) * 100)}%)
-        </label>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={Math.round((terminalSettings.backgroundOpacity ?? 1) * 100)}
-          onChange={e => handleChange('backgroundOpacity', Number(e.target.value) / 100)}
-          className="w-full"
-          style={{ accentColor: '#1668dc' }}
-        />
-      </div>
-
-      {/* Background image */}
-      <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
-          背景图片 URL
-        </label>
-        <input
-          style={inputStyle}
-          value={terminalSettings.backgroundImage ?? ''}
-          onChange={e => handleChange('backgroundImage', e.target.value || undefined)}
-          placeholder="https://... 或留空"
         />
       </div>
 

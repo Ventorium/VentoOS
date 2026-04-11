@@ -22,6 +22,7 @@ const WebShell = lazy(() => import('@/shell/WebShell'))
 type LeafNode = { type: 'leaf'; id: string }
 type SplitNodeBranch = {
   type: 'split'
+  id: string
   direction: 'horizontal' | 'vertical'
   children: [SplitNode, SplitNode]
   ratio: number
@@ -202,7 +203,7 @@ function computeDividers(
     const divLeft = fmt(lPct + wPct * r, lPx + wPx * r - D / 2)
     const divTop = fmt(tPct, tPx)
     acc.push({
-      key: `h-${divLeft}`,
+      key: `h-${node.id}`,
       direction: 'horizontal',
       left: divLeft,
       top: divTop,
@@ -229,7 +230,7 @@ function computeDividers(
   } else {
     const divTop = fmt(tPct + hPct * r, tPx + hPx * r - D / 2)
     acc.push({
-      key: `v-${divTop}`,
+      key: `v-${node.id}`,
       direction: 'vertical',
       left: fmt(lPct, lPx),
       top: divTop,
@@ -507,6 +508,7 @@ function DragDivider({
 
 export default function LocalTerminal() {
   const commands = useSuperTerminalStore(s => s.commands)
+  const terminalSettings = useSuperTerminalStore(s => s.terminalSettings)
 
   const initialId = useRef(nextPaneId()).current
   const [paneIds, setPaneIds] = useState<string[]>([initialId])
@@ -586,6 +588,7 @@ export default function LocalTerminal() {
       const newPaneId = nextPaneId()
       const splitNode: SplitNodeBranch = {
         type: 'split',
+        id: crypto.randomUUID(),
         direction,
         children: [{ type: 'leaf', id: targetId }, { type: 'leaf', id: newPaneId }],
         ratio: 0.5
@@ -629,7 +632,7 @@ export default function LocalTerminal() {
 
       const updateRatio = (n: SplitNode): SplitNode => {
         if (n.type === 'leaf') return n
-        if (n === node) {
+        if (n.id === node.id) {
           const usableSize = containerPixels - DIVIDER_SIZE
           const currentFirst = usableSize * n.ratio
           const newFirst = currentFirst + delta
@@ -663,7 +666,7 @@ export default function LocalTerminal() {
         position: 'relative',
         width: '100%',
         height: '100%',
-        background: '#1a1a1a',
+        background: terminalSettings.backgroundColor ?? '#1a1a1a',
         overflow: 'hidden'
       }}
     >
@@ -706,7 +709,7 @@ export default function LocalTerminal() {
                   </div>
                 }
               >
-                <WebShell target="local" paneId={paneId} />
+                <WebShell target="local" paneId={paneId} shell={terminalSettings.shell || undefined} />
               </Suspense>
             </div>
           )

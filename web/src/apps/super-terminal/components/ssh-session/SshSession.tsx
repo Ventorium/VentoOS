@@ -1,4 +1,5 @@
 import Editor from '@monaco-editor/react'
+import type * as Monaco from 'monaco-editor'
 import {
   ChevronRight,
   Download,
@@ -21,6 +22,7 @@ import {
   X
 } from 'lucide-react'
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { superTerminalApi } from '@/apps/super-terminal/api'
 
 const WebShell = React.lazy(() => import('@/shell/WebShell'))
 
@@ -92,66 +94,6 @@ interface TreeNode {
   isDir: boolean
   children?: TreeNode[]
 }
-
-const MOCK_TREE: TreeNode[] = [
-  {
-    name: 'home',
-    path: '/home',
-    isDir: true,
-    children: [
-      {
-        name: 'user',
-        path: '/home/user',
-        isDir: true,
-        children: [
-          { name: '.bashrc', path: '/home/user/.bashrc', isDir: false },
-          { name: '.profile', path: '/home/user/.profile', isDir: false },
-          {
-            name: 'projects',
-            path: '/home/user/projects',
-            isDir: true,
-            children: [
-              { name: 'app.py', path: '/home/user/projects/app.py', isDir: false },
-              { name: 'config.yaml', path: '/home/user/projects/config.yaml', isDir: false },
-              { name: 'README.md', path: '/home/user/projects/README.md', isDir: false }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    name: 'etc',
-    path: '/etc',
-    isDir: true,
-    children: [
-      { name: 'hosts', path: '/etc/hosts', isDir: false },
-      { name: 'nginx.conf', path: '/etc/nginx.conf', isDir: false },
-      {
-        name: 'ssh',
-        path: '/etc/ssh',
-        isDir: true,
-        children: [{ name: 'sshd_config', path: '/etc/ssh/sshd_config', isDir: false }]
-      }
-    ]
-  },
-  {
-    name: 'var',
-    path: '/var',
-    isDir: true,
-    children: [
-      {
-        name: 'log',
-        path: '/var/log',
-        isDir: true,
-        children: [
-          { name: 'syslog', path: '/var/log/syslog', isDir: false },
-          { name: 'auth.log', path: '/var/log/auth.log', isDir: false }
-        ]
-      }
-    ]
-  }
-]
 
 // ─── Open File Tab ──────────────────────────────────────────────────────────
 
@@ -550,11 +492,11 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<CtxMenu | null>(null)
-  const [connected] = useState(false) // Placeholder for real connection state
 
   // ── Editor tabs ──
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
 
   // ── Terminal tabs ──
   const [termTabs, setTermTabs] = useState<TerminalTab[]>([{ id: 't-1', label: '终端 1' }])
@@ -563,6 +505,20 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
 
   // ── Right panel ──
   const [rightPanel, setRightPanel] = useState<RightPanelKind>(null)
+  const [serverMetrics, setServerMetrics] = useState<Record<string, unknown> | null>(null)
+
+  // ── Metrics polling ──
+  useEffect(() => {
+    if (rightPanel !== 'monitor') return
+    const fetchMetrics = () => {
+      superTerminalApi.getServerMetrics(serverId).then(res => {
+        if (res.success && res.data) setServerMetrics(res.data as Record<string, unknown>)
+      }).catch(() => {})
+    }
+    fetchMetrics()
+    const timer = setInterval(fetchMetrics, 5000)
+    return () => clearInterval(timer)
+  }, [serverId, rightPanel])
 
   // ── Resize dragging refs ──
   const dragging = useRef<'left' | 'vertical' | null>(null)
@@ -676,9 +632,10 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
     (id: string, e?: React.MouseEvent) => {
       e?.stopPropagation()
       setTermTabs(prev => {
-        if (prev.length <= 1) return prev
         const next = prev.filter(t => t.id !== id)
-        if (activeTermId === id) setActiveTermId(next[next.length - 1].id)
+        if (activeTermId === id) {
+          setActiveTermId(next.length > 0 ? next[next.length - 1].id : '')
+        }
         return next
       })
     },
@@ -747,16 +704,20 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
   // ── Right panel content ──
   const renderRightContent = useCallback(() => {
     if (rightPanel === 'monitor') {
+      const metricStatus = serverMetrics?.status as string | undefined
+      const isConnected = metricStatus !== 'not_connected'
       const metrics = [
-        { label: 'CPU', value: '—', pct: 0, color: '#0A84FF' },
-        { label: '内存', value: '—', pct: 0, color: '#30D158' },
-        { label: '磁盘', value: '—', pct: 0, color: '#FF9F0A' },
-        { label: '网络 ↑', value: '—', pct: 0, color: '#64D2FF' },
-        { label: '网络 ↓', value: '—', pct: 0, color: '#BF5AF2' }
+        { label: 'CPU', value: isConnected ? String(serverMetrics?.cpu ?? '—') : '—', color: '#0A84FF' },
+        { label: '内存', value: isConnected ? String(serverMetrics?.memory ?? '—') : '—', color: '#30D158' },
+        { label: '磁盘', value: isConnected ? String(serverMetrics?.disk ?? '—') : '—', color: '#FF9F0A' },
+        { label: '网络 ↑', value: isConnected ? String(serverMetrics?.net_up ?? '—') : '—', color: '#64D2FF' },
+        { label: '网络 ↓', value: isConnected ? String(serverMetrics?.net_down ?? '—') : '—', color: '#BF5AF2' }
       ]
       return (
         <div>
-          <div style={{ color: '#666', fontSize: 11, marginBottom: 12 }}>连接后自动刷新监控数据</div>
+          {!isConnected && (
+            <div style={{ color: '#666', fontSize: 11, marginBottom: 12 }}>服务器监控功能开发中</div>
+          )}
           {metrics.map(m => (
             <div key={m.label} style={S.metricRow}>
               <span style={{ color: '#aaa' }}>{m.label}</span>
@@ -785,7 +746,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
       )
     }
     return null
-  }, [rightPanel])
+  }, [rightPanel, serverMetrics])
 
   const rightPanelTitle = useMemo(() => {
     return RIGHT_PANELS.find(p => p.kind === rightPanel)?.label ?? ''
@@ -811,17 +772,57 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
     [resolvedEditorHeight]
   )
 
+  // ── Editor toolbar actions ──
+  const handleEditorSave = useCallback(() => {
+    const file = openFiles.find(f => f.path === activeFilePath)
+    if (!file) return
+    // Download file as a workaround until SFTP write is implemented
+    const blob = new Blob([file.content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file.name
+    a.click()
+    URL.revokeObjectURL(url)
+    // Mark as saved
+    setOpenFiles(prev => prev.map(f => f.path === activeFilePath ? { ...f, originalContent: f.content } : f))
+  }, [openFiles, activeFilePath])
+
+  const handleEditorUndo = useCallback(() => {
+    editorRef.current?.trigger('keyboard', 'undo', null)
+  }, [])
+
+  const handleEditorRedo = useCallback(() => {
+    editorRef.current?.trigger('keyboard', 'redo', null)
+  }, [])
+
+  const handleEditorDownload = useCallback(() => {
+    const file = openFiles.find(f => f.path === activeFilePath)
+    if (!file) return
+    const blob = new Blob([file.content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file.name
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [openFiles, activeFilePath])
+
+  const handleEditorSearch = useCallback(() => {
+    editorRef.current?.trigger('keyboard', 'actions.find', null)
+  }, [])
+
   // ── Key bindings ──
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault()
-        // Save placeholder - would send to SFTP when implemented
+        handleEditorSave()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [handleEditorSave])
 
   const isModified = useCallback((f: OpenFile) => f.content !== f.originalContent, [])
 
@@ -829,23 +830,45 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
     <div style={S.root}>
       {/* ════ Left File Tree Panel ════ */}
       <div style={S.leftPanel(leftWidth)}>
-        <div style={S.leftHeader}>
-          <HardDrive size={12} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{serverName}</span>
+        <div style={{ ...S.leftHeader, justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+            <HardDrive size={12} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{serverName}</span>
+          </div>
+          <button
+            type="button"
+            title="刷新文件树"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#666',
+              padding: '2px 4px',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            onClick={() => {
+              // File tree refresh — SFTP support coming soon
+              setExpanded(new Set())
+              setSelectedPath(null)
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+          </button>
         </div>
 
         <div style={S.treeWrap}>
-          {connected ? (
-            MOCK_TREE.map(n => renderTreeNode(n, 0))
-          ) : (
-            <>
-              {MOCK_TREE.map(n => renderTreeNode(n, 0))}
-              <div style={{ padding: '12px 10px', borderTop: '1px solid #2a2a2a', marginTop: 8 }}>
-                <div style={{ fontSize: 11, color: '#666', textAlign: 'center', lineHeight: 1.5 }}>
-                  连接后自动加载文件树
-                </div>
+          {openFiles.length === 0 && (
+            <div style={{ padding: '16px 10px', textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#555', lineHeight: 1.6 }}>
+                文件树暂不支持<br />
+                <span style={{ color: '#444' }}>SFTP 功能开发中</span>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -907,20 +930,20 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
           {/* Toolbar */}
           {activeFile && (
             <div style={S.toolbar}>
-              <button style={S.toolBtn(false)} title="保存 (Ctrl+S)">
+              <button style={S.toolBtn(false)} title="保存 (Ctrl+S)" onClick={handleEditorSave}>
                 <Save size={14} />
               </button>
-              <button style={S.toolBtn(false)} title="撤销">
+              <button style={S.toolBtn(false)} title="撤销" onClick={handleEditorUndo}>
                 <Undo2 size={14} />
               </button>
-              <button style={S.toolBtn(false)} title="重做">
+              <button style={S.toolBtn(false)} title="重做" onClick={handleEditorRedo}>
                 <Redo2 size={14} />
               </button>
               <div style={{ width: 1, height: 14, background: '#333', margin: '0 4px' }} />
-              <button style={S.toolBtn(false)} title="下载">
+              <button style={S.toolBtn(false)} title="下载" onClick={handleEditorDownload}>
                 <Download size={14} />
               </button>
-              <button style={S.toolBtn(false)} title="查找/替换">
+              <button style={S.toolBtn(false)} title="查找/替换" onClick={handleEditorSearch}>
                 <Search size={14} />
               </button>
               <div style={{ flex: 1 }} />
@@ -937,6 +960,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
                 value={activeFile.content}
                 theme="vs-dark"
                 onChange={handleEditorChange}
+                onMount={editor => { editorRef.current = editor }}
                 options={{
                   fontSize: 13,
                   fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Monaco, monospace',
@@ -992,20 +1016,18 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
                 }}
               >
                 <span>{t.label}</span>
-                {termTabs.length > 1 && (
-                  <div
-                    style={S.tabClose}
-                    onClick={e => closeTerminal(t.id, e)}
-                    onMouseEnter={e => {
-                      ;(e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.1)'
-                    }}
-                    onMouseLeave={e => {
-                      ;(e.currentTarget as HTMLDivElement).style.background = 'transparent'
-                    }}
-                  >
-                    <X size={10} />
-                  </div>
-                )}
+                <div
+                  style={S.tabClose}
+                  onClick={e => closeTerminal(t.id, e)}
+                  onMouseEnter={e => {
+                    ;(e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.1)'
+                  }}
+                  onMouseLeave={e => {
+                    ;(e.currentTarget as HTMLDivElement).style.background = 'transparent'
+                  }}
+                >
+                  <X size={10} />
+                </div>
               </div>
             ))}
             <div
