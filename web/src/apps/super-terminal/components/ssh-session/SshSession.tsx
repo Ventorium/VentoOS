@@ -704,24 +704,23 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
   // ── Right panel content ──
   const renderRightContent = useCallback(() => {
     if (rightPanel === 'monitor') {
-      const metricStatus = serverMetrics?.status as string | undefined
-      const isConnected = metricStatus !== 'not_connected'
       const metrics = [
-        { label: 'CPU', value: isConnected ? String(serverMetrics?.cpu ?? '—') : '—', color: '#0A84FF' },
-        { label: '内存', value: isConnected ? String(serverMetrics?.memory ?? '—') : '—', color: '#30D158' },
-        { label: '磁盘', value: isConnected ? String(serverMetrics?.disk ?? '—') : '—', color: '#FF9F0A' },
-        { label: '网络 ↑', value: isConnected ? String(serverMetrics?.net_up ?? '—') : '—', color: '#64D2FF' },
-        { label: '网络 ↓', value: isConnected ? String(serverMetrics?.net_down ?? '—') : '—', color: '#BF5AF2' }
+        { label: 'CPU', value: serverMetrics?.cpu ? String(serverMetrics.cpu) : '—', color: '#0A84FF' },
+        { label: '内存', value: serverMetrics?.memory ? String(serverMetrics.memory) : '—', color: '#30D158' },
+        { label: '磁盘', value: serverMetrics?.disk ? String(serverMetrics.disk) : '—', color: '#FF9F0A' },
+        { label: '网络 ↑', value: serverMetrics?.net_up ? String(serverMetrics.net_up) : '—', color: '#64D2FF' },
+        { label: '网络 ↓', value: serverMetrics?.net_down ? String(serverMetrics.net_down) : '—', color: '#BF5AF2' }
       ]
       return (
         <div>
-          {!isConnected && (
-            <div style={{ color: '#666', fontSize: 11, marginBottom: 12 }}>服务器监控功能开发中</div>
-          )}
+          <div style={{ color: '#555', fontSize: 11, marginBottom: 12, lineHeight: 1.5 }}>
+            SSH 远程指标采集开发中{'\n'}
+            <span style={{ color: '#444' }}>将通过 SSH 执行系统命令采集</span>
+          </div>
           {metrics.map(m => (
             <div key={m.label} style={S.metricRow}>
               <span style={{ color: '#aaa' }}>{m.label}</span>
-              <span style={{ color: '#666' }}>{m.value}</span>
+              <span style={{ color: m.value !== '—' ? m.color : '#555' }}>{m.value}</span>
             </div>
           ))}
         </div>

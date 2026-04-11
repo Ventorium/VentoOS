@@ -27,6 +27,8 @@ export const superTerminalApi = {
       'POST',
       `/api/ssh/servers/${id}/test`
     ),
+  updateSshServerStatus: (id: string, status: string) =>
+    request<ApiResponse<SshServer>>('POST', `/api/ssh/servers/${id}/status`, { status }),
   getServerMetrics: (id: string) =>
     request<ApiResponse<Record<string, unknown>>>('GET', `/api/ssh/servers/${id}/metrics`),
 

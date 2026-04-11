@@ -6,7 +6,7 @@
  * Modals:       server create/edit form, SSH config import
  */
 
-import { ChevronDown, ChevronRight, CircleDot, Copy, Download, FolderOpen, Link, Monitor, Pencil, Plus, Server, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleDot, Check, Copy, Download, FolderOpen, Link, Monitor, Pencil, Plus, Server, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { superTerminalApi } from '@/apps/super-terminal/api'
 import { PathPickerInput } from '@/shell/FilePicker'
@@ -22,6 +22,7 @@ import type {
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { Checkbox } from '@/components/ui/Checkbox'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -730,11 +731,10 @@ function ServerFormModal({
       {activeTab === 'proxy' && (
         <div>
           <div style={{ ...rowStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: 13, color: 'var(--vos-text-primary)' }}>启用代理</label>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={form.proxyEnabled}
-              onChange={e => updateField('proxyEnabled', e.target.checked)}
+              onChange={checked => updateField('proxyEnabled', checked)}
+              label="启用代理"
             />
           </div>
           {form.proxyEnabled && (
@@ -857,8 +857,7 @@ function ImportConfigModal({
               borderBottom: '1px solid #333'
             }}
           >
-            <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-            <span style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>全选</span>
+            <Checkbox checked={allSelected} onChange={toggleAll} label="全选" />
           </div>
           <div style={{ maxHeight: 360, overflowY: 'auto' }}>
             {hosts.map(h => (
@@ -873,8 +872,7 @@ function ImportConfigModal({
                   cursor: 'pointer'
                 }}
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={selected.has(h.alias)}
                   onChange={() => toggle(h.alias)}
                   style={{ marginTop: 3 }}
@@ -1021,6 +1019,9 @@ export default function SshServers() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [lastClickedId, setLastClickedId] = useState<string | null>(null)
 
+  // Copy state: tracks which server address was just copied
+  const [copiedServerId, setCopiedServerId] = useState<string | null>(null)
+
   // Modal state
   const [formOpen, setFormOpen] = useState(false)
   const [editingServer, setEditingServer] = useState<SshServer | null>(null)
@@ -1074,6 +1075,9 @@ export default function SshServers() {
 
   const connectServer = useCallback(
     (server: SshServer) => {
+      // Optimistically update status
+      setServers(servers.map(s => (s.id === server.id ? { ...s, status: 'connecting' } : s)))
+      superTerminalApi.updateSshServerStatus(server.id, 'connecting').catch(() => {})
       addSessionTab({
         id: crypto.randomUUID(),
         serverId: server.id,
@@ -1081,7 +1085,7 @@ export default function SshServers() {
         title: server.name
       })
     },
-    [addSessionTab]
+    [addSessionTab, servers, setServers]
   )
 
   // ── Selection helpers ────────────────────────────────────────────────
@@ -1436,7 +1440,6 @@ export default function SshServers() {
           width: SIDEBAR_WIDTH,
           minWidth: SIDEBAR_WIDTH,
           height: '100%',
-          background: '#141414',
           borderRight: '1px solid #333',
           display: 'flex',
           flexDirection: 'column',
@@ -1735,13 +1738,10 @@ export default function SshServers() {
               }}
             >
               <div style={{ width: 32 }}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={allChecked}
-                  ref={el => {
-                    if (el) el.indeterminate = someChecked && !allChecked
-                  }}
-                  onChange={e => handleSelectAll(e.target.checked)}
+                  indeterminate={someChecked && !allChecked}
+                  onChange={handleSelectAll}
                 />
               </div>
               <div style={{ width: 32 }} />
@@ -1785,10 +1785,9 @@ export default function SshServers() {
                 >
                   {/* Checkbox */}
                   <div style={{ width: 32, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={isSelected}
-                      onChange={e => handleCheckboxChange(server.id, e.target.checked)}
+                      onChange={checked => handleCheckboxChange(server.id, checked)}
                     />
                   </div>
 
@@ -1854,16 +1853,18 @@ export default function SshServers() {
                         border: 'none',
                         cursor: 'pointer',
                         padding: 2,
-                        color: 'var(--vos-text-tertiary)',
+                        color: copiedServerId === server.id ? '#4caf50' : 'var(--vos-text-tertiary)',
                         flexShrink: 0
                       }}
                       title="复制地址"
                       onClick={e => {
                         e.stopPropagation()
                         copyToClipboard(`${server.host}:${server.port}`)
+                        setCopiedServerId(server.id)
+                        setTimeout(() => setCopiedServerId(null), 2000)
                       }}
                     >
-                      <Copy size={12} />
+                      {copiedServerId === server.id ? <Check size={12} /> : <Copy size={12} />}
                     </button>
                   </div>
 

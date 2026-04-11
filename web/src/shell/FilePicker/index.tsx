@@ -13,7 +13,7 @@
  *   />
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronRight, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
+import { ChevronRight, File, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VfsMount, VfsNode } from '@/apps/explorer/api'
 import { vfsApi } from '@/apps/explorer/api'

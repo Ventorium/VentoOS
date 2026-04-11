@@ -12,6 +12,7 @@
 import { ChevronLeft, ChevronRight, Folder, Globe, Network, Plus, Server, Settings, TerminalSquare, X, Zap } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getAuthHeaders } from '@/infra/api/client'
 import { useAppStorage } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 import { superTerminalApi } from './api'
@@ -130,8 +131,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
         className="flex flex-col flex-shrink-0"
         style={{
           width: leftPanelWidth,
-          borderRight: '1px solid #333',
-          background: '#111'
+          borderRight: '1px solid #333'
         }}
       >
         <div className="flex-1 flex flex-col items-center pt-2 gap-1">
@@ -176,7 +176,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
         {/* Top bar: Nav tabs + Session tabs */}
         <div
           className="flex items-center h-9 flex-shrink-0"
-          style={{ borderBottom: '1px solid #333', background: '#151515' }}
+          style={{ borderBottom: '1px solid #333' }}
         >
           {/* Nav tabs */}
           {NAV_ITEMS.map(item => {
@@ -188,7 +188,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
                 type="button"
                 className="flex items-center gap-1.5 px-3 h-full border-none cursor-pointer text-xs select-none"
                 style={{
-                  background: isActive ? '#0e0e0e' : 'transparent',
+                  background: isActive ? 'rgba(14,14,14,0.5)' : 'transparent',
                   color: isActive ? '#d4d4d4' : '#888',
                   borderRight: '1px solid #333',
                   whiteSpace: 'nowrap'
@@ -205,7 +205,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
           })}
 
           {/* Separator — adds space between public-access nav tab and SSH session tabs */}
-          <div style={{ width: 16, flexShrink: 0, borderRight: '1px solid #333', height: '100%' }} />
+          <div style={{ width: 40, flexShrink: 0, borderRight: '1px solid #333', height: '100%' }} />
 
           {/* Session tabs */}
           <div className="flex items-center flex-1 min-w-0 overflow-hidden">
@@ -379,8 +379,7 @@ function LeftPanelContent({ tab, onClose, storage }: LeftPanelContentProps) {
       className="flex flex-col flex-shrink-0"
       style={{
         width: 240,
-        borderRight: '1px solid #333',
-        background: '#141414'
+        borderRight: '1px solid #333'
       }}
     >
       <div
@@ -390,12 +389,14 @@ function LeftPanelContent({ tab, onClose, storage }: LeftPanelContentProps) {
         <span className="text-xs font-medium" style={{ color: '#ccc' }}>
           {tab === 'commands' ? '常用命令' : '终端设置'}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center" style={{ gap: 8 }}>
           {tab === 'commands' && (
             <button
               type="button"
               className="bg-transparent border-none cursor-pointer p-0"
-              style={{ color: '#888', lineHeight: 0 }}
+              style={{ color: '#888', lineHeight: 0, transition: 'color 0.15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#1668dc' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#888' }}
               onClick={() => setShowAdd(true)}
               title="添加命令"
             >
@@ -732,8 +733,17 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
         setShells(res.data)
         // If no shell set yet and we have shells, auto-select the default one
         if (!terminalSettings.shell && res.data.length > 0) {
-          const defaultShell = res.data.find(s => s.is_default) ?? res.data[0]
-          handleChange('shell', defaultShell.path)
+          // Prefer modern shells: zsh > fish > bash > others
+          const PREF_ORDER = ['zsh', 'fish', 'bash']
+          const sorted = [...res.data].sort((a, b) => {
+            const ai = PREF_ORDER.indexOf(a.name.toLowerCase())
+            const bi = PREF_ORDER.indexOf(b.name.toLowerCase())
+            if (ai === -1 && bi === -1) return 0
+            if (ai === -1) return 1
+            if (bi === -1) return -1
+            return ai - bi
+          })
+          handleChange('shell', sorted[0].path)
         }
       }
       setShellsLoaded(true)
@@ -767,26 +777,26 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
       {/* ── 通用设置（全局背景） ── */}
       <SettingGroup title="通用" />
 
-      {/* Background color */}
+      {/* Background color — always shown, image overlays on top */}
       <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
-          背景颜色（全局）
-        </label>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input
-            type="color"
-            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
-            onChange={e => handleChange('backgroundColor', e.target.value)}
-            style={{ width: 28, height: 24, border: 'none', borderRadius: 3, cursor: 'pointer', padding: 0 }}
-          />
-          <input
-            style={{ ...inputStyle, flex: 1 }}
-            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
-            onChange={e => handleChange('backgroundColor', e.target.value)}
-            placeholder="#0d0d0d"
-          />
+          <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+            背景颜色（全局）
+          </label>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input
+              type="color"
+              value={terminalSettings.backgroundColor ?? '#0d0d0d'}
+              onChange={e => handleChange('backgroundColor', e.target.value)}
+              style={{ width: 28, height: 24, border: 'none', borderRadius: 3, cursor: 'pointer', padding: 0 }}
+            />
+            <input
+              style={{ ...inputStyle, flex: 1 }}
+              value={terminalSettings.backgroundColor ?? '#0d0d0d'}
+              onChange={e => handleChange('backgroundColor', e.target.value)}
+              placeholder="#0d0d0d"
+            />
+          </div>
         </div>
-      </div>
 
       {/* Background opacity */}
       <div>
@@ -845,6 +855,13 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
               alt="背景预览"
               style={{ width: '100%', height: 60, objectFit: 'cover', borderRadius: 4, opacity: 0.7 }}
             />
+            <button
+              type="button"
+              style={{ marginTop: 4, fontSize: 10, background: 'transparent', border: '1px solid #444', borderRadius: 3, color: '#888', cursor: 'pointer', padding: '2px 6px' }}
+              onClick={() => handleChange('backgroundImage', undefined)}
+            >
+              清除图片
+            </button>
           </div>
         )}
       </div>
@@ -854,13 +871,25 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
           <VfsFilePickerModal
             key="vfs-bg-picker"
             mode="file"
-            onConfirm={result => {
-              // Convert VFS result to an accessible URL
+            onConfirm={async result => {
               const filePath = result.isRemote
                 ? result.path.replace(`vfs://${result.mountId}`, '')
                 : result.path
               const bgUrl = `/api/vfs/mounts/${result.mountId}/raw?path=${encodeURIComponent(filePath)}`
-              handleChange('backgroundImage', bgUrl)
+              // Fetch with auth and convert to base64 data URL so it can be loaded without auth headers
+              try {
+                const resp = await fetch(bgUrl, { headers: getAuthHeaders() })
+                if (resp.ok) {
+                  const blob = await resp.blob()
+                  const reader = new FileReader()
+                  reader.onload = () => handleChange('backgroundImage', reader.result as string)
+                  reader.readAsDataURL(blob)
+                } else {
+                  handleChange('backgroundImage', bgUrl)
+                }
+              } catch {
+                handleChange('backgroundImage', bgUrl)
+              }
               setShowVfsBgPicker(false)
             }}
             onClose={() => setShowVfsBgPicker(false)}

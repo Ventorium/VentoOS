@@ -82,6 +82,7 @@ function TunnelCard({
   onDelete: () => void
 }) {
   const isRunning = exposure.status === 'active' || exposure.status === 'starting'
+  const hasPublicInfo = exposure.public_url || exposure.public_port > 0
   const providerLabel = getProviderLabel(exposure.name)
 
   return (
@@ -168,6 +169,13 @@ function TunnelCard({
         </div>
       )}
 
+      {/* Starting indicator */}
+      {isRunning && !hasPublicInfo && (
+        <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)', fontStyle: 'italic' }}>
+          正在建立隧道，等待公网地址…
+        </div>
+      )}
+
       {/* Actions row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderTop: '1px solid #2a2a2a', paddingTop: 12 }}>
         {isRunning ? (
@@ -182,7 +190,7 @@ function TunnelCard({
           </button>
         )}
 
-        {isRunning && (exposure.public_url || exposure.public_port > 0) && (
+        {isRunning && hasPublicInfo && (
           <button
             type="button"
             className="vos-btn vos-btn-ghost vos-btn-sm pa-action-btn"
@@ -271,7 +279,8 @@ function TunnelFormModal({
         source_host: host,
         source_port: port,
         public_port: 0,
-        basic_auth_enabled: false
+        basic_auth_enabled: false,
+        ssh_command: sshCommand || undefined
       })
     } finally {
       setSubmitting(false)
@@ -375,7 +384,6 @@ function TunnelFormModal({
           <div
             style={{
               padding: '8px 12px',
-              background: '#111',
               border: '1px solid #333',
               borderRadius: 4,
               fontFamily: '"JetBrains Mono", "Fira Code", Menlo, Monaco, monospace',
@@ -453,6 +461,14 @@ export default function PublicAccess() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Poll for public_url updates while any tunnel is starting/active
+  useEffect(() => {
+    const hasActive = exposures.some(e => e.status === 'starting' || e.status === 'active')
+    if (!hasActive) return
+    const timer = setInterval(loadData, 3000)
+    return () => clearInterval(timer)
+  }, [exposures, loadData])
 
   // ── Actions ──────────────────────────────────────────────────────────
 

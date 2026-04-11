@@ -12,7 +12,7 @@ use ventoos_core::types::{ApiResponse, Id};
 use crate::manager::SshManager;
 use crate::types::{
     CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest, PortMapping,
-    ServiceExposure, SshServer, UpdateSshServerRequest,
+    ServiceExposure, SshServer, SshServerStatus, UpdateSshServerRequest,
 };
 
 /// Shared state for SSH routes.
@@ -54,6 +54,7 @@ impl AppPlugin for SshPlugin {
             )
             .route("/api/ssh/servers/{id}/test", post(test_ssh_server))
             .route("/api/ssh/servers/{id}/metrics", get(get_server_metrics))
+            .route("/api/ssh/servers/{id}/status", post(update_server_status))
             // Port mapping routes
             .route(
                 "/api/port-mappings",
@@ -180,6 +181,32 @@ async fn get_server_metrics(
 }
 
 // --- Port Mapping Routes ---
+
+#[derive(serde::Deserialize)]
+struct UpdateStatusRequest {
+    status: String,
+}
+
+async fn update_server_status(
+    State(state): State<SshState>,
+    Path(id): Path<Id>,
+    Json(req): Json<UpdateStatusRequest>,
+) -> impl IntoResponse {
+    let status = match req.status.as_str() {
+        "connected" => SshServerStatus::Connected,
+        "connecting" => SshServerStatus::Connecting,
+        "error" => SshServerStatus::Error,
+        _ => SshServerStatus::Disconnected,
+    };
+    match state.manager.update_server_status(id, status).await {
+        Some(server) => Json(ApiResponse::ok(server)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("SSH server not found")),
+        )
+            .into_response(),
+    }
+}
 
 async fn list_port_mappings(State(state): State<SshState>) -> Json<ApiResponse<Vec<PortMapping>>> {
     let mappings = state.manager.list_port_mappings().await;
@@ -499,18 +526,26 @@ async fn detect_shells() -> impl IntoResponse {
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default();
                 let is_default = trimmed == current_shell;
-                shells.push(DetectedShell {
-                    name,
-                    path: trimmed.to_string(),
-                    is_default,
-                });
+                // Deduplicate: if this name already exists, only override if this path is the default
+                if let Some(existing) = shells.iter_mut().find(|s| s.name == name) {
+                    if is_default {
+                        existing.path = trimmed.to_string();
+                        existing.is_default = true;
+                    }
+                } else {
+                    shells.push(DetectedShell {
+                        name,
+                        path: trimmed.to_string(),
+                        is_default,
+                    });
+                }
             }
         }
     }
 
     // If no shells found (e.g. /etc/shells not available), try common paths
     if shells.is_empty() {
-        let common = ["/bin/bash", "/bin/sh", "/bin/zsh", "/usr/bin/fish"];
+        let common = ["/bin/bash", "/bin/sh", "/bin/zsh", "/usr/bin/fish", "/usr/local/bin/fish"];
         for path_str in &common {
             let path = std::path::Path::new(path_str);
             if path.exists() {
@@ -518,6 +553,9 @@ async fn detect_shells() -> impl IntoResponse {
                     .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default();
+                if shells.iter().any(|s| s.name == name) {
+                    continue;
+                }
                 let is_default = *path_str == current_shell;
                 shells.push(DetectedShell {
                     name,

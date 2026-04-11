@@ -4,6 +4,7 @@ use std::sync::Arc;
 use chrono::Utc;
 use tokio::sync::RwLock;
 use ventoos_core::types::{Id, new_id};
+use ventoos_persist::Database;
 use ventoos_vfs::sftp::{SshAuth, SshConnInfo, SshInfoProvider};
 
 use crate::types::{
@@ -29,15 +30,259 @@ pub struct SshManager {
     credentials: Arc<RwLock<HashMap<Id, StoredCredential>>>,
     port_mappings: Arc<RwLock<HashMap<Id, PortMapping>>>,
     service_exposures: Arc<RwLock<HashMap<Id, ServiceExposure>>>,
+    /// Active port forward task handles; cancelling aborts the listener.
+    port_forward_handles: Arc<RwLock<HashMap<Id, tokio::task::AbortHandle>>>,
+    /// Active service exposure process handles.
+    exposure_handles: Arc<RwLock<HashMap<Id, tokio::task::AbortHandle>>>,
+    /// Optional SQLite database for persistence.
+    db: Option<Arc<Database>>,
 }
 
 impl SshManager {
+    /// Create an in-memory manager without persistence (for tests).
     pub fn new() -> Self {
         Self {
             servers: Arc::new(RwLock::new(HashMap::new())),
             credentials: Arc::new(RwLock::new(HashMap::new())),
             port_mappings: Arc::new(RwLock::new(HashMap::new())),
             service_exposures: Arc::new(RwLock::new(HashMap::new())),
+            port_forward_handles: Arc::new(RwLock::new(HashMap::new())),
+            exposure_handles: Arc::new(RwLock::new(HashMap::new())),
+            db: None,
+        }
+    }
+
+    /// Create a manager backed by SQLite; loads existing data on construction.
+    pub async fn new_with_db(db: Arc<Database>) -> Self {
+        let mgr = Self {
+            servers: Arc::new(RwLock::new(HashMap::new())),
+            credentials: Arc::new(RwLock::new(HashMap::new())),
+            port_mappings: Arc::new(RwLock::new(HashMap::new())),
+            service_exposures: Arc::new(RwLock::new(HashMap::new())),
+            port_forward_handles: Arc::new(RwLock::new(HashMap::new())),
+            exposure_handles: Arc::new(RwLock::new(HashMap::new())),
+            db: Some(Arc::clone(&db)),
+        };
+        mgr.load_from_db(&db).await;
+        mgr
+    }
+
+    /// Load all persisted data from the database into memory.
+    async fn load_from_db(&self, db: &Arc<Database>) {
+        let db = Arc::clone(db);
+        let result = tokio::task::spawn_blocking(move || -> Result<(Vec<(String, String)>, Vec<(String, String, String)>, Vec<(String, String)>, Vec<(String, String)>), rusqlite::Error> {
+            db.with_conn(|conn| {
+                // Load servers
+                let servers = conn
+                    .prepare("SELECT id, data FROM ssh_servers")?
+                    .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                // Load credentials
+                let creds = conn
+                    .prepare("SELECT server_id, credential_type, credential_value FROM ssh_credentials")?
+                    .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?)))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                // Load port mappings
+                let mappings = conn
+                    .prepare("SELECT id, data FROM port_mappings")?
+                    .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                // Load service exposures
+                let exposures = conn
+                    .prepare("SELECT id, data FROM service_exposures")?
+                    .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok((servers, creds, mappings, exposures))
+            })
+        }).await;
+
+        match result {
+            Ok(Ok((servers, creds, mappings, exposures))) => {
+                let mut servers_map = self.servers.write().await;
+                for (id_str, data) in servers {
+                    if let (Ok(id), Ok(server)) = (
+                        id_str.parse::<Id>(),
+                        serde_json::from_str::<SshServer>(&data),
+                    ) {
+                        servers_map.insert(id, server);
+                    }
+                }
+                drop(servers_map);
+
+                let mut creds_map = self.credentials.write().await;
+                for (server_id_str, cred_type, cred_value) in creds {
+                    if let Ok(server_id) = server_id_str.parse::<Id>() {
+                        let cred = match cred_type.as_str() {
+                            "password" => Some(StoredCredential::Password(cred_value)),
+                            "private_key" => {
+                                if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&cred_value) {
+                                    Some(StoredCredential::PrivateKey {
+                                        key_pem: obj["key_pem"].as_str().unwrap_or("").to_string(),
+                                        passphrase: obj["passphrase"].as_str().map(|s| s.to_string()),
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        };
+                        if let Some(c) = cred {
+                            creds_map.insert(server_id, c);
+                        }
+                    }
+                }
+                drop(creds_map);
+
+                let mut mappings_map = self.port_mappings.write().await;
+                for (id_str, data) in mappings {
+                    if let (Ok(id), Ok(mut mapping)) = (
+                        id_str.parse::<Id>(),
+                        serde_json::from_str::<PortMapping>(&data),
+                    ) {
+                        // Reset runtime status to Stopped on load
+                        mapping.status = PortMappingStatus::Stopped;
+                        mappings_map.insert(id, mapping);
+                    }
+                }
+                drop(mappings_map);
+
+                let mut exposures_map = self.service_exposures.write().await;
+                for (id_str, data) in exposures {
+                    if let (Ok(id), Ok(mut exposure)) = (
+                        id_str.parse::<Id>(),
+                        serde_json::from_str::<ServiceExposure>(&data),
+                    ) {
+                        // Reset runtime status on load
+                        exposure.status = ServiceExposureStatus::Stopped;
+                        exposure.public_url = None;
+                        exposures_map.insert(id, exposure);
+                    }
+                }
+
+                tracing::info!("Loaded SSH data from database");
+            }
+            Ok(Err(e)) => tracing::error!("Failed to load SSH data from database: {e}"),
+            Err(e) => tracing::error!("Failed to spawn database load task: {e}"),
+        }
+    }
+
+    /// Persist a server to the database.
+    fn persist_server(&self, server: SshServer) {
+        if let Some(db) = &self.db {
+            let db = Arc::clone(db);
+            let id_str = server.id.to_string();
+            let data = serde_json::to_string(&server).unwrap_or_default();
+            let created_at = server.created_at.to_rfc3339();
+            tokio::task::spawn_blocking(move || {
+                let _ = db.with_conn(|conn| {
+                    conn.execute(
+                        "INSERT OR REPLACE INTO ssh_servers (id, data, created_at) VALUES (?1, ?2, ?3)",
+                        rusqlite::params![id_str, data, created_at],
+                    )
+                });
+            });
+        }
+    }
+
+    /// Delete a server from the database.
+    fn delete_server_db(&self, id: Id) {
+        if let Some(db) = &self.db {
+            let db = Arc::clone(db);
+            let id_str = id.to_string();
+            tokio::task::spawn_blocking(move || {
+                let _ = db.with_conn(|conn| {
+                    conn.execute("DELETE FROM ssh_servers WHERE id = ?1", [&id_str])?;
+                    conn.execute("DELETE FROM ssh_credentials WHERE server_id = ?1", [&id_str])
+                });
+            });
+        }
+    }
+
+    /// Persist credentials to the database.
+    fn persist_credential(&self, server_id: Id, credential: &StoredCredential) {
+        if let Some(db) = &self.db {
+            let db = Arc::clone(db);
+            let server_id_str = server_id.to_string();
+            let (cred_type, cred_value) = match credential {
+                StoredCredential::Password(pw) => ("password".to_string(), pw.clone()),
+                StoredCredential::PrivateKey { key_pem, passphrase } => {
+                    let val = serde_json::json!({
+                        "key_pem": key_pem,
+                        "passphrase": passphrase
+                    });
+                    ("private_key".to_string(), val.to_string())
+                }
+            };
+            tokio::task::spawn_blocking(move || {
+                let _ = db.with_conn(|conn| {
+                    conn.execute(
+                        "INSERT OR REPLACE INTO ssh_credentials (server_id, credential_type, credential_value) VALUES (?1, ?2, ?3)",
+                        rusqlite::params![server_id_str, cred_type, cred_value],
+                    )
+                });
+            });
+        }
+    }
+
+    /// Persist a port mapping to the database.
+    fn persist_port_mapping(&self, mapping: PortMapping) {
+        if let Some(db) = &self.db {
+            let db = Arc::clone(db);
+            let id_str = mapping.id.to_string();
+            let data = serde_json::to_string(&mapping).unwrap_or_default();
+            let created_at = mapping.created_at.to_rfc3339();
+            tokio::task::spawn_blocking(move || {
+                let _ = db.with_conn(|conn| {
+                    conn.execute(
+                        "INSERT OR REPLACE INTO port_mappings (id, data, created_at) VALUES (?1, ?2, ?3)",
+                        rusqlite::params![id_str, data, created_at],
+                    )
+                });
+            });
+        }
+    }
+
+    /// Delete a port mapping from the database.
+    fn delete_port_mapping_db(&self, id: Id) {
+        if let Some(db) = &self.db {
+            let db = Arc::clone(db);
+            let id_str = id.to_string();
+            tokio::task::spawn_blocking(move || {
+                let _ = db.with_conn(|conn| {
+                    conn.execute("DELETE FROM port_mappings WHERE id = ?1", [&id_str])
+                });
+            });
+        }
+    }
+
+    /// Persist a service exposure to the database.
+    fn persist_service_exposure(&self, exposure: ServiceExposure) {
+        if let Some(db) = &self.db {
+            let db = Arc::clone(db);
+            let id_str = exposure.id.to_string();
+            let data = serde_json::to_string(&exposure).unwrap_or_default();
+            let created_at = exposure.created_at.to_rfc3339();
+            tokio::task::spawn_blocking(move || {
+                let _ = db.with_conn(|conn| {
+                    conn.execute(
+                        "INSERT OR REPLACE INTO service_exposures (id, data, created_at) VALUES (?1, ?2, ?3)",
+                        rusqlite::params![id_str, data, created_at],
+                    )
+                });
+            });
+        }
+    }
+
+    /// Delete a service exposure from the database.
+    fn delete_service_exposure_db(&self, id: Id) {
+        if let Some(db) = &self.db {
+            let db = Arc::clone(db);
+            let id_str = id.to_string();
+            tokio::task::spawn_blocking(move || {
+                let _ = db.with_conn(|conn| {
+                    conn.execute("DELETE FROM service_exposures WHERE id = ?1", [&id_str])
+                });
+            });
         }
     }
 
@@ -71,20 +316,16 @@ impl SshManager {
 
         // Store credential if provided
         if let Some(pw) = req.password {
-            self.credentials
-                .write()
-                .await
-                .insert(id, StoredCredential::Password(pw));
+            let cred = StoredCredential::Password(pw);
+            self.persist_credential(id, &cred);
+            self.credentials.write().await.insert(id, cred);
         } else if let Some(key) = req.private_key {
-            self.credentials.write().await.insert(
-                id,
-                StoredCredential::PrivateKey {
-                    key_pem: key,
-                    passphrase: None,
-                },
-            );
+            let cred = StoredCredential::PrivateKey { key_pem: key, passphrase: None };
+            self.persist_credential(id, &cred);
+            self.credentials.write().await.insert(id, cred);
         }
 
+        self.persist_server(server.clone());
         self.servers.write().await.insert(id, server.clone());
         server
     }
@@ -150,21 +391,18 @@ impl SshManager {
 
             // Update credentials if provided
             if let Some(pw) = req.password {
-                self.credentials
-                    .write()
-                    .await
-                    .insert(id, StoredCredential::Password(pw));
+                let cred = StoredCredential::Password(pw);
+                self.persist_credential(id, &cred);
+                self.credentials.write().await.insert(id, cred);
             } else if let Some(key) = req.private_key {
-                self.credentials.write().await.insert(
-                    id,
-                    StoredCredential::PrivateKey {
-                        key_pem: key,
-                        passphrase: None,
-                    },
-                );
+                let cred = StoredCredential::PrivateKey { key_pem: key, passphrase: None };
+                self.persist_credential(id, &cred);
+                self.credentials.write().await.insert(id, cred);
             }
 
-            Some(server.clone())
+            let updated = server.clone();
+            self.persist_server(updated.clone());
+            Some(updated)
         } else {
             None
         }
@@ -172,7 +410,9 @@ impl SshManager {
 
     pub async fn delete_server(&self, id: Id) -> bool {
         self.credentials.write().await.remove(&id);
-        self.servers.write().await.remove(&id).is_some()
+        let removed = self.servers.write().await.remove(&id).is_some();
+        if removed { self.delete_server_db(id); }
+        removed
     }
 
     pub async fn test_server(&self, id: Id) -> Option<SshServerTestResult> {
@@ -184,6 +424,22 @@ impl SshManager {
             message: "Connection test passed (stub)".to_string(),
             latency_ms: Some(35),
         })
+    }
+
+    /// Update server connection status (called when terminal connects/disconnects).
+    pub async fn update_server_status(&self, id: Id, status: SshServerStatus) -> Option<SshServer> {
+        let mut servers = self.servers.write().await;
+        if let Some(server) = servers.get_mut(&id) {
+            server.status = status;
+            if server.status == SshServerStatus::Connected {
+                server.last_connected_at = Some(Utc::now());
+            }
+            let updated = server.clone();
+            self.persist_server(updated.clone());
+            Some(updated)
+        } else {
+            None
+        }
     }
 
     // --- Port Mappings ---
@@ -201,6 +457,7 @@ impl SshManager {
             status: PortMappingStatus::Stopped,
             created_at: Utc::now(),
         };
+        self.persist_port_mapping(mapping.clone());
         let mut mappings = self.port_mappings.write().await;
         mappings.insert(mapping.id, mapping.clone());
         mapping
@@ -219,22 +476,116 @@ impl SshManager {
     }
 
     pub async fn delete_port_mapping(&self, id: Id) -> bool {
-        let mut mappings = self.port_mappings.write().await;
-        mappings.remove(&id).is_some()
+        let removed = self.port_mappings.write().await.remove(&id).is_some();
+        if removed { self.delete_port_mapping_db(id); }
+        removed
     }
 
     pub async fn start_port_mapping(&self, id: Id) -> Option<PortMapping> {
+        // Get mapping info
+        let mapping = {
+            let mappings = self.port_mappings.read().await;
+            mappings.get(&id)?.clone()
+        };
+
+        // Resolve SSH credentials
+        let conn_info = match self.resolve(&mapping.ssh_server_id.to_string()).await {
+            Ok(info) => info,
+            Err(e) => {
+                tracing::error!("Port mapping {id}: failed to resolve SSH info: {e}");
+                let mut mappings = self.port_mappings.write().await;
+                if let Some(m) = mappings.get_mut(&id) {
+                    m.status = PortMappingStatus::Error;
+                }
+                return None;
+            }
+        };
+
+        let local_port = mapping.local_port;
+        let remote_host = mapping.remote_host.clone();
+        let remote_port = mapping.remote_port;
+
+        // Bind local port
+        let listener = match tokio::net::TcpListener::bind(
+            std::net::SocketAddr::from(([127, 0, 0, 1], local_port)),
+        )
+        .await
+        {
+            Ok(l) => l,
+            Err(e) => {
+                tracing::error!("Port mapping {id}: cannot bind 127.0.0.1:{local_port}: {e}");
+                let mut mappings = self.port_mappings.write().await;
+                if let Some(m) = mappings.get_mut(&id) {
+                    m.status = PortMappingStatus::Error;
+                }
+                return None;
+            }
+        };
+
+        tracing::info!(
+            "Port mapping {id}: listening on 127.0.0.1:{local_port} -> {remote_host}:{remote_port}"
+        );
+
+        // Spawn background accept loop
+        let mappings_ref_for_task = Arc::clone(&self.port_mappings);
+        let task = tokio::spawn(async move {
+            loop {
+                let (stream, _peer) = match listener.accept().await {
+                    Ok(s) => s,
+                    Err(_) => break,
+                };
+
+                let conn_info = conn_info.clone();
+                let remote_host = remote_host.clone();
+                let mappings_err_ref = Arc::clone(&mappings_ref_for_task);
+
+                tokio::spawn(async move {
+                    if let Err(e) = forward_tcp_via_ssh(
+                        stream,
+                        conn_info,
+                        remote_host,
+                        remote_port,
+                        local_port,
+                    )
+                    .await
+                    {
+                        let err_str = e.to_string();
+                        tracing::warn!("Port forward connection error: {err_str}");
+                        // Permanent errors: mark mapping as error so user sees feedback
+                        if err_str.contains("AdministrativelyProhibited")
+                            || err_str.contains("RequestDenied")
+                            || err_str.contains("authentication failed")
+                        {
+                            let mut mappings = mappings_err_ref.write().await;
+                            if let Some(m) = mappings.get_mut(&id) {
+                                m.status = PortMappingStatus::Error;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        // Store abort handle
+        self.port_forward_handles
+            .write()
+            .await
+            .insert(id, task.abort_handle());
+
+        // Update status
         let mut mappings = self.port_mappings.write().await;
-        if let Some(mapping) = mappings.get_mut(&id) {
-            mapping.status = PortMappingStatus::Active;
-            // TODO: Actually start SSH tunnel using russh
-            Some(mapping.clone())
-        } else {
-            None
+        if let Some(m) = mappings.get_mut(&id) {
+            m.status = PortMappingStatus::Active;
+            return Some(m.clone());
         }
+        None
     }
 
     pub async fn stop_port_mapping(&self, id: Id) -> Option<PortMapping> {
+        // Cancel the forward task
+        if let Some(handle) = self.port_forward_handles.write().await.remove(&id) {
+            handle.abort();
+        }
         let mut mappings = self.port_mappings.write().await;
         if let Some(mapping) = mappings.get_mut(&id) {
             mapping.status = PortMappingStatus::Stopped;
@@ -260,11 +611,13 @@ impl SshManager {
             public_port: req.public_port,
             basic_auth_enabled: req.basic_auth_enabled,
             basic_auth_username: req.basic_auth_username,
-            basic_auth_credential_id: None, // TODO: store credential securely
+            basic_auth_credential_id: None,
             status: ServiceExposureStatus::Stopped,
             public_url: None,
+            ssh_command: req.ssh_command,
             created_at: Utc::now(),
         };
+        self.persist_service_exposure(exposure.clone());
         let mut exposures = self.service_exposures.write().await;
         exposures.insert(exposure.id, exposure.clone());
         exposure
@@ -283,15 +636,97 @@ impl SshManager {
     }
 
     pub async fn delete_service_exposure(&self, id: Id) -> bool {
-        let mut exposures = self.service_exposures.write().await;
-        exposures.remove(&id).is_some()
+        let removed = self.service_exposures.write().await.remove(&id).is_some();
+        if removed { self.delete_service_exposure_db(id); }
+        removed
     }
 
     pub async fn start_service_exposure(&self, id: Id) -> Option<ServiceExposure> {
+        let ssh_command = {
+            let exposures = self.service_exposures.read().await;
+            exposures.get(&id)?.ssh_command.clone()
+        };
+
+        if let Some(cmd) = ssh_command {
+            let exposures_ref = Arc::clone(&self.service_exposures);
+
+            let task = tokio::spawn(async move {
+                let mut child = match tokio::process::Command::new("sh")
+                    .args(["-c", &cmd])
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::piped())
+                    .spawn()
+                {
+                    Ok(c) => c,
+                    Err(e) => {
+                        tracing::error!("Failed to spawn exposure command: {e}");
+                        let mut exp = exposures_ref.write().await;
+                        if let Some(e) = exp.get_mut(&id) {
+                            e.status = ServiceExposureStatus::Error;
+                        }
+                        return;
+                    }
+                };
+
+                // Monitor both stdout and stderr for URLs
+                let url_re = regex::Regex::new(r"https?://[\w./:?=&#%+-]+").unwrap();
+
+                let stderr = child.stderr.take().map(tokio::io::BufReader::new);
+                let stdout = child.stdout.take().map(tokio::io::BufReader::new);
+
+                async fn scan_for_urls(
+                    mut reader: impl tokio::io::AsyncBufRead + Unpin,
+                    id: Id,
+                    exposures: Arc<RwLock<HashMap<Id, ServiceExposure>>>,
+                    re: regex::Regex,
+                ) {
+                    use tokio::io::AsyncBufReadExt;
+                    let mut line = String::new();
+                    loop {
+                        line.clear();
+                        match reader.read_line(&mut line).await {
+                            Ok(0) | Err(_) => break,
+                            Ok(_) => {
+                                if let Some(m) = re.find(&line) {
+                                    let url = m.as_str().trim_end_matches('/').to_string();
+                                    tracing::info!("Tunnel URL detected: {url}");
+                                    let mut exp = exposures.write().await;
+                                    if let Some(e) = exp.get_mut(&id) {
+                                        e.public_url = Some(url);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let (Some(out), Some(err)) = (stdout, stderr) {
+                    tokio::join!(
+                        scan_for_urls(out, id, Arc::clone(&exposures_ref), url_re.clone()),
+                        scan_for_urls(err, id, Arc::clone(&exposures_ref), url_re)
+                    );
+                }
+
+                let _ = child.wait().await;
+
+                // Mark stopped when process exits
+                let mut exp = exposures_ref.write().await;
+                if let Some(e) = exp.get_mut(&id) {
+                    if e.status != ServiceExposureStatus::Error {
+                        e.status = ServiceExposureStatus::Stopped;
+                    }
+                }
+            });
+
+            self.exposure_handles
+                .write()
+                .await
+                .insert(id, task.abort_handle());
+        }
+
         let mut exposures = self.service_exposures.write().await;
         if let Some(exposure) = exposures.get_mut(&id) {
             exposure.status = ServiceExposureStatus::Active;
-            // TODO: Actually start reverse proxy
             Some(exposure.clone())
         } else {
             None
@@ -299,9 +734,14 @@ impl SshManager {
     }
 
     pub async fn stop_service_exposure(&self, id: Id) -> Option<ServiceExposure> {
+        // Kill the SSH process
+        if let Some(handle) = self.exposure_handles.write().await.remove(&id) {
+            handle.abort();
+        }
         let mut exposures = self.service_exposures.write().await;
         if let Some(exposure) = exposures.get_mut(&id) {
             exposure.status = ServiceExposureStatus::Stopped;
+            exposure.public_url = None;
             Some(exposure.clone())
         } else {
             None
@@ -509,7 +949,10 @@ mod tests {
     #[tokio::test]
     async fn test_port_mapping_lifecycle() {
         let mgr = SshManager::new();
-        let server = mgr.create_server(test_server_req("test")).await;
+        // Provide a password so resolve() can succeed without a real SSH agent
+        let mut req = test_server_req("test");
+        req.password = Some("test_pass".to_string());
+        let server = mgr.create_server(req).await;
 
         let mapping = mgr
             .create_port_mapping(CreatePortMappingRequest {
@@ -549,6 +992,7 @@ mod tests {
                 basic_auth_enabled: true,
                 basic_auth_username: Some("admin".to_string()),
                 basic_auth_password: Some("secret".to_string()),
+                ssh_command: None,
             })
             .await;
 
@@ -560,4 +1004,68 @@ mod tests {
 
         assert!(mgr.delete_service_exposure(exposure.id).await);
     }
+}
+
+// ── SSH port-forward helper ──────────────────────────────────────────────────
+
+struct PortFwdHandler;
+
+impl russh::client::Handler for PortFwdHandler {
+    type Error = russh::Error;
+
+    async fn check_server_key(
+        &mut self,
+        _server_public_key: &russh::keys::PublicKey,
+    ) -> Result<bool, Self::Error> {
+        Ok(true)
+    }
+}
+
+/// Open a direct-tcpip SSH channel and bridge it with the given TCP stream.
+async fn forward_tcp_via_ssh(
+    mut stream: tokio::net::TcpStream,
+    conn_info: SshConnInfo,
+    remote_host: String,
+    remote_port: u16,
+    local_port: u16,
+) -> anyhow::Result<()> {
+
+    let config = Arc::new(russh::client::Config::default());
+    let handler = PortFwdHandler;
+    let mut session =
+        russh::client::connect(config, (conn_info.host.as_str(), conn_info.port), handler).await?;
+
+    // Authenticate
+    let auth_ok = match &conn_info.auth {
+        SshAuth::Password(pw) => session
+            .authenticate_password(&conn_info.username, pw)
+            .await
+            .map(|r| r.success())
+            .unwrap_or(false),
+        SshAuth::PrivateKey { key_pem, passphrase } => {
+            let key = russh::keys::decode_secret_key(key_pem, passphrase.as_deref())?;
+            let key_with_alg =
+                russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), None);
+            session
+                .authenticate_publickey(&conn_info.username, key_with_alg)
+                .await
+                .map(|r| r.success())
+                .unwrap_or(false)
+        }
+    };
+
+    if !auth_ok {
+        anyhow::bail!("SSH authentication failed");
+    }
+
+    // Open direct-tcpip channel
+    let channel = session
+        .channel_open_direct_tcpip(&remote_host, remote_port as u32, "127.0.0.1", local_port as u32)
+        .await?;
+
+    // Bidirectional bridge: TCP stream <-> SSH channel stream
+    let mut channel_stream = channel.into_stream();
+    tokio::io::copy_bidirectional(&mut stream, &mut channel_stream).await?;
+
+    Ok(())
 }

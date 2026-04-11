@@ -1,4 +1,5 @@
 export { AppLayout, type AppLayoutProps, AppSidebar, type AppSidebarProps } from './AppLayout'
+export { Checkbox, type CheckboxProps } from './Checkbox'
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog'
 export { EmptyState, type EmptyStateProps } from './EmptyState'
 export {

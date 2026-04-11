@@ -211,6 +211,8 @@ pub struct ServiceExposure {
     pub status: ServiceExposureStatus,
     /// Public URL returned by the tunnel provider (e.g. Pinggy, Serveo).
     pub public_url: Option<String>,
+    /// SSH command used to start the tunnel (e.g. ssh -R 80:localhost:3000 serveo.net).
+    pub ssh_command: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -244,6 +246,8 @@ pub struct CreateServiceExposureRequest {
     pub basic_auth_enabled: bool,
     pub basic_auth_username: Option<String>,
     pub basic_auth_password: Option<String>,
+    /// SSH command to execute for the tunnel.
+    pub ssh_command: Option<String>,
 }
 
 /// `WebShell` session request.

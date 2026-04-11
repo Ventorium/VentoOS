@@ -4786,14 +4786,19 @@ dependencies = [
 name = "ventoos-ssh"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "chrono",
+ "regex",
+ "rusqlite",
+ "russh",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "uuid",
  "ventoos-core",
+ "ventoos-persist",
  "ventoos-vfs",
 ]
 

@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 ventoos-core = { workspace = true }
+ventoos-persist = { workspace = true }
 ventoos-vfs = { workspace = true }
 tokio = { workspace = true }
 axum = { workspace = true }
@@ -13,6 +14,10 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
+rusqlite = { workspace = true }
+russh = { workspace = true }
+anyhow = { workspace = true }
+regex = "1"
 
 [lints]
 workspace = true

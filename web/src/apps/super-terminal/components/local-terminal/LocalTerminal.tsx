@@ -556,6 +556,7 @@ export default function LocalTerminal() {
     navigator.clipboard.readText().then(text => {
       if (!text) return
       terminalRegistry.get(paneId)?.write(text)
+      terminalRegistry.get(paneId)?.focus()
     }).catch(() => {})
   }, [contextMenu?.paneId, activePaneId])
 
@@ -563,6 +564,7 @@ export default function LocalTerminal() {
     (cmd: string) => {
       const paneId = contextMenu?.paneId || activePaneId
       terminalRegistry.get(paneId)?.write(cmd)
+      terminalRegistry.get(paneId)?.focus()
     },
     [contextMenu?.paneId, activePaneId]
   )
@@ -666,7 +668,7 @@ export default function LocalTerminal() {
         position: 'relative',
         width: '100%',
         height: '100%',
-        background: terminalSettings.backgroundColor ?? '#1a1a1a',
+        background: terminalSettings.backgroundColor,
         overflow: 'hidden'
       }}
     >

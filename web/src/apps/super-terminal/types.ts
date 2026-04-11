@@ -125,6 +125,7 @@ export interface CreateServiceExposureReq {
   basic_auth_enabled: boolean
   basic_auth_username?: string
   basic_auth_password?: string
+  ssh_command?: string
 }
 
 // ── SSH Config Import ──────────────────────────────────────────────────────
@@ -210,18 +211,21 @@ export const publicAccessProviders: PublicAccessProvider[] = [
     id: 'pinggy',
     name: 'Pinggy',
     description: '免费 HTTP/HTTPS 隧道，支持二维码访问',
-    command: (addr: string) => `ssh -p 443 -R0:${addr} -o StrictHostKeyChecking=no qr@free.pinggy.io`
+    command: (addr: string) =>
+      `ssh -p 443 -R0:${addr} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null qr@free.pinggy.io`
   },
   {
     id: 'localhost-run',
     name: 'localhost.run',
     description: '免费 SSH 隧道，无需注册',
-    command: (addr: string) => `ssh -R 80:${addr} -o StrictHostKeyChecking=no nokey@localhost.run`
+    command: (addr: string) =>
+      `ssh -R 80:${addr} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null nokey@localhost.run`
   },
   {
     id: 'serveo',
     name: 'Serveo',
     description: '免费 SSH 隧道，支持自定义域名',
-    command: (addr: string) => `ssh -R 80:${addr} -o StrictHostKeyChecking=no serveo.net`
+    command: (addr: string) =>
+      `ssh -R 80:${addr} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null serveo.net`
   }
 ]

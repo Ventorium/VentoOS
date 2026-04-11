@@ -39,7 +39,7 @@ impl AppState {
     pub async fn new(db_path: &Path, data_dir: &Path) -> Result<Self, anyhow::Error> {
         let db = Arc::new(Database::open(db_path)?);
 
-        let ssh = Arc::new(SshManager::new());
+        let ssh = Arc::new(SshManager::new_with_db(Arc::clone(&db)).await);
         let db_manager = Arc::new(DbManager::new());
         let redis_manager = Arc::new(RedisManager::new());
         let k8s_manager = Arc::new(K8sManager::new());

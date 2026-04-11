@@ -77,7 +77,7 @@ export default function WebShell({ target = 'local', paneId, cwd, shell, onClose
     term.open(containerRef.current)
     fitAddon.fit()
 
-    // Register clear/write actions for this pane
+    // Register clear/write/focus actions for this pane
     if (paneId) {
       terminalRegistry.set(paneId, {
         clear: () => term.clear(),
@@ -86,7 +86,8 @@ export default function WebShell({ target = 'local', paneId, cwd, shell, onClose
           if (wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(text)
           }
-        }
+        },
+        focus: () => term.focus()
       })
     }
 
