@@ -134,13 +134,14 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
           // XLSX binary parsing via ArrayBuffer
           const buffer = await blob.arrayBuffer()
           try {
-            const { parseXlsx } = await import('./xlsx-parser')
-            const data = parseXlsx(buffer)
+            const { parseXlsxAsync } = await import('./xlsx-parser')
+            const data = await parseXlsxAsync(buffer)
             setSheetData(data)
             setMode('xlsx')
-          } catch {
-            setMode('xlsx')
-            setSheetData({ headers: [], rows: [], sheetName: 'Sheet1' })
+          } catch (err) {
+            console.error('XLSX parse error:', err)
+            setErrorMsg(err instanceof Error ? err.message : 'XLSX parse failed')
+            setMode('error')
           }
         }
       } else if (ext === 'pptx' || ext === 'ppt') {

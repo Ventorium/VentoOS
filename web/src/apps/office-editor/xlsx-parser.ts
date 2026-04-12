@@ -7,6 +7,8 @@
  * For full editing, the OnlyOffice integration via .repos/document is recommended.
  */
 
+import JSZip from 'jszip'
+
 interface SheetData {
   headers: string[]
   rows: string[][]
@@ -18,126 +20,66 @@ interface SheetData {
  * Uses the browser's built-in ZIP (via Blob/Response) and DOMParser.
  */
 export async function parseXlsxAsync(buffer: ArrayBuffer): Promise<SheetData> {
-  // XLSX is a ZIP file - use the browser's decompression via Response
-  const blob = new Blob([buffer], { type: 'application/zip' })
-
-  // We need to read the ZIP entries - use a minimal approach
-  // The key files in XLSX are:
-  //   xl/sharedStrings.xml — shared string table
-  //   xl/worksheets/sheet1.xml — first sheet data
-
   try {
-    // Try using the JSZip-like approach via browser APIs
-    const entries = await readZipEntries(buffer)
-    const sharedStringsXml = entries['xl/sharedStrings.xml'] ?? ''
-    const sheet1Xml = entries['xl/worksheets/sheet1.xml'] ?? ''
+    const zip = await JSZip.loadAsync(buffer)
+    const workbookXml = await zip.file('xl/workbook.xml')?.async('string')
+    const relsXml = await zip.file('xl/_rels/workbook.xml.rels')?.async('string')
+    const sharedStringsXml = await zip.file('xl/sharedStrings.xml')?.async('string')
 
-    const sharedStrings = parseSharedStrings(sharedStringsXml)
+    const firstSheetPath = resolveFirstSheetPath(workbookXml ?? '', relsXml ?? '')
+    if (!firstSheetPath) throw new Error('XLSX workbook has no worksheet entries')
+
+    const sheet1Xml = await zip.file(firstSheetPath)?.async('string')
+    if (!sheet1Xml) throw new Error(`XLSX worksheet not found: ${firstSheetPath}`)
+
+    const sharedStrings = parseSharedStrings(sharedStringsXml ?? '')
     return parseSheet(sheet1Xml, sharedStrings)
-  } catch {
-    return { headers: [], rows: [], sheetName: 'Sheet1' }
+  } catch (err) {
+    throw new Error(`Unable to parse XLSX: ${err instanceof Error ? err.message : 'unknown error'}`)
   }
 }
 
 /**
- * Synchronous version that takes pre-parsed text
+ * Backward-compatible alias.
  */
-export function parseXlsx(buffer: ArrayBuffer): SheetData {
-  // For synchronous use, return empty and let the async version handle it
-  return { headers: [], rows: [], sheetName: 'Sheet1' }
+export function parseXlsx(_buffer: ArrayBuffer): SheetData {
+  throw new Error('parseXlsx is deprecated, use parseXlsxAsync')
 }
 
-async function readZipEntries(buffer: ArrayBuffer): Promise<Record<string, string>> {
-  const result: Record<string, string> = {}
-  const view = new DataView(buffer)
+function resolveFirstSheetPath(workbookXml: string, relsXml: string): string | null {
+  if (!workbookXml || !relsXml) return null
+  const sheetMatch = workbookXml.match(/<sheet\b[^>]*\br:id="([^"]+)"[^>]*>/i)
+  const relId = sheetMatch?.[1]
+  if (!relId) return null
 
-  // Find End of Central Directory
-  let eocdOffset = -1
-  for (let i = buffer.byteLength - 22; i >= 0; i--) {
-    if (view.getUint32(i, true) === 0x06054b50) {
-      eocdOffset = i
-      break
+  const relRe = /<Relationship\b([^>]*)\/?\s*>/gi
+  let relMatch = relRe.exec(relsXml)
+  while (relMatch) {
+    const attrs = relMatch[1] ?? ''
+    const id = getAttr(attrs, 'Id')
+    if (id === relId) {
+      const target = getAttr(attrs, 'Target')
+      if (!target) return null
+      if (target.startsWith('/')) return target.slice(1)
+      if (target.startsWith('xl/')) return target
+      return `xl/${target}`
     }
-  }
-  if (eocdOffset < 0) throw new Error('Not a valid ZIP')
-
-  const cdOffset = view.getUint32(eocdOffset + 16, true)
-  const cdEntries = view.getUint16(eocdOffset + 10, true)
-
-  let offset = cdOffset
-  const decoder = new TextDecoder()
-
-  for (let i = 0; i < cdEntries; i++) {
-    if (view.getUint32(offset, true) !== 0x02014b50) break
-
-    const compMethod = view.getUint16(offset + 10, true)
-    const compSize = view.getUint32(offset + 20, true)
-    const uncompSize = view.getUint32(offset + 24, true)
-    const nameLen = view.getUint16(offset + 28, true)
-    const extraLen = view.getUint16(offset + 30, true)
-    const commentLen = view.getUint16(offset + 32, true)
-    const localHeaderOffset = view.getUint32(offset + 42, true)
-
-    const name = decoder.decode(new Uint8Array(buffer, offset + 46, nameLen))
-    offset += 46 + nameLen + extraLen + commentLen
-
-    // Only parse XML files we need
-    if (!name.endsWith('.xml')) continue
-    if (!name.includes('sharedStrings') && !name.includes('sheet1')) continue
-
-    // Read from local file header
-    const localNameLen = view.getUint16(localHeaderOffset + 26, true)
-    const localExtraLen = view.getUint16(localHeaderOffset + 28, true)
-    const dataOffset = localHeaderOffset + 30 + localNameLen + localExtraLen
-
-    let text: string
-    if (compMethod === 0) {
-      // Stored (no compression)
-      text = decoder.decode(new Uint8Array(buffer, dataOffset, uncompSize))
-    } else if (compMethod === 8) {
-      // Deflated
-      const compressed = new Uint8Array(buffer, dataOffset, compSize)
-      const ds = new DecompressionStream('deflate-raw')
-      const writer = ds.writable.getWriter()
-      const reader = ds.readable.getReader()
-
-      writer.write(compressed)
-      writer.close()
-
-      const chunks: Uint8Array[] = []
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        chunks.push(value)
-      }
-      const totalLen = chunks.reduce((sum, c) => sum + c.length, 0)
-      const merged = new Uint8Array(totalLen)
-      let pos = 0
-      for (const chunk of chunks) {
-        merged.set(chunk, pos)
-        pos += chunk.length
-      }
-      text = decoder.decode(merged)
-    } else {
-      continue // Skip unsupported compression methods
-    }
-
-    result[name] = text
+    relMatch = relRe.exec(relsXml)
   }
 
-  return result
+  return null
 }
 
 function parseSharedStrings(xml: string): string[] {
   if (!xml) return []
   const strings: string[] = []
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(xml, 'text/xml')
-  const siElements = doc.getElementsByTagName('si')
-  for (let i = 0; i < siElements.length; i++) {
-    const si = siElements[i]
-    // Get all text content (handles both <t> and <r><t> patterns)
-    strings.push(si.textContent ?? '')
+  const siRe = /<si\b[^>]*>([\s\S]*?)<\/si>/gi
+  let match = siRe.exec(xml)
+  while (match) {
+    const content = match[1] ?? ''
+    const text = decodeXml(content.replace(/<[^>]+>/g, ''))
+    strings.push(text)
+    match = siRe.exec(xml)
   }
   return strings
 }
@@ -145,24 +87,26 @@ function parseSharedStrings(xml: string): string[] {
 function parseSheet(xml: string, sharedStrings: string[]): SheetData {
   if (!xml) return { headers: [], rows: [], sheetName: 'Sheet1' }
 
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(xml, 'text/xml')
-  const rowElements = doc.getElementsByTagName('row')
-
   const allRows: string[][] = []
   let maxCols = 0
 
-  for (let r = 0; r < rowElements.length; r++) {
-    const row = rowElements[r]
-    const cells = row.getElementsByTagName('c')
+  const rowRe = /<row\b[^>]*>([\s\S]*?)<\/row>/gi
+  let rowMatch = rowRe.exec(xml)
+  while (rowMatch) {
+    const rowXml = rowMatch[1] ?? ''
     const rowData: string[] = []
 
-    for (let c = 0; c < cells.length; c++) {
-      const cell = cells[c]
-      const ref = cell.getAttribute('r') ?? ''
-      const type = cell.getAttribute('t')
-      const vEl = cell.getElementsByTagName('v')[0]
-      const value = vEl?.textContent ?? ''
+    const cellRe = /<c\b([^>]*)>([\s\S]*?)<\/c>/gi
+    let cellMatch = cellRe.exec(rowXml)
+    while (cellMatch) {
+      const attrs = cellMatch[1] ?? ''
+      const body = cellMatch[2] ?? ''
+      const ref = getAttr(attrs, 'r') ?? ''
+      const type = getAttr(attrs, 't')
+      const valueMatch = body.match(/<v\b[^>]*>([\s\S]*?)<\/v>/i)
+      const inlineMatch = body.match(/<is\b[^>]*>[\s\S]*?<t\b[^>]*>([\s\S]*?)<\/t>[\s\S]*?<\/is>/i)
+      const rawValue = valueMatch?.[1] ?? inlineMatch?.[1] ?? ''
+      const value = decodeXml(rawValue)
 
       // Calculate column index from cell reference (e.g., "B2" → 1)
       const colMatch = ref.match(/^([A-Z]+)/)
@@ -178,11 +122,14 @@ function parseSheet(xml: string, sharedStrings: string[]): SheetData {
       } else {
         rowData.push(value)
       }
+
+      cellMatch = cellRe.exec(rowXml)
     }
 
     if (rowData.length > maxCols) maxCols = rowData.length
 
     allRows.push(rowData)
+    rowMatch = rowRe.exec(xml)
   }
 
   // Pad all rows to same length
@@ -203,4 +150,18 @@ function colLetterToIndex(letters: string): number {
     index = index * 26 + (letters.charCodeAt(i) - 64)
   }
   return index - 1
+}
+
+function getAttr(attrs: string, name: string): string | null {
+  const m = attrs.match(new RegExp(`\\b${name}="([^"]*)"`, 'i'))
+  return m?.[1] ?? null
+}
+
+function decodeXml(text: string): string {
+  return text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
 }
