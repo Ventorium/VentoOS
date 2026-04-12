@@ -25,8 +25,8 @@ export function Modal({ open, onClose, title, icon, children, footer, width = 42
     <AnimatePresence>
       {open && (
         <div
-          className="absolute inset-0 flex items-center justify-center z-50"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', ...overlayStyle }}
+          className="absolute inset-0 flex items-center justify-center z-50 bg-[rgba(0,0,0,0.45)] backdrop-blur-[4px]"
+          style={overlayStyle}
           onClick={onClose}
         >
           <motion.div
@@ -42,7 +42,7 @@ export function Modal({ open, onClose, title, icon, children, footer, width = 42
               <div className="vos-modal-header">
                 {icon}
                 <span>{title}</span>
-                <button type="button" className="vos-icon-btn" onClick={onClose} style={{ marginLeft: 'auto' }}>
+                <button type="button" className="vos-icon-btn ml-auto" onClick={onClose}>
                   <X size={16} />
                 </button>
               </div>

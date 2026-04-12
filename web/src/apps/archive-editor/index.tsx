@@ -159,109 +159,45 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
   if (phase === 'error') {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          background: 'var(--vos-bg-primary)'
-        }}
-      >
-        <Archive size={48} style={{ opacity: 0.3, color: 'var(--vos-text-tertiary)' }} />
-        <div style={{ fontSize: 14, color: 'var(--vos-text-secondary)' }}>无法打开压缩文件</div>
-        <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>{errorMsg}</div>
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-[var(--vos-bg-primary)]">
+        <Archive size={48} className="opacity-30 text-[var(--vos-text-tertiary)]" />
+        <div className="text-sm text-[var(--vos-text-secondary)]">无法打开压缩文件</div>
+        <div className="text-xs text-[var(--vos-text-tertiary)]">{errorMsg}</div>
       </div>
     )
   }
 
   if (phase === 'loading') {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          background: 'var(--vos-bg-primary)'
-        }}
-      >
-        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'var(--vos-text-tertiary)' }} />
-        <div style={{ fontSize: 13, color: 'var(--vos-text-tertiary)' }}>正在读取压缩文件…</div>
-        <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-[var(--vos-bg-primary)]">
+        <Loader2 size={32} className="animate-spin text-[var(--vos-text-tertiary)]" />
+        <div className="text-[13px] text-[var(--vos-text-tertiary)]">正在读取压缩文件…</div>
       </div>
     )
   }
 
   if (phase === 'extracting') {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          background: 'var(--vos-bg-primary)'
-        }}
-      >
-        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'var(--vos-accent-primary)' }} />
-        <div style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>{extractProgress}</div>
-        <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-[var(--vos-bg-primary)]">
+        <Loader2 size={32} className="animate-spin text-[var(--vos-accent-primary)]" />
+        <div className="text-[13px] text-[var(--vos-text-secondary)]">{extractProgress}</div>
       </div>
     )
   }
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--vos-bg-primary)'
-      }}
-    >
+    <div className="w-full h-full flex flex-col bg-[var(--vos-bg-primary)]">
       {/* Toolbar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '6px 12px',
-          borderBottom: '1px solid var(--vos-border-subtle)',
-          background: 'var(--vos-bg-secondary)',
-          flexShrink: 0
-        }}
-      >
-        <Archive size={16} style={{ color: 'var(--vos-accent-warning)' }} />
-        <span style={{ fontSize: 13, fontWeight: 500, flex: 1, color: 'var(--vos-text-primary)' }}>
+      <div className="flex items-center gap-2 px-3 py-[6px] border-b border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] shrink-0">
+        <Archive size={16} className="text-[var(--vos-accent-warning)]" />
+        <span className="text-[13px] font-medium flex-1 text-[var(--vos-text-primary)]">
           {node?.name ?? 'Archive'}
         </span>
-        <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>{entries.length} 项</span>
+        <span className="text-[11px] text-[var(--vos-text-tertiary)]">{entries.length} 项</span>
         <button
           type="button"
           onClick={handleExtractAll}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '4px 10px',
-            fontSize: 12,
-            borderRadius: 6,
-            border: 'none',
-            cursor: 'pointer',
-            background: 'var(--vos-accent-primary)',
-            color: '#fff'
-          }}
+          className="flex items-center gap-1 px-[10px] py-1 text-xs rounded-md border-none cursor-pointer bg-[var(--vos-accent-primary)] text-white"
         >
           <PackageOpen size={14} />
           解压全部
@@ -269,19 +205,7 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
         <button
           type="button"
           onClick={handleDownload}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '4px 10px',
-            fontSize: 12,
-            borderRadius: 6,
-            border: 'none',
-            cursor: 'pointer',
-            background: 'transparent',
-            color: 'var(--vos-text-secondary)',
-            border_: '1px solid var(--vos-border-subtle)'
-          }}
+          className="flex items-center gap-1 px-[10px] py-1 text-xs rounded-md border-none cursor-pointer bg-transparent text-[var(--vos-text-secondary)]"
         >
           <Download size={14} />
           下载
@@ -290,48 +214,21 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
       {/* Password prompt */}
       {needsPassword && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '8px 12px',
-            background: 'var(--vos-accent-warning-bg)',
-            borderBottom: '1px solid var(--vos-border-subtle)'
-          }}
-        >
-          <Key size={14} style={{ color: 'var(--vos-accent-warning)' }} />
-          <span style={{ fontSize: 12, color: 'var(--vos-text-secondary)' }}>此压缩文件需要密码</span>
+        <div className="flex items-center gap-2 px-3 py-2 bg-[var(--vos-accent-warning-bg)] border-b border-b-[var(--vos-border-subtle)]">
+          <Key size={14} className="text-[var(--vos-accent-warning)]" />
+          <span className="text-xs text-[var(--vos-text-secondary)]">此压缩文件需要密码</span>
           <input
             type="password"
             placeholder="输入密码"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            style={{
-              flex: 1,
-              maxWidth: 200,
-              padding: '4px 8px',
-              fontSize: 12,
-              borderRadius: 4,
-              border: '1px solid var(--vos-border-subtle)',
-              background: 'var(--vos-bg-primary)',
-              color: 'var(--vos-text-primary)',
-              outline: 'none'
-            }}
+            className="flex-1 max-w-[200px] px-2 py-1 text-xs rounded border border-[var(--vos-border-subtle)] bg-[var(--vos-bg-primary)] text-[var(--vos-text-primary)] outline-none"
             onKeyDown={e => e.key === 'Enter' && loadArchiveContents(password)}
           />
           <button
             type="button"
             onClick={() => loadArchiveContents(password)}
-            style={{
-              padding: '4px 12px',
-              fontSize: 12,
-              borderRadius: 4,
-              border: 'none',
-              background: 'var(--vos-accent-primary)',
-              color: '#fff',
-              cursor: 'pointer'
-            }}
+            className="px-3 py-1 text-xs rounded border-none bg-[var(--vos-accent-primary)] text-white cursor-pointer"
           >
             确定
           </button>
@@ -340,41 +237,24 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
       {/* Breadcrumb */}
       {currentDir && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '4px 12px',
-            borderBottom: '1px solid var(--vos-border-subtle)',
-            fontSize: 12
-          }}
-        >
+        <div className="flex items-center gap-1 px-3 py-1 border-b border-b-[var(--vos-border-subtle)] text-xs">
           <button
             type="button"
             onClick={() => setCurrentDir('')}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--vos-accent-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2
-            }}
+            className="bg-transparent border-none cursor-pointer text-[var(--vos-accent-primary)] flex items-center gap-[2px]"
           >
             <ArrowLeft size={12} />
             根目录
           </button>
-          <span style={{ color: 'var(--vos-text-tertiary)' }}>/</span>
-          <span style={{ color: 'var(--vos-text-primary)' }}>{currentDir}</span>
+          <span className="text-[var(--vos-text-tertiary)]">/</span>
+          <span className="text-[var(--vos-text-primary)]">{currentDir}</span>
         </div>
       )}
 
       {/* File list */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div className="flex-1 overflow-auto">
         {filteredEntries.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--vos-text-tertiary)', fontSize: 13 }}>
+          <div className="p-10 text-center text-[var(--vos-text-tertiary)] text-[13px]">
             压缩文件为空
           </div>
         ) : (
@@ -383,15 +263,7 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
             return (
               <div
                 key={entry.path}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 12px',
-                  borderBottom: '1px solid var(--vos-border-subtle)',
-                  cursor: entry.is_dir ? 'pointer' : 'default',
-                  fontSize: 12
-                }}
+                className={`flex items-center gap-2 px-3 py-[6px] border-b border-b-[var(--vos-border-subtle)] text-xs ${entry.is_dir ? 'cursor-pointer' : 'cursor-default'}`}
                 onClick={() => {
                   if (entry.is_dir) setCurrentDir(entry.path.replace(/\/$/, ''))
                 }}
@@ -400,14 +272,14 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
                 }}
               >
                 {entry.is_dir ? (
-                  <Folder size={14} style={{ color: 'var(--vos-accent-warning)', flexShrink: 0 }} />
+                  <Folder size={14} className="text-[var(--vos-accent-warning)] shrink-0" />
                 ) : (
-                  <FileText size={14} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+                  <FileText size={14} className="text-[var(--vos-text-tertiary)] shrink-0" />
                 )}
-                <span style={{ flex: 1, color: 'var(--vos-text-primary)' }}>{name}</span>
-                {entry.encrypted && <Key size={12} style={{ color: 'var(--vos-accent-warning)' }} />}
+                <span className="flex-1 text-[var(--vos-text-primary)]">{name}</span>
+                {entry.encrypted && <Key size={12} className="text-[var(--vos-accent-warning)]" />}
                 {!entry.is_dir && (
-                  <span style={{ color: 'var(--vos-text-tertiary)', fontSize: 11 }}>{formatSize(entry.size)}</span>
+                  <span className="text-[var(--vos-text-tertiary)] text-[11px]">{formatSize(entry.size)}</span>
                 )}
               </div>
             )

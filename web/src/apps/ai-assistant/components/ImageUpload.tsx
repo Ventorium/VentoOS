@@ -79,8 +79,7 @@ export default function ImageUpload({ images, onChange, disabled }: ImageUploadP
               <img src={img} alt={`upload-${i}`} className="w-full h-full object-cover" />
               <button
                 type="button"
-                className="absolute top-0 right-0 w-4 h-4 rounded-full flex items-center justify-center border-none cursor-pointer hidden group-hover:flex"
-                style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
+                className="absolute top-0 right-0 w-4 h-4 rounded-full flex items-center justify-center border-none cursor-pointer hidden group-hover:flex bg-[rgba(0,0,0,0.6)] text-white"
                 onClick={() => removeImage(i)}
               >
                 <X size={8} />
@@ -94,11 +93,8 @@ export default function ImageUpload({ images, onChange, disabled }: ImageUploadP
       <div className="inline-flex" onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}>
         <button
           type="button"
-          className="flex items-center justify-center w-7 h-7 rounded-lg border-none cursor-pointer"
-          style={{
-            background: isDragging ? 'var(--vos-bg-item-hover)' : 'transparent',
-            color: 'var(--vos-text-tertiary)'
-          }}
+          className="flex items-center justify-center w-7 h-7 rounded-lg border-none cursor-pointer text-[var(--vos-text-tertiary)]"
+          style={{ background: isDragging ? 'var(--vos-bg-item-hover)' : 'transparent' }}
           onClick={() => inputRef.current?.click()}
           disabled={disabled}
           title="上传图片"

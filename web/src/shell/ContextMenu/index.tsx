@@ -37,11 +37,10 @@ function SubMenu({ items, parentRect, compact }: { items: ContextMenuItems; pare
       ref={menuRef}
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
+      className="fixed z-[10000]"
       style={{
-        position: 'fixed',
         left: pos.left,
-        top: pos.top,
-        zIndex: 10000
+        top: pos.top
       }}
     >
       <MenuPanel items={items} compact={compact} />
@@ -68,7 +67,7 @@ function MenuItemRow({ item, close, compact }: { item: MenuItem; close: () => vo
   }
 
   return (
-    <div style={{ position: 'relative' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className="relative" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         ref={rowRef}
         type="button"
@@ -86,9 +85,9 @@ function MenuItemRow({ item, close, compact }: { item: MenuItem; close: () => vo
           close()
         }}
       >
-        <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
+        <span className="flex-1 text-left">{item.label}</span>
         {item.shortcut && <span className="vos-ctx-shortcut">{item.shortcut}</span>}
-        {item.submenu && <ChevronRight size={12} style={{ marginLeft: 4, opacity: 0.5 }} />}
+        {item.submenu && <ChevronRight size={12} className="ml-1 opacity-50" />}
       </button>
       {showSub && item.submenu && rowRef.current && (
         <SubMenu items={item.submenu} parentRect={rowRef.current.getBoundingClientRect()} compact={compact} />
@@ -101,10 +100,9 @@ function MenuItemRow({ item, close, compact }: { item: MenuItem; close: () => vo
 function MenuPanel({ items, compact }: { items: ContextMenuItems; compact?: boolean }) {
   return (
     <div
-      className={`vos-ctx-panel ${compact ? 'vos-ctx-panel-compact' : ''}`}
+      className={`vos-ctx-panel ${compact ? 'vos-ctx-panel-compact' : ''} py-1 px-0`}
       style={{
         minWidth: compact ? 140 : 180,
-        padding: '4px 0',
         borderRadius: tokens.radius.contextMenu
       }}
     >
@@ -181,11 +179,7 @@ export default function ContextMenu() {
           {/* Backdrop to catch outside clicks */}
           <div
             role="presentation"
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 9990
-            }}
+            className="fixed inset-0 z-[9990]"
             onMouseDown={hide}
             onContextMenu={e => {
               e.preventDefault()
@@ -199,11 +193,10 @@ export default function ContextMenu() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: tokens.animation.contextMenu.duration, ease: tokens.animation.contextMenu.ease }}
+            className="fixed z-[9995]"
             style={{
-              position: 'fixed',
               left: finalPos.left,
               top: finalPos.top,
-              zIndex: 9995,
               transformOrigin:
                 anchor === 'bottom-left'
                   ? 'bottom left'

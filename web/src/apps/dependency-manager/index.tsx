@@ -57,15 +57,14 @@ export default function DependencyManager(_props: AppComponentProps) {
   const hasUninstalled = deps.length > 0 && deps.some(d => !d.installed)
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--vos-bg-window)' }}>
+    <div className="flex flex-col h-full bg-[var(--vos-bg-window)]">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-5 py-3 flex-shrink-0"
-        style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+        className="flex items-center justify-between px-5 py-3 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
       >
         <div className="flex items-center gap-2">
-          <ShieldCheck size={18} style={{ color: 'var(--vos-accent-primary)' }} />
-          <span className="text-sm font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+          <ShieldCheck size={18} className="text-[var(--vos-accent-primary)]" />
+          <span className="text-sm font-medium text-[var(--vos-text-primary)]">
             系统依赖管理
           </span>
         </div>
@@ -73,13 +72,7 @@ export default function DependencyManager(_props: AppComponentProps) {
           type="button"
           onClick={loadDeps}
           disabled={loading}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs"
-          style={{
-            background: 'var(--vos-bg-input)',
-            border: '0.5px solid var(--vos-border-default)',
-            color: 'var(--vos-text-secondary)',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-[var(--vos-bg-input)] border-[0.5px] border-solid border-[var(--vos-border-default)] text-[var(--vos-text-secondary)] cursor-pointer disabled:cursor-not-allowed"
         >
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           刷新检测
@@ -88,25 +81,24 @@ export default function DependencyManager(_props: AppComponentProps) {
 
       {/* Status summary */}
       <div
-        className="px-5 py-3 flex items-center gap-2"
+        className="px-5 py-3 flex items-center gap-2 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
         style={{
           background: hasUninstalled
             ? 'color-mix(in srgb, var(--vos-accent-warning) 8%, transparent)'
-            : 'color-mix(in srgb, var(--vos-accent-success) 8%, transparent)',
-          borderBottom: '0.5px solid var(--vos-border-subtle)'
+            : 'color-mix(in srgb, var(--vos-accent-success) 8%, transparent)'
         }}
       >
         {hasUninstalled ? (
           <>
-            <AlertTriangle size={16} style={{ color: 'var(--vos-accent-warning)' }} />
-            <span className="text-xs" style={{ color: 'var(--vos-accent-warning)' }}>
+            <AlertTriangle size={16} className="text-[var(--vos-accent-warning)]" />
+            <span className="text-xs text-[var(--vos-accent-warning)]">
               部分依赖未安装，某些功能可能不可用
             </span>
           </>
         ) : (
           <>
-            <CheckCircle2 size={16} style={{ color: 'var(--vos-accent-success)' }} />
-            <span className="text-xs" style={{ color: 'var(--vos-accent-success)' }}>
+            <CheckCircle2 size={16} className="text-[var(--vos-accent-success)]" />
+            <span className="text-xs text-[var(--vos-accent-success)]">
               所有依赖已安装
             </span>
           </>
@@ -117,15 +109,15 @@ export default function DependencyManager(_props: AppComponentProps) {
       <div className="flex-1 overflow-y-auto px-5 py-3">
         {loading && deps.length === 0 ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 size={20} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+            <Loader2 size={20} className="animate-spin text-[var(--vos-text-tertiary)]" />
           </div>
         ) : deps.length === 0 ? (
           <div className="text-center py-12">
             <CheckCircle2
               size={28}
-              style={{ color: 'var(--vos-accent-success)', opacity: 0.6, margin: '0 auto 8px' }}
+              className="text-[var(--vos-accent-success)] opacity-60 mx-auto mb-2"
             />
-            <p className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+            <p className="text-xs text-[var(--vos-text-tertiary)]">
               当前平台无需额外依赖
             </p>
           </div>
@@ -161,52 +153,33 @@ function DepCard({
   const [showOutput, setShowOutput] = useState(false)
 
   return (
-    <div
-      className="rounded-lg p-4"
-      style={{
-        background: 'var(--vos-bg-surface)',
-        border: '0.5px solid var(--vos-border-subtle)'
-      }}
-    >
+    <div className="rounded-lg p-4 bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+            <span className="text-sm font-medium text-[var(--vos-text-primary)]">
               {dep.name}
             </span>
             {dep.installed ? (
               <span
-                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: 'color-mix(in srgb, var(--vos-accent-success) 15%, transparent)',
-                  color: 'var(--vos-accent-success)'
-                }}
+                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--vos-accent-success)_15%,transparent)] text-[var(--vos-accent-success)]"
               >
                 <CheckCircle2 size={10} /> 已安装
               </span>
             ) : (
               <span
-                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: 'color-mix(in srgb, var(--vos-accent-warning) 15%, transparent)',
-                  color: 'var(--vos-accent-warning)'
-                }}
+                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--vos-accent-warning)_15%,transparent)] text-[var(--vos-accent-warning)]"
               >
                 <AlertTriangle size={10} /> 未安装
               </span>
             )}
           </div>
-          <p className="text-xs mb-2" style={{ color: 'var(--vos-text-secondary)' }}>
+          <p className="text-xs mb-2 text-[var(--vos-text-secondary)]">
             {dep.description}
           </p>
           {dep.install_command && (
             <code
-              className="text-[10px] px-2 py-0.5 rounded block"
-              style={{
-                background: 'var(--vos-bg-input)',
-                color: 'var(--vos-text-tertiary)',
-                fontFamily: 'var(--vos-font-mono, monospace)'
-              }}
+              className="text-[10px] px-2 py-0.5 rounded block bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)] font-mono"
             >
               {dep.install_command}
             </code>
@@ -219,12 +192,7 @@ function DepCard({
               href={dep.homepage}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center w-7 h-7 rounded-md"
-              style={{
-                background: 'var(--vos-bg-input)',
-                border: '0.5px solid var(--vos-border-default)',
-                color: 'var(--vos-text-tertiary)'
-              }}
+              className="flex items-center justify-center w-7 h-7 rounded-md bg-[var(--vos-bg-input)] border-[0.5px] border-solid border-[var(--vos-border-default)] text-[var(--vos-text-tertiary)]"
               title="访问主页"
             >
               <ExternalLink size={12} />
@@ -235,13 +203,7 @@ function DepCard({
               type="button"
               onClick={onInstall}
               disabled={installState === 'installing'}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
-              style={{
-                background: 'var(--vos-accent-primary)',
-                color: '#fff',
-                cursor: installState === 'installing' ? 'not-allowed' : 'pointer',
-                opacity: installState === 'installing' ? 0.7 : 1
-              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-[var(--vos-accent-primary)] text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
             >
               {installState === 'installing' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
               {installState === 'installing' ? '安装中...' : '安装'}
@@ -256,21 +218,13 @@ function DepCard({
           <button
             type="button"
             onClick={() => setShowOutput(!showOutput)}
-            className="text-[10px] underline"
-            style={{ color: 'var(--vos-text-tertiary)' }}
+            className="text-[10px] underline text-[var(--vos-text-tertiary)]"
           >
             {showOutput ? '隐藏输出' : '查看输出'}
           </button>
           {showOutput && (
             <pre
-              className="mt-1 p-2 rounded text-[10px] max-h-32 overflow-auto"
-              style={{
-                background: 'var(--vos-bg-input)',
-                color: 'var(--vos-text-secondary)',
-                fontFamily: 'var(--vos-font-mono, monospace)',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-all'
-              }}
+              className="mt-1 p-2 rounded text-[10px] max-h-32 overflow-auto bg-[var(--vos-bg-input)] text-[var(--vos-text-secondary)] font-mono whitespace-pre-wrap break-all"
             >
               {installOutput}
             </pre>

@@ -36,7 +36,7 @@ const MAX_VISIBLE_TABS = 6
 
 function LoadingFallback() {
   return (
-    <div className="flex items-center justify-center h-full" style={{ color: '#666' }}>
+    <div className="flex items-center justify-center h-full text-[#666]">
       加载中…
     </div>
   )
@@ -111,40 +111,25 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
   const activeSession = sessionTabs.find(t => t.id === activeSessionTabId)
 
   return (
-    <div className="flex h-full" style={{ background: terminalSettings.backgroundColor ?? '#0e0e0e', color: '#d4d4d4', position: 'relative' }}>
+    <div className="flex h-full text-[#d4d4d4] relative" style={{ background: terminalSettings.backgroundColor ?? '#0e0e0e' }}>
       {terminalSettings.backgroundImage && (
         <div
+          className="absolute inset-0 bg-cover bg-center pointer-events-none z-0"
           style={{
-            position: 'absolute',
-            inset: 0,
             backgroundImage: `url(${terminalSettings.backgroundImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            opacity: 1 - (terminalSettings.backgroundOpacity ?? 1),
-            pointerEvents: 'none',
-            zIndex: 0
+            opacity: 1 - (terminalSettings.backgroundOpacity ?? 1)
           }}
         />
       )}
       {/* Left narrow panel */}
       <div
-        className="flex flex-col flex-shrink-0"
-        style={{
-          width: leftPanelWidth,
-          borderRight: '1px solid #333'
-        }}
+        className="flex flex-col flex-shrink-0 border-r border-r-[#333]"
+        style={{ width: leftPanelWidth }}
       >
         <div className="flex-1 flex flex-col items-center pt-2 gap-1">
           <button
             type="button"
-            className="flex items-center justify-center border-none cursor-pointer"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 6,
-              background: leftPanelTab === 'commands' ? '#1668dc30' : 'transparent',
-              color: leftPanelTab === 'commands' ? '#1668dc' : '#888'
-            }}
+            className={`flex items-center justify-center border-none cursor-pointer w-8 h-8 rounded-[6px] ${leftPanelTab === 'commands' ? 'bg-[#1668dc30] text-[#1668dc]' : 'bg-transparent text-[#888]'}`}
             onClick={() => setLeftPanelTab('commands')}
             title="常用命令"
           >
@@ -152,14 +137,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
           </button>
           <button
             type="button"
-            className="flex items-center justify-center border-none cursor-pointer"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 6,
-              background: leftPanelTab === 'settings' ? '#1668dc30' : 'transparent',
-              color: leftPanelTab === 'settings' ? '#1668dc' : '#888'
-            }}
+            className={`flex items-center justify-center border-none cursor-pointer w-8 h-8 rounded-[6px] ${leftPanelTab === 'settings' ? 'bg-[#1668dc30] text-[#1668dc]' : 'bg-transparent text-[#888]'}`}
             onClick={() => setLeftPanelTab('settings')}
             title="终端设置"
           >
@@ -175,8 +153,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
       <div className="flex flex-col flex-1 min-w-0">
         {/* Top bar: Nav tabs + Session tabs */}
         <div
-          className="flex items-center h-9 flex-shrink-0"
-          style={{ borderBottom: '1px solid #333' }}
+          className="flex items-center h-9 flex-shrink-0 border-b border-b-[#333]"
         >
           {/* Nav tabs */}
           {NAV_ITEMS.map(item => {
@@ -186,13 +163,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
               <button
                 key={item.key}
                 type="button"
-                className="flex items-center gap-1.5 px-3 h-full border-none cursor-pointer text-xs select-none"
-                style={{
-                  background: isActive ? 'rgba(14,14,14,0.5)' : 'transparent',
-                  color: isActive ? '#d4d4d4' : '#888',
-                  borderRight: '1px solid #333',
-                  whiteSpace: 'nowrap'
-                }}
+                className={`flex items-center gap-1.5 px-3 h-full border-none cursor-pointer text-xs select-none whitespace-nowrap border-r border-r-[#333] ${isActive ? 'bg-[rgba(14,14,14,0.5)] text-[#d4d4d4]' : 'bg-transparent text-[#888]'}`}
                 onClick={() => {
                   setActiveNavTab(item.key)
                   setActiveSessionTab(null)
@@ -205,7 +176,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
           })}
 
           {/* Separator — adds space between public-access nav tab and SSH session tabs */}
-          <div style={{ width: 40, flexShrink: 0, borderRight: '1px solid #333', height: '100%' }} />
+          <div className="w-10 shrink-0 border-r border-r-[#333] h-full" />
 
           {/* Session tabs */}
           <div className="flex items-center flex-1 min-w-0 overflow-hidden">
@@ -214,22 +185,15 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
               return (
                 <div
                   key={tab.id}
-                  className="group flex items-center gap-1 px-2.5 h-full cursor-pointer text-xs select-none flex-shrink-0"
-                  style={{
-                    background: isActive ? '#0e0e0e' : 'transparent',
-                    color: isActive ? '#d4d4d4' : '#888',
-                    borderRight: '1px solid #333',
-                    maxWidth: 150
-                  }}
+                  className={`group flex items-center gap-1 px-2.5 h-full cursor-pointer text-xs select-none flex-shrink-0 border-r border-r-[#333] max-w-[150px] ${isActive ? 'bg-[#0e0e0e] text-[#d4d4d4]' : 'bg-transparent text-[#888]'}`}
                   onClick={() => setActiveSessionTab(tab.id)}
                   onKeyDown={() => {}}
                 >
-                  <Server size={11} style={{ flexShrink: 0 }} />
+                  <Server size={11} className="shrink-0" />
                   <span className="truncate">{tab.title}</span>
                   <button
                     type="button"
-                    className="bg-transparent border-none cursor-pointer p-0 opacity-0 group-hover:opacity-100"
-                    style={{ color: '#888', lineHeight: 0, flexShrink: 0 }}
+                    className="bg-transparent border-none cursor-pointer p-0 opacity-0 group-hover:opacity-100 text-[#888] leading-[0] shrink-0"
                     onClick={e => handleCloseTab(e, tab.id)}
                   >
                     <X size={10} />
@@ -241,8 +205,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
               <div ref={moreRef} className="relative">
                 <button
                   type="button"
-                  className="flex items-center gap-1 px-2 h-full border-none cursor-pointer text-xs"
-                  style={{ background: 'transparent', color: '#888' }}
+                  className="flex items-center gap-1 px-2 h-full border-none cursor-pointer text-xs bg-transparent text-[#888]"
                   onClick={() => setShowMoreTabs(!showMoreTabs)}
                 >
                   +{hiddenSessionTabs.length} 更多
@@ -250,15 +213,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
                 </button>
                 {showMoreTabs && (
                   <div
-                    className="absolute top-full right-0 z-50"
-                    style={{
-                      background: '#252525',
-                      border: '1px solid #444',
-                      borderRadius: 6,
-                      minWidth: 160,
-                      padding: '4px 0',
-                      boxShadow: '0 4px 12px rgba(0,0,0,.4)'
-                    }}
+                    className="absolute top-full right-0 z-50 bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[160px] shadow-[0_4px_12px_rgba(0,0,0,.4)]"
                   >
                     {hiddenSessionTabs.map(tab => (
                       <div
@@ -274,8 +229,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
                         <span className="flex-1 truncate">{tab.title}</span>
                         <button
                           type="button"
-                          className="bg-transparent border-none cursor-pointer p-0"
-                          style={{ color: '#888', lineHeight: 0 }}
+                          className="bg-transparent border-none cursor-pointer p-0 text-[#888] leading-[0]"
                           onClick={e => handleCloseTab(e, tab.id)}
                         >
                           <X size={10} />
@@ -293,48 +247,28 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
         <div className="flex-1 relative overflow-hidden">
           {/* Nav tab content (visible when no session is active) */}
           <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              visibility: !isShowingSession && activeNavTab === 'local-terminal' ? 'visible' : 'hidden',
-              zIndex: !isShowingSession && activeNavTab === 'local-terminal' ? 1 : 0
-            }}
+            className={`absolute inset-0 ${!isShowingSession && activeNavTab === 'local-terminal' ? 'visible z-[1]' : 'invisible z-0'}`}
           >
             <Suspense fallback={<LoadingFallback />}>
               <LocalTerminal />
             </Suspense>
           </div>
           <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              visibility: !isShowingSession && activeNavTab === 'ssh-servers' ? 'visible' : 'hidden',
-              zIndex: !isShowingSession && activeNavTab === 'ssh-servers' ? 1 : 0
-            }}
+            className={`absolute inset-0 ${!isShowingSession && activeNavTab === 'ssh-servers' ? 'visible z-[1]' : 'invisible z-0'}`}
           >
             <Suspense fallback={<LoadingFallback />}>
               <SshServers />
             </Suspense>
           </div>
           <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              visibility: !isShowingSession && activeNavTab === 'port-mapping' ? 'visible' : 'hidden',
-              zIndex: !isShowingSession && activeNavTab === 'port-mapping' ? 1 : 0
-            }}
+            className={`absolute inset-0 ${!isShowingSession && activeNavTab === 'port-mapping' ? 'visible z-[1]' : 'invisible z-0'}`}
           >
             <Suspense fallback={<LoadingFallback />}>
               <PortMapping />
             </Suspense>
           </div>
           <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              visibility: !isShowingSession && activeNavTab === 'public-access' ? 'visible' : 'hidden',
-              zIndex: !isShowingSession && activeNavTab === 'public-access' ? 1 : 0
-            }}
+            className={`absolute inset-0 ${!isShowingSession && activeNavTab === 'public-access' ? 'visible z-[1]' : 'invisible z-0'}`}
           >
             <Suspense fallback={<LoadingFallback />}>
               <PublicAccess />
@@ -345,12 +279,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
           {sessionTabs.map(tab => (
             <div
               key={tab.id}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                visibility: tab.id === activeSessionTabId ? 'visible' : 'hidden',
-                zIndex: tab.id === activeSessionTabId ? 1 : 0
-              }}
+              className={`absolute inset-0 ${tab.id === activeSessionTabId ? 'visible z-[1]' : 'invisible z-0'}`}
             >
               <Suspense fallback={<LoadingFallback />}>
                 <SshSession serverId={tab.serverId} serverName={tab.serverName} />
@@ -376,25 +305,19 @@ function LeftPanelContent({ tab, onClose, storage }: LeftPanelContentProps) {
 
   return (
     <div
-      className="flex flex-col flex-shrink-0"
-      style={{
-        width: 240,
-        borderRight: '1px solid #333'
-      }}
+      className="flex flex-col flex-shrink-0 w-[240px] border-r border-r-[#333]"
     >
       <div
-        className="flex items-center justify-between px-3 h-9 flex-shrink-0"
-        style={{ borderBottom: '1px solid #333' }}
+        className="flex items-center justify-between px-3 h-9 flex-shrink-0 border-b border-b-[#333]"
       >
-        <span className="text-xs font-medium" style={{ color: '#ccc' }}>
+        <span className="text-xs font-medium text-[#ccc]">
           {tab === 'commands' ? '常用命令' : '终端设置'}
         </span>
-        <div className="flex items-center" style={{ gap: 8 }}>
+        <div className="flex items-center gap-2">
           {tab === 'commands' && (
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
-              style={{ color: '#888', lineHeight: 0, transition: 'color 0.15s' }}
+              className="bg-transparent border-none cursor-pointer p-0 text-[#888] leading-[0] transition-colors"
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#1668dc' }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#888' }}
               onClick={() => setShowAdd(true)}
@@ -405,8 +328,7 @@ function LeftPanelContent({ tab, onClose, storage }: LeftPanelContentProps) {
           )}
           <button
             type="button"
-            className="bg-transparent border-none cursor-pointer p-0"
-            style={{ color: '#888', lineHeight: 0 }}
+            className="bg-transparent border-none cursor-pointer p-0 text-[#888] leading-[0]"
             onClick={onClose}
           >
             <X size={14} />
@@ -486,23 +408,19 @@ function CommandsPanel({
     navigator.clipboard.writeText(cmd)
   }
 
-  const inputStyle: React.CSSProperties = { background: '#252525', color: '#d4d4d4', borderRadius: 4 }
-
   return (
-    <div className="flex flex-col gap-1" style={{ position: 'relative' }}>
+    <div className="flex flex-col gap-1 relative">
       {commands.map(cmd =>
         editingId === cmd.id ? (
-          <div key={cmd.id} className="flex flex-col gap-1 p-2" style={{ background: '#1a1a1a', borderRadius: 6 }}>
+          <div key={cmd.id} className="flex flex-col gap-1 p-2 bg-[#1a1a1a] rounded-[6px]">
             <input
-              className="text-xs px-2 py-1 border-none outline-none"
-              style={inputStyle}
+              className="text-xs px-2 py-1 border-none outline-none bg-[#252525] text-[#d4d4d4] rounded"
               value={editName}
               onChange={e => setEditName(e.target.value)}
               placeholder="名称"
             />
             <textarea
-              className="text-xs px-2 py-1 border-none outline-none"
-              style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace', overflowY: 'auto' }}
+              className="text-xs px-2 py-1 border-none outline-none bg-[#252525] text-[#d4d4d4] rounded resize-y min-h-[48px] font-mono overflow-y-auto"
               value={editCmd}
               onChange={e => setEditCmd(e.target.value)}
               placeholder="命令内容"
@@ -511,16 +429,14 @@ function CommandsPanel({
             <div className="flex gap-1 justify-end">
               <button
                 type="button"
-                className="text-[10px] px-2 py-0.5 border-none cursor-pointer"
-                style={{ background: '#333', color: '#ccc', borderRadius: 4 }}
+                className="text-[10px] px-2 py-0.5 border-none cursor-pointer bg-[#333] text-[#ccc] rounded"
                 onClick={() => setEditingId(null)}
               >
                 取消
               </button>
               <button
                 type="button"
-                className="text-[10px] px-2 py-0.5 border-none cursor-pointer"
-                style={{ background: '#1668dc', color: '#fff', borderRadius: 4 }}
+                className="text-[10px] px-2 py-0.5 border-none cursor-pointer bg-[#1668dc] text-white rounded"
                 onClick={handleUpdate}
               >
                 保存
@@ -530,8 +446,7 @@ function CommandsPanel({
         ) : (
           <div
             key={cmd.id}
-            className="flex items-start gap-1 px-2 py-1.5 cursor-pointer text-xs"
-            style={{ borderRadius: 4 }}
+            className="flex items-start gap-1 px-2 py-1.5 cursor-pointer text-xs rounded"
             onClick={() => handleCopy(cmd.command)}
             onContextMenu={e => {
               e.preventDefault()
@@ -541,14 +456,13 @@ function CommandsPanel({
             onKeyDown={() => {}}
             title={`${cmd.command}\n点击复制 | 右键菜单`}
           >
-            <Zap size={11} style={{ color: '#666', flexShrink: 0, marginTop: 2 }} />
+            <Zap size={11} className="text-[#666] shrink-0 mt-0.5" />
             <div className="flex flex-col min-w-0">
-              <span className="truncate" style={{ color: '#ccc' }}>
+              <span className="truncate text-[#ccc]">
                 {cmd.name}
               </span>
               <span
-                className="text-[10px]"
-                style={{ color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}
+                className="text-[10px] text-[#666] overflow-hidden text-ellipsis whitespace-nowrap max-w-[180px]"
               >
                 {cmd.command}
               </span>
@@ -558,17 +472,15 @@ function CommandsPanel({
       )}
 
       {showAdd && (
-        <div className="flex flex-col gap-1 p-2 mt-1" style={{ background: '#1a1a1a', borderRadius: 6 }}>
+        <div className="flex flex-col gap-1 p-2 mt-1 bg-[#1a1a1a] rounded-[6px]">
           <input
-            className="text-xs px-2 py-1 border-none outline-none"
-            style={inputStyle}
+            className="text-xs px-2 py-1 border-none outline-none bg-[#252525] text-[#d4d4d4] rounded"
             value={newName}
             onChange={e => setNewName(e.target.value)}
             placeholder="命令名称"
           />
           <textarea
-            className="text-xs px-2 py-1 border-none outline-none"
-            style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace', overflowY: 'auto' }}
+            className="text-xs px-2 py-1 border-none outline-none bg-[#252525] text-[#d4d4d4] rounded resize-y min-h-[48px] font-mono overflow-y-auto"
             value={newCmd}
             onChange={e => setNewCmd(e.target.value)}
             placeholder="命令内容"
@@ -577,16 +489,14 @@ function CommandsPanel({
           <div className="flex gap-1 justify-end">
             <button
               type="button"
-              className="text-[10px] px-2 py-0.5 border-none cursor-pointer"
-              style={{ background: '#333', color: '#ccc', borderRadius: 4 }}
+              className="text-[10px] px-2 py-0.5 border-none cursor-pointer bg-[#333] text-[#ccc] rounded"
               onClick={() => setShowAdd(false)}
             >
               取消
             </button>
             <button
               type="button"
-              className="text-[10px] px-2 py-0.5 border-none cursor-pointer"
-              style={{ background: '#1668dc', color: '#fff', borderRadius: 4 }}
+              className="text-[10px] px-2 py-0.5 border-none cursor-pointer bg-[#1668dc] text-white rounded"
               onClick={handleAdd}
             >
               添加
@@ -596,7 +506,7 @@ function CommandsPanel({
       )}
 
       {commands.length === 0 && !showAdd && (
-        <div className="text-[11px] py-4 text-center" style={{ color: '#555' }}>
+        <div className="text-[11px] py-4 text-center text-[#555]">
           暂无常用命令
           <br />
           点击右上角 + 添加
@@ -665,35 +575,21 @@ function CmdContextMenu({
     return () => document.removeEventListener('mousedown', handler, true)
   }, [onDismiss])
 
-  const itemStyle: React.CSSProperties = {
-    padding: '5px 14px',
-    cursor: 'pointer',
-    fontSize: 12,
-    color: '#d4d4d4',
-    whiteSpace: 'nowrap'
-  }
+  const itemClassName = "py-[5px] px-[14px] cursor-pointer text-xs text-[#d4d4d4] whitespace-nowrap"
 
   return (
     <div
       ref={menuRef}
+      className="fixed z-[9999] bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[140px] select-none shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
       style={{
-        position: 'fixed',
         left: pos.x,
-        top: pos.y,
-        zIndex: 9999,
-        background: '#252525',
-        border: '1px solid #444',
-        borderRadius: 6,
-        padding: '4px 0',
-        minWidth: 140,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-        userSelect: 'none'
+        top: pos.y
       }}
     >
-      <div style={itemStyle} className="cmd-ctx-item" onClick={onEdit}>编辑</div>
-      <div style={itemStyle} className="cmd-ctx-item" onClick={onCopyCommand}>复制命令</div>
-      <div style={{ height: 1, background: '#3a3a3a', margin: '4px 0' }} />
-      <div style={{ ...itemStyle, color: '#f14c4c' }} className="cmd-ctx-item" onClick={onDelete}>删除</div>
+      <div className={`${itemClassName} cmd-ctx-item`} onClick={onEdit}>编辑</div>
+      <div className={`${itemClassName} cmd-ctx-item`} onClick={onCopyCommand}>复制命令</div>
+      <div className="h-px bg-[#3a3a3a] my-1" />
+      <div className={`${itemClassName} cmd-ctx-item text-[#f14c4c]`} onClick={onDelete}>删除</div>
       <style>{`.cmd-ctx-item:hover { background: #333 !important; }`}</style>
     </div>
   )
@@ -704,16 +600,7 @@ function CmdContextMenu({
 function SettingGroup({ title }: { title: string }) {
   return (
     <div
-      style={{
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: 0.8,
-        color: '#555',
-        textTransform: 'uppercase',
-        padding: '10px 0 4px',
-        borderBottom: '1px solid #2a2a2a',
-        marginBottom: 4
-      }}
+      className="text-[10px] font-bold tracking-[0.8px] text-[#555] uppercase pt-2.5 pb-1 border-b border-b-[#2a2a2a] mb-1"
     >
       {title}
     </div>
@@ -758,17 +645,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
     storage.setJSON('terminal-settings', newSettings)
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    background: '#252525',
-    color: '#d4d4d4',
-    borderRadius: 4,
-    border: 'none',
-    outline: 'none',
-    fontSize: 11,
-    padding: '4px 8px',
-    boxSizing: 'border-box'
-  }
+  const inputStyle = "w-full bg-[#252525] text-[#d4d4d4] rounded border-none outline-none text-[11px] py-1 px-2 box-border"
 
   const [showVfsBgPicker, setShowVfsBgPicker] = useState(false)
 
@@ -779,18 +656,18 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Background color — always shown, image overlays on top */}
       <div>
-          <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+          <label className="text-[11px] mb-1 block text-[#888]">
             背景颜色（全局）
           </label>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div className="flex gap-1.5 items-center">
             <input
               type="color"
               value={terminalSettings.backgroundColor ?? '#0d0d0d'}
               onChange={e => handleChange('backgroundColor', e.target.value)}
-              style={{ width: 28, height: 24, border: 'none', borderRadius: 3, cursor: 'pointer', padding: 0 }}
+              className="w-7 h-6 border-none rounded-[3px] cursor-pointer p-0"
             />
             <input
-              style={{ ...inputStyle, flex: 1 }}
+              className={`${inputStyle} flex-1`}
               value={terminalSettings.backgroundColor ?? '#0d0d0d'}
               onChange={e => handleChange('backgroundColor', e.target.value)}
               placeholder="#0d0d0d"
@@ -800,7 +677,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Background opacity */}
       <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+        <label className="text-[11px] mb-1 block text-[#888]">
           背景不透明度 ({Math.round((terminalSettings.backgroundOpacity ?? 1) * 100)}%)
         </label>
         <input
@@ -809,38 +686,25 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
           max={100}
           value={Math.round((terminalSettings.backgroundOpacity ?? 1) * 100)}
           onChange={e => handleChange('backgroundOpacity', Number(e.target.value) / 100)}
-          className="w-full"
-          style={{ accentColor: '#1668dc' }}
+          className="w-full accent-[#1668dc]"
         />
       </div>
 
       {/* Background image */}
       <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+        <label className="text-[11px] mb-1 block text-[#888]">
           背景图片（全局）
         </label>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div className="flex gap-1.5 items-center">
           <input
-            style={{ ...inputStyle, flex: 1 }}
+            className={`${inputStyle} flex-1`}
             value={terminalSettings.backgroundImage ?? ''}
             onChange={e => handleChange('backgroundImage', e.target.value || undefined)}
             placeholder="https://... 或留空"
           />
           <button
             type="button"
-            style={{
-              background: '#333',
-              color: '#aaa',
-              border: 'none',
-              borderRadius: 4,
-              cursor: 'pointer',
-              padding: '3px 7px',
-              fontSize: 11,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              flexShrink: 0
-            }}
+            className="bg-[#333] text-[#aaa] border-none rounded cursor-pointer py-[3px] px-[7px] text-[11px] flex items-center gap-1 shrink-0"
             onClick={() => setShowVfsBgPicker(true)}
             title="从 VFS 选择图片"
           >
@@ -849,15 +713,15 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
           </button>
         </div>
         {terminalSettings.backgroundImage && (
-          <div style={{ marginTop: 4 }}>
+          <div className="mt-1">
             <img
               src={terminalSettings.backgroundImage}
               alt="背景预览"
-              style={{ width: '100%', height: 60, objectFit: 'cover', borderRadius: 4, opacity: 0.7 }}
+              className="w-full h-[60px] object-cover rounded opacity-70"
             />
             <button
               type="button"
-              style={{ marginTop: 4, fontSize: 10, background: 'transparent', border: '1px solid #444', borderRadius: 3, color: '#888', cursor: 'pointer', padding: '2px 6px' }}
+              className="mt-1 text-[10px] bg-transparent border border-[#444] rounded-[3px] text-[#888] cursor-pointer py-[2px] px-1.5"
               onClick={() => handleChange('backgroundImage', undefined)}
             >
               清除图片
@@ -902,12 +766,12 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Shell program — supports free text input + datalist suggestions */}
       <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+        <label className="text-[11px] mb-1 block text-[#888]">
           默认 Shell
         </label>
         <input
           list="super-terminal-shells-list"
-          style={inputStyle}
+          className={inputStyle}
           value={terminalSettings.shell ?? ''}
           onChange={e => handleChange('shell', e.target.value)}
           placeholder={shellsLoaded && shells.length === 0 ? '未检测到可用的 Shell' : '输入或选择 Shell 路径…'}
@@ -923,7 +787,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Font size */}
       <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+        <label className="text-[11px] mb-1 block text-[#888]">
           字体大小 ({terminalSettings.fontSize}px)
         </label>
         <input
@@ -932,18 +796,17 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
           max={24}
           value={terminalSettings.fontSize}
           onChange={e => handleChange('fontSize', Number(e.target.value))}
-          className="w-full"
-          style={{ accentColor: '#1668dc' }}
+          className="w-full accent-[#1668dc]"
         />
       </div>
 
       {/* Font family */}
       <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+        <label className="text-[11px] mb-1 block text-[#888]">
           字体
         </label>
         <input
-          style={inputStyle}
+          className={inputStyle}
           value={terminalSettings.fontFamily}
           onChange={e => handleChange('fontFamily', e.target.value)}
           placeholder="JetBrains Mono, monospace"
@@ -952,12 +815,12 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Scrollback */}
       <div>
-        <label className="text-[11px] mb-1 block" style={{ color: '#888' }}>
+        <label className="text-[11px] mb-1 block text-[#888]">
           回滚行数
         </label>
         <input
           type="number"
-          style={inputStyle}
+          className={inputStyle}
           value={terminalSettings.scrollback}
           onChange={e => handleChange('scrollback', Number(e.target.value))}
           min={100}
@@ -968,19 +831,19 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* ── SSH 服务器设置 ── */}
       <SettingGroup title="SSH 服务器" />
-      <div className="text-[11px]" style={{ color: '#666', lineHeight: 1.5 }}>
+      <div className="text-[11px] text-[#666] leading-[1.5]">
         连接超时、心跳间隔等可在新建/编辑服务器时按服务器配置。
       </div>
 
       {/* ── 端口映射设置 ── */}
       <SettingGroup title="端口映射" />
-      <div className="text-[11px]" style={{ color: '#666', lineHeight: 1.5 }}>
+      <div className="text-[11px] text-[#666] leading-[1.5]">
         端口映射规则在「端口映射」标签页内管理。
       </div>
 
       {/* ── 外网访问设置 ── */}
       <SettingGroup title="外网访问" />
-      <div className="text-[11px]" style={{ color: '#666', lineHeight: 1.5 }}>
+      <div className="text-[11px] text-[#666] leading-[1.5]">
         通过 SSH 隧道将本地服务暴露到公网。在「外网访问」标签页内管理隧道。
       </div>
     </div>
@@ -990,33 +853,19 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 function SettingToggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[11px]" style={{ color: '#888' }}>
+      <span className="text-[11px] text-[#888]">
         {label}
       </span>
       <button
         type="button"
-        className="border-none cursor-pointer"
-        style={{
-          width: 32,
-          height: 18,
-          borderRadius: 9,
-          background: value ? '#1668dc' : '#444',
-          position: 'relative',
-          transition: 'background 0.2s'
-        }}
+        className={value
+          ? 'border-none cursor-pointer w-8 h-[18px] rounded-[9px] relative transition-colors bg-[#1668dc]'
+          : 'border-none cursor-pointer w-8 h-[18px] rounded-[9px] relative transition-colors bg-[#444]'}
         onClick={() => onChange(!value)}
       >
         <div
-          style={{
-            width: 14,
-            height: 14,
-            borderRadius: '50%',
-            background: '#fff',
-            position: 'absolute',
-            top: 2,
-            left: value ? 16 : 2,
-            transition: 'left 0.2s'
-          }}
+          className="w-3.5 h-3.5 rounded-full bg-white absolute top-[2px] transition-[left]"
+          style={{ left: value ? 16 : 2 }}
         />
       </button>
     </div>

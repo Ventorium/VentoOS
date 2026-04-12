@@ -55,7 +55,7 @@ function App() {
 
   if (checking) {
     return (
-      <div className="vos-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="vos-shell vos-flex-center">
         <div className="vos-loading-spinner" />
       </div>
     )

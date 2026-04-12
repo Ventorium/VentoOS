@@ -67,55 +67,27 @@ function ActivityButton({ item, isActive, onClick }: { item: ActivityItem; isAct
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative">
       <button
         type="button"
-        className={`vos-activity-item ${isActive ? 'vos-activity-item-active' : ''}`}
+        className={`vos-activity-item relative ${isActive ? 'vos-activity-item-active' : ''}`}
         title={item.label}
         onClick={onClick}
         onContextMenu={handleContextMenu}
-        style={{
-          position: 'relative'
-        }}
       >
-        {item.icon}
 
         {/* Active indicator — left border */}
         {isActive && (
           <motion.div
             layoutId="activity-indicator"
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: '20%',
-              bottom: '20%',
-              width: 2,
-              borderRadius: 1,
-              background: 'var(--vos-accent-primary)'
-            }}
+            className="absolute left-0 top-[20%] bottom-[20%] w-[2px] rounded-[1px] bg-[var(--vos-accent-primary)]"
           />
         )}
 
         {/* Badge */}
         {item.badge != null && item.badge > 0 && (
           <div
-            style={{
-              position: 'absolute',
-              top: 4,
-              right: 4,
-              minWidth: 14,
-              height: 14,
-              borderRadius: 7,
-              background: 'var(--vos-accent-primary)',
-              color: '#fff',
-              fontSize: 9,
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 3px',
-              lineHeight: 1
-            }}
+            className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-[var(--vos-accent-primary)] text-white text-[9px] font-bold flex items-center justify-center px-[3px] leading-[1]"
           >
             {item.badge > 99 ? '99+' : item.badge}
           </div>
@@ -142,18 +114,13 @@ export function AppSidebar({
 
   return (
     <div
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        height: '100%',
-        flexShrink: 0
-      }}
+      className="flex flex-row h-full shrink-0"
     >
       {/* Activity Bar */}
-      <div className="vos-activity-bar" style={{ width: 40 }}>
-        {activityBarHeader && <div style={{ marginBottom: 4 }}>{activityBarHeader}</div>}
+      <div className="vos-activity-bar w-[40px]">
+        {activityBarHeader && <div className="mb-1">{activityBarHeader}</div>}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, paddingTop: 4 }}>
+        <div className="flex flex-col gap-[2px] flex-1 pt-1">
           {activities.map(item => (
             <ActivityButton
               key={item.id}
@@ -164,7 +131,7 @@ export function AppSidebar({
           ))}
         </div>
 
-        {activityBarFooter && <div style={{ marginTop: 4 }}>{activityBarFooter}</div>}
+        {activityBarFooter && <div className="mt-1">{activityBarFooter}</div>}
       </div>
 
       {/* Panel Sidebar */}
@@ -176,26 +143,14 @@ export function AppSidebar({
             animate={{ width: panelWidth, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
-            style={{
-              overflow: 'hidden',
-              flexShrink: 0,
-              borderRight: '0.5px solid var(--vos-border-subtle)',
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%'
-            }}
+            className="overflow-hidden shrink-0 border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] flex flex-col h-full"
           >
             <div
-              style={{
-                width: panelWidth,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden'
-              }}
+              className="h-full flex flex-col overflow-hidden"
+              style={{ width: panelWidth }}
             >
               {panelHeader && <div className="vos-panel-header">{panelHeader}</div>}
-              <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>{panelContent}</div>
+              <div className="flex-1 overflow-y-auto min-h-0">{panelContent}</div>
             </div>
           </motion.div>
         )}

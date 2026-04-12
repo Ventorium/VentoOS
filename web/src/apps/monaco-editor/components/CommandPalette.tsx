@@ -59,17 +59,15 @@ export default function CommandPalette({ items, isIndexing, onSelect, onClose }:
 
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center pt-10 z-50"
-      style={{ background: 'rgba(0,0,0,0.45)' }}
+      className="absolute inset-0 flex flex-col items-center pt-10 z-50 bg-[rgba(0,0,0,0.45)]"
       onMouseDown={onClose}
     >
       <div
-        className="w-full max-w-xl flex flex-col rounded-lg overflow-hidden shadow-2xl"
-        style={{ maxHeight: '65%', background: 'var(--vos-bg-overlay)', border: '1px solid var(--vos-border-subtle)' }}
+        className="w-full max-w-xl flex flex-col rounded-lg overflow-hidden shadow-2xl max-h-[65%] bg-[var(--vos-bg-overlay)] border border-[var(--vos-border-subtle)]"
         onMouseDown={e => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-3 border-b" style={{ borderColor: 'var(--vos-border-subtle)' }}>
-          <Search size={14} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+        <div className="flex items-center gap-2 px-3 border-b border-b-[var(--vos-border-subtle)]">
+          <Search size={14} className="text-[var(--vos-text-tertiary)] shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -77,14 +75,13 @@ export default function CommandPalette({ items, isIndexing, onSelect, onClose }:
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKey}
             placeholder="输入文件名以快速打开..."
-            className="flex-1 py-3 text-sm outline-none"
-            style={{ background: 'transparent', color: 'var(--vos-text-primary)' }}
+            className="flex-1 py-3 text-sm outline-none bg-transparent text-[var(--vos-text-primary)]"
           />
           {isIndexing && <Spinner size={12} />}
         </div>
-        <div ref={listRef} className="overflow-y-auto" style={{ maxHeight: 380 }}>
+        <div ref={listRef} className="overflow-y-auto max-h-[380px]">
           {filtered.length === 0 ? (
-            <div className="px-4 py-3 text-sm" style={{ color: 'var(--vos-text-tertiary)' }}>
+            <div className="px-4 py-3 text-sm text-[var(--vos-text-tertiary)]">
               {query ? '无匹配文件' : isIndexing ? '正在建立文件索引...' : '请先打开文件夹'}
             </div>
           ) : (
@@ -95,21 +92,19 @@ export default function CommandPalette({ items, isIndexing, onSelect, onClose }:
                 <button
                   key={item.path}
                   type="button"
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-left border-none cursor-pointer"
                   style={{
                     background: i === focused ? 'var(--vos-accent-primary)' : 'transparent',
-                    color: i === focused ? '#fff' : 'var(--vos-text-primary)',
-                    border: 'none',
-                    cursor: 'pointer'
+                    color: i === focused ? '#fff' : 'var(--vos-text-primary)'
                   }}
                   onMouseEnter={() => setFocused(i)}
                   onClick={() => onSelect(item)}
                 >
-                  <IconComp size={13} style={{ flexShrink: 0, color: i === focused ? '#fff' : iconInfo.color }} />
+                  <IconComp size={13} className="shrink-0" style={{ color: i === focused ? '#fff' : iconInfo.color }} />
                   <div className="flex flex-col min-w-0 flex-1">
                     <span className="truncate font-medium">{item.name}</span>
                     {item.relativePath !== item.name && (
-                      <span className="text-xs truncate" style={{ opacity: 0.6 }}>
+                      <span className="text-xs truncate opacity-[0.6]">
                         {item.relativePath}
                       </span>
                     )}

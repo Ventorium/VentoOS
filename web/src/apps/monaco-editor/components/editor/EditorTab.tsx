@@ -37,15 +37,11 @@ export default function EditorTab({
       role="button"
       tabIndex={0}
       draggable
-      className="flex items-center gap-1.5 px-3 h-full flex-shrink-0 cursor-pointer text-xs group"
+      className="flex items-center gap-1.5 px-3 h-full flex-shrink-0 cursor-pointer text-xs group border-r-[0.5px] border-r-[var(--vos-border-subtle)] min-w-[80px] max-w-[200px] select-none"
       style={{
-        borderRight: '0.5px solid var(--vos-border-subtle)',
         background: isActive ? 'var(--vos-bg-window)' : 'transparent',
         color: isActive ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
         borderBottom: isActive ? '1px solid var(--vos-accent-primary)' : '1px solid transparent',
-        minWidth: 80,
-        maxWidth: 200,
-        userSelect: 'none',
         fontStyle: tab.isPreview ? 'italic' : 'normal'
       }}
       onClick={onActivate}
@@ -61,21 +57,14 @@ export default function EditorTab({
       }}
       onDragEnd={onDragEnd}
     >
-      <IconComp size={11} style={{ flexShrink: 0, color: isActive ? iconInfo.color : 'var(--vos-text-tertiary)' }} />
+      <IconComp size={11} className="shrink-0" style={{ color: isActive ? iconInfo.color : 'var(--vos-text-tertiary)' }} />
       <span className="truncate flex-1">
-        {isDirty && <span style={{ color: 'var(--vos-accent-warning)', marginRight: 2 }}>●</span>}
+          {isDirty && <span className="text-[var(--vos-accent-warning)] mr-[2px]">●</span>}
         {tab.node.name}
       </span>
       <button
         type="button"
-        className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100"
-        style={{
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'inherit',
-          ...(isDirty ? { opacity: 1 } : {})
-        }}
+        className={`flex-shrink-0 w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 bg-transparent border-none cursor-pointer text-inherit${isDirty ? ' opacity-100' : ''}`}
         onClick={onClose}
         title="关闭"
       >

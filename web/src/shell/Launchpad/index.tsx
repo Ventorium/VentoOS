@@ -99,33 +99,19 @@ function FolderIcon({
       onClick={onClick}
     >
       <div
-        className="vos-launchpad-icon vos-launchpad-folder-icon"
+        className="vos-launchpad-icon vos-launchpad-folder-icon grid gap-[2px] content-center justify-center bg-white/15 backdrop-blur-[8px]"
         style={{
           width: tokens.launchpad.iconSize,
           height: tokens.launchpad.iconSize,
-          display: 'grid',
           gridTemplateColumns: `repeat(3, ${miniSize}px)`,
-          gridTemplateRows: `repeat(3, ${miniSize}px)`,
-          gap: 2,
-          alignContent: 'center',
-          justifyContent: 'center',
-          background: 'rgba(255, 255, 255, 0.15)',
-          backdropFilter: 'blur(8px)'
+          gridTemplateRows: `repeat(3, ${miniSize}px)`
         }}
       >
         {previewApps.map(a => (
           <div
             key={a.id}
-            style={{
-              width: miniSize,
-              height: miniSize,
-              borderRadius: '22%',
-              overflow: 'hidden',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 8
-            }}
+            className="rounded-[22%] overflow-hidden vos-flex-center text-[8px]"
+            style={{ width: miniSize, height: miniSize }}
           >
             {a.icon}
           </div>
@@ -171,35 +157,12 @@ function FolderOverlay({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.85, opacity: 0 }}
         transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-        style={{
-          background: 'rgba(40, 40, 50, 0.85)',
-          backdropFilter: 'blur(24px) saturate(160%)',
-          borderRadius: 20,
-          padding: '24px 28px 20px',
-          minWidth: 280,
-          maxWidth: 480,
-          border: '0.5px solid rgba(255,255,255,0.12)'
-        }}
+        className="bg-[rgba(40,40,50,0.85)] backdrop-blur-[24px] backdrop-saturate-[160%] rounded-[20px] pt-6 px-7 pb-5 min-w-[280px] max-w-[480px] border-[0.5px] border-solid border-white/12"
       >
-        <div
-          style={{
-            color: 'rgba(255,255,255,0.85)',
-            fontSize: 15,
-            fontWeight: 600,
-            textAlign: 'center',
-            marginBottom: 16
-          }}
-        >
+        <div className="text-white/85 text-[15px] font-semibold text-center mb-4">
           {name}
         </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 16,
-            justifyItems: 'center'
-          }}
-        >
+        <div className="grid grid-cols-4 gap-4 justify-items-center">
           <AnimatePresence mode="popLayout">
             {apps.map((app, i) => (
               <AppIcon key={app.id} app={app} index={i} onLaunch={onLaunch} />
@@ -303,7 +266,7 @@ export default function Launchpad() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ delay: 0.05, duration: 0.25 }}
           >
-            <Search size={16} style={{ opacity: 0.5, flexShrink: 0 }} />
+            <Search size={16} className="opacity-50 shrink-0" />
             <input
               ref={searchRef}
               type="text"
@@ -345,12 +308,7 @@ export default function Launchpad() {
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                style={{
-                  gridColumn: '1 / -1',
-                  textAlign: 'center',
-                  color: 'var(--vos-text-secondary)',
-                  fontSize: 15
-                }}
+                className="col-span-full text-center text-[var(--vos-text-secondary)] text-[15px]"
               >
                 未找到应用
               </motion.p>

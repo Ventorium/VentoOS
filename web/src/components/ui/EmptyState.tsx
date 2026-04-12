@@ -11,21 +11,14 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
   return (
     <div className="flex-1 flex items-center justify-center">
       <div className="text-center">
-        <div
-          style={{
-            color: 'var(--vos-text-tertiary)',
-            margin: '0 auto 12px',
-            display: 'flex',
-            justifyContent: 'center'
-          }}
-        >
+        <div className="text-[var(--vos-text-tertiary)] mx-auto mb-3 flex justify-center">
           {icon}
         </div>
-        <div className="text-sm" style={{ color: 'var(--vos-text-secondary)' }}>
+        <div className="text-sm text-[var(--vos-text-secondary)]">
           {title}
         </div>
         {description && (
-          <div className="text-xs mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <div className="text-xs mt-1 text-[var(--vos-text-tertiary)]">
             {description}
           </div>
         )}

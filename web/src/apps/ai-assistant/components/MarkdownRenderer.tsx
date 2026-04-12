@@ -48,8 +48,7 @@ const markdownComponents: Components = {
     if (!className) {
       return (
         <code
-          className="px-1 py-0.5 rounded text-xs"
-          style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-accent-primary)' }}
+          className="px-1 py-0.5 rounded text-xs bg-[var(--vos-bg-input)] text-[var(--vos-accent-primary)]"
           {...rest}
         >
           {children}
@@ -60,19 +59,17 @@ const markdownComponents: Components = {
     // Block code with syntax highlighting
     return (
       <div
-        className="relative rounded-lg overflow-hidden my-2 text-xs"
-        style={{ background: 'var(--vos-bg-input)', border: '0.5px solid var(--vos-border-subtle)' }}
+        className="relative rounded-lg overflow-hidden my-2 text-xs bg-[var(--vos-bg-input)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
       >
         <div
-          className="flex items-center justify-between px-3 py-1"
-          style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+          className="flex items-center justify-between px-3 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
         >
-          <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <span className="text-[10px] text-[var(--vos-text-tertiary)]">
             {language || 'code'}
           </span>
           <CopyButton text={codeString} />
         </div>
-        <pre className="m-0 p-3 overflow-x-auto" style={{ fontFamily: "'SF Mono', Menlo, monospace" }}>
+        <pre className="m-0 p-3 overflow-x-auto font-mono">
           <code className={className} {...rest}>
             {children}
           </code>
@@ -83,7 +80,7 @@ const markdownComponents: Components = {
   table({ children }) {
     return (
       <div className="overflow-x-auto my-2">
-        <table className="w-full text-xs border-collapse" style={{ border: '0.5px solid var(--vos-border-subtle)' }}>
+        <table className="w-full text-xs border-collapse border-[0.5px] border-solid border-[var(--vos-border-subtle)]">
           {children}
         </table>
       </div>
@@ -92,8 +89,7 @@ const markdownComponents: Components = {
   th({ children }) {
     return (
       <th
-        className="text-left px-2 py-1 text-xs font-medium"
-        style={{ background: 'var(--vos-bg-surface)', borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+        className="text-left px-2 py-1 text-xs font-medium bg-[var(--vos-bg-surface)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
       >
         {children}
       </th>
@@ -101,14 +97,14 @@ const markdownComponents: Components = {
   },
   td({ children }) {
     return (
-      <td className="px-2 py-1 text-xs" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+      <td className="px-2 py-1 text-xs border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
         {children}
       </td>
     )
   },
   a({ children, href }) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--vos-accent-primary)' }}>
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-[var(--vos-accent-primary)]">
         {children}
       </a>
     )

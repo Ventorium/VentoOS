@@ -172,36 +172,15 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   // Shared toolbar
   const Toolbar = () => (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '6px 12px',
-        borderBottom: '1px solid var(--vos-border-subtle)',
-        background: 'var(--vos-bg-secondary)',
-        flexShrink: 0
-      }}
-    >
-      <FileText size={16} style={{ color: 'var(--vos-text-tertiary)' }} />
-      <span style={{ fontSize: 13, color: 'var(--vos-text-primary)', fontWeight: 500, flex: 1 }}>
+    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] shrink-0">
+      <FileText size={16} className="text-[var(--vos-text-tertiary)]" />
+      <span className="text-[13px] text-[var(--vos-text-primary)] font-medium flex-1">
         {node?.name ?? 'Untitled'}
       </span>
       <button
         type="button"
         onClick={handleDownload}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          padding: '4px 10px',
-          fontSize: 12,
-          borderRadius: 6,
-          border: 'none',
-          cursor: 'pointer',
-          background: 'var(--vos-accent-primary)',
-          color: '#fff'
-        }}
+        className="flex items-center gap-1 px-[10px] py-1 text-xs rounded-md border-none cursor-pointer bg-[var(--vos-accent-primary)] text-white"
       >
         <Download size={14} />
         下载
@@ -219,22 +198,9 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   if (mode === 'loading') {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          background: 'var(--vos-bg-primary)',
-          color: 'var(--vos-text-tertiary)'
-        }}
-      >
-        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
-        <div style={{ fontSize: 13 }}>正在加载文档…</div>
-        <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-[var(--vos-bg-primary)] text-[var(--vos-text-tertiary)]">
+        <Loader2 size={32} className="animate-spin" />
+        <div className="text-[13px]">正在加载文档…</div>
         {filePicker}
       </div>
     )
@@ -242,22 +208,10 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   if (mode === 'error') {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          background: 'var(--vos-bg-primary)',
-          color: 'var(--vos-text-tertiary)'
-        }}
-      >
-        <FileText size={48} style={{ opacity: 0.3 }} />
-        <div style={{ fontSize: 14, fontWeight: 500 }}>无法打开文档</div>
-        <div style={{ fontSize: 12, maxWidth: 400, textAlign: 'center' }}>{errorMsg}</div>
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-[var(--vos-bg-primary)] text-[var(--vos-text-tertiary)]">
+        <FileText size={48} className="opacity-30" />
+        <div className="text-sm font-medium">无法打开文档</div>
+        <div className="text-xs max-w-[400px] text-center">{errorMsg}</div>
         {filePicker}
       </div>
     )
@@ -265,29 +219,12 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   if (mode === 'unsupported') {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'var(--vos-bg-primary)'
-        }}
-      >
+      <div className="w-full h-full flex flex-col bg-[var(--vos-bg-primary)]">
         <Toolbar />
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 12
-          }}
-        >
-          <FileText size={48} style={{ opacity: 0.3, color: 'var(--vos-text-tertiary)' }} />
-          <div style={{ fontSize: 14, color: 'var(--vos-text-secondary)' }}>暂不支持在线预览此格式</div>
-          <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>请下载后使用本地应用打开</div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+          <FileText size={48} className="opacity-30 text-[var(--vos-text-tertiary)]" />
+          <div className="text-sm text-[var(--vos-text-secondary)]">暂不支持在线预览此格式</div>
+          <div className="text-xs text-[var(--vos-text-tertiary)]">请下载后使用本地应用打开</div>
         </div>
         {filePicker}
       </div>
@@ -297,24 +234,11 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
   // DOCX view
   if (mode === 'docx') {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'var(--vos-bg-primary)'
-        }}
-      >
+      <div className="w-full h-full flex flex-col bg-[var(--vos-bg-primary)]">
         <Toolbar />
         <div
           ref={docxContainerRef}
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: 16,
-            background: '#f5f5f5'
-          }}
+          className="flex-1 overflow-auto p-4 bg-[#f5f5f5]"
         />
         <style>{`
           .vos-docx-viewer { background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin: 0 auto; }
@@ -328,56 +252,20 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
   // XLSX / CSV table view
   if ((mode === 'xlsx' || mode === 'csv') && sheetData) {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'var(--vos-bg-primary)'
-        }}
-      >
+      <div className="w-full h-full flex flex-col bg-[var(--vos-bg-primary)]">
         <Toolbar />
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          <table
-            style={{
-              borderCollapse: 'collapse',
-              width: '100%',
-              fontSize: 12,
-              color: 'var(--vos-text-primary)'
-            }}
-          >
+        <div className="flex-1 overflow-auto">
+          <table className="border-collapse w-full text-xs text-[var(--vos-text-primary)]">
             {sheetData.headers.length > 0 && (
               <thead>
                 <tr>
-                  <th
-                    style={{
-                      padding: '6px 10px',
-                      borderBottom: '2px solid var(--vos-border-subtle)',
-                      background: 'var(--vos-bg-secondary)',
-                      textAlign: 'left',
-                      fontWeight: 600,
-                      position: 'sticky',
-                      top: 0,
-                      width: 40,
-                      color: 'var(--vos-text-tertiary)'
-                    }}
-                  >
+                  <th className="px-[10px] py-[6px] border-b-2 border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] text-left font-semibold sticky top-0 w-[40px] text-[var(--vos-text-tertiary)]">
                     #
                   </th>
                   {sheetData.headers.map((h, i) => (
                     <th
                       key={i}
-                      style={{
-                        padding: '6px 10px',
-                        borderBottom: '2px solid var(--vos-border-subtle)',
-                        background: 'var(--vos-bg-secondary)',
-                        textAlign: 'left',
-                        fontWeight: 600,
-                        position: 'sticky',
-                        top: 0,
-                        whiteSpace: 'nowrap'
-                      }}
+                      className="px-[10px] py-[6px] border-b-2 border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] text-left font-semibold sticky top-0 whitespace-nowrap"
                     >
                       {h || `Column ${i + 1}`}
                     </th>
@@ -387,28 +275,14 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
             )}
             <tbody>
               {sheetData.rows.map((row, ri) => (
-                <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : 'var(--vos-bg-secondary)' }}>
-                  <td
-                    style={{
-                      padding: '4px 10px',
-                      borderBottom: '1px solid var(--vos-border-subtle)',
-                      color: 'var(--vos-text-tertiary)',
-                      fontSize: 11
-                    }}
-                  >
+                <tr key={ri} className={ri % 2 === 0 ? 'bg-transparent' : 'bg-[var(--vos-bg-secondary)]'}>
+                  <td className="px-[10px] py-1 border-b border-b-solid border-b-[var(--vos-border-subtle)] text-[var(--vos-text-tertiary)] text-[11px]">
                     {ri + 1}
                   </td>
                   {row.map((cell, ci) => (
                     <td
                       key={ci}
-                      style={{
-                        padding: '4px 10px',
-                        borderBottom: '1px solid var(--vos-border-subtle)',
-                        whiteSpace: 'nowrap',
-                        maxWidth: 300,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}
+                      className="px-[10px] py-1 border-b border-b-solid border-b-[var(--vos-border-subtle)] whitespace-nowrap max-w-[300px] overflow-hidden text-ellipsis"
                     >
                       {cell}
                     </td>
@@ -418,7 +292,7 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
             </tbody>
           </table>
           {sheetData.rows.length === 0 && (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--vos-text-tertiary)', fontSize: 13 }}>
+            <div className="p-[40px] text-center text-[var(--vos-text-tertiary)] text-[13px]">
               空表格
             </div>
           )}

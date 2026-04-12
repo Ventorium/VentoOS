@@ -120,10 +120,9 @@ function FilePickerModal({
   const segs = pathSegments(currentPath)
 
   return (
-    <div className="vos-modal-overlay" onClick={onClose} style={{ zIndex: 9000 }}>
+    <div className="vos-modal-overlay z-[9000]" onClick={onClose}>
       <motion.div
-        className="vos-modal"
-        style={{ width: 540, maxHeight: '70vh', display: 'flex', flexDirection: 'column', padding: 0 }}
+        className="vos-modal w-[540px] max-h-[70vh] flex flex-col p-0"
         initial={{ scale: 0.94, opacity: 0, y: -8 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.94, opacity: 0, y: -8 }}
@@ -131,79 +130,38 @@ function FilePickerModal({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '12px 14px 10px',
-            borderBottom: '0.5px solid var(--vos-border-subtle)',
-            flexShrink: 0
-          }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
+        <div className="flex items-center gap-2 px-3.5 pt-3 pb-2.5 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] shrink-0">
+          <span className="text-[13px] font-semibold text-[var(--vos-text-primary)]">
             {mode === 'directory' ? '选择目录' : '选择文件'}
           </span>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              marginLeft: 'auto',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--vos-text-secondary)',
-              display: 'flex',
-              padding: 2
-            }}
+            className="ml-auto bg-transparent border-none cursor-pointer text-[var(--vos-text-secondary)] flex p-[2px]"
           >
             <X size={14} />
           </button>
         </div>
 
         {/* Breadcrumbs */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            padding: '6px 14px',
-            borderBottom: '0.5px solid var(--vos-border-subtle)',
-            flexShrink: 0,
-            overflowX: 'auto',
-            scrollbarWidth: 'none'
-          }}
-        >
+        <div className="flex items-center gap-[2px] px-3.5 py-1.5 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] shrink-0 overflow-x-auto [scrollbar-width:none]">
           <button
             type="button"
             onClick={() => loadDir('~')}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--vos-text-secondary)',
-              padding: '2px 4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="bg-transparent border-none cursor-pointer text-[var(--vos-text-secondary)] px-1 py-[2px] flex items-center"
           >
             <Home size={12} />
           </button>
           {segs.map((seg, i) => (
-            <span key={seg.path} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {i > 0 && <ChevronRight size={10} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />}
+            <span key={seg.path} className="flex items-center gap-[2px]">
+              {i > 0 && <ChevronRight size={10} className="text-[var(--vos-text-tertiary)] shrink-0" />}
               <button
                 type="button"
                 onClick={() => i < segs.length - 1 && loadDir(seg.path)}
+                className="bg-transparent border-none text-[11px] px-1 py-[2px] rounded whitespace-nowrap"
                 style={{
-                  background: 'none',
-                  border: 'none',
                   cursor: i < segs.length - 1 ? 'pointer' : 'default',
                   color: i < segs.length - 1 ? 'var(--vos-accent-primary)' : 'var(--vos-text-primary)',
-                  fontSize: 11,
-                  padding: '2px 4px',
-                  borderRadius: 4,
-                  whiteSpace: 'nowrap',
                   fontWeight: i === segs.length - 1 ? 500 : 400
                 }}
               >
@@ -214,20 +172,20 @@ function FilePickerModal({
         </div>
 
         {/* File list */}
-        <div ref={listRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '4px 0' }}>
+        <div ref={listRef} className="flex-1 overflow-y-auto min-h-0 py-1 px-0">
           {loading && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+            <div className="flex justify-center p-6">
               <Loader2
                 size={18}
-                style={{ color: 'var(--vos-text-secondary)', animation: 'vos-spin 0.7s linear infinite' }}
+                className="text-[var(--vos-text-secondary)] animate-[vos-spin_0.7s_linear_infinite]"
               />
             </div>
           )}
           {error && (
-            <div style={{ padding: '12px 16px', color: 'var(--vos-accent-danger)', fontSize: 12 }}>{error}</div>
+            <div className="px-4 py-3 text-[var(--vos-accent-danger)] text-xs">{error}</div>
           )}
           {!loading && !error && nodes.length === 0 && (
-            <div style={{ padding: '12px 16px', color: 'var(--vos-text-tertiary)', fontSize: 12 }}>目录为空</div>
+            <div className="px-4 py-3 text-[var(--vos-text-tertiary)] text-xs">目录为空</div>
           )}
           {!loading &&
             nodes.map(node => {
@@ -244,18 +202,10 @@ function FilePickerModal({
                     if (e.key === 'Enter') handleNodeDblClick(node)
                     else if (e.key === ' ') handleNodeClick(node)
                   }}
+                  className="flex items-center gap-2 px-3.5 py-[5px] cursor-pointer rounded-none text-xs select-none transition-[background] duration-100"
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '5px 14px',
-                    cursor: 'pointer',
                     background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
-                    color: isSelected ? '#fff' : node.is_dir ? 'var(--vos-text-primary)' : 'var(--vos-text-secondary)',
-                    borderRadius: 0,
-                    fontSize: 12,
-                    userSelect: 'none',
-                    transition: 'background 0.1s'
+                    color: isSelected ? '#fff' : node.is_dir ? 'var(--vos-text-primary)' : 'var(--vos-text-secondary)'
                   }}
                   onMouseEnter={e => {
                     if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'var(--vos-bg-item-hover)'
@@ -267,7 +217,7 @@ function FilePickerModal({
                   {node.is_dir ? (
                     <FolderOpen
                       size={14}
-                      style={{ flexShrink: 0, color: isSelected ? '#fff' : 'var(--vos-accent-primary)', opacity: 0.9 }}
+                      className={isSelected ? 'shrink-0 opacity-90 text-white' : 'shrink-0 opacity-90 text-[var(--vos-accent-primary)]'}
                     />
                   ) : (
                     (() => {
@@ -276,56 +226,33 @@ function FilePickerModal({
                       return (
                         <IconComp
                           size={14}
-                          style={{ flexShrink: 0, color: isSelected ? '#fff' : iconInfo.color }}
+                          className={isSelected ? 'shrink-0 text-white' : 'shrink-0'}
+                          style={isSelected ? undefined : { color: iconInfo.color }}
                         />
                       )
                     })()
                   )}
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span className="flex-1 truncate">
                     {node.name}
                   </span>
-                  {node.is_dir && <ChevronRight size={10} style={{ flexShrink: 0, opacity: 0.4 }} />}
+                  {node.is_dir && <ChevronRight size={10} className="shrink-0 opacity-40" />}
                 </div>
               )
             })}
         </div>
 
         {/* Footer */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 14px',
-            borderTop: '0.5px solid var(--vos-border-subtle)',
-            flexShrink: 0
-          }}
-        >
+        <div className="flex items-center gap-2 px-3.5 py-2.5 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)] shrink-0">
           {/* Selected path display */}
-          <div
-            style={{
-              flex: 1,
-              fontSize: 11,
-              color: 'var(--vos-text-secondary)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              background: 'var(--vos-bg-input)',
-              border: '0.5px solid var(--vos-border-subtle)',
-              borderRadius: 5,
-              padding: '3px 8px',
-              fontFamily: 'monospace'
-            }}
-          >
+          <div className="flex-1 text-[11px] text-[var(--vos-text-secondary)] truncate bg-[var(--vos-bg-input)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] rounded-[5px] px-2 py-[3px] font-mono">
             {selected || (mode === 'directory' ? currentPath : '未选择')}
           </div>
-          <button type="button" className="vos-btn" onClick={onClose} style={{ flexShrink: 0 }}>
+          <button type="button" className="vos-btn shrink-0" onClick={onClose}>
             取消
           </button>
           <button
             type="button"
-            className="vos-btn vos-btn-primary"
-            style={{ flexShrink: 0 }}
+            className="vos-btn vos-btn-primary shrink-0"
             disabled={!selected && mode === 'file'}
             onClick={() => {
               const finalPath = selected || (mode === 'directory' ? currentPath : '')
@@ -361,10 +288,10 @@ export function PathPickerInput({
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <div className="flex gap-[6px] items-center">
         <input
           className={className ?? 'vos-input'}
-          style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, ...style }}
+          style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, ...(style ?? {}) }}
           placeholder={placeholder ?? (mode === 'directory' ? '目录路径' : '文件路径')}
           value={value}
           onChange={e => onChange(e.target.value)}
@@ -373,8 +300,7 @@ export function PathPickerInput({
         />
         <button
           type="button"
-          className="vos-btn"
-          style={{ flexShrink: 0, fontSize: 12 }}
+          className="vos-btn shrink-0 text-xs"
           disabled={disabled}
           onClick={() => setOpen(true)}
         >
@@ -552,28 +478,20 @@ export function VfsFilePickerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}>
+    <div className="fixed inset-0 z-[200] vos-flex-center bg-black/55">
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.14 }}
-        className="flex flex-col overflow-hidden rounded-xl"
-        style={{
-          width: 680,
-          height: 480,
-          background: 'var(--vos-bg-surface)',
-          boxShadow: '0 24px 80px rgba(0,0,0,.5)',
-          border: '0.5px solid var(--vos-border-subtle)'
-        }}
+        className="flex flex-col overflow-hidden rounded-xl w-[680px] h-[480px] bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
       >
         {/* Header */}
         <div
-          className="flex items-center px-4 py-2.5 gap-3 flex-shrink-0"
-          style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+          className="flex items-center px-4 py-2.5 gap-3 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
         >
           <span className="text-xs font-semibold flex-1">{mode === 'directory' ? '选择目录' : '选择文件'}</span>
-          <button type="button" className="vos-btn" style={{ padding: '2px 6px' }} onClick={onClose}>
+          <button type="button" className="vos-btn px-1.5 py-[2px]" onClick={onClose}>
             <X size={12} />
           </button>
         </div>
@@ -581,12 +499,10 @@ export function VfsFilePickerModal({
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar: VFS mounts */}
           <div
-            className="w-40 flex-shrink-0 flex flex-col py-2 overflow-y-auto"
-            style={{ borderRight: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-base)' }}
+            className="w-40 flex-shrink-0 flex flex-col py-2 overflow-y-auto border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] bg-[var(--vos-bg-base)]"
           >
             <div
-              className="px-3 pb-1 text-[10px] font-semibold uppercase"
-              style={{ color: 'var(--vos-text-tertiary)' }}
+              className="px-3 pb-1 text-[10px] font-semibold uppercase text-[var(--vos-text-tertiary)]"
             >
               存储源
             </div>
@@ -597,23 +513,20 @@ export function VfsFilePickerModal({
                 <button
                   key={m.id}
                   type="button"
-                  className="flex items-center gap-2 px-3 py-1.5 w-full text-left border-none bg-transparent cursor-pointer text-xs"
+                  className="flex items-center gap-2 px-3 py-1.5 w-full text-left border-none bg-transparent cursor-pointer text-xs rounded mx-1 my-[1px] w-[calc(100%-8px)]"
                   style={{
                     background: active ? 'var(--vos-accent-primary)' : 'transparent',
-                    color: active ? '#fff' : 'var(--vos-text-primary)',
-                    borderRadius: 4,
-                    margin: '1px 4px',
-                    width: 'calc(100% - 8px)'
+                    color: active ? '#fff' : 'var(--vos-text-primary)'
                   }}
                   onClick={() => selectMount(m)}
                 >
-                  <Icon size={12} style={{ flexShrink: 0 }} />
+                  <Icon size={12} className="shrink-0" />
                   <span className="truncate">{m.name}</span>
                 </button>
               )
             })}
             {mounts.length === 0 && (
-              <div className="px-3 py-2 text-[11px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+              <div className="px-3 py-2 text-[11px] text-[var(--vos-text-tertiary)]">
                 暂无存储源
               </div>
             )}
@@ -623,12 +536,11 @@ export function VfsFilePickerModal({
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Breadcrumb */}
             <div
-              className="flex items-center gap-1 px-3 h-8 flex-shrink-0 overflow-x-auto"
-              style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+              className="flex items-center gap-1 px-3 h-8 flex-shrink-0 overflow-x-auto border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
             >
               {segments.map((seg, i) => (
                 <span key={seg.path} className="flex items-center gap-1">
-                  {i > 0 && <ChevronRight size={10} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />}
+                  {i > 0 && <ChevronRight size={10} className="text-[var(--vos-text-tertiary)] shrink-0" />}
                   <button
                     type="button"
                     className="bg-transparent border-none cursor-pointer text-xs p-0"
@@ -652,7 +564,7 @@ export function VfsFilePickerModal({
             <div ref={listRef} className="flex-1 overflow-y-auto p-1">
               {loading && (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 size={16} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+                  <Loader2 size={16} className="animate-spin text-[var(--vos-text-tertiary)]" />
                 </div>
               )}
               {!loading &&
@@ -664,12 +576,10 @@ export function VfsFilePickerModal({
                     <button
                       key={node.path}
                       type="button"
-                      className="flex items-center gap-2 px-2 py-1 w-full text-left border-none cursor-pointer text-xs"
-                      style={{
-                        background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
-                        color: isSelected ? '#fff' : 'var(--vos-text-primary)',
-                        borderRadius: 4,
-                        opacity: mode === 'file' && node.is_dir ? 1 : 1
+                    className="flex items-center gap-2 px-2 py-1 w-full text-left border-none cursor-pointer text-xs rounded"
+                    style={{
+                      background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
+                      color: isSelected ? '#fff' : 'var(--vos-text-primary)'
                       }}
                       onClick={() => {
                         if (node.is_dir) {
@@ -685,12 +595,12 @@ export function VfsFilePickerModal({
                       {node.is_dir ? (
                         <FolderOpen
                           size={13}
-                          style={{ color: isSelected ? '#fff' : 'var(--vos-accent-warning, #f59e0b)', flexShrink: 0 }}
+                          className={isSelected ? 'shrink-0 text-white' : 'shrink-0 text-[var(--vos-accent-warning,_#f59e0b)]'}
                         />
                       ) : (
                         <File
                           size={13}
-                          style={{ color: isSelected ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }}
+                          className={isSelected ? 'shrink-0 text-white' : 'shrink-0 text-[var(--vos-text-tertiary)]'}
                         />
                       )}
                       <span className="truncate">{node.name}</span>
@@ -698,7 +608,7 @@ export function VfsFilePickerModal({
                   )
                 })}
               {!loading && nodes.length === 0 && (
-                <div className="py-8 text-center text-[11px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <div className="py-8 text-center text-[11px] text-[var(--vos-text-tertiary)]">
                   空目录
                 </div>
               )}
@@ -708,26 +618,19 @@ export function VfsFilePickerModal({
 
         {/* Footer */}
         <div
-          className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
-          style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
+          className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)]"
         >
           <div
-            className="flex-1 text-xs font-mono truncate px-2 py-1 rounded"
-            style={{
-              background: 'var(--vos-bg-input)',
-              color: 'var(--vos-text-secondary)',
-              border: '0.5px solid var(--vos-border-subtle)'
-            }}
+            className="flex-1 text-xs font-mono truncate px-2 py-1 rounded bg-[var(--vos-bg-input)] text-[var(--vos-text-secondary)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
           >
             {selectedNode?.path ?? (mode === 'directory' ? currentPath : '未选择文件')}
           </div>
-          <button type="button" className="vos-btn text-xs" onClick={onClose} style={{ flexShrink: 0 }}>
+          <button type="button" className="vos-btn text-xs shrink-0" onClick={onClose}>
             取消
           </button>
           <button
             type="button"
-            className="vos-btn vos-btn-primary text-xs"
-            style={{ flexShrink: 0 }}
+            className="vos-btn vos-btn-primary text-xs shrink-0"
             disabled={fetchingContent || (mode === 'file' && !selectedNode)}
             onClick={handleConfirm}
           >
@@ -766,10 +669,10 @@ export function VfsPathPickerInput({
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <div className="flex gap-1.5 items-center">
         <input
-          className={className ?? 'vos-input'}
-          style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, ...style }}
+          className={`${className ?? 'vos-input'} flex-1 font-mono text-xs`}
+          style={style}
           placeholder={
             placeholder ?? (mode === 'directory' ? '目录路径 (支持 VFS 存储源)' : '文件路径 (支持 VFS 存储源)')
           }
@@ -779,8 +682,7 @@ export function VfsPathPickerInput({
         />
         <button
           type="button"
-          className="vos-btn"
-          style={{ flexShrink: 0, fontSize: 12 }}
+          className="vos-btn shrink-0 text-xs"
           disabled={disabled}
           onClick={() => setOpen(true)}
         >

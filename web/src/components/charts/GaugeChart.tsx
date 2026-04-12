@@ -33,8 +33,7 @@ export default function GaugeChart({
       viewBox={`0 0 ${size} ${size}`}
       width={size}
       height={size}
-      className={className}
-      style={{ overflow: 'visible' }}
+      className={className ? `${className} overflow-visible` : 'overflow-visible'}
     >
       {/* Background ring */}
       <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={backgroundColor} strokeWidth={thickness} />
@@ -51,7 +50,7 @@ export default function GaugeChart({
         strokeDasharray={circumference}
         strokeDashoffset={dashOffset}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        className="transition-all duration-[600ms] ease-in-out"
       />
 
       {/* Center text */}

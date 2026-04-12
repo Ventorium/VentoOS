@@ -320,17 +320,7 @@ function ContextMenu({
     setPos({ x: nx, y: ny })
   }, [x, y])
 
-  const itemStyle: React.CSSProperties = {
-    padding: '6px 16px',
-    cursor: 'pointer',
-    fontSize: 13,
-    color: '#d4d4d4',
-    whiteSpace: 'nowrap',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    position: 'relative'
-  }
+  const itemClassName = "flex items-center gap-2 py-1.5 px-4 cursor-pointer text-[13px] text-[#d4d4d4] whitespace-nowrap relative"
 
   const handleClick = (fn: () => void) => (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -341,55 +331,34 @@ function ContextMenu({
   return (
     <div
       ref={menuRef}
+      className="fixed z-[9999] bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[185px] shadow-[0_8px_24px_rgba(0,0,0,0.5)] select-none"
       style={{
-        position: 'fixed',
         left: pos.x,
-        top: pos.y,
-        zIndex: 9999,
-        background: '#252525',
-        border: '1px solid #444',
-        borderRadius: 6,
-        padding: '4px 0',
-        minWidth: 185,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-        userSelect: 'none'
+        top: pos.y
       }}
     >
-      <div style={itemStyle} className="ctx-item" onClick={handleClick(onCopy)}>
+      <div className={`${itemClassName} ctx-item`} onClick={handleClick(onCopy)}>
         复制
       </div>
-      <div style={itemStyle} className="ctx-item" onClick={handleClick(onPaste)}>
+      <div className={`${itemClassName} ctx-item`} onClick={handleClick(onPaste)}>
         粘贴
       </div>
       {commands.length > 0 && (
         <div
-          style={{ ...itemStyle, justifyContent: 'space-between' }}
-          className="ctx-item"
+          className={`${itemClassName} ctx-item justify-between`}
           onMouseEnter={() => setShowCmdSub(true)}
           onMouseLeave={() => setShowCmdSub(false)}
         >
           <span>粘贴常用命令</span>
-          <span style={{ fontSize: 10, color: '#888' }}>▶</span>
+          <span className="text-[10px] text-[#888]">▶</span>
           {showCmdSub && (
             <div
-              style={{
-                position: 'absolute',
-                left: '100%',
-                top: 0,
-                background: '#252525',
-                border: '1px solid #444',
-                borderRadius: 6,
-                padding: '4px 0',
-                minWidth: 180,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                zIndex: 10000
-              }}
+              className="absolute left-full top-0 bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[180px] shadow-[0_8px_24px_rgba(0,0,0,0.5)] z-[10000]"
             >
               {commands.map(cmd => (
                 <div
                   key={cmd.id}
-                  style={{ ...itemStyle }}
-                  className="ctx-item"
+                  className={`${itemClassName} ctx-item`}
                   onClick={e => {
                     e.stopPropagation()
                     onPasteCommand(cmd.command)
@@ -403,23 +372,23 @@ function ContextMenu({
           )}
         </div>
       )}
-      <div style={itemStyle} className="ctx-item" onClick={handleClick(onClear)}>
+      <div className={`${itemClassName} ctx-item`} onClick={handleClick(onClear)}>
         清屏
       </div>
-      <div style={itemStyle} className="ctx-item" onClick={handleClick(onScrollToBottom)}>
+      <div className={`${itemClassName} ctx-item`} onClick={handleClick(onScrollToBottom)}>
         滚动至底
       </div>
-      <div style={{ height: 1, background: '#444', margin: '4px 8px' }} />
-      <div style={itemStyle} className="ctx-item" onClick={handleClick(onSplitH)}>
+      <div className="h-px bg-[#444] mx-2 my-1" />
+      <div className={`${itemClassName} ctx-item`} onClick={handleClick(onSplitH)}>
         水平切分
       </div>
-      <div style={itemStyle} className="ctx-item" onClick={handleClick(onSplitV)}>
+      <div className={`${itemClassName} ctx-item`} onClick={handleClick(onSplitV)}>
         垂直切分
       </div>
       {canClose && (
         <>
-          <div style={{ height: 1, background: '#444', margin: '4px 8px' }} />
-          <div style={{ ...itemStyle, color: '#f14c4c' }} className="ctx-item" onClick={handleClick(onClosePane)}>
+          <div className="h-px bg-[#444] mx-2 my-1" />
+          <div className={`${itemClassName} ctx-item text-[#f14c4c]`} onClick={handleClick(onClosePane)}>
             关闭面板
           </div>
         </>
@@ -481,16 +450,13 @@ function DragDivider({
   return (
     <div
       onMouseDown={handleMouseDown}
+      className="absolute bg-[#2a2a2a] z-10 transition-[background] duration-[120ms]"
       style={{
-        position: 'absolute',
         left: divider.left,
         top: divider.top,
         width: divider.width,
         height: divider.height,
-        background: '#2a2a2a',
-        cursor: isHoriz ? 'col-resize' : 'row-resize',
-        zIndex: 10,
-        transition: 'background 0.12s'
+        cursor: isHoriz ? 'col-resize' : 'row-resize'
       }}
       onMouseEnter={e => {
         ;(e.currentTarget as HTMLDivElement).style.background = '#444'
@@ -664,13 +630,8 @@ export default function LocalTerminal() {
   return (
     <div
       ref={containerRef}
-      style={{
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        background: terminalSettings.backgroundColor,
-        overflow: 'hidden'
-      }}
+      className="relative w-full h-full overflow-hidden"
+      style={{ background: terminalSettings.backgroundColor }}
     >
       {/* xterm scrollbar visibility fix */}
       <style>{`
@@ -691,22 +652,20 @@ export default function LocalTerminal() {
             <div
               key={paneId}
               data-pane-id={paneId}
+              className="absolute overflow-hidden transition-[outline-color] duration-100"
               style={{
-                position: 'absolute',
                 left: rect.left,
                 top: rect.top,
                 width: rect.width,
                 height: rect.height,
-                overflow: 'hidden',
-                outline: paneId === activePaneId ? '1px solid #444' : '1px solid transparent',
-                transition: 'outline-color 0.1s'
+                outline: paneId === activePaneId ? '1px solid #444' : '1px solid transparent'
               }}
               onContextMenu={e => handleContextMenu(e, paneId)}
               onMouseDown={() => setActivePaneId(paneId)}
             >
               <Suspense
                 fallback={
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666', background: '#0d0d0d' }}>
+                  <div className="flex items-center justify-center h-full text-[#666] bg-[#0d0d0d]">
                     加载中…
                   </div>
                 }

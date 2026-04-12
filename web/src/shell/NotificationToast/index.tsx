@@ -2,34 +2,37 @@
  * Notification Toast System
  *
  * Renders pop-up banners from the top-right of the screen.
- * Auto-dismisses after 5 seconds. Stacks vertically.
+ * Only shown when do-not-disturb is OFF.
+ * Toasts auto-dismiss after 5 seconds (vanish from screen) but do NOT mark as read.
+ * The notification stays unread in the notification center — only explicit user
+ * action (click, mark-as-read, clear) changes the read state / tray badge count.
  */
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, CheckCircle, Info, X, XCircle } from 'lucide-react'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { type NotificationItem, useNotificationStore } from '@/services/notification'
 import { tokens } from '@/theme'
 
 const LEVEL_CONFIG = {
-  info: { icon: Info, color: 'var(--vos-accent-info)', bg: 'var(--vos-accent-info)' },
-  success: { icon: CheckCircle, color: 'var(--vos-accent-success)', bg: 'var(--vos-accent-success)' },
-  warning: { icon: AlertCircle, color: 'var(--vos-accent-warning)', bg: 'var(--vos-accent-warning)' },
-  error: { icon: XCircle, color: 'var(--vos-accent-danger)', bg: 'var(--vos-accent-danger)' }
+  info: { icon: Info, color: 'var(--vos-accent-info)' },
+  success: { icon: CheckCircle, color: 'var(--vos-accent-success)' },
+  warning: { icon: AlertCircle, color: 'var(--vos-accent-warning)' },
+  error: { icon: XCircle, color: 'var(--vos-accent-danger)' }
 }
 
 const AUTO_DISMISS_MS = 5000
 
-function Toast({ notification }: { notification: NotificationItem }) {
+function Toast({ notification, onDismiss }: { notification: NotificationItem; onDismiss: (id: string) => void }) {
   const remove = useNotificationStore(s => s.removeNotification)
   const config = LEVEL_CONFIG[notification.level]
   const Icon = config.icon
 
-  // Auto-dismiss
+  // Auto-dismiss after delay — just hide the toast, don't mark as read
   useEffect(() => {
-    const timer = setTimeout(() => remove(notification.id), AUTO_DISMISS_MS)
+    const timer = setTimeout(() => onDismiss(notification.id), AUTO_DISMISS_MS)
     return () => clearTimeout(timer)
-  }, [notification.id, remove])
+  }, [notification.id, onDismiss])
 
   return (
     <motion.div
@@ -63,16 +66,42 @@ function Toast({ notification }: { notification: NotificationItem }) {
 }
 
 export default function NotificationToast() {
-  // Select the full array (stable reference), then filter inside render
-  // Filtering inside selector returns new array ref every render → infinite loop
+  // Respect do-not-disturb mode — don't show toast banners
+  const doNotDisturb = useNotificationStore(s => s.doNotDisturb)
   const notifications = useNotificationStore(s => s.notifications)
-  const visible = notifications.filter(n => !n.read).slice(0, 3)
+
+  // Track which toast IDs have been auto-dismissed (still unread, just hidden from toast area)
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+
+  // Clean stale entries (notifications that were read or removed) from dismissed set
+  useEffect(() => {
+    const currentIds = new Set(notifications.map(n => n.id))
+    setDismissedIds(prev => {
+      const next = new Set<string>()
+      for (const id of prev) {
+        if (currentIds.has(id)) next.add(id)
+      }
+      return next.size === prev.size ? prev : next
+    })
+  }, [notifications])
+
+  const handleDismiss = useCallback((id: string) => {
+    setDismissedIds(prev => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+  }, [])
+
+  // Compute unread, then subtract already-dismissed toasts
+  const unread = notifications.filter(n => !n.read)
+  const visible = doNotDisturb ? [] : unread.filter(n => !dismissedIds.has(n.id)).slice(0, 3)
 
   return createPortal(
     <div className="vos-toast-container">
       <AnimatePresence mode="popLayout">
         {visible.map(n => (
-          <Toast key={n.id} notification={n} />
+          <Toast key={n.id} notification={n} onDismiss={handleDismiss} />
         ))}
       </AnimatePresence>
     </div>,

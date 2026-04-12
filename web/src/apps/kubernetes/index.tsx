@@ -311,8 +311,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
             actions={
               <button
                 type="button"
-                className="bg-transparent border-none cursor-pointer p-0"
-                style={{ color: 'var(--vos-accent-primary)' }}
+                className="bg-transparent border-none cursor-pointer p-0 text-[var(--vos-accent-primary)]"
                 onClick={() => setShowForm(true)}
               >
                 <Plus size={14} />
@@ -339,16 +338,16 @@ export default function KubernetesApp(_props: AppComponentProps) {
                     onClick={() => toggleCluster(c.id)}
                   >
                     {isExpanded ? (
-                      <ChevronDown size={10} style={{ color: 'var(--vos-text-tertiary)' }} />
+                      <ChevronDown size={10} className="text-[var(--vos-text-tertiary)]" />
                     ) : (
-                      <ChevronRight size={10} style={{ color: 'var(--vos-text-tertiary)' }} />
+                      <ChevronRight size={10} className="text-[var(--vos-text-tertiary)]" />
                     )}
                   </button>
                   <Layers
                     size={12}
+                    className="shrink-0"
                     style={{
-                      color: isActive ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)',
-                      flexShrink: 0
+                      color: isActive ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)'
                     }}
                   />
                   <span
@@ -361,8 +360,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
                   </span>
                   <button
                     type="button"
-                    className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer"
-                    style={{ color: 'var(--vos-text-tertiary)' }}
+                    className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer text-[var(--vos-text-tertiary)]"
                     onClick={() => deleteCluster(c.id)}
                   >
                     <Trash2 size={10} />
@@ -370,19 +368,18 @@ export default function KubernetesApp(_props: AppComponentProps) {
                 </div>
                 {/* Namespace sub-items */}
                 {isExpanded && isActive && nsLoading && (
-                  <div className="text-[10px] pl-8 py-1" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  <div className="text-[10px] pl-8 py-1 text-[var(--vos-text-tertiary)]">
                     加载命名空间中…
                   </div>
                 )}
                 {isExpanded && isActive && !nsLoading && nsError && (
                   <div className="pl-8 py-1">
-                    <div className="text-[10px]" style={{ color: '#ef4444' }}>
+                    <div className="text-[10px] text-[#ef4444]">
                       {nsError}
                     </div>
                     <button
                       type="button"
-                      className="text-[10px] bg-transparent border-none cursor-pointer p-0"
-                      style={{ color: 'var(--vos-accent-primary)' }}
+                      className="text-[10px] bg-transparent border-none cursor-pointer p-0 text-[var(--vos-accent-primary)]"
                       onClick={() => selectedCluster && fetchNamespaces(selectedCluster)}
                     >
                       重试
@@ -396,26 +393,18 @@ export default function KubernetesApp(_props: AppComponentProps) {
                   namespaces.map(ns => (
                     <div
                       key={ns.name}
-                      className="flex items-center gap-1 cursor-pointer text-xs"
+                      className="flex items-center gap-1 cursor-pointer text-xs rounded-[3px] mx-1 pl-6 pr-2 py-[2px]"
                       style={{
-                        paddingLeft: 24,
-                        paddingRight: 8,
-                        paddingTop: 2,
-                        paddingBottom: 2,
                         background: selectedNs === ns.name ? 'var(--vos-accent-primary)' : 'transparent',
-                        color: selectedNs === ns.name ? '#fff' : 'var(--vos-text-secondary)',
-                        borderRadius: 3,
-                        margin: '0 4px'
+                        color: selectedNs === ns.name ? '#fff' : 'var(--vos-text-secondary)'
                       }}
                       onClick={() => pickNs(ns.name)}
                       onKeyDown={() => {}}
                     >
                       <span
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0 min-w-[8px] min-h-[8px]"
                         style={{
-                          background: selectedNs === ns.name ? 'rgba(255,255,255,0.6)' : 'var(--vos-text-tertiary)',
-                          minWidth: 8,
-                          minHeight: 8
+                          background: selectedNs === ns.name ? 'rgba(255,255,255,0.6)' : 'var(--vos-text-tertiary)'
                         }}
                       />
                       <span className="truncate">{ns.name}</span>
@@ -425,7 +414,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
             )
           })}
           {clusters.length === 0 && (
-            <div className="text-xs px-3 py-2" style={{ color: 'var(--vos-text-tertiary)' }}>
+            <div className="text-xs px-3 py-2 text-[var(--vos-text-tertiary)]">
               无集群
             </div>
           )}
@@ -433,19 +422,19 @@ export default function KubernetesApp(_props: AppComponentProps) {
           {/* Divider + Resource types — only visible when a cluster is selected */}
           {selectedCluster && (
             <>
-              <div style={{ borderTop: '0.5px solid var(--vos-border-subtle)', margin: '8px 0 0' }} />
+              <div
+                className="[border-top:0.5px_solid_var(--vos-border-subtle)] mt-2"
+              />
               {/* Resource types nav */}
               <div
-                className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider"
-                style={{ color: 'var(--vos-text-tertiary)' }}
+                className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-[var(--vos-text-tertiary)]"
               >
                 资源类型
               </div>
               {RESOURCE_GROUPS.map(group => (
                 <div key={group.label}>
                   <div
-                    className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs"
-                    style={{ color: 'var(--vos-text-secondary)' }}
+                    className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs text-[var(--vos-text-secondary)]"
                     onClick={() => toggleGroup(group.label)}
                     onKeyDown={() => {}}
                   >
@@ -457,13 +446,8 @@ export default function KubernetesApp(_props: AppComponentProps) {
                     group.kinds.map(k => (
                       <div
                         key={k.kind}
-                        className="flex items-center gap-1 cursor-pointer text-xs rounded"
+                        className="flex items-center gap-1 cursor-pointer text-xs rounded pl-[22px] pr-2 py-[2px] mx-1"
                         style={{
-                          paddingLeft: 22,
-                          paddingRight: 8,
-                          paddingTop: 2,
-                          paddingBottom: 2,
-                          margin: '0 4px',
                           background: selectedKind === k.kind ? 'var(--vos-accent-primary)' : 'transparent',
                           color: selectedKind === k.kind ? '#fff' : 'var(--vos-text-primary)'
                         }}
@@ -496,20 +480,14 @@ export default function KubernetesApp(_props: AppComponentProps) {
         <>
           {/* Toolbar — shows cluster/ns + kind breadcrumb */}
           <div
-            className="flex items-center gap-2 h-9 px-3 flex-shrink-0"
-            style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+            className="flex items-center gap-2 h-9 px-3 flex-shrink-0 [border-bottom:0.5px_solid_var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
           >
-            <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+            <span className="text-xs text-[var(--vos-text-tertiary)]">
               {clusters.find(c => c.id === selectedCluster)?.name}
             </span>
-            <ChevronRight size={10} style={{ color: 'var(--vos-text-tertiary)' }} />
+            <ChevronRight size={10} className="text-[var(--vos-text-tertiary)]" />
             <select
-              className="text-xs border-none outline-none cursor-pointer rounded px-1 py-0.5"
-              style={{
-                background: 'var(--vos-bg-input)',
-                color: 'var(--vos-text-primary)',
-                border: '0.5px solid var(--vos-border-subtle)'
-              }}
+              className="text-xs border-none outline-none cursor-pointer rounded px-1 py-0.5 bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)] [border:0.5px_solid_var(--vos-border-subtle)]"
               value={selectedNs}
               onChange={e => pickNs(e.target.value)}
             >
@@ -519,15 +497,14 @@ export default function KubernetesApp(_props: AppComponentProps) {
                 </option>
               ))}
             </select>
-            <ChevronRight size={10} style={{ color: 'var(--vos-text-tertiary)' }} />
-            <span className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+            <ChevronRight size={10} className="text-[var(--vos-text-tertiary)]" />
+            <span className="text-xs font-medium text-[var(--vos-text-primary)]">
               {selectedKind}s
             </span>
             <span className="flex-1" />
             <button
               type="button"
-              className="bg-transparent border-none cursor-pointer p-0"
-              style={{ color: 'var(--vos-accent-primary)' }}
+              className="bg-transparent border-none cursor-pointer p-0 text-[var(--vos-accent-primary)]"
               onClick={() => selectedCluster && fetchResources(selectedCluster, selectedNs, selectedKind)}
             >
               <RefreshCw size={12} />
@@ -540,17 +517,13 @@ export default function KubernetesApp(_props: AppComponentProps) {
             </div>
           ) : (
             <div className="flex-1 overflow-auto text-xs">
-              <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <table className="w-full border-collapse">
                 <thead>
                   <tr>
                     {['Name', 'Namespace', 'Status', 'Age'].map(h => (
                       <th
                         key={h}
-                        className="px-3 py-1.5 text-left font-medium sticky top-0"
-                        style={{
-                          background: 'var(--vos-bg-surface)',
-                          borderBottom: '1px solid var(--vos-border-subtle)'
-                        }}
+                        className="px-3 py-1.5 text-left font-medium sticky top-0 bg-[var(--vos-bg-surface)] [border-bottom:1px_solid_var(--vos-border-subtle)]"
                       >
                         {h}
                       </th>
@@ -559,7 +532,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
                 </thead>
                 <tbody>
                   {resources.map(r => (
-                    <tr key={r.name} style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+                    <tr key={r.name} className="[border-bottom:0.5px_solid_var(--vos-border-subtle)]">
                       <td className="px-3 py-1.5 font-mono">{r.name}</td>
                       <td className="px-3 py-1.5">{r.namespace ?? '—'}</td>
                       <td className="px-3 py-1.5">
@@ -577,7 +550,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
                           {r.status ?? 'Unknown'}
                         </span>
                       </td>
-                      <td className="px-3 py-1.5" style={{ color: 'var(--vos-text-tertiary)' }}>
+                      <td className="px-3 py-1.5 text-[var(--vos-text-tertiary)]">
                         {r.age ?? '—'}
                       </td>
                     </tr>
@@ -585,7 +558,7 @@ export default function KubernetesApp(_props: AppComponentProps) {
                 </tbody>
               </table>
               {resources.length === 0 && (
-                <div className="flex items-center justify-center py-8" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <div className="flex items-center justify-center py-8 text-[var(--vos-text-tertiary)]">
                   无资源
                 </div>
               )}

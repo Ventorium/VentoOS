@@ -120,17 +120,16 @@ export default function FileTree({ onRefresh }: Props) {
   if (!workspace) {
     return (
       <>
-        <div className="px-3 py-1.5 flex-shrink-0" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+        <div className="px-3 py-1.5 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
           <span
-            className="text-[10px] font-semibold uppercase tracking-widest"
-            style={{ color: 'var(--vos-text-tertiary)' }}
+            className="text-[10px] font-semibold uppercase tracking-widest text-[var(--vos-text-tertiary)]"
           >
             资源管理器
           </span>
         </div>
         <div className="flex flex-col items-center gap-3 py-8 px-4 text-center">
-          <FolderOpen size={28} style={{ color: 'var(--vos-text-tertiary)', opacity: 0.4 }} />
-          <p className="text-xs leading-5" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <FolderOpen size={28} className="text-[var(--vos-text-tertiary)] opacity-40" />
+          <p className="text-xs leading-5 text-[var(--vos-text-tertiary)]">
             通过「文件 → 打开文件夹」
             <br />
             打开项目

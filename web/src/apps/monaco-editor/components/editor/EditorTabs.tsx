@@ -37,13 +37,7 @@ export default function EditorTabs() {
 
   return (
     <div
-      className="flex items-center flex-shrink-0 overflow-x-auto"
-      style={{
-        height: 35,
-        minHeight: 35,
-        borderBottom: '0.5px solid var(--vos-border-subtle)',
-        background: 'var(--vos-bg-surface)'
-      }}
+      className="flex items-center flex-shrink-0 overflow-x-auto h-[35px] min-h-[35px] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
     >
       {tabs.map((tab, i) => (
         <EditorTab
@@ -65,8 +59,7 @@ export default function EditorTabs() {
       ))}
       <button
         type="button"
-        className="flex-shrink-0 px-2 h-full flex items-center"
-        style={{ color: 'var(--vos-text-tertiary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+        className="flex-shrink-0 px-2 h-full flex items-center text-[var(--vos-text-tertiary)] bg-transparent border-none cursor-pointer"
         title={`新建文件 (${isMac ? '⌘N' : 'Ctrl+Alt+N'})`}
         onClick={openNewUntitled}
       >

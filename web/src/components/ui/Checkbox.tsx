@@ -70,7 +70,7 @@ export function Checkbox({ checked, onChange, indeterminate, label, disabled, st
         ) : null}
       </div>
       {label && (
-        <span style={{ fontSize: 13, color: 'var(--vos-text-primary)', lineHeight: 1 }}>{label}</span>
+        <span className="text-[13px] text-[var(--vos-text-primary)] leading-[1]">{label}</span>
       )}
     </label>
   )

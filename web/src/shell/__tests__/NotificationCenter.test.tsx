@@ -154,19 +154,19 @@ describe('NotificationCenter Component', () => {
   it('should not render when panel is closed', async () => {
     useNotificationStore.setState({ panelOpen: false })
     await renderNotificationCenter()
-    expect(screen.queryByText('Notifications')).not.toBeInTheDocument()
+    expect(screen.queryByText('通知')).not.toBeInTheDocument()
   })
 
   it('should render when panel is open', async () => {
     useNotificationStore.setState({ panelOpen: true })
     await renderNotificationCenter()
-    expect(screen.getByText('Notifications')).toBeInTheDocument()
+    expect(screen.getByText('通知')).toBeInTheDocument()
   })
 
   it('should show empty state when no notifications', async () => {
     useNotificationStore.setState({ panelOpen: true, notifications: [] })
     await renderNotificationCenter()
-    expect(screen.getByText('No notifications')).toBeInTheDocument()
+    expect(screen.getByText('暂无通知')).toBeInTheDocument()
   })
 
   it('should render notification items', async () => {
@@ -184,30 +184,43 @@ describe('NotificationCenter Component', () => {
     expect(screen.getByText('Connection failed')).toBeInTheDocument()
   })
 
-  it('should have Mark all read and Clear buttons', async () => {
-    useNotificationStore.setState({ panelOpen: true })
+  it('should have 全部已读 and 清空 buttons when there are unread notifications', async () => {
+    useNotificationStore.setState({
+      panelOpen: true,
+      notifications: [makeNotif({ id: 'n1', read: false })]
+    })
     await renderNotificationCenter()
-    expect(screen.getByText('Mark all read')).toBeInTheDocument()
-    expect(screen.getByText('Clear')).toBeInTheDocument()
+    expect(screen.getByText('全部已读')).toBeInTheDocument()
+    expect(screen.getByText('清空')).toBeInTheDocument()
   })
 
-  it('should clear all notifications when Clear is clicked', async () => {
+  it('should only show 清空 when all notifications are read', async () => {
+    useNotificationStore.setState({
+      panelOpen: true,
+      notifications: [makeNotif({ id: 'n1', read: true })]
+    })
+    await renderNotificationCenter()
+    expect(screen.queryByText('全部已读')).not.toBeInTheDocument()
+    expect(screen.getByText('清空')).toBeInTheDocument()
+  })
+
+  it('should clear all notifications when 清空 is clicked', async () => {
     useNotificationStore.setState({
       panelOpen: true,
       notifications: [makeNotif({ id: 'n1', title: 'Test' })]
     })
     await renderNotificationCenter()
-    fireEvent.click(screen.getByText('Clear'))
+    fireEvent.click(screen.getByText('清空'))
     expect(useNotificationStore.getState().notifications).toHaveLength(0)
   })
 
-  it('should mark all as read when Mark all read is clicked', async () => {
+  it('should mark all as read when 全部已读 is clicked', async () => {
     useNotificationStore.setState({
       panelOpen: true,
       notifications: [makeNotif({ id: 'n1', read: false }), makeNotif({ id: 'n2', read: false })]
     })
     await renderNotificationCenter()
-    fireEvent.click(screen.getByText('Mark all read'))
+    fireEvent.click(screen.getByText('全部已读'))
     expect(useNotificationStore.getState().notifications.every(n => n.read)).toBe(true)
   })
 })

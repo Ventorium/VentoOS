@@ -9,33 +9,18 @@ interface BarChartProps {
 
 export default function BarChart({ items, className, formatValue = defaultFormat }: BarChartProps) {
   return (
-    <div className={className} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className={className ? `${className} flex flex-col gap-2` : 'flex flex-col gap-2'}>
       {items.map(item => {
         const pct = item.max > 0 ? Math.min((item.value / item.max) * 100, 100) : 0
         const barColor = item.color ?? 'var(--vos-accent-primary)'
 
         return (
           <div key={item.label}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'baseline',
-                marginBottom: 3,
-                fontSize: 12
-              }}
-            >
-              <span style={{ color: 'var(--vos-text-secondary)' }}>{item.label}</span>
-              <span style={{ color: 'var(--vos-text-tertiary)', fontSize: 11 }}>{formatValue(item.value)}</span>
+            <div className="flex justify-between items-baseline mb-[3px] text-xs">
+              <span className="text-[var(--vos-text-secondary)]">{item.label}</span>
+              <span className="text-[var(--vos-text-tertiary)] text-[11px]">{formatValue(item.value)}</span>
             </div>
-            <div
-              style={{
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: 'var(--vos-border-secondary)',
-                overflow: 'hidden'
-              }}
-            >
+            <div className="h-[6px] rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden">
               <div
                 style={{
                   height: '100%',

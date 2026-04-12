@@ -42,15 +42,12 @@ export default function Desktop() {
   return (
     <div
       role="presentation"
-      className="absolute inset-0"
+      className="absolute inset-0 bg-cover bg-center z-0"
       style={{
         backgroundImage:
           wallpaper.startsWith('linear-') || wallpaper.startsWith('radial-')
             ? wallpaper
-            : `url(${wallpaper}), ${DEFAULT_GRADIENT}`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        zIndex: 0
+            : `url(${wallpaper}), ${DEFAULT_GRADIENT}`
       }}
       onClick={handleDesktopClick}
       onContextMenu={onContextMenu}

@@ -107,53 +107,33 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
       }}
     >
       {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '10px 12px',
-          borderBottom: '1px solid var(--vos-border)',
-          flexShrink: 0
-        }}
-      >
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vos-text-primary)' }}>资源监控</span>
+      <div className="flex items-center justify-between px-3 py-[10px] border-b border-b-[var(--vos-border)] shrink-0">
+        <span className="text-[13px] font-semibold text-[var(--vos-text-primary)]">资源监控</span>
         <button type="button" className="vos-icon-btn" onClick={onClose} title="关闭监控">
           <X size={14} />
         </button>
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '8px 12px' }}>
+      <div className="flex-1 overflow-auto px-3 py-2">
         {loading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
-            <Loader2 size={20} className="vos-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+          <div className="flex items-center justify-center p-[40px]">
+            <Loader2 size={20} className="vos-spin text-[var(--vos-text-tertiary)]" />
           </div>
         )}
 
         {!loading && error && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 8,
-              padding: '40px 12px',
-              color: 'var(--vos-text-tertiary)',
-              fontSize: 12,
-              textAlign: 'center'
-            }}
-          >
-            <AlertCircle size={24} style={{ opacity: 0.4 }} />
+          <div className="flex flex-col items-center gap-2 px-3 py-[40px] text-[var(--vos-text-tertiary)] text-[12px] text-center">
+            <AlertCircle size={24} className="opacity-40" />
             <span>{error}</span>
           </div>
         )}
 
         {!loading && !error && metrics && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="flex flex-col gap-3">
             {/* CPU Section */}
             <Section title="CPU" icon={<Cpu size={13} />} collapsed={!!collapsed.cpu} onToggle={() => toggle('cpu')}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <div className="flex items-center gap-3 mb-2">
                 <GaugeChart
                   value={metrics.cpu_usage}
                   max={100}
@@ -162,7 +142,7 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
                   color={metrics.cpu_usage > 80 ? 'var(--vos-accent-danger)' : 'var(--vos-accent-primary)'}
                   label={`${metrics.cpu_usage.toFixed(1)}%`}
                 />
-                <div style={{ flex: 1, fontSize: 11, color: 'var(--vos-text-secondary)' }}>
+                <div className="flex-1 text-[11px] text-[var(--vos-text-secondary)]">
                   使用率 {metrics.cpu_usage.toFixed(1)}%
                 </div>
               </div>
@@ -185,7 +165,7 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
               collapsed={!!collapsed.mem}
               onToggle={() => toggle('mem')}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <div className="flex items-center gap-3 mb-2">
                 <GaugeChart
                   value={memPct}
                   max={100}
@@ -194,7 +174,7 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
                   color={memPct > 80 ? 'var(--vos-accent-danger)' : 'var(--vos-accent-warning)'}
                   label={`${memPct.toFixed(1)}%`}
                 />
-                <div style={{ flex: 1, fontSize: 11, color: 'var(--vos-text-secondary)', lineHeight: 1.6 }}>
+                <div className="flex-1 text-[11px] text-[var(--vos-text-secondary)] leading-[1.6]">
                   <div>
                     {formatBytes(metrics.memory_used)} / {formatBytes(metrics.memory_total)}
                   </div>
@@ -223,7 +203,7 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
               {diskItems.length > 0 ? (
                 <BarChart items={diskItems} formatValue={formatBytes} />
               ) : (
-                <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', padding: '4px 0' }}>暂无磁盘数据</div>
+                <div className="text-[11px] text-[var(--vos-text-tertiary)] py-1">暂无磁盘数据</div>
               )}
             </Section>
           </div>
@@ -252,25 +232,13 @@ function Section({
       <button
         type="button"
         onClick={onToggle}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          width: '100%',
-          padding: '6px 0',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--vos-text-primary)',
-          fontSize: 12,
-          fontWeight: 600
-        }}
+        className="flex items-center gap-[6px] w-full py-[6px] bg-transparent border-none cursor-pointer text-[var(--vos-text-primary)] text-[12px] font-semibold"
       >
         {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
         {icon}
         {title}
       </button>
-      {!collapsed && <div style={{ paddingLeft: 4, paddingBottom: 4 }}>{children}</div>}
+      {!collapsed && <div className="pl-1 pb-1">{children}</div>}
     </div>
   )
 }

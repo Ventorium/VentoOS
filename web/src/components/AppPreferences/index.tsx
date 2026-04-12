@@ -50,7 +50,7 @@ function PrefNavItem({
   return (
     <button type="button" className={`vos-settings-nav-item ${isActive ? 'active' : ''}`} onClick={onClick}>
       {category.icon && (
-        <span style={{ width: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <span className="w-4 flex items-center justify-center shrink-0">
           {category.icon}
         </span>
       )}
@@ -67,34 +67,14 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
 
   return (
     <div
-      style={{
-        display: 'flex',
-        height: '100%',
-        background: 'var(--vos-bg-window)',
-        overflow: 'hidden'
-      }}
+      className="flex h-full bg-[var(--vos-bg-window)] overflow-hidden"
     >
       {/* Sidebar */}
       <div
-        style={{
-          width: 180,
-          flexShrink: 0,
-          borderRight: '0.5px solid var(--vos-border-subtle)',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '8px',
-          overflowY: 'auto'
-        }}
+        className="w-[180px] shrink-0 border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] flex flex-col p-2 overflow-y-auto"
       >
         <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: 'var(--vos-text-tertiary)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            padding: '4px 8px 8px'
-          }}
+          className="text-[11px] font-bold text-[var(--vos-text-tertiary)] uppercase tracking-[0.06em] px-2 pt-1 pb-2"
         >
           {appName} 偏好设置
         </div>
@@ -105,7 +85,7 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
           {activeCategory && (
             <motion.div
@@ -114,10 +94,7 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.15, ease: [0.32, 0.72, 0, 1] }}
-              style={{
-                height: '100%',
-                overflowY: 'auto'
-              }}
+              className="h-full overflow-y-auto"
             >
               {activeCategory.content}
             </motion.div>
@@ -167,9 +144,9 @@ export function PreferenceRow({
   return (
     <div className="vos-settings-toggle-row">
       <div>
-        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--vos-text-primary)' }}>{label}</div>
+          <div className="text-[14px] font-medium text-[var(--vos-text-primary)]">{label}</div>
         {description && (
-          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 2 }}>{description}</div>
+          <div className="text-xs text-[var(--vos-text-secondary)] mt-[2px]">{description}</div>
         )}
       </div>
       {children}
@@ -184,11 +161,8 @@ export function PreferenceInput(props: React.InputHTMLAttributes<HTMLInputElemen
   return (
     <input
       {...props}
-      className={`vos-input ${props.className ?? ''}`}
-      style={{
-        border: '0.5px solid var(--vos-border-subtle)',
-        ...props.style
-      }}
+      className={`vos-input border-[0.5px] border-solid border-[var(--vos-border-subtle)] ${props.className ?? ''}`}
+      style={props.style}
     />
   )
 }
@@ -213,8 +187,8 @@ export function PreferenceSelect({
       {...rest}
       value={value ?? ''}
       onChange={e => onChange(e.target.value)}
-      className={`vos-select ${rest.className ?? ''}`}
-      style={{ border: '0.5px solid var(--vos-border-subtle)', ...rest.style }}
+      className={`vos-select border-[0.5px] border-[var(--vos-border-subtle)] ${rest.className ?? ''}`}
+      style={rest.style}
     >
       {placeholder && <option value="">{placeholder}</option>}
       {options.map(o => (
@@ -284,13 +258,7 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.35)',
-              backdropFilter: 'blur(4px)',
-              zIndex: 100
-            }}
+            className="absolute inset-0 bg-[rgba(0,0,0,0.35)] backdrop-blur-[4px] z-[100]"
             onClick={onClose}
           />
 
@@ -300,66 +268,33 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 101,
-              pointerEvents: 'none'
-            }}
+            className="absolute inset-0 flex items-center justify-center z-[101] pointer-events-none"
           >
             <div
+              className="w-[640px] h-[460px] max-w-[calc(100%-48px)] max-h-[calc(100%-64px)] rounded-xl overflow-hidden bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-default)] shadow-[0_24px_72px_rgba(0,0,0,.35),0_6px_20px_rgba(0,0,0,.18)] flex flex-col pointer-events-auto"
               style={{
-                width: 640,
-                height: 460,
-                maxWidth: 'calc(100% - 48px)',
-                maxHeight: 'calc(100% - 64px)',
-                borderRadius: 12,
-                overflow: 'hidden',
-                background: 'var(--vos-bg-surface)',
                 backdropFilter: 'blur(48px) saturate(200%)',
-                WebkitBackdropFilter: 'blur(48px) saturate(200%)',
-                border: '0.5px solid var(--vos-border-default)',
-                boxShadow: '0 24px 72px rgba(0,0,0,0.35), 0 6px 20px rgba(0,0,0,0.18)',
-                display: 'flex',
-                flexDirection: 'column',
-                pointerEvents: 'all'
+                WebkitBackdropFilter: 'blur(48px) saturate(200%)'
               }}
             >
               {/* Mini title bar */}
               <div
-                style={{
-                  height: 38,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0 12px',
-                  borderBottom: '0.5px solid var(--vos-border-subtle)',
-                  flexShrink: 0
-                }}
+                className="h-[38px] flex items-center justify-between px-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] shrink-0"
               >
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vos-text-primary)' }}>
+                <span className="text-[13px] font-semibold text-[var(--vos-text-primary)]">
                   {prefsProps.appName} 偏好设置
                 </span>
                 <button
                   type="button"
-                  className="vos-btn-icon"
+                  className="vos-btn-icon w-[22px] h-[22px] rounded-[6px] text-[var(--vos-text-tertiary)]"
                   onClick={onClose}
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 6,
-                    color: 'var(--vos-text-tertiary)'
-                  }}
                 >
                   <X size={13} />
                 </button>
               </div>
 
               {/* Preferences content */}
-              <div style={{ flex: 1, overflow: 'hidden' }}>
+              <div className="flex-1 overflow-hidden">
                 <AppPreferences {...prefsProps} />
               </div>
             </div>

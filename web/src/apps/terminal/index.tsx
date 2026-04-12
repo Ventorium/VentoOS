@@ -102,19 +102,17 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar */}
-      <div className="flex items-center h-8 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid #333' }}>
+      <div className="flex items-center h-8 flex-shrink-0 overflow-x-auto border-b border-b-[#333]">
         {tabs.map(tab => {
           const isActive = tab.id === activeTab
           const isEditing = editingRef.current === tab.id
           return (
             <div
               key={tab.id}
-              className="group flex items-center gap-1 px-3 h-full cursor-pointer text-xs select-none flex-shrink-0"
+              className="group flex items-center gap-1 px-3 h-full cursor-pointer text-xs select-none flex-shrink-0 border-r border-r-[#333] max-w-[160px]"
               style={{
                 background: isActive ? '#0d0d0d' : 'transparent',
-                color: isActive ? '#d4d4d4' : '#888',
-                borderRight: '1px solid #333',
-                maxWidth: 160
+                color: isActive ? '#d4d4d4' : '#888'
               }}
               onClick={() => setActiveTab(tab.id)}
               onDoubleClick={() => startRename(tab.id)}
@@ -123,8 +121,7 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
               {isEditing ? (
                 <input
                   ref={inputRef}
-                  className="bg-transparent border-none outline-none text-xs"
-                  style={{ color: '#d4d4d4', width: 80 }}
+                  className="bg-transparent border-none outline-none text-xs text-[#d4d4d4] w-[80px]"
                   defaultValue={tab.title}
                   onBlur={e => commitRename(tab.id, e.target.value)}
                   onKeyDown={e => {
@@ -142,8 +139,7 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
               {tabs.length > 1 && (
                 <button
                   type="button"
-                  className="bg-transparent border-none cursor-pointer p-0 opacity-0 group-hover:opacity-100"
-                  style={{ color: '#888', lineHeight: 0 }}
+                  className="bg-transparent border-none cursor-pointer p-0 opacity-0 group-hover:opacity-100 text-[#888] leading-[0]"
                   onClick={e => {
                     e.stopPropagation()
                     closeTab(tab.id)
@@ -157,8 +153,7 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
         })}
         <button
           type="button"
-          className="bg-transparent border-none cursor-pointer px-2 h-full flex items-center"
-          style={{ color: '#888' }}
+          className="bg-transparent border-none cursor-pointer px-2 h-full flex items-center text-[#888]"
           onClick={addTab}
           title="新建标签"
         >
@@ -169,20 +164,18 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
         <div className="flex items-center gap-1 px-2">
           <button
             type="button"
-            className="bg-transparent border-none cursor-pointer p-0"
-            style={{ color: '#888' }}
+            className="bg-transparent border-none cursor-pointer p-0 text-[#888]"
             onClick={() => adjustFontSize(-1)}
             title="缩小字体"
           >
             <Minus size={10} />
           </button>
-          <span className="text-[10px]" style={{ color: '#666' }}>
+          <span className="text-[10px] text-[#666]">
             {fontSize}px
           </span>
           <button
             type="button"
-            className="bg-transparent border-none cursor-pointer p-0"
-            style={{ color: '#888' }}
+            className="bg-transparent border-none cursor-pointer p-0 text-[#888]"
             onClick={() => adjustFontSize(1)}
             title="放大字体"
           >
@@ -196,15 +189,14 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
         {tabs.map(tab => (
           <div
             key={tab.id}
+            className="absolute inset-0"
             style={{
-              position: 'absolute',
-              inset: 0,
               visibility: tab.id === activeTab ? 'visible' : 'hidden'
             }}
           >
             <Suspense
               fallback={
-                <div className="flex items-center justify-center h-full" style={{ color: '#666' }}>
+                <div className="flex items-center justify-center h-full text-[#666]">
                   加载中…
                 </div>
               }

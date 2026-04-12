@@ -62,8 +62,7 @@ export default function ContextInjector({ onInject, disabled }: ContextInjectorP
         <button
           key={type}
           type="button"
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-transparent border-none cursor-pointer"
-          style={{ color: 'var(--vos-text-tertiary)' }}
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-transparent border-none cursor-pointer text-[var(--vos-text-tertiary)]"
           onClick={() => requestContext(type)}
           disabled={disabled}
           title={label}
@@ -77,8 +76,7 @@ export default function ContextInjector({ onInject, disabled }: ContextInjectorP
         <button
           key={i}
           type="button"
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border-none cursor-pointer"
-          style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border-none cursor-pointer bg-[var(--vos-accent-primary)] text-white"
           onClick={() => handleInject(item)}
         >
           {item.label}

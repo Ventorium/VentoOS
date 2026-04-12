@@ -74,8 +74,7 @@ function DelBtn({ onConfirm }: { onConfirm: () => void }) {
     return (
       <button
         type="button"
-        className="ml-auto vos-btn vos-btn-danger"
-        style={{ padding: '3px 10px', fontSize: 12 }}
+        className="ml-auto vos-btn vos-btn-danger px-[10px] py-[3px] text-xs"
         onClick={onConfirm}
       >
         确认删除
@@ -227,7 +226,7 @@ function ServersTab({
     <div className="ssh-section">
       <div className="ssh-toolbar">
         <span className="ssh-count">{servers.length} 台服务器</span>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="flex gap-[6px]">
           <button type="button" className="vos-icon-btn" onClick={load} title="刷新">
             <RefreshCw size={14} className={loading ? 'vos-spin' : ''} />
           </button>
@@ -248,7 +247,7 @@ function ServersTab({
 
       {servers.length === 0 && !loading && (
         <div className="ssh-empty">
-          <Terminal size={32} style={{ opacity: 0.3 }} />
+          <Terminal size={32} className="opacity-30" />
           <p>还没有 SSH 服务器</p>
           <button type="button" className="vos-btn vos-btn-primary" onClick={() => setShowForm(true)}>
             <Plus size={14} /> 添加第一台
@@ -263,7 +262,7 @@ function ServersTab({
               <div className="ssh-card-icon">
                 <Terminal size={18} />
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="flex-1 min-w-0">
                 <div className="ssh-card-name">{srv.name}</div>
                 <div className="ssh-card-host">
                   {srv.username}@{srv.host}:{srv.port}
@@ -319,8 +318,7 @@ function ServersTab({
       {sshConfigHosts && (
         <div className="vos-modal-overlay" onClick={() => setSshConfigHosts(null)}>
           <motion.div
-            className="vos-modal"
-            style={{ maxWidth: 480 }}
+            className="vos-modal max-w-[480px]"
             initial={{ scale: 0.93, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             onClick={e => e.stopPropagation()}
@@ -342,16 +340,16 @@ function ServersTab({
                 </button>
               </div>
             </div>
-            <div className="vos-modal-body" style={{ maxHeight: 360, overflow: 'auto' }}>
+            <div className="vos-modal-body max-h-[360px] overflow-auto">
               {sshConfigHosts.length === 0 && (
-                <p style={{ color: 'var(--vos-text-tertiary)', fontSize: 12 }}>未发现 SSH Host 配置</p>
+                <p className="vos-text-tertiary text-xs px-[8px] py-[4px]">未发现 SSH Host 配置</p>
               )}
               {sshConfigHosts.map(h => (
-                <div key={h.alias} className="ssh-card" style={{ padding: '10px 12px', marginBottom: 6 }}>
+                <div key={h.alias} className="ssh-card px-[12px] py-[10px] mb-[6px]">
                   <div
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}
+                    className="flex items-center justify-between mb-[4px]"
                   >
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{h.alias}</span>
+                    <span className="text-[13px] font-semibold">{h.alias}</span>
                     <button
                       type="button"
                       className="vos-btn vos-btn-sm vos-btn-primary"
@@ -361,13 +359,7 @@ function ServersTab({
                     </button>
                   </div>
                   <div
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--vos-text-secondary)',
-                      display: 'flex',
-                      gap: 12,
-                      flexWrap: 'wrap'
-                    }}
+                    className="text-[11px] vos-text-secondary flex gap-[12px] flex-wrap"
                   >
                     {h.hostname && <span>Host: {h.hostname}</span>}
                     {h.user && <span>User: {h.user}</span>}
@@ -385,8 +377,7 @@ function ServersTab({
       {passwordPrompt && (
         <div className="vos-modal-overlay" onClick={() => setPasswordPrompt(null)}>
           <motion.div
-            className="vos-modal"
-            style={{ maxWidth: 380 }}
+            className="vos-modal max-w-[380px]"
             initial={{ scale: 0.93, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             onClick={e => e.stopPropagation()}
@@ -399,7 +390,7 @@ function ServersTab({
               </button>
             </div>
             <div className="vos-modal-body">
-              <p style={{ fontSize: 13, color: 'var(--vos-text-secondary)', marginBottom: 12 }}>
+              <p className="text-[13px] vos-text-secondary mb-[12px]">
                 服务器 <strong>{passwordPrompt.server.name}</strong> 尚未存储密码，请输入连接密码。
               </p>
               <div className="vos-form-row">
@@ -509,7 +500,7 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
             />
           </div>
-          <div className="vos-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8 }}>
+          <div className="vos-form-row grid grid-cols-[1fr_80px] gap-[8px]">
             <div>
               <label>主机</label>
               <input
@@ -568,10 +559,9 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           {form.auth_method.type === 'private_key' && (
             <div className="vos-form-row">
               <label>私钥路径</label>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div className="flex gap-[6px]">
                 <input
-                  className="vos-input"
-                  style={{ flex: 1 }}
+                  className="vos-input flex-1"
                   placeholder="~/.ssh/id_rsa"
                   value={(form.auth_method as { type: 'private_key'; key_path?: string }).key_path ?? ''}
                   onChange={e =>
@@ -591,16 +581,10 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
             <div className="vos-form-row">
               <label>~/.ssh/ 密钥文件</label>
               <div
-                style={{
-                  maxHeight: 160,
-                  overflow: 'auto',
-                  border: '1px solid var(--vos-border)',
-                  borderRadius: 6,
-                  padding: 4
-                }}
+                className="max-h-[160px] overflow-auto border border-solid border-[var(--vos-border)] rounded-[6px] p-[4px]"
               >
                 {keyFiles.filter(f => !f.is_public).length === 0 && (
-                  <p style={{ color: 'var(--vos-text-tertiary)', fontSize: 11, padding: '4px 8px' }}>未发现私钥文件</p>
+                  <p className="vos-text-tertiary text-[11px] px-[8px] py-[4px]">未发现私钥文件</p>
                 )}
                 {keyFiles
                   .filter(f => !f.is_public)
@@ -608,20 +592,7 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
                     <button
                       key={f.path}
                       type="button"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        width: '100%',
-                        padding: '5px 8px',
-                        fontSize: 12,
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--vos-text-primary)',
-                        cursor: 'pointer',
-                        borderRadius: 4,
-                        textAlign: 'left'
-                      }}
+                      className="flex items-center gap-[6px] w-full px-[8px] py-[5px] text-xs bg-transparent border-none text-[var(--vos-text-primary)] cursor-pointer rounded-[4px] text-left"
                       onMouseOver={e => {
                         ;(e.currentTarget as HTMLElement).style.background = 'var(--vos-bg-item-hover)'
                       }}
@@ -630,9 +601,9 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
                       }}
                       onClick={() => selectKeyFile(f.path)}
                     >
-                      <Key size={12} style={{ opacity: 0.6 }} />
-                      <span style={{ flex: 1 }}>{f.name}</span>
-                      <span style={{ fontSize: 10, opacity: 0.5 }}>{f.path}</span>
+                      <Key size={12} className="opacity-60" />
+                      <span className="flex-1">{f.name}</span>
+                      <span className="text-[10px] opacity-50">{f.path}</span>
                     </button>
                   ))}
               </div>
@@ -658,8 +629,7 @@ function ShellModal({ server, onClose }: { server: SshServer; onClose: () => voi
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
       <motion.div
-        className="vos-modal"
-        style={{ width: 800, height: 500 }}
+        className="vos-modal w-[800px] h-[500px]"
         initial={{ scale: 0.93, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         onClick={e => e.stopPropagation()}
@@ -673,7 +643,7 @@ function ShellModal({ server, onClose }: { server: SshServer; onClose: () => voi
             <X size={16} />
           </button>
         </div>
-        <div style={{ flex: 1, background: '#0d0d0d', overflow: 'hidden', borderRadius: '0 0 10px 10px' }}>
+        <div className="flex-1 bg-[#0d0d0d] overflow-hidden rounded-b-[10px]">
           <WebShellEmbed target={server.id} />
         </div>
       </motion.div>
@@ -726,7 +696,7 @@ function PortMappingsTab({ servers }: { servers: SshServer[] }) {
     <div className="ssh-section">
       <div className="ssh-toolbar">
         <span className="ssh-count">{mappings.length} 条映射</span>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="flex gap-[6px]">
           <button type="button" className="vos-icon-btn" onClick={load}>
             <RefreshCw size={14} className={loading ? 'vos-spin' : ''} />
           </button>
@@ -738,7 +708,7 @@ function PortMappingsTab({ servers }: { servers: SshServer[] }) {
 
       {mappings.length === 0 && !loading && (
         <div className="ssh-empty">
-          <Zap size={32} style={{ opacity: 0.3 }} />
+          <Zap size={32} className="opacity-30" />
           <p>还没有端口映射</p>
         </div>
       )}
@@ -761,15 +731,15 @@ function PortMappingsTab({ servers }: { servers: SshServer[] }) {
                 <strong>{m.name}</strong>
               </td>
               <td>{serverName(m.ssh_server_id)}</td>
-              <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
+              <td className="font-mono text-[12px]">
                 {m.remote_host}:{m.remote_port}
               </td>
-              <td style={{ fontFamily: 'monospace', fontSize: 12 }}>:{m.local_port}</td>
+              <td className="font-mono text-[12px]">:{m.local_port}</td>
               <td>
                 <StatusBadge status={m.status} />
               </td>
               <td>
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                <div className="flex gap-[6px] justify-end">
                   <button
                     type="button"
                     className="vos-icon-btn"
@@ -889,7 +859,7 @@ function PortMappingForm({
               <ChevronDown size={14} className="vos-select-arrow" />
             </div>
           </div>
-          <div className="vos-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
+          <div className="vos-form-row grid grid-cols-[1fr_90px] gap-2">
             <div>
               <label>远端主机</label>
               <input
@@ -970,7 +940,7 @@ function ExposuresTab({ servers }: { servers: SshServer[] }) {
     <div className="ssh-section">
       <div className="ssh-toolbar">
         <span className="ssh-count">{exposures.length} 条暴露</span>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="flex gap-[6px]">
           <button type="button" className="vos-icon-btn" onClick={load}>
             <RefreshCw size={14} className={loading ? 'vos-spin' : ''} />
           </button>
@@ -982,7 +952,7 @@ function ExposuresTab({ servers }: { servers: SshServer[] }) {
 
       {exposures.length === 0 && !loading && (
         <div className="ssh-empty">
-          <Globe size={32} style={{ opacity: 0.3 }} />
+          <Globe size={32} className="opacity-30" />
           <p>还没有服务暴露</p>
         </div>
       )}
@@ -1004,7 +974,7 @@ function ExposuresTab({ servers }: { servers: SshServer[] }) {
               <td>
                 <strong>{e.name}</strong>
               </td>
-              <td style={{ fontSize: 12 }}>
+              <td className="text-[12px]">
                 {e.source_type === 'local'
                   ? '本地'
                   : `SSH: ${servers.find(s => s.id === e.ssh_server_id)?.name ?? e.ssh_server_id}`}{' '}
@@ -1015,39 +985,25 @@ function ExposuresTab({ servers }: { servers: SshServer[] }) {
                   href={`http://localhost:${e.public_port}`}
                   target="_blank"
                   rel="noreferrer"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 3,
-                    color: 'var(--vos-accent-primary)',
-                    fontSize: 12
-                  }}
+                  className="inline-flex items-center gap-[3px] text-[var(--vos-accent-primary)] text-[12px]"
                 >
                   :{e.public_port} <ExternalLink size={10} />
                 </a>
               </td>
               <td>
                 {e.basic_auth_enabled ? (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 3,
-                      color: 'var(--vos-accent-warning)',
-                      fontSize: 11
-                    }}
-                  >
+                  <span className="inline-flex items-center gap-[3px] text-[var(--vos-accent-warning)] text-[11px]">
                     <Shield size={11} /> 已启用
                   </span>
                 ) : (
-                  <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>无</span>
+                  <span className="text-[11px] text-[var(--vos-text-tertiary)]">无</span>
                 )}
               </td>
               <td>
                 <StatusBadge status={e.status} />
               </td>
               <td>
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                <div className="flex gap-[6px] justify-end">
                   <button
                     type="button"
                     className="vos-icon-btn"
@@ -1186,7 +1142,7 @@ function ExposureForm({
               </div>
             </div>
           )}
-          <div className="vos-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
+          <div className="vos-form-row grid grid-cols-[1fr_90px] gap-2">
             <div>
               <label>来源主机</label>
               <input
@@ -1214,7 +1170,7 @@ function ExposureForm({
               onChange={e => setForm(f => ({ ...f, public_port: Number(e.target.value) }))}
             />
           </div>
-          <div className="vos-form-row" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <div className="vos-form-row flex-row items-center gap-[10px]">
             <button
               type="button"
               className={`vos-toggle ${form.basic_auth_enabled ? 'on' : ''}`}
@@ -1222,7 +1178,7 @@ function ExposureForm({
             >
               <span className="vos-toggle-thumb" />
             </button>
-            <label style={{ marginBottom: 0 }}>启用 Basic Auth</label>
+            <label className="mb-0">启用 Basic Auth</label>
           </div>
           {form.basic_auth_enabled && (
             <>
@@ -1339,8 +1295,8 @@ export default function SshApp(_props: AppComponentProps) {
       </div>
 
       {/* Content */}
-      <div className="ssh-content" style={{ display: 'flex', flex: 1, minWidth: 0 }}>
-        <div style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'auto' }}>
+      <div className="ssh-content flex flex-1 min-w-0">
+        <div className="flex-1 min-w-0 h-full overflow-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={tab}
@@ -1348,7 +1304,7 @@ export default function SshApp(_props: AppComponentProps) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.15 }}
-              style={{ height: '100%' }}
+              className="h-full"
             >
               {tab === 'servers' && (
                 <ServersTab

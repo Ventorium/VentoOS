@@ -157,8 +157,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
   if (!mountId || !node) {
     return (
       <div
-        className="flex-1 flex items-center justify-center"
-        style={{ background: 'var(--vos-bg-primary)', color: 'var(--vos-text-tertiary)' }}
+        className="flex-1 flex items-center justify-center bg-[var(--vos-bg-primary)] text-[var(--vos-text-tertiary)]"
       >
         <div className="text-center text-sm">
           <div>文本编辑器</div>
@@ -170,7 +169,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--vos-bg-primary)' }}>
+      <div className="flex-1 flex items-center justify-center bg-[var(--vos-bg-primary)]">
         <Spinner size={20} />
       </div>
     )
@@ -179,8 +178,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
   if (error) {
     return (
       <div
-        className="flex-1 flex items-center justify-center"
-        style={{ background: 'var(--vos-bg-primary)', color: 'var(--vos-accent-danger)' }}
+        className="flex-1 flex items-center justify-center bg-[var(--vos-bg-primary)] text-[var(--vos-accent-danger)]"
       >
         <div className="text-sm">{error}</div>
       </div>
@@ -188,17 +186,16 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--vos-bg-primary)' }}>
+    <div className="flex flex-col h-full bg-[var(--vos-bg-primary)]">
       {/* Toolbar */}
       <div
-        className="flex items-center gap-2 px-3 py-1.5 flex-shrink-0"
-        style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+        className="flex items-center gap-2 px-3 py-1.5 flex-shrink-0 [border-bottom:0.5px_solid_var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
       >
-        <span className="text-xs font-medium flex-1 truncate" style={{ color: 'var(--vos-text-primary)' }}>
+          <span className="text-xs font-medium flex-1 truncate text-[var(--vos-text-primary)]">
           {node.name}
-          {hasChanges && <span style={{ color: 'var(--vos-accent-warning)', marginLeft: 4 }}>●</span>}
+          {hasChanges && <span className="text-[var(--vos-accent-warning)] ml-1">●</span>}
         </span>
-        <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <span className="text-[10px] text-[var(--vos-text-tertiary)]">
           {language.toUpperCase()} · {lineCount} 行
         </span>
         <button
@@ -222,17 +219,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
       <div className="flex-1 flex overflow-hidden">
         {/* Line numbers */}
         <div
-          className="flex-shrink-0 py-2 text-right select-none overflow-hidden"
-          style={{
-            width: 48,
-            background: 'var(--vos-bg-surface)',
-            color: 'var(--vos-text-tertiary)',
-            fontSize: 12,
-            lineHeight: '20px',
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-            borderRight: '0.5px solid var(--vos-border-subtle)',
-            paddingRight: 8
-          }}
+          className="flex-shrink-0 py-2 pr-2 text-right select-none overflow-hidden w-[48px] bg-[var(--vos-bg-surface)] text-[var(--vos-text-tertiary)] text-[12px] leading-[20px] font-mono [border-right:0.5px_solid_var(--vos-border-subtle)]"
         >
           {Array.from({ length: lineCount }, (_, i) => (
             <div key={i}>{i + 1}</div>
@@ -242,15 +229,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
         {/* Text area */}
         <textarea
           ref={textareaRef}
-          className="flex-1 p-2 resize-none border-none outline-none"
-          style={{
-            background: 'transparent',
-            color: 'var(--vos-text-primary)',
-            fontSize: 12,
-            lineHeight: '20px',
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-            tabSize: 2
-          }}
+          className="flex-1 p-2 resize-none border-none outline-none bg-transparent text-[var(--vos-text-primary)] text-[12px] leading-[20px] font-mono [tab-size:2]"
           value={content}
           onChange={e => setContent(e.target.value)}
           spellCheck={false}

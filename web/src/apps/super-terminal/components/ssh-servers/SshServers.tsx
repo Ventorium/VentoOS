@@ -6,7 +6,7 @@
  * Modals:       server create/edit form, SSH config import
  */
 
-import { ChevronDown, ChevronRight, CircleDot, Check, Copy, Download, FolderOpen, Link, Monitor, Pencil, Plus, Server, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleDot, Check, Copy, Download, FolderOpen, Link, Monitor, Plus, Server, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { superTerminalApi } from '@/apps/super-terminal/api'
 import { PathPickerInput } from '@/shell/FilePicker'
@@ -35,20 +35,10 @@ const GIT_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.org', 'gitee.com', 'co
 function osIcon(osType?: string) {
   if (!osType) {
     return (
-      <span style={{ position: 'relative', display: 'inline-flex' }}>
-        <Server size={18} style={{ color: 'var(--vos-text-tertiary)' }} />
+      <span className="relative inline-flex">
+        <Server size={18} className="vos-text-tertiary" />
         <span
-          style={{
-            position: 'absolute',
-            bottom: -4,
-            right: -6,
-            fontSize: 9,
-            color: 'var(--vos-text-tertiary)',
-            background: '#252525',
-            borderRadius: 3,
-            padding: '0 2px',
-            lineHeight: 1.2
-          }}
+          className="absolute bottom-[-4px] right-[-6px] text-[9px] vos-text-tertiary bg-[#252525] rounded-[3px] px-[2px] leading-[1.2]"
         >
           ?
         </span>
@@ -57,13 +47,13 @@ function osIcon(osType?: string) {
   }
   const lower = osType.toLowerCase()
   if (lower.includes('ubuntu') || lower.includes('debian') || lower.includes('linux'))
-    return <Monitor size={18} style={{ color: '#e95420' }} />
+    return <Monitor size={18} className="text-[#e95420]" />
   if (lower.includes('centos') || lower.includes('rhel') || lower.includes('fedora'))
-    return <Monitor size={18} style={{ color: '#9ccd2a' }} />
-  if (lower.includes('windows')) return <Monitor size={18} style={{ color: '#00a4ef' }} />
+    return <Monitor size={18} className="text-[#9ccd2a]" />
+  if (lower.includes('windows')) return <Monitor size={18} className="text-[#00a4ef]" />
   if (lower.includes('darwin') || lower.includes('macos') || lower.includes('mac'))
-    return <Monitor size={18} style={{ color: '#999' }} />
-  return <Monitor size={18} style={{ color: 'var(--vos-text-secondary)' }} />
+    return <Monitor size={18} className="text-[#999]" />
+  return <Monitor size={18} className="text-[var(--vos-text-secondary)]" />
 }
 
 function copyToClipboard(text: string) {
@@ -279,31 +269,16 @@ function CtxMenu({
   return (
     <div
       ref={ref}
+      className="fixed z-[9999] bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[160px] shadow-[0_8px_24px_rgba(0,0,0,0.5)] select-none"
       style={{
-        position: 'fixed',
         left: pos.x,
-        top: pos.y,
-        zIndex: 9999,
-        background: '#252525',
-        border: '1px solid #444',
-        borderRadius: 6,
-        padding: '4px 0',
-        minWidth: 160,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-        userSelect: 'none'
+        top: pos.y
       }}
     >
       {items.map((item, i) => (
         <div
           key={i}
-          className="ssh-ctx-item"
-          style={{
-            padding: '6px 16px',
-            cursor: 'pointer',
-            fontSize: 13,
-            color: item.danger ? '#ff453a' : '#d4d4d4',
-            whiteSpace: 'nowrap'
-          }}
+          className={`ssh-ctx-item py-1.5 px-4 cursor-pointer text-[13px] whitespace-nowrap ${item.danger ? 'text-[#ff453a]' : 'text-[#d4d4d4]'}`}
           onClick={e => {
             e.stopPropagation()
             item.onClick()
@@ -378,29 +353,10 @@ function ServerFormModal({
     }
   }
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: 12,
-    color: 'var(--vos-text-secondary)',
-    marginBottom: 4
-  }
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '6px 10px',
-    fontSize: 13,
-    background: '#1a1a1a',
-    border: '1px solid #333',
-    borderRadius: 4,
-    color: 'var(--vos-text-primary)',
-    outline: 'none',
-    boxSizing: 'border-box'
-  }
-  const rowStyle: React.CSSProperties = { marginBottom: 12 }
-  const twoColStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 12
-  }
+  const labelCls = 'block text-xs text-[var(--vos-text-secondary)] mb-1'
+  const inputCls = 'w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border'
+  const rowCls = 'mb-3'
+  const twoColCls = 'grid grid-cols-2 gap-3'
 
   const tabs = [
     { key: 'basic', label: '基本信息' },
@@ -419,17 +375,17 @@ function ServerFormModal({
       top={60}
       maxHeight="calc(100% - 32px)"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <div style={{ flex: 1, fontSize: 12 }}>
+        <div className="flex justify-between items-center gap-2">
+          <div className="flex-1 text-xs">
             {testResult && (
-              <span style={{ color: testResult.success ? '#4caf50' : '#ff453a' }}>
+              <span className={testResult.success ? 'text-[#4caf50]' : 'text-[#ff453a]'}>
                 {testResult.success
                   ? `连接成功${testResult.latency_ms != null ? ` (${testResult.latency_ms}ms)` : ''}`
                   : testResult.message}
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="flex gap-2">
             <button
               type="button"
               className="vos-btn vos-btn-ghost vos-btn-sm"
@@ -456,13 +412,7 @@ function ServerFormModal({
     >
       {/* Tabs */}
       <div
-        className="ssh-form-tabs"
-        style={{
-          display: 'flex',
-          borderBottom: '1px solid #333',
-          marginBottom: 16,
-          gap: 4
-        }}
+        className="ssh-form-tabs flex border-b border-b-[#333] mb-4 gap-1"
       >
         {tabs.map(t => (
           <div key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
@@ -474,11 +424,11 @@ function ServerFormModal({
       {/* Tab: Basic */}
       {activeTab === 'basic' && (
         <div>
-          <div style={rowStyle}>
-            <label style={labelStyle}>分组</label>
+          <div className={rowCls}>
+            <label className={labelCls}>分组</label>
             <input
               list="ssh-group-datalist"
-              style={inputStyle}
+              className={inputCls}
               value={form.group}
               onChange={e => updateField('group', e.target.value)}
               placeholder="选择或输入分组名称"
@@ -489,54 +439,54 @@ function ServerFormModal({
               ))}
             </datalist>
           </div>
-          <div style={rowStyle}>
-            <label style={labelStyle}>
-              名称 <span style={{ color: '#ff453a' }}>*</span>
+          <div className={rowCls}>
+            <label className={labelCls}>
+              名称 <span className="text-[#ff453a]">*</span>
             </label>
             <input
-              style={inputStyle}
+              className={inputCls}
               value={form.name}
               onChange={e => updateField('name', e.target.value)}
               placeholder="My Server"
             />
           </div>
-          <div style={twoColStyle}>
-            <div style={rowStyle}>
-              <label style={labelStyle}>
-                地址 <span style={{ color: '#ff453a' }}>*</span>
+          <div className={twoColCls}>
+            <div className={rowCls}>
+              <label className={labelCls}>
+                地址 <span className="text-[#ff453a]">*</span>
               </label>
               <input
-                style={inputStyle}
+                className={inputCls}
                 value={form.host}
                 onChange={e => updateField('host', e.target.value)}
                 placeholder="192.168.1.100"
               />
             </div>
-            <div style={rowStyle}>
-              <label style={labelStyle}>端口</label>
+            <div className={rowCls}>
+              <label className={labelCls}>端口</label>
               <input
                 type="number"
-                style={inputStyle}
+                className={inputCls}
                 value={form.port}
                 onChange={e => updateField('port', Number(e.target.value) || 22)}
               />
             </div>
           </div>
-          <div style={rowStyle}>
-            <label style={labelStyle}>
-              用户名 <span style={{ color: '#ff453a' }}>*</span>
+          <div className={rowCls}>
+            <label className={labelCls}>
+              用户名 <span className="text-[#ff453a]">*</span>
             </label>
             <input
-              style={inputStyle}
+              className={inputCls}
               value={form.username}
               onChange={e => updateField('username', e.target.value)}
               placeholder="root"
             />
           </div>
-          <div style={rowStyle}>
-            <label style={labelStyle}>认证方式</label>
+          <div className={rowCls}>
+            <label className={labelCls}>认证方式</label>
             <select
-              style={inputStyle}
+              className={inputCls}
               value={form.authType}
               onChange={e => updateField('authType', e.target.value as 'password' | 'private_key' | 'agent')}
             >
@@ -546,11 +496,11 @@ function ServerFormModal({
             </select>
           </div>
           {form.authType === 'password' && (
-            <div style={rowStyle}>
-              <label style={labelStyle}>密码</label>
+            <div className={rowCls}>
+              <label className={labelCls}>密码</label>
               <input
                 type="password"
-                style={inputStyle}
+                className={inputCls}
                 value={form.password}
                 onChange={e => updateField('password', e.target.value)}
                 placeholder="输入密码"
@@ -559,20 +509,20 @@ function ServerFormModal({
           )}
           {form.authType === 'private_key' && (
             <>
-              <div style={rowStyle}>
-                <label style={labelStyle}>密钥路径</label>
+              <div className={rowCls}>
+                <label className={labelCls}>密钥路径</label>
                 <PathPickerInput
                   value={form.keyPath}
                   onChange={v => updateField('keyPath', v)}
                   mode="file"
                   placeholder="~/.ssh/id_rsa"
-                  style={{ width: '100%' }}
+                  className="w-full"
                 />
               </div>
-              <div style={rowStyle}>
-                <label style={labelStyle}>密钥内容（可选，优先于路径）</label>
+              <div className={rowCls}>
+                <label className={labelCls}>密钥内容（可选，优先于路径）</label>
                 <textarea
-                  style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
+                  className={`${inputCls} min-h-[60px] resize-y`}
                   value={form.privateKey}
                   onChange={e => updateField('privateKey', e.target.value)}
                   placeholder="粘贴私钥内容…"
@@ -580,10 +530,10 @@ function ServerFormModal({
               </div>
             </>
           )}
-          <div style={rowStyle}>
-            <label style={labelStyle}>备注</label>
+          <div className={rowCls}>
+            <label className={labelCls}>备注</label>
             <input
-              style={inputStyle}
+              className={inputCls}
               value={form.remark}
               onChange={e => updateField('remark', e.target.value)}
               placeholder="可选备注"
@@ -595,20 +545,20 @@ function ServerFormModal({
       {/* Tab: Connection */}
       {activeTab === 'connection' && (
         <div>
-          <div style={rowStyle}>
-            <label style={labelStyle}>连接超时 (ms)</label>
+          <div className={rowCls}>
+            <label className={labelCls}>连接超时 (ms)</label>
             <input
               type="number"
-              style={inputStyle}
+              className={inputCls}
               value={form.connectTimeout}
               onChange={e => updateField('connectTimeout', Number(e.target.value) || 10000)}
             />
           </div>
-          <div style={rowStyle}>
-            <label style={labelStyle}>心跳间隔 (ms)</label>
+          <div className={rowCls}>
+            <label className={labelCls}>心跳间隔 (ms)</label>
             <input
               type="number"
-              style={inputStyle}
+              className={inputCls}
               value={form.heartbeatMs}
               onChange={e => updateField('heartbeatMs', Number(e.target.value) || 30000)}
             />
@@ -619,19 +569,19 @@ function ServerFormModal({
       {/* Tab: Init */}
       {activeTab === 'init' && (
         <div>
-          <div style={rowStyle}>
-            <label style={labelStyle}>默认路径</label>
+          <div className={rowCls}>
+            <label className={labelCls}>默认路径</label>
             <input
-              style={inputStyle}
+              className={inputCls}
               value={form.defaultPath}
               onChange={e => updateField('defaultPath', e.target.value)}
               placeholder="/home/user"
             />
           </div>
-          <div style={rowStyle}>
-            <label style={labelStyle}>初始化脚本</label>
+          <div className={rowCls}>
+            <label className={labelCls}>初始化脚本</label>
             <textarea
-              style={{ ...inputStyle, minHeight: 120, resize: 'vertical', fontFamily: 'monospace' }}
+              className={`${inputCls} min-h-[120px] resize-y font-mono`}
               value={form.initScript}
               onChange={e => updateField('initScript', e.target.value)}
               placeholder={'# 连接后自动执行的命令\nexport LANG=en_US.UTF-8'}
@@ -643,10 +593,10 @@ function ServerFormModal({
       {/* Tab: Jump host */}
       {activeTab === 'jump' && (
         <div>
-          <div style={rowStyle}>
-            <label style={labelStyle}>跳板机方式</label>
+          <div className={rowCls}>
+            <label className={labelCls}>跳板机方式</label>
             <select
-              style={inputStyle}
+              className={inputCls}
               value={form.jumpType}
               onChange={e => updateField('jumpType', e.target.value as 'none' | 'existing' | 'manual')}
             >
@@ -656,10 +606,10 @@ function ServerFormModal({
             </select>
           </div>
           {form.jumpType === 'existing' && (
-            <div style={rowStyle}>
-              <label style={labelStyle}>选择服务器</label>
+            <div className={rowCls}>
+              <label className={labelCls}>选择服务器</label>
               <select
-                style={inputStyle}
+                className={inputCls}
                 value={form.jumpServerId}
                 onChange={e => updateField('jumpServerId', e.target.value)}
               >
@@ -676,48 +626,48 @@ function ServerFormModal({
           )}
           {form.jumpType === 'manual' && (
             <>
-              <div style={twoColStyle}>
-                <div style={rowStyle}>
-                  <label style={labelStyle}>地址</label>
+              <div className={twoColCls}>
+                <div className={rowCls}>
+                  <label className={labelCls}>地址</label>
                   <input
-                    style={inputStyle}
+                    className={inputCls}
                     value={form.jumpHost}
                     onChange={e => updateField('jumpHost', e.target.value)}
                     placeholder="jump.example.com"
                   />
                 </div>
-                <div style={rowStyle}>
-                  <label style={labelStyle}>端口</label>
+                <div className={rowCls}>
+                  <label className={labelCls}>端口</label>
                   <input
                     type="number"
-                    style={inputStyle}
+                    className={inputCls}
                     value={form.jumpPort}
                     onChange={e => updateField('jumpPort', Number(e.target.value) || 22)}
                   />
                 </div>
               </div>
-              <div style={rowStyle}>
-                <label style={labelStyle}>用户名</label>
+              <div className={rowCls}>
+                <label className={labelCls}>用户名</label>
                 <input
-                  style={inputStyle}
+                  className={inputCls}
                   value={form.jumpUsername}
                   onChange={e => updateField('jumpUsername', e.target.value)}
                 />
               </div>
-              <div style={rowStyle}>
-                <label style={labelStyle}>密码</label>
+              <div className={rowCls}>
+                <label className={labelCls}>密码</label>
                 <input
                   type="password"
-                  style={inputStyle}
+                  className={inputCls}
                   value={form.jumpPassword}
                   onChange={e => updateField('jumpPassword', e.target.value)}
                   placeholder="留空则使用密钥"
                 />
               </div>
-              <div style={rowStyle}>
-                <label style={labelStyle}>密钥内容（可选）</label>
+              <div className={rowCls}>
+                <label className={labelCls}>密钥内容（可选）</label>
                 <textarea
-                  style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
+                  className={`${inputCls} min-h-[60px] resize-y`}
                   value={form.jumpPrivateKey}
                   onChange={e => updateField('jumpPrivateKey', e.target.value)}
                 />
@@ -730,7 +680,7 @@ function ServerFormModal({
       {/* Tab: Proxy */}
       {activeTab === 'proxy' && (
         <div>
-          <div style={{ ...rowStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className={`${rowCls} flex items-center gap-2`}>
             <Checkbox
               checked={form.proxyEnabled}
               onChange={checked => updateField('proxyEnabled', checked)}
@@ -738,10 +688,10 @@ function ServerFormModal({
             />
           </div>
           {form.proxyEnabled && (
-            <div style={rowStyle}>
-              <label style={labelStyle}>代理地址</label>
+            <div className={rowCls}>
+              <label className={labelCls}>代理地址</label>
               <input
-                style={inputStyle}
+                className={inputCls}
                 value={form.proxyAddress}
                 onChange={e => updateField('proxyAddress', e.target.value)}
                 placeholder="socks5://127.0.0.1:1080 或 http://proxy:8080"
@@ -818,11 +768,11 @@ function ImportConfigModal({
       width={560}
       top={60}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-[var(--vos-text-tertiary)]">
             已选 {selected.size} / {hosts.length} 项
           </span>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="flex gap-2">
             <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
               取消
             </button>
@@ -839,55 +789,37 @@ function ImportConfigModal({
       }
     >
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 32, color: 'var(--vos-text-tertiary)' }}>加载中…</div>
+        <div className="text-center p-8 text-[var(--vos-text-tertiary)]">加载中…</div>
       ) : hosts.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 32, color: 'var(--vos-text-tertiary)' }}>
+        <div className="text-center p-8 text-[var(--vos-text-tertiary)]">
           未找到可导入的 SSH 配置
         </div>
       ) : (
         <div>
           {/* Select all */}
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 8,
-              paddingBottom: 8,
-              borderBottom: '1px solid #333'
-            }}
+            className="flex items-center gap-2 mb-2 pb-2 border-b border-b-[#333]"
           >
             <Checkbox checked={allSelected} onChange={toggleAll} label="全选" />
           </div>
-          <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+          <div className="max-h-[360px] overflow-y-auto">
             {hosts.map(h => (
               <label
                 key={h.alias}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 8,
-                  padding: '8px 0',
-                  borderBottom: '1px solid #222',
-                  cursor: 'pointer'
-                }}
+                className="flex items-start gap-2 py-2 border-b border-b-[#222] cursor-pointer"
               >
                 <Checkbox
                   checked={selected.has(h.alias)}
                   onChange={() => toggle(h.alias)}
-                  style={{ marginTop: 3 }}
+                  className="mt-[3px]"
                 />
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="flex-1 min-w-0">
                   <div
-                    style={{
-                      fontSize: 13,
-                      color: 'var(--vos-text-primary)',
-                      fontWeight: 500
-                    }}
+                    className="text-[13px] text-[var(--vos-text-primary)] font-medium"
                   >
                     {h.alias}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 2 }}>
+                  <div className="text-[11px] text-[var(--vos-text-tertiary)] mt-0.5">
                     {h.hostname ?? '—'}
                     {h.port ? `:${h.port}` : ''}
                     {h.user ? ` (${h.user})` : ''}
@@ -929,7 +861,7 @@ function RenameGroupModal({
       title="重命名分组"
       width={360}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="flex justify-end gap-2">
           <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
             取消
           </button>
@@ -945,17 +877,7 @@ function RenameGroupModal({
       }
     >
       <input
-        style={{
-          width: '100%',
-          padding: '6px 10px',
-          fontSize: 13,
-          background: '#1a1a1a',
-          border: '1px solid #333',
-          borderRadius: 4,
-          color: 'var(--vos-text-primary)',
-          outline: 'none',
-          boxSizing: 'border-box'
-        }}
+        className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border"
         value={value}
         onChange={e => setValue(e.target.value)}
         autoFocus
@@ -989,7 +911,7 @@ function DeleteConfirmModal({
       title="确认删除"
       width={360}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="flex justify-end gap-2">
           <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
             取消
           </button>
@@ -999,7 +921,7 @@ function DeleteConfirmModal({
         </div>
       }
     >
-      <p style={{ fontSize: 13, color: 'var(--vos-text-secondary)', margin: 0 }}>{message}</p>
+      <p className="text-[13px] text-[var(--vos-text-secondary)] m-0">{message}</p>
     </Modal>
   )
 }
@@ -1423,27 +1345,16 @@ export default function SshServers() {
 
   return (
     <div
-      style={{
-        display: 'flex',
-        width: '100%',
-        height: '100%',
-        background: '#1a1a1a',
-        color: 'var(--vos-text-primary)',
-        overflow: 'hidden'
-      }}
+      className="flex w-full h-full bg-[#1a1a1a] text-[var(--vos-text-primary)] overflow-hidden"
     >
       <style>{hoverStyles}</style>
 
       {/* ── Left sidebar ────────────────────────────────────────────── */}
       <div
+        className="h-full border-r border-r-[#333] flex flex-col overflow-hidden"
         style={{
           width: SIDEBAR_WIDTH,
-          minWidth: SIDEBAR_WIDTH,
-          height: '100%',
-          borderRight: '1px solid #333',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
+          minWidth: SIDEBAR_WIDTH
         }}
         onContextMenu={e => {
           e.preventDefault()
@@ -1459,39 +1370,22 @@ export default function SshServers() {
         }}
       >
         <div
-          style={{
-            padding: '12px 12px 8px',
-            fontSize: 11,
-            color: 'var(--vos-text-tertiary)',
-            fontWeight: 600,
-            letterSpacing: 0.5,
-            textTransform: 'uppercase'
-          }}
+          className="pt-3 px-3 pb-2 text-[11px] text-[var(--vos-text-tertiary)] font-semibold tracking-[0.5px] uppercase"
         >
           分组
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="flex-1 overflow-y-auto">
           {/* All servers */}
           <div
-            className={`ssh-group-item ${selectedGroup === null ? 'active' : ''}`}
-            style={{
-              padding: '8px 12px',
-              fontSize: 13,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderRadius: 4,
-              margin: '0 4px'
-            }}
+            className={`ssh-group-item ${selectedGroup === null ? 'active' : ''} py-2 px-3 text-[13px] cursor-pointer flex items-center justify-between rounded mx-1`}
             onClick={() => setSelectedGroup(null)}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <FolderOpen size={14} style={{ color: 'var(--vos-accent-primary)' }} />
+            <span className="flex items-center gap-1.5">
+              <FolderOpen size={14} className="text-[var(--vos-accent-primary)]" />
               全部服务器
             </span>
-            <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>{servers.length}</span>
+            <span className="text-[11px] text-[var(--vos-text-tertiary)]">{servers.length}</span>
           </div>
 
           {/* Groups */}
@@ -1502,17 +1396,7 @@ export default function SshServers() {
               <div key={g}>
                 <div
                   data-group={g}
-                  className={`ssh-group-item ${selectedGroup === g ? 'active' : ''}`}
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderRadius: 4,
-                    margin: '0 4px'
-                  }}
+                  className={`ssh-group-item ${selectedGroup === g ? 'active' : ''} py-2 px-3 text-[13px] cursor-pointer flex items-center justify-between rounded mx-1`}
                   onClick={() => setSelectedGroup(g)}
                   onContextMenu={e => {
                     e.preventDefault()
@@ -1537,18 +1421,10 @@ export default function SshServers() {
                   }}
                 >
                   <span
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      flex: 1
-                    }}
+                    className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap flex-1"
                   >
                     <span
-                      style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}
+                      className="shrink-0 flex items-center"
                       onClick={e => {
                         e.stopPropagation()
                         setExpandedGroups(prev => {
@@ -1559,13 +1435,13 @@ export default function SshServers() {
                       }}
                     >
                       {isExpanded
-                        ? <ChevronDown size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
-                        : <ChevronRight size={12} style={{ color: 'var(--vos-text-tertiary)' }} />}
+                        ? <ChevronDown size={12} className="text-[var(--vos-text-tertiary)]" />
+                        : <ChevronRight size={12} className="text-[var(--vos-text-tertiary)]" />}
                     </span>
-                    <FolderOpen size={14} style={{ color: 'var(--vos-text-tertiary)' }} />
+                    <FolderOpen size={14} className="text-[var(--vos-text-tertiary)]" />
                     {g}
                   </span>
-                  <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', flexShrink: 0 }}>
+                  <span className="text-[11px] text-[var(--vos-text-tertiary)] shrink-0">
                     {groupCounts[g] ?? 0}
                   </span>
                 </div>
@@ -1573,27 +1449,16 @@ export default function SshServers() {
                 {isExpanded && groupServers.map(s => (
                   <div
                     key={s.id}
-                    className="ssh-group-item"
                     draggable
                     onDragStart={e => {
                       setDragServerId(s.id)
                       e.dataTransfer.setData('text/plain', s.id)
                     }}
-                    style={{
-                      padding: '5px 12px 5px 34px',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: 'var(--vos-text-secondary)',
-                      borderRadius: 4,
-                      margin: '0 4px'
-                    }}
+                    className="ssh-group-item py-[5px] pr-3 pl-[34px] text-xs cursor-pointer flex items-center gap-1.5 text-[var(--vos-text-secondary)] rounded mx-1"
                     onClick={() => connectServer(s)}
                   >
-                    <Server size={11} style={{ flexShrink: 0, color: 'var(--vos-text-tertiary)' }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Server size={11} className="shrink-0 text-[var(--vos-text-tertiary)]" />
+                    <span className="overflow-hidden text-ellipsis whitespace-nowrap">
                       {s.name}
                     </span>
                   </div>
@@ -1606,18 +1471,7 @@ export default function SshServers() {
           {(groupCounts[''] ?? 0) > 0 && (
             <div
               data-group=""
-              className={`ssh-group-item ${selectedGroup === '' ? 'active' : ''}`}
-              style={{
-                padding: '8px 12px',
-                fontSize: 13,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderRadius: 4,
-                margin: '0 4px',
-                color: 'var(--vos-text-tertiary)'
-              }}
+              className={`ssh-group-item ${selectedGroup === '' ? 'active' : ''} py-2 px-3 text-[13px] cursor-pointer flex items-center justify-between rounded mx-1 text-[var(--vos-text-tertiary)]`}
               onClick={() => setSelectedGroup('')}
               onDragOver={e => e.preventDefault()}
               onDrop={e => {
@@ -1631,28 +1485,21 @@ export default function SshServers() {
                 }
               }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="flex items-center gap-1.5">
                 <FolderOpen size={14} />
                 未分组
               </span>
-              <span style={{ fontSize: 11 }}>{groupCounts['']}</span>
+              <span className="text-[11px]">{groupCounts['']}</span>
             </div>
           )}
         </div>
       </div>
 
       {/* ── Right main area ─────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '8px 16px',
-            borderBottom: '1px solid #333',
-            flexShrink: 0
-          }}
+          className="flex items-center gap-2 py-2 px-4 border-b border-b-[#333] shrink-0"
         >
           <button
             type="button"
@@ -1662,19 +1509,19 @@ export default function SshServers() {
               setFormOpen(true)
             }}
           >
-            <Plus size={14} style={{ marginRight: 4 }} />
+            <Plus size={14} className="mr-1" />
             新建服务器
           </button>
           <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={() => setImportOpen(true)}>
-            <Download size={14} style={{ marginRight: 4 }} />
+            <Download size={14} className="mr-1" />
             导入 SSH 配置
           </button>
 
           {someChecked && (
             <>
-              <div style={{ width: 1, height: 20, background: '#444', margin: '0 4px' }} />
+              <div className="w-px h-5 bg-[#444] mx-1" />
               <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={handleBatchConnect}>
-                <Link size={14} style={{ marginRight: 4 }} />
+                <Link size={14} className="mr-1" />
                 批量连接 ({selectedIds.size})
               </button>
               <button
@@ -1691,14 +1538,14 @@ export default function SshServers() {
                   })
                 }}
               >
-                <Trash2 size={14} style={{ marginRight: 4 }} />
+                <Trash2 size={14} className="mr-1" />
                 批量删除 ({selectedIds.size})
               </button>
             </>
           )}
 
-          <div style={{ flex: 1 }} />
-          <span style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>共 {filteredServers.length} 台</span>
+          <div className="flex-1" />
+          <span className="text-xs text-[var(--vos-text-tertiary)]">共 {filteredServers.length} 台</span>
         </div>
 
         {/* Server list */}
@@ -1716,39 +1563,29 @@ export default function SshServers() {
                   setFormOpen(true)
                 }}
               >
-                <Plus size={14} style={{ marginRight: 4 }} />
+                <Plus size={14} className="mr-1" />
                 新建服务器
               </button>
             }
           />
         ) : (
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="flex-1 overflow-y-auto">
             {/* Header row */}
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: 36,
-                padding: '0 16px',
-                borderBottom: '1px solid #333',
-                fontSize: 11,
-                color: 'var(--vos-text-tertiary)',
-                fontWeight: 600,
-                flexShrink: 0
-              }}
+              className="flex items-center h-9 px-4 border-b border-b-[#333] text-[11px] text-[var(--vos-text-tertiary)] font-semibold shrink-0"
             >
-              <div style={{ width: 32 }}>
+              <div className="w-8">
                 <Checkbox
                   checked={allChecked}
                   indeterminate={someChecked && !allChecked}
                   onChange={handleSelectAll}
                 />
               </div>
-              <div style={{ width: 32 }} />
-              <div style={{ flex: 2, minWidth: 120 }}>名称</div>
-              <div style={{ flex: 2, minWidth: 140 }}>地址</div>
-              <div style={{ flex: 2, minWidth: 100 }}>备注</div>
-              <div style={{ width: 80 }}>状态</div>
+              <div className="w-8" />
+              <div className="flex-[2] min-w-[120px]">名称</div>
+              <div className="flex-[2] min-w-[140px]">地址</div>
+              <div className="flex-[2] min-w-[100px]">备注</div>
+              <div className="w-20">状态</div>
             </div>
 
             {/* Rows */}
@@ -1757,21 +1594,13 @@ export default function SshServers() {
               return (
                 <div
                   key={server.id}
-                  className={`ssh-row ${isSelected ? 'selected' : ''}`}
+                  className={`ssh-row ${isSelected ? 'selected' : ''} flex items-center px-4 border-b border-b-[#262626] cursor-default text-[13px]`}
                   draggable={true}
                   onDragStart={e => {
                     setDragServerId(server.id)
                     e.dataTransfer.setData('text/plain', server.id)
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: ROW_HEIGHT,
-                    padding: '0 16px',
-                    borderBottom: '1px solid #262626',
-                    cursor: 'default',
-                    fontSize: 13
-                  }}
+                  style={{ height: ROW_HEIGHT }}
                   onClick={e => handleRowClick(server.id, e)}
                   onContextMenu={e => {
                     e.preventDefault()
@@ -1784,7 +1613,7 @@ export default function SshServers() {
                   }}
                 >
                   {/* Checkbox */}
-                  <div style={{ width: 32, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                  <div className="w-8 shrink-0" onClick={e => e.stopPropagation()}>
                     <Checkbox
                       checked={isSelected}
                       onChange={checked => handleCheckboxChange(server.id, checked)}
@@ -1792,27 +1621,16 @@ export default function SshServers() {
                   </div>
 
                   {/* OS icon */}
-                  <div style={{ width: 32, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                  <div className="w-8 shrink-0 flex justify-center">
                     {osIcon(server.os_type)}
                   </div>
 
                   {/* Name */}
                   <div
-                    style={{
-                      flex: 2,
-                      minWidth: 120,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
-                    }}
+                    className="flex-[2] min-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
                   >
                     <span
-                      className="ssh-server-name"
-                      style={{
-                        cursor: 'pointer',
-                        color: 'var(--vos-accent-primary)',
-                        fontWeight: 500
-                      }}
+                      className="ssh-server-name cursor-pointer text-[var(--vos-accent-primary)] font-medium"
                       onClick={e => {
                         e.stopPropagation()
                         connectServer(server)
@@ -1824,37 +1642,18 @@ export default function SshServers() {
 
                   {/* Address */}
                   <div
-                    style={{
-                      flex: 2,
-                      minWidth: 140,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      overflow: 'hidden'
-                    }}
+                    className="flex-[2] min-w-[140px] flex items-center gap-1 overflow-hidden"
                   >
                     <span
-                      style={{
-                        color: 'var(--vos-text-secondary)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        fontFamily: 'monospace',
-                        fontSize: 12
-                      }}
+                      className="text-[var(--vos-text-secondary)] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs"
                     >
                       {server.host}:{server.port}
                     </span>
                     <button
                       type="button"
-                      className="ssh-copy-btn"
+                      className="ssh-copy-btn bg-none border-none cursor-pointer p-0.5 shrink-0"
                       style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: 2,
-                        color: copiedServerId === server.id ? '#4caf50' : 'var(--vos-text-tertiary)',
-                        flexShrink: 0
+                        color: copiedServerId === server.id ? '#4caf50' : 'var(--vos-text-tertiary)'
                       }}
                       title="复制地址"
                       onClick={e => {
@@ -1870,21 +1669,13 @@ export default function SshServers() {
 
                   {/* Remark */}
                   <div
-                    style={{
-                      flex: 2,
-                      minWidth: 100,
-                      color: 'var(--vos-text-tertiary)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      fontSize: 12
-                    }}
+                    className="flex-[2] min-w-[100px] text-[var(--vos-text-tertiary)] overflow-hidden text-ellipsis whitespace-nowrap text-xs"
                   >
                     {server.remark || '—'}
                   </div>
 
                   {/* Status */}
-                  <div style={{ width: 80, flexShrink: 0 }}>
+                  <div className="w-20 shrink-0">
                     <StatusBadge status={server.status} icon={<CircleDot size={10} />} />
                   </div>
                 </div>
@@ -1936,7 +1727,7 @@ export default function SshServers() {
         title="新建分组"
         width={360}
         footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <div className="flex justify-end gap-2">
             <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={() => setNewGroupOpen(false)}>
               取消
             </button>
@@ -1952,17 +1743,7 @@ export default function SshServers() {
         }
       >
         <input
-          style={{
-            width: '100%',
-            padding: '6px 10px',
-            fontSize: 13,
-            background: '#1a1a1a',
-            border: '1px solid #333',
-            borderRadius: 4,
-            color: 'var(--vos-text-primary)',
-            outline: 'none',
-            boxSizing: 'border-box'
-          }}
+          className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border"
           value={newGroupName}
           onChange={e => setNewGroupName(e.target.value)}
           placeholder="输入分组名称"

@@ -72,8 +72,7 @@ export default function LineChart({
       viewBox={`0 0 ${width} ${height}`}
       width="100%"
       height="100%"
-      className={className}
-      style={{ overflow: 'visible' }}
+      className={className ? `${className} overflow-visible` : 'overflow-visible'}
     >
       {/* Grid */}
       {showGrid &&

@@ -128,348 +128,40 @@ const RIGHT_PANELS: RightPanelDef[] = [
   { kind: 'download', icon: <Download size={18} />, label: '下载队列' }
 ]
 
-// ─── Styles ─────────────────────────────────────────────────────────────────
+// ─── Style classNames ───────────────────────────────────────────────────────
 
 const S = {
-  root: {
-    display: 'flex',
-    width: '100%',
-    height: '100%',
-    background: '#1a1a1a',
-    color: '#ccc',
-    fontFamily: 'inherit',
-    overflow: 'hidden',
-    fontSize: 13
-  } as React.CSSProperties,
-
-  // Left file tree panel
-  leftPanel: (w: number) => ({
-    width: w,
-    minWidth: 120,
-    flexShrink: 0,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    borderRight: '1px solid #2a2a2a',
-    background: '#181818',
-    overflow: 'hidden'
-  }),
-  leftHeader: {
-    height: 34,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '0 10px',
-    borderBottom: '1px solid #2a2a2a',
-    fontSize: 11,
-    fontWeight: 600,
-    color: '#999',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.04em',
-    flexShrink: 0
-  } as React.CSSProperties,
-  treeWrap: {
-    flex: 1,
-    overflowY: 'auto' as const,
-    padding: '4px 0'
-  } as React.CSSProperties,
-  treeRow: (depth: number, active: boolean) => ({
-    display: 'flex',
-    alignItems: 'center',
-    height: 24,
-    gap: 4,
-    paddingLeft: 8 + depth * 14,
-    paddingRight: 8,
-    cursor: 'pointer',
-    userSelect: 'none' as const,
-    background: active ? 'rgba(255,255,255,0.06)' : 'transparent',
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis'
-  }),
-  treeLabel: {
-    fontSize: 12,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const
-  } as React.CSSProperties,
-  treePlaceholder: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    color: '#666',
-    fontSize: 12,
-    textAlign: 'center' as const,
-    padding: 16
-  } as React.CSSProperties,
-
-  // Resize handles
-  resizeH: {
-    width: 4,
-    cursor: 'col-resize',
-    flexShrink: 0,
-    background: 'transparent',
-    zIndex: 2
-  } as React.CSSProperties,
-  resizeV: {
-    height: 4,
-    cursor: 'row-resize',
-    flexShrink: 0,
-    background: 'transparent',
-    zIndex: 2
-  } as React.CSSProperties,
-
-  // Center column
-  center: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    minWidth: 0,
-    overflow: 'hidden'
-  } as React.CSSProperties,
-
-  // Editor area
-  editorArea: (h: number) => ({
-    height: h,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    overflow: 'hidden',
-    minHeight: 80
-  }),
-  tabBar: {
-    display: 'flex',
-    alignItems: 'center',
-    height: 32,
-    background: '#1e1e1e',
-    borderBottom: '1px solid #2a2a2a',
-    flexShrink: 0,
-    overflow: 'hidden'
-  } as React.CSSProperties,
-  tab: (active: boolean) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 5,
-    height: '100%',
-    padding: '0 6px 0 10px',
-    cursor: 'pointer',
-    fontSize: 12,
-    flexShrink: 0,
-    borderRight: '1px solid #2a2a2a',
-    userSelect: 'none' as const,
-    maxWidth: 160,
-    background: active ? '#252526' : '#1e1e1e',
-    color: active ? '#ddd' : '#888'
-  }),
-  tabClose: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    flexShrink: 0,
-    opacity: 0.5,
-    cursor: 'pointer'
-  } as React.CSSProperties,
-  toolbar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 2,
-    height: 28,
-    padding: '0 8px',
-    background: '#1e1e1e',
-    borderBottom: '1px solid #2a2a2a',
-    flexShrink: 0
-  } as React.CSSProperties,
-  toolBtn: (disabled: boolean) => ({
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 26,
-    height: 22,
-    borderRadius: 4,
-    cursor: disabled ? 'default' : 'pointer',
-    border: 'none',
-    background: 'transparent',
-    color: disabled ? '#555' : '#aaa',
-    opacity: disabled ? 0.4 : 1
-  }),
-  editorEmpty: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    color: '#555',
-    fontSize: 13
-  } as React.CSSProperties,
-
-  // Terminal area
-  termArea: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    overflow: 'hidden',
-    minHeight: 80
-  } as React.CSSProperties,
-  termTabBar: {
-    display: 'flex',
-    alignItems: 'center',
-    height: 30,
-    background: '#181818',
-    borderTop: '1px solid #2a2a2a',
-    borderBottom: '1px solid #2a2a2a',
-    flexShrink: 0,
-    gap: 0
-  } as React.CSSProperties,
-  termTab: (active: boolean) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-    height: '100%',
-    padding: '0 6px 0 10px',
-    cursor: 'pointer',
-    fontSize: 12,
-    borderRight: '1px solid #2a2a2a',
-    flexShrink: 0,
-    userSelect: 'none' as const,
-    background: active ? '#1a1a1a' : '#181818',
-    color: active ? '#ddd' : '#777'
-  }),
-  termAdd: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 28,
-    height: '100%',
-    cursor: 'pointer',
-    color: '#777'
-  } as React.CSSProperties,
-  termBody: {
-    flex: 1,
-    position: 'relative' as const,
-    overflow: 'hidden'
-  } as React.CSSProperties,
-  termShell: (visible: boolean) => ({
-    position: 'absolute' as const,
-    inset: 0,
-    display: visible ? 'block' : 'none'
-  }),
-
-  // Right panel
-  rightBar: {
-    width: 48,
-    flexShrink: 0,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    gap: 4,
-    padding: '8px 0',
-    borderLeft: '1px solid #2a2a2a',
-    background: '#181818'
-  } as React.CSSProperties,
-  rightBtn: (active: boolean) => ({
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    width: 40,
-    height: 44,
-    borderRadius: 6,
-    cursor: 'pointer',
-    border: 'none',
-    fontSize: 9,
-    background: active ? 'rgba(10,132,255,0.15)' : 'transparent',
-    color: active ? '#0A84FF' : '#888'
-  }),
-  rightSlide: (open: boolean) => ({
-    width: open ? 280 : 0,
-    overflow: 'hidden',
-    flexShrink: 0,
-    borderLeft: open ? '1px solid #2a2a2a' : 'none',
-    background: '#1c1c1c',
-    transition: 'width .2s ease',
-    display: 'flex',
-    flexDirection: 'column' as const
-  }),
-  rightHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 34,
-    padding: '0 12px',
-    borderBottom: '1px solid #2a2a2a',
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#bbb',
-    flexShrink: 0
-  } as React.CSSProperties,
-  rightContent: {
-    flex: 1,
-    padding: 12,
-    overflow: 'auto',
-    color: '#888',
-    fontSize: 12
-  } as React.CSSProperties,
-  placeholder: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: '100%',
-    color: '#555',
-    fontSize: 12,
-    textAlign: 'center' as const
-  } as React.CSSProperties,
-  metricRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '6px 0',
-    borderBottom: '1px solid #2a2a2a'
-  } as React.CSSProperties,
-  metricBar: (pct: number, color: string) => ({
-    width: '100%',
-    height: 4,
-    borderRadius: 2,
-    background: '#333',
-    marginTop: 4,
-    position: 'relative' as const,
-    overflow: 'hidden',
-    '::after': {
-      content: '""',
-      position: 'absolute',
-      left: 0,
-      top: 0,
-      height: '100%',
-      width: `${pct}%`,
-      background: color,
-      borderRadius: 2
-    }
-  }),
-  contextMenu: (x: number, y: number) => ({
-    position: 'fixed' as const,
-    left: x,
-    top: y,
-    zIndex: 9999,
-    background: '#252526',
-    border: '1px solid #3a3a3a',
-    borderRadius: 6,
-    padding: '4px 0',
-    minWidth: 160,
-    boxShadow: '0 8px 24px rgba(0,0,0,.4)'
-  }),
-  ctxItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '5px 14px',
-    cursor: 'pointer',
-    fontSize: 12,
-    color: '#ccc'
-  } as React.CSSProperties
+  root: 'flex w-full h-full bg-[#1a1a1a] text-[#ccc] font-inherit overflow-hidden text-[13px]',
+  leftPanel: 'shrink-0 flex flex-col border-r border-r-[#2a2a2a] bg-[#181818] overflow-hidden',
+  leftHeader: 'h-[34px] flex items-center gap-1.5 px-2.5 border-b border-b-[#2a2a2a] text-[11px] font-semibold text-[#999] uppercase tracking-[0.04em] shrink-0',
+  treeWrap: 'flex-1 overflow-y-auto py-1',
+  treeRow: 'flex items-center h-6 gap-1 pr-2 cursor-pointer select-none whitespace-nowrap overflow-hidden text-ellipsis',
+  treeLabel: 'text-xs overflow-hidden text-ellipsis whitespace-nowrap',
+  resizeH: 'w-1 cursor-col-resize shrink-0 bg-transparent z-2',
+  resizeV: 'h-1 cursor-row-resize shrink-0 bg-transparent z-2',
+  center: 'flex-1 flex flex-col min-w-0 overflow-hidden',
+  editorArea: 'flex flex-col overflow-hidden min-h-[80px]',
+  tabBar: 'flex items-center h-8 bg-[#1e1e1e] border-b border-b-[#2a2a2a] shrink-0 overflow-hidden',
+  tab: 'flex items-center gap-[5px] h-full pl-2.5 pr-1.5 cursor-pointer text-xs shrink-0 border-r border-r-[#2a2a2a] select-none max-w-[160px]',
+  tabClose: 'flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 opacity-50 cursor-pointer',
+  toolbar: 'flex items-center gap-0.5 h-7 px-2 bg-[#1e1e1e] border-b border-b-[#2a2a2a] shrink-0',
+  toolBtn: 'flex items-center justify-center w-[26px] h-[22px] rounded border-none bg-transparent text-[#aaa] cursor-pointer',
+  editorEmpty: 'flex-1 flex flex-col items-center justify-center gap-2.5 text-[#555] text-[13px]',
+  termArea: 'flex-1 flex flex-col overflow-hidden min-h-[80px]',
+  termTabBar: 'flex items-center h-[30px] bg-[#181818] border-t border-t-[#2a2a2a] border-b border-b-[#2a2a2a] shrink-0',
+  termTab: 'flex items-center gap-1 h-full pl-2.5 pr-1.5 cursor-pointer text-xs border-r border-r-[#2a2a2a] shrink-0 select-none',
+  termAdd: 'flex items-center justify-center w-7 h-full cursor-pointer text-[#777]',
+  termBody: 'flex-1 relative overflow-hidden',
+  termShell: 'absolute inset-0',
+  rightBar: 'w-12 shrink-0 flex flex-col items-center gap-1 py-2 border-l border-l-[#2a2a2a] bg-[#181818]',
+  rightBtn: 'flex flex-col items-center justify-center gap-0.5 w-10 h-11 rounded-[6px] cursor-pointer border-none text-[9px]',
+  rightSlide: 'overflow-hidden shrink-0 bg-[#1c1c1c] transition-[width] duration-200 ease flex flex-col',
+  rightHeader: 'flex items-center justify-between h-[34px] px-3 border-b border-b-[#2a2a2a] text-xs font-semibold text-[#bbb] shrink-0',
+  rightContent: 'flex-1 p-3 overflow-auto text-[#888] text-xs',
+  placeholder: 'flex flex-col items-center justify-center gap-2 h-full text-[#555] text-xs text-center',
+  metricRow: 'flex justify-between py-1.5 border-b border-b-[#2a2a2a]',
+  contextMenu: 'fixed z-[9999] bg-[#252526] border border-[#3a3a3a] rounded-[6px] py-1 min-w-[160px] shadow-[0_8px_24px_rgba(0,0,0,.4)]',
+  ctxItem: 'flex items-center gap-2 py-[5px] px-[14px] cursor-pointer text-xs text-[#ccc]',
 } as const
 
 // ─── Context Menu ───────────────────────────────────────────────────────────
@@ -651,7 +343,11 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
       return (
         <React.Fragment key={node.path}>
           <div
-            style={S.treeRow(depth, isActive)}
+            className={S.treeRow}
+            style={{
+              paddingLeft: 8 + depth * 14,
+              background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent'
+            }}
             onClick={() => {
               node.isDir ? toggleExpand(node.path) : setSelectedPath(node.path)
             }}
@@ -676,10 +372,9 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
               <ChevronRight
                 size={12}
                 color="#888"
+                className="shrink-0 transition-transform duration-150"
                 style={{
-                  transform: isExpanded ? 'rotate(90deg)' : 'none',
-                  transition: 'transform .15s',
-                  flexShrink: 0
+                  transform: isExpanded ? 'rotate(90deg)' : 'none'
                 }}
               />
             )}
@@ -692,7 +387,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
             ) : (
               getFileIcon(node.name)
             )}
-            <span style={S.treeLabel}>{node.name}</span>
+            <span className={S.treeLabel}>{node.name}</span>
           </div>
           {node.isDir && isExpanded && node.children?.map(c => renderTreeNode(c, depth + 1))}
         </React.Fragment>
@@ -713,14 +408,14 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
       ]
       return (
         <div>
-          <div style={{ color: '#555', fontSize: 11, marginBottom: 12, lineHeight: 1.5 }}>
+          <div className="text-[#555] text-[11px] mb-3 leading-[1.5]">
             SSH 远程指标采集开发中{'\n'}
-            <span style={{ color: '#444' }}>将通过 SSH 执行系统命令采集</span>
+            <span className="text-[#444]">将通过 SSH 执行系统命令采集</span>
           </div>
           {metrics.map(m => (
-            <div key={m.label} style={S.metricRow}>
-              <span style={{ color: '#aaa' }}>{m.label}</span>
-              <span style={{ color: m.value !== '—' ? m.color : '#555' }}>{m.value}</span>
+            <div key={m.label} className={S.metricRow}>
+              <span className="text-[#aaa]">{m.label}</span>
+              <span className={m.value === '—' ? 'text-[#555]' : undefined} style={m.value !== '—' ? { color: m.color } : undefined}>{m.value}</span>
             </div>
           ))}
         </div>
@@ -728,19 +423,19 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
     }
     if (rightPanel === 'upload') {
       return (
-        <div style={S.placeholder}>
+        <div className={S.placeholder}>
           <Upload size={28} color="#555" />
           <span>暂无上传任务</span>
-          <span style={{ fontSize: 11, color: '#444' }}>拖拽文件到文件树即可上传</span>
+          <span className="text-[11px] text-[#444]">拖拽文件到文件树即可上传</span>
         </div>
       )
     }
     if (rightPanel === 'download') {
       return (
-        <div style={S.placeholder}>
+        <div className={S.placeholder}>
           <Download size={28} color="#555" />
           <span>暂无下载任务</span>
-          <span style={{ fontSize: 11, color: '#444' }}>右键文件选择"下载"</span>
+          <span className="text-[11px] text-[#444]">右键文件选择“下载”</span>
         </div>
       )
     }
@@ -826,27 +521,18 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
   const isModified = useCallback((f: OpenFile) => f.content !== f.originalContent, [])
 
   return (
-    <div style={S.root}>
+    <div className={S.root}>
       {/* ════ Left File Tree Panel ════ */}
-      <div style={S.leftPanel(leftWidth)}>
-        <div style={{ ...S.leftHeader, justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+      <div className={S.leftPanel} style={{ width: leftWidth, minWidth: 120 }}>
+        <div className={`${S.leftHeader} justify-between`}>
+          <div className="flex items-center gap-1 overflow-hidden">
             <HardDrive size={12} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{serverName}</span>
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap">{serverName}</span>
           </div>
           <button
             type="button"
             title="刷新文件树"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#666',
-              padding: '2px 4px',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="bg-transparent border-none cursor-pointer text-[#666] py-[2px] px-1 shrink-0 flex items-center"
             onClick={() => {
               // File tree refresh — SFTP support coming soon
               setExpanded(new Set())
@@ -860,12 +546,12 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
           </button>
         </div>
 
-        <div style={S.treeWrap}>
+        <div className={S.treeWrap}>
           {openFiles.length === 0 && (
-            <div style={{ padding: '16px 10px', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: '#555', lineHeight: 1.6 }}>
+            <div className="py-4 px-2.5 text-center">
+              <div className="text-[11px] text-[#555] leading-[1.6]">
                 文件树暂不支持<br />
-                <span style={{ color: '#444' }}>SFTP 功能开发中</span>
+                <span className="text-[#444]">SFTP 功能开发中</span>
               </div>
             </div>
           )}
@@ -874,7 +560,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
 
       {/* ════ Left Resize Handle ════ */}
       <div
-        style={S.resizeH}
+        className={S.resizeH}
         onMouseDown={startLeftResize}
         onMouseEnter={e => {
           ;(e.currentTarget as HTMLDivElement).style.background = '#444'
@@ -885,33 +571,38 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
       />
 
       {/* ════ Center Column ════ */}
-      <div style={S.center} ref={centerRef}>
+      <div className={S.center} ref={centerRef}>
         {/* ── Editor Area ── */}
         <div
+          className={S.editorArea}
           style={
             resolvedEditorHeight
-              ? S.editorArea(resolvedEditorHeight)
-              : { flex: '0 0 55%', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 80 }
+              ? { height: resolvedEditorHeight }
+              : { flex: '0 0 55%' }
           }
         >
           {/* Tab bar */}
-          <div style={S.tabBar}>
+          <div className={S.tabBar}>
             {openFiles.map(f => (
               <div
                 key={f.path}
-                style={S.tab(f.path === activeFilePath)}
+                className={S.tab}
+                style={{
+                  background: f.path === activeFilePath ? '#252526' : '#1e1e1e',
+                  color: f.path === activeFilePath ? '#ddd' : '#888'
+                }}
                 onClick={() => setActiveFilePath(f.path)}
                 title={f.path}
               >
                 {getFileIcon(f.name)}
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-[100px]">
                   {f.name}
                 </span>
                 {isModified(f) && (
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#e8a838', flexShrink: 0 }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#e8a838] shrink-0" />
                 )}
                 <div
-                  style={S.tabClose}
+                  className={S.tabClose}
                   onClick={e => closeFile(f.path, e)}
                   onMouseEnter={e => {
                     ;(e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.1)'
@@ -928,31 +619,31 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
 
           {/* Toolbar */}
           {activeFile && (
-            <div style={S.toolbar}>
-              <button style={S.toolBtn(false)} title="保存 (Ctrl+S)" onClick={handleEditorSave}>
+            <div className={S.toolbar}>
+              <button className={S.toolBtn} title="保存 (Ctrl+S)" onClick={handleEditorSave}>
                 <Save size={14} />
               </button>
-              <button style={S.toolBtn(false)} title="撤销" onClick={handleEditorUndo}>
+              <button className={S.toolBtn} title="撤销" onClick={handleEditorUndo}>
                 <Undo2 size={14} />
               </button>
-              <button style={S.toolBtn(false)} title="重做" onClick={handleEditorRedo}>
+              <button className={S.toolBtn} title="重做" onClick={handleEditorRedo}>
                 <Redo2 size={14} />
               </button>
-              <div style={{ width: 1, height: 14, background: '#333', margin: '0 4px' }} />
-              <button style={S.toolBtn(false)} title="下载" onClick={handleEditorDownload}>
+              <div className="w-px h-3.5 bg-[#333] mx-1" />
+              <button className={S.toolBtn} title="下载" onClick={handleEditorDownload}>
                 <Download size={14} />
               </button>
-              <button style={S.toolBtn(false)} title="查找/替换" onClick={handleEditorSearch}>
+              <button className={S.toolBtn} title="查找/替换" onClick={handleEditorSearch}>
                 <Search size={14} />
               </button>
-              <div style={{ flex: 1 }} />
-              <span style={{ fontSize: 11, color: '#555', marginRight: 4 }}>{activeFile.language}</span>
+              <div className="flex-1" />
+              <span className="text-[11px] text-[#555] mr-1">{activeFile.language}</span>
             </div>
           )}
 
           {/* Editor / Empty state */}
           {activeFile ? (
-            <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div className="flex-1 overflow-hidden">
               <Editor
                 height="100%"
                 language={activeFile.language}
@@ -979,7 +670,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
               />
             </div>
           ) : (
-            <div style={S.editorEmpty}>
+            <div className={S.editorEmpty}>
               <FileCode size={36} color="#444" />
               <span>双击左侧文件树中的文件以打开编辑</span>
             </div>
@@ -988,7 +679,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
 
         {/* ── Vertical Resize Handle ── */}
         <div
-          style={S.resizeV}
+          className={S.resizeV}
           onMouseDown={startVerticalResize}
           onMouseEnter={e => {
             ;(e.currentTarget as HTMLDivElement).style.background = '#444'
@@ -999,13 +690,17 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
         />
 
         {/* ── Terminal Area ── */}
-        <div style={S.termArea}>
+        <div className={S.termArea}>
           {/* Terminal tab bar */}
-          <div style={S.termTabBar}>
+          <div className={S.termTabBar}>
             {termTabs.map(t => (
               <div
                 key={t.id}
-                style={S.termTab(t.id === activeTermId)}
+                className={S.termTab}
+                style={{
+                  background: t.id === activeTermId ? '#1a1a1a' : '#181818',
+                  color: t.id === activeTermId ? '#ddd' : '#777'
+                }}
                 onClick={() => setActiveTermId(t.id)}
                 onMouseEnter={e => {
                   ;(e.currentTarget as HTMLDivElement).style.background = t.id === activeTermId ? '#1a1a1a' : '#1f1f1f'
@@ -1016,7 +711,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
               >
                 <span>{t.label}</span>
                 <div
-                  style={S.tabClose}
+                  className={S.tabClose}
                   onClick={e => closeTerminal(t.id, e)}
                   onMouseEnter={e => {
                     ;(e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.1)'
@@ -1030,7 +725,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
               </div>
             ))}
             <div
-              style={S.termAdd}
+              className={S.termAdd}
               onClick={addTerminal}
               title="新建终端"
               onMouseEnter={e => {
@@ -1045,10 +740,10 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
           </div>
 
           {/* Terminal bodies */}
-          <div style={S.termBody}>
+          <div className={S.termBody}>
             {termTabs.map(t => (
-              <div key={t.id} style={S.termShell(t.id === activeTermId)}>
-                <Suspense fallback={<div style={{ ...S.placeholder, background: '#0d0d0d' }}>终端加载中…</div>}>
+              <div key={t.id} className={`${S.termShell} ${t.id === activeTermId ? 'block' : 'hidden'}`}>
+                <Suspense fallback={<div className={`${S.placeholder} bg-[#0d0d0d]`}>终端加载中…</div>}>
                   <WebShell target={serverId} />
                 </Suspense>
               </div>
@@ -1058,29 +753,36 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
       </div>
 
       {/* ════ Right Sliding Panel ════ */}
-      <div style={S.rightSlide(rightPanel !== null)}>
+      <div
+        className={`${S.rightSlide} ${rightPanel !== null ? 'border-l border-l-solid border-l-[#2a2a2a]' : 'border-l-0'}`}
+        style={{ width: rightPanel !== null ? 280 : 0 }}
+      >
         {rightPanel && (
           <>
-            <div style={S.rightHeader}>
+            <div className={S.rightHeader}>
               <span>{rightPanelTitle}</span>
               <div
-                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                className="cursor-pointer flex items-center"
                 onClick={() => setRightPanel(null)}
               >
                 <X size={14} color="#888" />
               </div>
             </div>
-            <div style={S.rightContent}>{renderRightContent()}</div>
+            <div className={S.rightContent}>{renderRightContent()}</div>
           </>
         )}
       </div>
 
       {/* ════ Right Icon Bar ════ */}
-      <div style={S.rightBar}>
+      <div className={S.rightBar}>
         {RIGHT_PANELS.map(p => (
           <button
             key={p.kind}
-            style={S.rightBtn(rightPanel === p.kind)}
+            className={S.rightBtn}
+            style={{
+              background: rightPanel === p.kind ? 'rgba(10,132,255,0.15)' : 'transparent',
+              color: rightPanel === p.kind ? '#0A84FF' : '#888'
+            }}
             onClick={() => setRightPanel(rightPanel === p.kind ? null : p.kind)}
             title={p.label}
             onMouseEnter={e => {
@@ -1096,11 +798,10 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
           </button>
         ))}
 
-        <div style={{ width: 28, height: 1, background: '#2a2a2a', margin: '4px 0' }} />
+        <div className="w-7 h-px bg-[#2a2a2a] my-1" />
 
         <button
-          style={S.rightBtn(false)}
-          onClick={addTerminal}
+          className={`${S.rightBtn} text-[#888]`}
           title="打开终端"
           onMouseEnter={e => {
             ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'
@@ -1114,7 +815,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
         </button>
 
         <button
-          style={S.rightBtn(false)}
+          className={`${S.rightBtn} text-[#888]`}
           title="终端设置"
           onMouseEnter={e => {
             ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'
@@ -1130,17 +831,17 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
 
       {/* ════ Context Menu ════ */}
       {contextMenu && (
-        <div style={S.contextMenu(contextMenu.x, contextMenu.y)} onClick={e => e.stopPropagation()}>
+        <div className={S.contextMenu} style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
           {contextMenu.node.isDir && (
             <>
               <CtxMenuItem label="新建文件" onClick={() => setContextMenu(null)} />
               <CtxMenuItem label="新建文件夹" onClick={() => setContextMenu(null)} />
-              <div style={{ height: 1, background: '#3a3a3a', margin: '4px 8px' }} />
+              <div className="h-px bg-[#3a3a3a] mx-2 my-1" />
             </>
           )}
           <CtxMenuItem label="重命名" onClick={() => setContextMenu(null)} />
           <CtxMenuItem label="删除" onClick={() => setContextMenu(null)} danger />
-          <div style={{ height: 1, background: '#3a3a3a', margin: '4px 8px' }} />
+          <div className="h-px bg-[#3a3a3a] mx-2 my-1" />
           <CtxMenuItem label="下载" onClick={() => setContextMenu(null)} />
           <CtxMenuItem label="刷新" onClick={() => setContextMenu(null)} />
         </div>
@@ -1154,7 +855,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
 function CtxMenuItem({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
   return (
     <div
-      style={{ ...S.ctxItem, color: danger ? '#FF453A' : '#ccc' }}
+      className={`${S.ctxItem} ${danger ? 'text-[#FF453A]' : ''}`}
       onClick={onClick}
       onMouseEnter={e => {
         ;(e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.06)'

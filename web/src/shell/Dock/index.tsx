@@ -14,6 +14,7 @@
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { Grid3X3 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { clsx } from 'clsx'
 import {
   type AppManifest,
   closeWindow,
@@ -109,14 +110,8 @@ function DockIcon({
   }
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        display: 'flex',
-        flexDirection: isHorizontal ? 'column' : 'row',
-        alignItems: 'center'
-      }}
-    >
+    <div className={clsx('relative flex items-center', isHorizontal ? 'flex-col' : 'flex-row')}>
+
       {/* Tooltip */}
       {hovered && (
         <motion.div
@@ -142,8 +137,8 @@ function DockIcon({
         transition={bouncing ? { duration: 0.5, ease: 'easeInOut' } : {}}
       >
         <div
-          className="vos-dock-icon-inner"
-          style={{ width: iconSize, height: iconSize, borderRadius: iconSize * 0.22, overflow: 'hidden' }}
+          className="vos-dock-icon-inner overflow-hidden"
+          style={{ width: iconSize, height: iconSize, borderRadius: iconSize * 0.22 }}
         >
           {icon}
         </div>
@@ -192,22 +187,14 @@ function MinimizedThumbnail({
       whileHover={{ scale: 1.12 }}
       onClick={() => restoreWindow(win.id)}
       title={win.title}
+      className="vos-flex-center shrink-0 overflow-hidden p-0 cursor-pointer bg-[var(--vos-bg-input)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
       style={{
         width: iconSize * 0.7,
         height: iconSize * 0.7,
-        borderRadius: iconSize * 0.15,
-        background: 'var(--vos-bg-input)',
-        border: '0.5px solid var(--vos-border-subtle)',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        overflow: 'hidden',
-        padding: 0
+        borderRadius: iconSize * 0.15
       }}
     >
-      <div style={{ width: iconSize * 0.35, height: iconSize * 0.35, opacity: 0.7 }}>{appManifest?.icon ?? null}</div>
+      <div className="opacity-70" style={{ width: iconSize * 0.35, height: iconSize * 0.35 }}>{appManifest?.icon ?? null}</div>
     </motion.button>
   )
 }
@@ -474,18 +461,8 @@ export default function Dock() {
           <DockIcon
             label="启动台"
             icon={
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'linear-gradient(145deg, #6d28d9 0%, #4c1d95 100%)',
-                  color: '#fff'
-                }}
-              >
-                <Grid3X3 size={iconSize * 0.5} style={{ opacity: 0.85 }} />
+              <div className="w-full h-full vos-flex-center text-white bg-[linear-gradient(145deg,_#6d28d9_0%,_#4c1d95_100%)]">
+                <Grid3X3 size={iconSize * 0.5} className="opacity-85" />
               </div>
             }
             onClick={toggleLaunchpad}
@@ -518,14 +495,7 @@ export default function Dock() {
           {minimizedWindows.length > 0 && (
             <>
               <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: isHorizontal ? 'row' : 'column',
-                  gap: 6,
-                  alignItems: 'center'
-                }}
-              >
+              <div className={clsx('flex items-center gap-1.5', isHorizontal ? 'flex-row' : 'flex-col')}>
                 <AnimatePresence>
                   {minimizedWindows.map(w => (
                     <MinimizedThumbnail key={w.id} win={w} iconSize={iconSize} isHorizontal={isHorizontal} />
@@ -535,7 +505,7 @@ export default function Dock() {
             </>
           )}
 
-          
+
         </div>
       </div>
     </>

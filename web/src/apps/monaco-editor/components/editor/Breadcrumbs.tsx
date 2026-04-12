@@ -10,18 +10,12 @@ export default function Breadcrumbs() {
 
   return (
     <div
-      className="flex items-center gap-1 px-3 flex-shrink-0 overflow-hidden text-xs"
-      style={{
-        height: 22,
-        background: 'var(--vos-bg-surface)',
-        borderBottom: '0.5px solid var(--vos-border-subtle)',
-        color: 'var(--vos-text-tertiary)'
-      }}
+      className="flex items-center gap-1 px-3 flex-shrink-0 overflow-hidden text-xs h-[22px] bg-[var(--vos-bg-surface)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] text-[var(--vos-text-tertiary)]"
     >
       {workspace && (
         <>
           <span className="flex-shrink-0 max-w-20 truncate">{workspace.name}</span>
-          <ChevronRight size={10} style={{ flexShrink: 0 }} />
+          <ChevronRight size={10} className="shrink-0" />
         </>
       )}
       {!activeTab.isNew ? (
@@ -31,8 +25,7 @@ export default function Breadcrumbs() {
           .map((seg, i, arr) => (
             <span key={`${seg}-${i}`} className="flex items-center gap-1 flex-shrink-0">
               <span
-                className="cursor-pointer hover:underline"
-                style={i === arr.length - 1 ? { color: 'var(--vos-text-primary)' } : {}}
+                className={`cursor-pointer hover:underline${i === arr.length - 1 ? ' text-[var(--vos-text-primary)]' : ''}`}
               >
                 {seg}
               </span>
@@ -40,7 +33,7 @@ export default function Breadcrumbs() {
             </span>
           ))
       ) : (
-        <span style={{ color: 'var(--vos-text-primary)' }}>{activeTab.node.name}</span>
+        <span className="text-[var(--vos-text-primary)]">{activeTab.node.name}</span>
       )}
     </div>
   )

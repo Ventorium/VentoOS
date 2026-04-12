@@ -177,8 +177,8 @@ function ImageViewer({ src }: { src: string }) {
 
   return (
     <div
-      className="w-full h-full overflow-hidden flex items-center justify-center"
-      style={{ cursor: scale > 1 ? 'grab' : 'default', background: 'var(--vos-bg-base)' }}
+      className="w-full h-full overflow-hidden flex items-center justify-center bg-[var(--vos-bg-base)]"
+      style={{ cursor: scale > 1 ? 'grab' : 'default' }}
       onWheel={onWheel}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
@@ -194,10 +194,9 @@ function ImageViewer({ src }: { src: string }) {
           transformOrigin: 'center',
           maxWidth: scale === 1 ? '100%' : 'none',
           maxHeight: scale === 1 ? '100%' : 'none',
-          objectFit: 'contain',
-          transition: dragging.current ? 'none' : 'transform 0.05s ease',
-          userSelect: 'none'
+          transition: dragging.current ? 'none' : 'transform 0.05s ease'
         }}
+        className="object-contain select-none"
         onDoubleClick={() => {
           setScale(1)
           setPos({ x: 0, y: 0 })
@@ -205,8 +204,7 @@ function ImageViewer({ src }: { src: string }) {
       />
       {/* scale badge */}
       <div
-        className="absolute bottom-2 right-3 text-[11px] px-2 py-0.5 rounded"
-        style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', pointerEvents: 'none' }}
+        className="absolute bottom-2 right-3 text-[11px] px-2 py-0.5 rounded bg-[rgba(0,0,0,0.45)] text-white pointer-events-none"
       >
         {Math.round(scale * 100)}%
       </div>
@@ -263,37 +261,17 @@ function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
 
   const handleEnded = () => setPlaying(false)
 
-  const playerStyle: React.CSSProperties = {
-    background: 'var(--vos-bg-surface)',
-    border: '0.5px solid var(--vos-border-subtle)',
-    borderRadius: 12,
-    padding: 16,
-    maxWidth: type === 'audio' ? 480 : '100%',
-    width: type === 'audio' ? 480 : '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12
-  }
-
   return (
     <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-        height: '100%',
-        background: type === 'video' ? '#000' : 'var(--vos-bg-base)',
-        flexDirection: 'column',
-        gap: 0
-      }}
+      className="vos-flex-center w-full h-full flex-col"
+      style={{ background: type === 'video' ? '#000' : 'var(--vos-bg-base)' }}
     >
       {type === 'video' && (
         // biome-ignore lint/a11y/useMediaCaption: file viewer
         <video
           ref={mediaRef as React.RefObject<HTMLVideoElement>}
           src={src}
-          style={{ maxWidth: '100%', maxHeight: 'calc(100% - 80px)', outline: 'none', display: 'block' }}
+          className="max-w-full max-h-[calc(100%-80px)] outline-none block"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={handleEnded}
@@ -311,7 +289,10 @@ function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
         />
       )}
       {/* Controls bar */}
-      <div style={playerStyle}>
+      <div
+        className="bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] rounded-xl p-4 flex flex-col gap-3"
+        style={{ maxWidth: type === 'audio' ? 480 : '100%', width: type === 'audio' ? 480 : '100%' }}
+      >
         {/* Progress */}
         <input
           type="range"
@@ -319,7 +300,7 @@ function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
           max={duration || 1}
           step={0.1}
           value={currentTime}
-          style={{ width: '100%', accentColor: 'var(--vos-accent-primary)', cursor: 'pointer' }}
+          className="w-full accent-[var(--vos-accent-primary)] cursor-pointer"
           onChange={e => {
             const t = Number(e.target.value)
             setCurrentTime(t)
@@ -327,23 +308,21 @@ function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
           }}
         />
         {/* Buttons row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            className="vos-btn"
-            style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+            className="vos-btn px-[10px] py-1 flex items-center gap-1 text-xs"
             onClick={togglePlay}
           >
             {playing ? <Pause size={14} /> : <Play size={14} />}
           </button>
-          <span style={{ fontSize: 11, color: 'var(--vos-text-secondary)', minWidth: 80 }}>
+          <span className="text-[11px] text-[var(--vos-text-secondary)] min-w-[80px]">
             {fmt(currentTime)} / {duration ? fmt(duration) : '--:--'}
           </span>
-          <div style={{ flex: 1 }} />
+          <div className="flex-1" />
           <button
             type="button"
-            className="vos-btn"
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center' }}
+            className="vos-btn px-2 py-1 flex items-center"
             onClick={toggleMute}
           >
             {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
@@ -354,7 +333,7 @@ function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
             max={1}
             step={0.05}
             value={muted ? 0 : volume}
-            style={{ width: 72, accentColor: 'var(--vos-accent-primary)', cursor: 'pointer' }}
+            className="w-[72px] accent-[var(--vos-accent-primary)] cursor-pointer"
             onChange={e => {
               const v = Number(e.target.value)
               setVolume(v)
@@ -378,17 +357,11 @@ function HexViewer({ data }: { data: ArrayBuffer }) {
   const hex = toHex(bytes)
   return (
     <div className="w-full h-full overflow-auto p-3">
-      <div className="text-xs mb-2" style={{ color: 'var(--vos-text-tertiary)' }}>
+      <div className="text-xs mb-2 text-[var(--vos-text-tertiary)]">
         Hex dump (first {Math.min(bytes.length, 4096)} bytes)
       </div>
       <pre
-        className="text-[11px] m-0"
-        style={{
-          fontFamily: 'var(--vos-font-mono, monospace)',
-          color: 'var(--vos-text-secondary)',
-          lineHeight: 1.6,
-          whiteSpace: 'pre'
-        }}
+        className="text-[11px] m-0 text-[var(--vos-text-secondary)] leading-[1.6] whitespace-pre font-mono"
       >
         {hex}
       </pre>
@@ -528,7 +501,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
 
   if (!mountId || !node) {
     return (
-      <div className="flex items-center justify-center h-full text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+      <div className="flex items-center justify-center h-full text-xs text-[var(--vos-text-tertiary)]">
         <FileText size={32} className="opacity-30 mb-2" />
         <span className="ml-2">未指定文件</span>
       </div>
@@ -539,11 +512,10 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Toolbar ── */}
       <div
-        className="flex items-center px-3 py-2 gap-2 flex-shrink-0"
-        style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+        className="flex items-center px-3 py-2 gap-2 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
       >
-        <FileText size={13} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />
-        <span className="text-xs font-medium flex-1 truncate" style={{ color: 'var(--vos-text-primary)' }}>
+        <FileText size={13} className="text-[var(--vos-text-tertiary)] shrink-0" />
+        <span className="text-xs font-medium flex-1 truncate text-[var(--vos-text-primary)]">
           {node.name}
         </span>
 
@@ -555,8 +527,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
             <>
               <button
                 type="button"
-                className="vos-btn vos-btn-primary"
-                style={{ fontSize: 11, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+                className="vos-btn vos-btn-primary text-[11px] px-2 py-0.5 flex items-center gap-1"
                 disabled={saving}
                 onClick={handleSave}
               >
@@ -565,8 +536,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
               </button>
               <button
                 type="button"
-                className="vos-btn"
-                style={{ fontSize: 11, padding: '2px 8px' }}
+                className="vos-btn text-[11px] px-2 py-0.5"
                 onClick={() => {
                   setEditing(false)
                   setEditContent(textContent.content)
@@ -578,8 +548,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
           ) : (
             <button
               type="button"
-              className="vos-btn"
-              style={{ fontSize: 11, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+              className="vos-btn text-[11px] px-2 py-0.5 flex items-center gap-1"
               onClick={() => setEditing(true)}
             >
               <Pencil size={11} />
@@ -592,12 +561,12 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
       <div className="flex-1 overflow-hidden relative">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 size={24} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+            <Loader2 size={24} className="animate-spin text-[var(--vos-text-tertiary)]" />
           </div>
         )}
 
         {!loading && error && (
-          <div className="p-6 text-xs" style={{ color: 'var(--vos-accent-danger)' }}>
+          <div className="p-6 text-xs text-[var(--vos-accent-danger)]">
             加载失败：{error}
           </div>
         )}
@@ -610,7 +579,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
           <embed
             src={`${blobUrl}#toolbar=1&navpanes=0`}
             type="application/pdf"
-            style={{ width: '100%', height: '100%' }}
+            className="w-full h-full"
           />
         )}
 
@@ -622,7 +591,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
 
         {/* Markdown */}
         {!loading && !error && isMd && textContent && !textContent.is_binary && !editing && (
-          <div className="w-full h-full overflow-auto p-6" style={{ color: 'var(--vos-text-primary)' }}>
+          <div className="w-full h-full overflow-auto p-6 text-[var(--vos-text-primary)]">
             <XMarkdown>{textContent.content}</XMarkdown>
           </div>
         )}
@@ -632,24 +601,13 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
           <div className="w-full h-full overflow-auto">
             {textContent.truncated && (
               <div
-                className="px-3 py-1 text-[11px]"
-                style={{
-                  background: 'var(--vos-accent-warning-subtle, rgba(234,179,8,0.1))',
-                  color: 'var(--vos-accent-warning, #ca8a04)',
-                  borderBottom: '0.5px solid var(--vos-border-subtle)'
-                }}
+                className="px-3 py-1 text-[11px] bg-[var(--vos-accent-warning-subtle,rgba(234,179,8,0.1))] text-[var(--vos-accent-warning,#ca8a04)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
               >
                 文件过大，仅预览前 4MB
               </div>
             )}
             <pre
-              className="p-3 text-xs m-0 whitespace-pre-wrap break-words"
-              style={{
-                color: 'var(--vos-text-primary)',
-                background: 'transparent',
-                fontFamily: isCode ? 'var(--vos-font-mono, monospace)' : 'inherit',
-                lineHeight: 1.7
-              }}
+              className={`p-3 text-xs m-0 whitespace-pre-wrap break-words text-[var(--vos-text-primary)] bg-transparent leading-[1.7] ${isCode ? 'font-mono' : 'font-[inherit]'}`}
             >
               {textContent.content}
             </pre>
@@ -660,12 +618,8 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
         {!loading && !error && editing && textContent && !textContent.is_binary && (
           <textarea
             autoFocus
-            className="w-full h-full p-3 text-xs resize-none border-none outline-none"
+            className={`w-full h-full p-3 text-xs resize-none border-none outline-none bg-[var(--vos-bg-editor,var(--vos-bg-base))] text-[var(--vos-text-primary)] leading-[1.7] ${(isCode || isMd) ? 'font-mono' : 'font-[inherit]'}`}
             style={{
-              background: 'var(--vos-bg-editor, var(--vos-bg-base))',
-              color: 'var(--vos-text-primary)',
-              fontFamily: isCode || isMd ? 'var(--vos-font-mono, monospace)' : 'inherit',
-              lineHeight: 1.7,
               tabSize: 2
             }}
             value={editContent}
@@ -681,8 +635,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
       {/* ── Footer ── */}
       {(textContent || node.size !== undefined) && (
         <div
-          className="flex items-center gap-4 px-3 py-1.5 text-[11px] flex-shrink-0"
-          style={{ borderTop: '0.5px solid var(--vos-border-subtle)', color: 'var(--vos-text-tertiary)' }}
+          className="flex items-center gap-4 px-3 py-1.5 text-[11px] flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)] text-[var(--vos-text-tertiary)]"
         >
           {textContent && <span>{fmtSize(textContent.size)}</span>}
           {!textContent && node.size !== undefined && node.size !== null && <span>{fmtSize(node.size)}</span>}

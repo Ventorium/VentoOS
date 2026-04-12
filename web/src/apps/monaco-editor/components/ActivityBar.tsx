@@ -12,8 +12,7 @@ export default function ActivityBar() {
 
   return (
     <div
-      className="flex flex-col items-center gap-1 py-2 flex-shrink-0"
-      style={{ width: 48, borderRight: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+      className="flex flex-col items-center gap-1 py-2 flex-shrink-0 w-[48px] border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
     >
       {ITEMS.map(item => {
         const active = sidebarOpen && sidebarView === item.id
@@ -23,13 +22,10 @@ export default function ActivityBar() {
             type="button"
             title={item.title}
             onClick={() => toggleSidebar(item.id)}
-            className="flex items-center justify-center w-10 h-10 rounded"
+            className="flex items-center justify-center w-10 h-10 rounded border-none cursor-pointer transition-[color,background] duration-150"
             style={{
               background: active ? 'color-mix(in srgb, var(--vos-accent-primary) 20%, transparent)' : 'transparent',
-              color: active ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'color 0.15s, background 0.15s'
+              color: active ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)'
             }}
           >
             {item.icon}

@@ -55,7 +55,7 @@ export default function ContextMenu({
       ? [
           {
             label: '重命名',
-            icon: <span style={{ width: 13, display: 'inline-block' }} />,
+            icon: <span className="w-[13px] inline-block" />,
             action: () => {
               onRename(entry)
               onClose()
@@ -95,28 +95,23 @@ export default function ContextMenu({
   ]
 
   return (
-    <div className="fixed inset-0 z-50" style={{ background: 'transparent' }} onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 bg-transparent" onMouseDown={onClose}>
       <div
-        className="absolute flex flex-col py-1 rounded shadow-2xl"
+        className="absolute flex flex-col py-1 rounded shadow-2xl min-w-[160px] bg-[var(--vos-bg-context-menu)] border border-[var(--vos-border-subtle)] z-[1000]"
         style={{
           left: info.x,
-          top: info.y,
-          minWidth: 160,
-          background: 'var(--vos-bg-context-menu)',
-          border: '1px solid var(--vos-border-subtle)',
-          zIndex: 1000
+          top: info.y
         }}
         onMouseDown={e => e.stopPropagation()}
       >
         {items.map((item, i) =>
           'separator' in item ? (
-            <div key={`sep-${i}`} style={{ height: 1, background: 'var(--vos-border-subtle)', margin: '3px 0' }} />
+            <div key={`sep-${i}`} className="h-px bg-[var(--vos-border-subtle)] my-[3px]" />
           ) : (
             <button
               key={`item-${i}`}
               type="button"
-              className="flex items-center gap-2 px-3 py-1.5 text-xs text-left w-full"
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--vos-text-primary)' }}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs text-left w-full bg-transparent border-none cursor-pointer text-[var(--vos-text-primary)]"
               onMouseEnter={e => {
                 e.currentTarget.style.background = 'var(--vos-bg-item-hover)'
               }}
@@ -126,7 +121,7 @@ export default function ContextMenu({
               onMouseDown={e => e.stopPropagation()}
               onClick={item.action}
             >
-              <span style={{ color: 'var(--vos-text-tertiary)', width: 16, display: 'flex', alignItems: 'center' }}>
+              <span className="text-[var(--vos-text-tertiary)] w-4 flex items-center">
                 {item.icon}
               </span>
               {item.label}

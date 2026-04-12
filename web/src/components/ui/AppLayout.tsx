@@ -24,8 +24,8 @@ export interface AppSidebarProps {
 export function AppSidebar({ width = 220, children }: AppSidebarProps) {
   return (
     <div
-      className="flex flex-col flex-shrink-0 overflow-auto"
-      style={{ width, borderRight: '0.5px solid var(--vos-border-subtle)' }}
+      className="flex flex-col flex-shrink-0 overflow-auto border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)]"
+      style={{ width }}
     >
       {children}
     </div>

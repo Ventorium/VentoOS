@@ -4,7 +4,7 @@ import { useWorkspaceStore } from '../stores/workspace-store'
 import { displayLanguage } from '../utils/language-detection'
 
 function Sep() {
-  return <span style={{ opacity: 0.35, margin: '0 4px' }}>|</span>
+  return <span className="opacity-[0.35] mx-1">|</span>
 }
 
 export default function StatusBar() {
@@ -17,8 +17,7 @@ export default function StatusBar() {
 
   return (
     <div
-      className="flex items-center px-2 flex-shrink-0 text-[11px] select-none overflow-hidden"
-      style={{ height: 22, background: 'var(--vos-accent-primary)', color: '#ffffffcc' }}
+      className="flex items-center px-2 flex-shrink-0 text-[11px] select-none overflow-hidden h-[22px] bg-[var(--vos-accent-primary)] text-[#ffffffcc]"
     >
       {activeTab ? (
         <>
@@ -36,7 +35,7 @@ export default function StatusBar() {
             {isDirty && (
               <>
                 <Sep />
-                <span className="px-1" style={{ color: '#ffd86e' }}>
+                <span className="px-1 text-[#ffd86e]">
                   ● 已修改
                 </span>
               </>

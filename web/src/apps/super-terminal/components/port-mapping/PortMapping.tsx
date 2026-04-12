@@ -127,31 +127,19 @@ function CtxMenu({
   return (
     <div
       ref={ref}
+      className="fixed z-[9999] bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[160px] select-none"
       style={{
-        position: 'fixed',
         left: pos.x,
         top: pos.y,
-        zIndex: 9999,
-        background: '#252525',
-        border: '1px solid #444',
-        borderRadius: 6,
-        padding: '4px 0',
-        minWidth: 160,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-        userSelect: 'none'
+        boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
       }}
     >
       {items.map((item, i) => (
         <div
           key={i}
-          className="pm-ctx-item"
-          style={{
-            padding: '6px 16px',
-            cursor: 'pointer',
-            fontSize: 13,
-            color: item.danger ? '#ff453a' : '#d4d4d4',
-            whiteSpace: 'nowrap'
-          }}
+          className={item.danger
+            ? 'pm-ctx-item py-1.5 px-4 cursor-pointer text-[13px] whitespace-nowrap text-[#ff453a]'
+            : 'pm-ctx-item py-1.5 px-4 cursor-pointer text-[13px] whitespace-nowrap text-[#d4d4d4]'}
           onClick={e => {
             e.stopPropagation()
             item.onClick()
@@ -203,34 +191,6 @@ function MappingFormModal({
     }
   }
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: 12,
-    color: 'var(--vos-text-secondary)',
-    marginBottom: 4
-  }
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '6px 10px',
-    fontSize: 13,
-    background: '#1a1a1a',
-    border: '1px solid #333',
-    borderRadius: 4,
-    color: 'var(--vos-text-primary)',
-    outline: 'none',
-    boxSizing: 'border-box'
-  }
-  const selectStyle: React.CSSProperties = {
-    ...inputStyle,
-    appearance: 'auto'
-  }
-  const rowStyle: React.CSSProperties = { marginBottom: 12 }
-  const twoColStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 12
-  }
-
   const canSubmit = form.name.trim() && form.ssh_server_id && form.remote_port && form.local_port
 
   return (
@@ -240,7 +200,7 @@ function MappingFormModal({
       title={editing ? '编辑映射' : '新建映射'}
       width={480}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="flex justify-end gap-2">
           <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
             取消
           </button>
@@ -255,12 +215,12 @@ function MappingFormModal({
         </div>
       }
     >
-      <div style={rowStyle}>
-        <label style={labelStyle}>
-          名称 <span style={{ color: '#ff453a' }}>*</span>
+      <div className="mb-3">
+        <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
+          名称 <span className="text-[#ff453a]">*</span>
         </label>
         <input
-          style={inputStyle}
+          className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border"
           value={form.name}
           onChange={e => updateField('name', e.target.value)}
           placeholder="如: MySQL 转发"
@@ -268,12 +228,12 @@ function MappingFormModal({
         />
       </div>
 
-      <div style={rowStyle}>
-        <label style={labelStyle}>
-          SSH 服务器 <span style={{ color: '#ff453a' }}>*</span>
+      <div className="mb-3">
+        <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
+          SSH 服务器 <span className="text-[#ff453a]">*</span>
         </label>
         <select
-          style={selectStyle}
+          className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border appearance-auto"
           value={form.ssh_server_id}
           onChange={e => updateField('ssh_server_id', e.target.value)}
         >
@@ -286,23 +246,23 @@ function MappingFormModal({
         </select>
       </div>
 
-      <div style={twoColStyle}>
-        <div style={rowStyle}>
-          <label style={labelStyle}>远程地址</label>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="mb-3">
+          <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">远程地址</label>
           <input
-            style={inputStyle}
+            className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border"
             value={form.remote_host}
             onChange={e => updateField('remote_host', e.target.value)}
             placeholder="localhost"
           />
         </div>
-        <div style={rowStyle}>
-          <label style={labelStyle}>
-            远程端口 <span style={{ color: '#ff453a' }}>*</span>
+        <div className="mb-3">
+          <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
+            远程端口 <span className="text-[#ff453a]">*</span>
           </label>
           <input
             type="number"
-            style={inputStyle}
+            className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border"
             value={form.remote_port}
             onChange={e => updateField('remote_port', e.target.value ? Number(e.target.value) : '')}
             placeholder="3306"
@@ -312,14 +272,14 @@ function MappingFormModal({
         </div>
       </div>
 
-      <div style={twoColStyle}>
-        <div style={rowStyle}>
-          <label style={labelStyle}>
-            本地端口 <span style={{ color: '#ff453a' }}>*</span>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="mb-3">
+          <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
+            本地端口 <span className="text-[#ff453a]">*</span>
           </label>
           <input
             type="number"
-            style={inputStyle}
+            className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border"
             value={form.local_port}
             onChange={e => updateField('local_port', e.target.value ? Number(e.target.value) : '')}
             placeholder="13306"
@@ -327,18 +287,11 @@ function MappingFormModal({
             max={65535}
           />
         </div>
-        <div style={rowStyle}>
-          <label style={labelStyle}>开机自启</label>
-          <div style={{ paddingTop: 4 }}>
+        <div className="mb-3">
+          <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">开机自启</label>
+          <div className="pt-1">
             <label
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                cursor: 'pointer',
-                fontSize: 13,
-                color: 'var(--vos-text-primary)'
-              }}
+              className="inline-flex items-center gap-1.5 cursor-pointer text-[13px] text-[var(--vos-text-primary)]"
             >
               <input
                 type="checkbox"
@@ -351,10 +304,10 @@ function MappingFormModal({
         </div>
       </div>
 
-      <div style={rowStyle}>
-        <label style={labelStyle}>备注</label>
+      <div className="mb-3">
+        <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">备注</label>
         <input
-          style={inputStyle}
+          className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border"
           value={form.remark}
           onChange={e => updateField('remark', e.target.value)}
           placeholder="可选备注信息"
@@ -384,7 +337,7 @@ function DeleteConfirmModal({
       title="确认删除"
       width={380}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="flex justify-end gap-2">
           <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
             取消
           </button>
@@ -394,7 +347,7 @@ function DeleteConfirmModal({
         </div>
       }
     >
-      <p style={{ fontSize: 13, color: 'var(--vos-text-secondary)', margin: 0 }}>{message}</p>
+      <p className="text-[13px] text-[var(--vos-text-secondary)] m-0">{message}</p>
     </Modal>
   )
 }
@@ -645,19 +598,12 @@ export default function PortMapping() {
   // ── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1a1a1a' }}>
+    <div className="flex flex-col h-full bg-[#1a1a1a]">
       <style>{hoverStyles}</style>
 
       {/* Toolbar */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '8px 16px',
-          borderBottom: '1px solid #333',
-          flexShrink: 0
-        }}
+        className="flex items-center gap-2 px-4 py-2 border-b border-b-[#333] shrink-0"
       >
         <button
           type="button"
@@ -667,15 +613,15 @@ export default function PortMapping() {
             setFormOpen(true)
           }}
         >
-          <Plus size={14} style={{ marginRight: 4 }} />
+          <Plus size={14} className="mr-1" />
           新建映射
         </button>
 
         {someChecked && (
           <>
-            <div style={{ width: 1, height: 20, background: '#444', margin: '0 4px' }} />
+            <div className="w-px h-5 bg-[#444] mx-1" />
             <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={handleBatchStart}>
-              <Play size={14} style={{ marginRight: 4 }} />
+              <Play size={14} className="mr-1" />
               批量启动 ({portMappings.filter(m => selectedIds.has(m.id) && m.status === 'stopped').length})
             </button>
             <button
@@ -692,20 +638,20 @@ export default function PortMapping() {
                 })
               }}
             >
-              <Trash2 size={14} style={{ marginRight: 4 }} />
+              <Trash2 size={14} className="mr-1" />
               批量删除 ({selectedIds.size})
             </button>
           </>
         )}
 
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
 
         <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={loadData} disabled={loading}>
-          <RefreshCw size={14} style={{ marginRight: 4 }} />
+          <RefreshCw size={14} className="mr-1" />
           刷新
         </button>
 
-        <span style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>共 {portMappings.length} 个</span>
+        <span className="text-xs text-[var(--vos-text-tertiary)]">共 {portMappings.length} 个</span>
       </div>
 
       {/* List */}
@@ -723,28 +669,18 @@ export default function PortMapping() {
                 setFormOpen(true)
               }}
             >
-              <Plus size={14} style={{ marginRight: 4 }} />
+              <Plus size={14} className="mr-1" />
               新建映射
             </button>
           }
         />
       ) : (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="flex-1 overflow-y-auto">
           {/* Header row */}
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              height: 36,
-              padding: '0 16px',
-              borderBottom: '1px solid #333',
-              fontSize: 11,
-              color: 'var(--vos-text-tertiary)',
-              fontWeight: 600,
-              flexShrink: 0
-            }}
+            className="flex items-center h-9 px-4 border-b border-b-[#333] text-[11px] text-[var(--vos-text-tertiary)] font-semibold shrink-0"
           >
-            <div style={{ width: 32 }}>
+            <div className="w-8">
               <input
                 type="checkbox"
                 checked={allChecked}
@@ -754,13 +690,13 @@ export default function PortMapping() {
                 onChange={e => handleSelectAll(e.target.checked)}
               />
             </div>
-            <div style={{ flex: 2, minWidth: 100 }}>名称</div>
-            <div style={{ flex: 2, minWidth: 120 }}>SSH 服务器</div>
-            <div style={{ flex: 2, minWidth: 140 }}>远程地址</div>
-            <div style={{ width: 80 }}>本地端口</div>
-            <div style={{ width: 80, textAlign: 'center' }}>自启</div>
-            <div style={{ width: 70 }}>状态</div>
-            <div style={{ width: 110, textAlign: 'center' }}>操作</div>
+            <div className="flex-[2] min-w-[100px]">名称</div>
+            <div className="flex-[2] min-w-[120px]">SSH 服务器</div>
+            <div className="flex-[2] min-w-[140px]">远程地址</div>
+            <div className="w-20">本地端口</div>
+            <div className="w-20 text-center">自启</div>
+            <div className="w-[70px]">状态</div>
+            <div className="w-[110px] text-center">操作</div>
           </div>
 
           {/* Rows */}
@@ -770,16 +706,8 @@ export default function PortMapping() {
             return (
               <div
                 key={mapping.id}
-                className={`pm-row ${isSelected ? 'selected' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  height: ROW_HEIGHT,
-                  padding: '0 16px',
-                  borderBottom: '1px solid #262626',
-                  cursor: 'default',
-                  fontSize: 13
-                }}
+                className={`pm-row flex items-center px-4 border-b border-b-[#262626] cursor-default text-[13px] ${isSelected ? 'selected' : ''}`}
+                style={{ height: ROW_HEIGHT }}
                 onClick={e => handleRowClick(mapping.id, e)}
                 onContextMenu={e => {
                   e.preventDefault()
@@ -787,7 +715,7 @@ export default function PortMapping() {
                 }}
               >
                 {/* Checkbox */}
-                <div style={{ width: 32, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                <div className="w-8 shrink-0" onClick={e => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -797,65 +725,34 @@ export default function PortMapping() {
 
                 {/* Name */}
                 <div
-                  style={{
-                    flex: 2,
-                    minWidth: 100,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    color: 'var(--vos-text-primary)',
-                    fontWeight: 500
-                  }}
+                  className="flex-[2] min-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap text-[var(--vos-text-primary)] font-medium"
                 >
                   {mapping.name}
                 </div>
 
                 {/* SSH Server */}
                 <div
-                  style={{
-                    flex: 2,
-                    minWidth: 120,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    color: 'var(--vos-text-secondary)',
-                    fontSize: 12
-                  }}
+                  className="flex-[2] min-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap text-[var(--vos-text-secondary)] text-xs"
                 >
                   {serverMap.get(mapping.ssh_server_id) || mapping.ssh_server_id}
                 </div>
 
                 {/* Remote address */}
                 <div
-                  style={{
-                    flex: 2,
-                    minWidth: 140,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: 'var(--vos-text-secondary)'
-                  }}
+                  className="flex-[2] min-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-[var(--vos-text-secondary)]"
                 >
                   {mapping.remote_host}:{mapping.remote_port}
                 </div>
 
                 {/* Local port */}
                 <div
-                  style={{
-                    width: 80,
-                    flexShrink: 0,
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: 'var(--vos-accent-primary)'
-                  }}
+                  className="w-20 shrink-0 font-mono text-xs text-[var(--vos-accent-primary)]"
                 >
                   {mapping.local_port}
                 </div>
 
                 {/* Auto start toggle */}
-                <div style={{ width: 80, flexShrink: 0, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                <div className="w-20 shrink-0 text-center" onClick={e => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={mapping.auto_start}
@@ -870,37 +767,20 @@ export default function PortMapping() {
                 </div>
 
                 {/* Status */}
-                <div style={{ width: 70, flexShrink: 0 }}>
+                <div className="w-[70px] shrink-0">
                   <StatusBadge status={mapping.status} icon={<CircleDot size={10} />} />
                 </div>
 
                 {/* Actions */}
                 <div
-                  style={{
-                    width: 110,
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 4
-                  }}
+                  className="w-[110px] shrink-0 flex items-center justify-center gap-1"
                   onClick={e => e.stopPropagation()}
                 >
                   {/* Start/Stop toggle */}
                   {isRunning ? (
                     <button
                       type="button"
-                      className="pm-action-btn"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: 4,
-                        color: 'var(--vos-accent-warning)',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}
-                      title="停止映射"
+                      className="pm-action-btn bg-transparent border-none cursor-pointer p-1 text-[var(--vos-accent-warning)] flex items-center"                      title="停止映射"
                       onClick={() => handleStopMapping(mapping.id)}
                     >
                       <Square size={14} />
@@ -908,16 +788,7 @@ export default function PortMapping() {
                   ) : (
                     <button
                       type="button"
-                      className="pm-action-btn"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: 4,
-                        color: 'var(--vos-accent-success)',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}
+                      className="pm-action-btn bg-transparent border-none cursor-pointer p-1 text-[var(--vos-accent-success)] flex items-center"
                       title="启动映射"
                       onClick={() => handleStartMapping(mapping.id)}
                     >
@@ -928,16 +799,7 @@ export default function PortMapping() {
                   {/* Edit */}
                   <button
                     type="button"
-                    className="pm-action-btn"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 4,
-                      color: 'var(--vos-text-tertiary)',
-                      display: 'flex',
-                      alignItems: 'center'
-                    }}
+                    className="pm-action-btn bg-transparent border-none cursor-pointer p-1 text-[var(--vos-text-tertiary)] flex items-center"
                     title="编辑"
                     onClick={() => {
                       setEditing(mapping)
@@ -950,16 +812,7 @@ export default function PortMapping() {
                   {/* Delete */}
                   <button
                     type="button"
-                    className="pm-action-btn"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 4,
-                      color: 'var(--vos-accent-danger)',
-                      display: 'flex',
-                      alignItems: 'center'
-                    }}
+                    className="pm-action-btn bg-transparent border-none cursor-pointer p-1 text-[var(--vos-accent-danger)] flex items-center"
                     title="删除"
                     onClick={() => {
                       setDeleteConfirm({

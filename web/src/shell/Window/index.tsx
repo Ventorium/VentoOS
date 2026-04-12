@@ -81,21 +81,10 @@ function TrafficLights({
         e.stopPropagation()
         handler()
       }}
+      className="w-3.5 h-3.5 rounded-full cursor-pointer p-0 text-black/55 shrink-0 transition-colors duration-100 vos-flex-center leading-none"
       style={{
-        width: 14,
-        height: 14,
-        borderRadius: '50%',
         background: focused ? color : 'var(--vos-tl-inactive)',
-        border: focused ? 'none' : '0.5px solid rgba(128,128,128,0.3)',
-        cursor: 'pointer',
-        padding: 0,
-        color: 'rgba(0,0,0,0.55)',
-        flexShrink: 0,
-        transition: 'background 0.1s',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        lineHeight: 0
+        border: focused ? 'none' : '0.5px solid rgba(128,128,128,0.3)'
       }}
     >
       {hovered ? <Icon /> : null}
@@ -106,8 +95,7 @@ function TrafficLights({
     // biome-ignore lint/a11y/noStaticElementInteractions: window control hover detection
     <div
       role="presentation"
-      className="vos-flex-row"
-      style={{ gap: 6 }}
+      className="vos-flex-row gap-1.5"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -127,7 +115,8 @@ function ResizeHandles({ onResizeStart }: { onResizeStart: (dir: ResizeDir, e: R
       aria-valuenow={50}
       aria-label={`resize-${dir}`}
       tabIndex={-1}
-      style={{ position: 'absolute', ...style, cursor, zIndex: 10 }}
+      className="absolute z-10"
+      style={{ ...style, cursor }}
       onMouseDown={e => {
         e.stopPropagation()
         onResizeStart(dir, e)
@@ -217,24 +206,16 @@ function MenuDropdown({
   return createPortal(
     <div
       ref={dropdownRef}
+      className="fixed max-w-[320px] bg-[var(--vos-bg-context-menu)] border border-solid border-[var(--vos-border-subtle)] rounded-[6px] z-[99999] py-1 px-0 overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
       style={{
-        position: 'fixed',
         left: rect.left,
         top: rect.bottom + 1,
-        minWidth: Math.max(180, rect.width),
-        maxWidth: 320,
-        background: 'var(--vos-bg-context-menu)',
-        border: '1px solid var(--vos-border-subtle)',
-        borderRadius: 6,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-        zIndex: 99999,
-        padding: '4px 0',
-        overflow: 'hidden'
+        minWidth: Math.max(180, rect.width)
       }}
     >
       {group.items.map((entry, i) => {
         if ('type' in entry && entry.type === 'separator') {
-          return <div key={i} style={{ height: 1, margin: '3px 0', background: 'var(--vos-border-subtle)' }} />
+          return <div key={i} className="h-px my-[3px] mx-0 bg-[var(--vos-border-subtle)]" />
         }
         const item = entry as AppMenuItem
         if (item.hidden) return null
@@ -245,21 +226,7 @@ function MenuDropdown({
           <button
             key={item.id}
             type="button"
-            className="w-full flex items-center justify-between gap-4 text-sm text-left"
-            style={{
-              padding: '5px 12px',
-              background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
-              color: item.disabled
-                ? 'var(--vos-text-tertiary)'
-                : isActive
-                  ? '#fff'
-                  : item.danger
-                    ? '#ff4d4f'
-                    : 'var(--vos-text-primary)',
-              border: 'none',
-              cursor: item.disabled ? 'default' : 'pointer',
-              opacity: item.disabled ? 0.5 : 1
-            }}
+            className={`w-full flex items-center justify-between gap-4 text-sm text-left px-3 py-[5px] border-none ${isActive ? 'bg-[var(--vos-accent-primary)]' : 'bg-transparent'} ${item.disabled ? 'text-[var(--vos-text-tertiary)] cursor-default opacity-50' : isActive ? 'text-white cursor-pointer opacity-100' : item.danger ? 'text-[#ff4d4f] cursor-pointer opacity-100' : 'text-[var(--vos-text-primary)] cursor-pointer opacity-100'}`}
             onMouseEnter={() => setFocusedIdx(vIdx)}
             onMouseLeave={() => setFocusedIdx(-1)}
             onMouseDown={e => e.stopPropagation()}
@@ -270,19 +237,11 @@ function MenuDropdown({
               }
             }}
           >
-            <span style={{ flex: 1 }}>{item.label}</span>
-            {item.checked && <span style={{ opacity: 0.8, fontSize: 12 }}>✓</span>}
+            <span className="flex-1">{item.label}</span>
+            {item.checked && <span className="opacity-80 text-xs">✓</span>}
             {item.shortcut && (
               <kbd
-                style={{
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--vos-text-tertiary)',
-                  background: 'transparent',
-                  border: 'none',
-                  padding: 0,
-                  flexShrink: 0
-                }}
+                className={`font-mono text-[11px] bg-transparent border-none p-0 shrink-0 ${isActive ? 'text-[rgba(255,255,255,0.7)]' : 'text-[var(--vos-text-tertiary)]'}`}
               >
                 {item.shortcut}
               </kbd>
@@ -313,8 +272,7 @@ function WindowMenuBar({ groups, isFocused }: { groups: AppMenuGroup[]; isFocuse
 
   return (
     <div
-      className="flex items-center"
-      style={{ marginLeft: 4, gap: 0, flexShrink: 0 }}
+      className="flex items-center ml-1 shrink-0"
       onMouseDown={e => e.stopPropagation()}
     >
       {groups.map(group => {
@@ -327,21 +285,8 @@ function WindowMenuBar({ groups, isFocused }: { groups: AppMenuGroup[]; isFocuse
               else buttonRefs.current.delete(group.id)
             }}
             type="button"
-            style={{
-              padding: '2px 8px',
-              borderRadius: 4,
-              fontSize: 13,
-              background: isOpen ? 'var(--vos-accent-primary)' : 'transparent',
-              color: isOpen ? '#fff' : isFocused ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
-              border: 'none',
-              cursor: 'pointer',
-              userSelect: 'none',
-              height: 24,
-              lineHeight: 1,
-              display: 'flex',
-              alignItems: 'center',
-              transition: 'background 0.1s, color 0.1s'
-            }}
+            className={`flex items-center px-2 py-[2px] rounded text-[13px] border-none cursor-pointer select-none h-6 leading-none transition-[background,color] duration-100 ${isOpen ? 'bg-[var(--vos-accent-primary)] text-white' : isFocused ? 'bg-transparent text-[var(--vos-text-primary)]' : 'bg-transparent text-[var(--vos-text-tertiary)]'}`}
+
             onMouseDown={e => {
               e.stopPropagation()
               e.preventDefault()
@@ -627,19 +572,15 @@ export default function Window({ win, children }: { win: WindowInstance; childre
       animate={controls}
       exit={{ opacity: 0, scale: 0.92, y: 12 }}
       transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+      className="absolute flex flex-col overflow-hidden border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
       style={{
-        position: 'absolute',
         left,
         top,
         width,
         height,
         zIndex: win.zIndex,
-        display: 'flex',
-        flexDirection: 'column',
         borderRadius: isMax ? 0 : tokens.radius.window,
-        overflow: 'hidden',
         boxShadow: win.isFocused ? tokens.shadow.windowFocused : tokens.shadow.window,
-        border: '0.5px solid var(--vos-border-subtle)',
         background: isImageWallpaper
           ? 'transparent'
           : win.isFocused
@@ -657,53 +598,32 @@ export default function Window({ win, children }: { win: WindowInstance; childre
       {isImageWallpaper && (
         <>
           <div
+            className="absolute inset-[-24px] z-0"
             style={{
-              position: 'absolute',
-              inset: -24,
               backgroundImage: `url(${wallpaper})`,
               backgroundSize: '100vw 100vh',
               backgroundPosition: `${24 - left}px ${24 - top}px`,
-              filter: 'blur(24px) saturate(180%)',
-              zIndex: 0
+              filter: 'blur(24px) saturate(180%)'
             }}
           />
           <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: win.isFocused ? 'rgba(28, 28, 30, 0.70)' : 'rgba(20, 20, 22, 0.8)',
-              zIndex: 1
-            }}
+            className={win.isFocused
+              ? 'absolute inset-0 z-[1] bg-[rgba(28,28,30,0.70)]'
+              : 'absolute inset-0 z-[1] bg-[rgba(20,20,22,0.8)]'}
           />
         </>
       )}
 
       {/* Window body (title bar + content) — above glass layers */}
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-          overflow: 'hidden'
-        }}
-      >
+      <div className="relative z-[2] flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* ---- Title bar ---- */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: title bar is a drag handle for window movement */}
         <div
           role="presentation"
-          className="vos-flex-row"
-          style={{
-            height: TITLE_H,
-            paddingLeft: 12,
-            paddingRight: 12,
-            flexShrink: 0,
-            borderBottom: '0.5px solid var(--vos-border-subtle)',
-            cursor: isMax ? 'default' : 'grab',
-            userSelect: 'none'
-          }}
+          className={isMax
+            ? 'vos-flex-row px-3 shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] select-none cursor-default'
+            : 'vos-flex-row px-3 shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] select-none cursor-grab'}
+          style={{ height: TITLE_H }}
           onMouseDown={onDragStart}
           onDoubleClick={() => toggleMaximize(win.id)}
         >
@@ -715,47 +635,27 @@ export default function Window({ win, children }: { win: WindowInstance; childre
           />
           <WindowMenuBar groups={menus} isFocused={win.isFocused} />
           <div
-            className="vos-flex-1"
-            style={{
-              textAlign: 'center',
-              fontSize: 13,
-              fontWeight: 500,
-              color: win.isFocused ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              paddingLeft: 8,
-              paddingRight: 8
-            }}
+            className={`vos-flex-1 text-center text-[13px] font-medium overflow-hidden text-ellipsis whitespace-nowrap px-2 ${win.isFocused ? 'text-[var(--vos-text-primary)]' : 'text-[var(--vos-text-tertiary)]'}`}
           >
             {win.title}
           </div>
-          <div style={{ width: 52, flexShrink: 0 }} />
+          <div className="w-[52px] shrink-0" />
         </div>
 
         {/* ---- Content with virtual rendering ---- */}
-        <div className="vos-flex-col vos-flex-1" style={{ overflow: 'hidden', minHeight: 0 }}>
+        <div className="vos-flex-col vos-flex-1 overflow-hidden">
           {shouldRender ? (
             <Suspense
               fallback={
-                <div className="vos-flex-center" style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      width: 20,
-                      height: 20,
-                      border: '2px solid var(--vos-border-default)',
-                      borderTopColor: 'var(--vos-accent-primary)',
-                      borderRadius: '50%',
-                      animation: 'vos-spin 0.7s linear infinite'
-                    }}
-                  />
+                <div className="vos-flex-center flex-1">
+                  <div className="w-5 h-5 border-2 border-solid border-[var(--vos-border-default)] border-t-[var(--vos-accent-primary)] rounded-full animate-[vos-spin_0.7s_linear_infinite]" />
                 </div>
               }
             >
               <ErrorBoundary appId={win.appId}>{children}</ErrorBoundary>
             </Suspense>
           ) : (
-            <div className="vos-flex-center" style={{ flex: 1, color: 'var(--vos-text-tertiary)', fontSize: 13 }}>
+            <div className="vos-flex-center flex-1 text-[var(--vos-text-tertiary)] text-[13px]">
               进程已暂停
             </div>
           )}

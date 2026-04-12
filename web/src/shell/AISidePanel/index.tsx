@@ -102,54 +102,35 @@ export default function AISidePanel() {
           animate={{ x: 0 }}
           exit={{ x: PANEL_WIDTH }}
           transition={{ type: 'spring', damping: 28, stiffness: 340 }}
+          className="fixed right-0 bottom-0 z-[9000] flex flex-col bg-[var(--vos-bg-primary)] border-l-[0.5px] border-l-solid border-l-[var(--vos-border-subtle)]"
           style={{
-            position: 'fixed',
             top: TOP_BAR_H,
-            right: 0,
-            bottom: 0,
             width: PANEL_WIDTH,
-            zIndex: 9000,
-            display: 'flex',
-            flexDirection: 'column',
-            background: 'var(--vos-bg-primary)',
-            borderLeft: '0.5px solid var(--vos-border-subtle)',
             boxShadow: '-4px 0 24px rgba(0,0,0,0.12)'
           }}
         >
           {/* Header */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 12px',
-              borderBottom: '0.5px solid var(--vos-border-subtle)',
-              background: 'var(--vos-bg-surface)',
-              flexShrink: 0
-            }}
-          >
-            <Sparkles size={14} style={{ color: 'var(--vos-accent-primary)' }} />
-            <span style={{ fontSize: 13, fontWeight: 600, flex: 1, color: 'var(--vos-text-primary)' }}>AI 助手</span>
+          <div className="flex items-center gap-2 px-3 py-2.5 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)] shrink-0">
+            <Sparkles size={14} className="text-[var(--vos-accent-primary)]" />
+            <span className="text-[13px] font-semibold flex-1 text-[var(--vos-text-primary)]">AI 助手</span>
             <button
               type="button"
-              className="vos-topbar-btn"
+              className="vos-topbar-btn p-1"
               onClick={() => setShowSessions(!showSessions)}
               title="会话列表"
-              style={{ padding: 4 }}
             >
-              <MessageSquare size={13} style={{ color: 'var(--vos-text-tertiary)' }} />
+              <MessageSquare size={13} className="text-[var(--vos-text-tertiary)]" />
             </button>
             <button
               type="button"
-              className="vos-topbar-btn"
+              className="vos-topbar-btn p-1"
               onClick={newSession}
               title="新建会话"
-              style={{ padding: 4 }}
             >
-              <Plus size={13} style={{ color: 'var(--vos-text-tertiary)' }} />
+              <Plus size={13} className="text-[var(--vos-text-tertiary)]" />
             </button>
-            <button type="button" className="vos-topbar-btn" onClick={close} title="关闭" style={{ padding: 4 }}>
-              <X size={13} style={{ color: 'var(--vos-text-tertiary)' }} />
+            <button type="button" className="vos-topbar-btn p-1" onClick={close} title="关闭">
+              <X size={13} className="text-[var(--vos-text-tertiary)]" />
             </button>
           </div>
 
@@ -174,47 +155,25 @@ export default function AISidePanel() {
                 }}
               >
                 {sessions.length === 0 && (
-                  <div
-                    style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: 'var(--vos-text-tertiary)' }}
-                  >
+                  <div className="p-4 text-center text-xs text-[var(--vos-text-tertiary)]">
                     暂无会话
                   </div>
                 )}
                 {sessions.map(s => (
                   <div
                     key={s.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '6px 12px',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                      background: currentSession === s.id ? 'var(--vos-bg-item-hover)' : 'transparent'
-                    }}
+                    className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs ${currentSession === s.id ? 'bg-[var(--vos-bg-item-hover)]' : 'bg-transparent'}`}
                   >
-                    <MessageSquare size={12} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+                    <MessageSquare size={12} className="text-[var(--vos-text-tertiary)] shrink-0" />
                     <span
-                      style={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        color: 'var(--vos-text-primary)'
-                      }}
+                      className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--vos-text-primary)]"
                       onClick={() => selectSession(s.id)}
                     >
                       {s.title}
                     </span>
                     <button
                       type="button"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        cursor: 'pointer',
-                        color: 'var(--vos-text-tertiary)'
-                      }}
+                      className="bg-transparent border-none p-0 cursor-pointer text-[var(--vos-text-tertiary)]"
                       onClick={() => deleteSession(s.id)}
                     >
                       <Trash2 size={10} />
@@ -226,75 +185,44 @@ export default function AISidePanel() {
           </AnimatePresence>
 
           {/* Chat messages */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
+          <div className="flex-1 overflow-auto p-3">
             {messages.length === 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <Sparkles size={32} style={{ color: 'var(--vos-text-tertiary)', margin: '0 auto 8px' }} />
-                  <div style={{ fontSize: 13, color: 'var(--vos-text-secondary)' }}>VentoOS AI 助手</div>
-                  <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 4 }}>输入问题开始对话</div>
+              <div className="vos-flex-center h-full">
+                <div className="text-center">
+                  <Sparkles size={32} className="text-[var(--vos-text-tertiary)] mx-auto mb-2" />
+                  <div className="text-[13px] text-[var(--vos-text-secondary)]">VentoOS AI 助手</div>
+                  <div className="text-[11px] text-[var(--vos-text-tertiary)] mt-1">输入问题开始对话</div>
                 </div>
               </div>
             )}
             {messages.map((msg, i) => (
               <div
                 key={i}
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  marginBottom: 12,
-                  flexDirection: msg.role === 'user' ? 'row-reverse' : 'row'
-                }}
+                className={`flex gap-2 mb-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
               >
                 <div
-                  style={{
-                    flexShrink: 0,
-                    width: 24,
-                    height: 24,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: msg.role === 'assistant' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)',
-                    color: msg.role === 'assistant' ? '#fff' : 'var(--vos-text-primary)'
-                  }}
+                  className={msg.role === 'assistant'
+                    ? 'shrink-0 w-6 h-6 rounded-full vos-flex-center bg-[var(--vos-accent-primary)] text-white'
+                    : 'shrink-0 w-6 h-6 rounded-full vos-flex-center bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)]'}
                 >
                   {msg.role === 'assistant' ? <Sparkles size={12} /> : <User size={12} />}
                 </div>
                 <div
-                  style={{
-                    maxWidth: '80%',
-                    padding: '6px 10px',
-                    borderRadius: msg.role === 'user' ? '10px 10px 3px 10px' : '10px 10px 10px 3px',
-                    fontSize: 12,
-                    lineHeight: 1.5,
-                    background: msg.role === 'user' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-surface)',
-                    color: msg.role === 'user' ? '#fff' : 'var(--vos-text-primary)'
-                  }}
+                  className={msg.role === 'user'
+                    ? 'max-w-[80%] px-2.5 py-1.5 text-xs leading-normal rounded-[10px_10px_3px_10px] bg-[var(--vos-accent-primary)] text-white'
+                    : 'max-w-[80%] px-2.5 py-1.5 text-xs leading-normal rounded-[10px_10px_10px_3px] bg-[var(--vos-bg-surface)] text-[var(--vos-text-primary)]'}
                 >
                   {msg.content ?? ''}
                 </div>
               </div>
             ))}
             {sending && (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <div
-                  style={{
-                    flexShrink: 0,
-                    width: 24,
-                    height: 24,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'var(--vos-accent-primary)',
-                    color: '#fff'
-                  }}
-                >
+              <div className="flex gap-2 mb-3">
+                <div className="shrink-0 w-6 h-6 rounded-full vos-flex-center bg-[var(--vos-accent-primary)] text-white">
                   <Sparkles size={12} />
                 </div>
-                <div style={{ padding: '6px 10px', borderRadius: 10, background: 'var(--vos-bg-surface)' }}>
-                  <Loader2 size={12} className="vos-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+                <div className="px-2.5 py-1.5 rounded-[10px] bg-[var(--vos-bg-surface)]">
+                  <Loader2 size={12} className="vos-spin text-[var(--vos-text-tertiary)]" />
                 </div>
               </div>
             )}
@@ -302,28 +230,10 @@ export default function AISidePanel() {
           </div>
 
           {/* Input */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 12px',
-              borderTop: '0.5px solid var(--vos-border-subtle)',
-              flexShrink: 0
-            }}
-          >
+          <div className="flex items-center gap-2 px-3 py-2 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)] shrink-0">
             <input
               type="text"
-              style={{
-                flex: 1,
-                fontSize: 12,
-                background: 'var(--vos-bg-input)',
-                color: 'var(--vos-text-primary)',
-                border: '0.5px solid var(--vos-border-subtle)',
-                borderRadius: 8,
-                padding: '6px 10px',
-                outline: 'none'
-              }}
+              className="flex-1 text-xs bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] rounded-lg px-2.5 py-1.5 outline-none"
               placeholder="输入问题..."
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -331,18 +241,7 @@ export default function AISidePanel() {
             />
             <button
               type="button"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
-                background: 'var(--vos-accent-primary)',
-                color: '#fff'
-              }}
+              className="vos-flex-center w-7 h-7 rounded-lg border-none cursor-pointer bg-[var(--vos-accent-primary)] text-white"
               onClick={handleSend}
               disabled={sending}
             >

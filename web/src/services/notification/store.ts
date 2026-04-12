@@ -3,6 +3,7 @@
  */
 
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 export type NotificationLevel = 'info' | 'success' | 'warning' | 'error'
 export type NotificationSource = 'k8s' | 'db' | 'redis' | 'vfs' | 'ai' | 'system'
@@ -51,13 +52,17 @@ interface NotificationStore {
 
 let _notifCounter = 0
 
+const MAX_NOTIFICATIONS = 100
+
 const EMPTY_FILTER: NotificationFilter = {
   levels: [],
   sources: [],
   dateRange: null
 }
 
-export const useNotificationStore = create<NotificationStore>((set, get) => ({
+export const useNotificationStore = create<NotificationStore>()(
+  persist(
+    (set, get) => ({
   notifications: [],
   panelOpen: false,
   doNotDisturb: false,
@@ -71,7 +76,9 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       if (item.dedupKey) {
         list = list.filter(n => n.dedupKey !== item.dedupKey)
       }
-      return { notifications: [item, ...list] }
+      const updated = [item, ...list]
+      // Cap at MAX_NOTIFICATIONS (drop oldest)
+      return { notifications: updated.length > MAX_NOTIFICATIONS ? updated.slice(0, MAX_NOTIFICATIONS) : updated }
     })
   },
 
@@ -133,7 +140,17 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     const { notifications, filter } = get()
     return filterNotifications(notifications, filter)
   }
-}))
+}),
+    {
+      name: 'ventoos-notifications',
+      partialize: state => ({
+        notifications: state.notifications,
+        doNotDisturb: state.doNotDisturb,
+        nativeNotificationsEnabled: state.nativeNotificationsEnabled
+      })
+    }
+  )
+)
 
 export function filterNotifications(notifications: NotificationItem[], filter: NotificationFilter): NotificationItem[] {
   return notifications.filter(n => {

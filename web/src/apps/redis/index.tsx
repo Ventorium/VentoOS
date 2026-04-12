@@ -114,16 +114,11 @@ function TrieTreeView({
         return (
           <div key={child.fullKey}>
             <div
-              className="flex items-center gap-1 px-2 cursor-pointer"
+              className="flex items-center gap-1 px-2 cursor-pointer rounded-[3px] mx-1 text-xs py-[2px]"
               style={{
                 paddingLeft: 8 + depth * 14,
-                paddingTop: 2,
-                paddingBottom: 2,
                 background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
-                color: isSelected ? '#fff' : 'var(--vos-text-primary)',
-                borderRadius: 3,
-                margin: '0 4px',
-                fontSize: 12
+                color: isSelected ? '#fff' : 'var(--vos-text-primary)'
               }}
               onClick={() => {
                 if (isFolder || isFolderWithLeaf) {
@@ -139,25 +134,26 @@ function TrieTreeView({
               {isFolder || isFolderWithLeaf ? (
                 <>
                   {isExpanded ? (
-                    <ChevronDown size={11} style={{ flexShrink: 0 }} />
+                    <ChevronDown size={11} className="shrink-0" />
                   ) : (
-                    <ChevronRight size={11} style={{ flexShrink: 0 }} />
+                    <ChevronRight size={11} className="shrink-0" />
                   )}
                   <Folder
                     size={12}
-                    style={{ color: isSelected ? '#fff' : 'var(--vos-accent-warning)', flexShrink: 0 }}
+                    className="shrink-0"
+                    style={{ color: isSelected ? '#fff' : 'var(--vos-accent-warning)' }}
                   />
                 </>
               ) : (
                 <>
-                  <span style={{ width: 11, flexShrink: 0 }} />
-                  <Key size={12} style={{ color: isSelected ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+                  <span className="w-[11px] shrink-0" />
+                  <Key size={12} className="shrink-0" style={{ color: isSelected ? '#fff' : 'var(--vos-text-tertiary)' }} />
                 </>
               )}
               <span className="flex-1 truncate font-mono">{child.name}</span>
-              {(isFolder || isFolderWithLeaf) && <span style={{ fontSize: 9, opacity: 0.6 }}>{child.leafCount}</span>}
+              {(isFolder || isFolderWithLeaf) && <span className="text-[9px] opacity-60">{child.leafCount}</span>}
               {child.keyInfo && (
-                <span className="font-mono" style={{ fontSize: 9, opacity: 0.5, flexShrink: 0 }}>
+                <span className="font-mono text-[9px] opacity-50 shrink-0">
                   {child.keyInfo.key_type}
                 </span>
               )}
@@ -229,7 +225,7 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
       <FormInput placeholder="连接名称" value={name} onChange={e => setName(e.target.value)} />
       <div className="flex gap-2">
         <FormInput className="flex-1" placeholder="Host" value={host} onChange={e => setHost(e.target.value)} />
-        <FormInput style={{ width: 70 }} placeholder="Port" value={port} onChange={e => setPort(e.target.value)} />
+      <FormInput className="w-[70px]" placeholder="Port" value={port} onChange={e => setPort(e.target.value)} />
       </div>
       <FormInput
         placeholder="密码（可选）"
@@ -282,8 +278,7 @@ function StringViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: st
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div
-        className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap"
-        style={{ color: 'var(--vos-text-primary)' }}
+        className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap text-[var(--vos-text-primary)]"
       >
         {typeof kv.value === 'string' ? kv.value : JSON.stringify(kv.value, null, 2)}
       </div>
@@ -331,8 +326,8 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 text-xs" style={{ background: 'var(--vos-bg-surface)' }}>
-        <div className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+      <div className="flex-shrink-0 text-xs bg-[var(--vos-bg-surface)]">
+        <div className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
           {['Field', 'Value', ''].map(h => (
             <div
               key={h}
@@ -345,20 +340,19 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
         </div>
       </div>
       {/* Virtualized body */}
-      <VList style={{ flex: 1 }} className="text-xs">
+      <VList className="text-xs flex-1">
         {entries.map(([f, v]) => (
-          <div key={f} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)', width: '30%' }}>
+          <div key={f} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
+            <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-[30%]">
               {f}
             </div>
-            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>
+            <div className="px-3 py-1.5 font-mono flex-1 break-all">
               {v}
             </div>
-            <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
+            <div className="px-2 py-1 w-6 text-right">
               <button
                 type="button"
-                className="vos-btn-reset"
-                style={{ color: 'var(--vos-text-tertiary)' }}
+                className="vos-btn-reset text-[var(--vos-text-tertiary)]"
                 onClick={() => delField(f)}
               >
                 <Trash2 size={11} />
@@ -368,19 +362,16 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
         ))}
       </VList>
       <div
-        className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
-        style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
+        className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]"
       >
         <FormInput
-          className="font-mono"
-          style={{ flex: '0 0 120px', fontSize: 11 }}
+          className="font-mono text-[11px] flex-[0_0_120px]"
           placeholder="Field"
           value={newField}
           onChange={e => setNewField(e.target.value)}
         />
         <FormInput
-          className="font-mono"
-          style={{ flex: 1, fontSize: 11 }}
+          className="font-mono flex-1 text-[11px]"
           placeholder="Value"
           value={newVal}
           onChange={e => setNewVal(e.target.value)}
@@ -424,30 +415,29 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 text-xs" style={{ background: 'var(--vos-bg-surface)' }}>
-        <div className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-          <div className="px-3 py-1.5 text-left font-medium" style={{ width: 48 }}>
+      <div className="flex-shrink-0 text-xs bg-[var(--vos-bg-surface)]">
+        <div className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
+          <div className="px-3 py-1.5 text-left font-medium w-12">
             #
           </div>
           <div className="px-3 py-1.5 text-left font-medium flex-1">Value</div>
-          <div style={{ width: 24 }} />
+          <div className="w-6" />
         </div>
       </div>
       {/* Virtualized body */}
-      <VList style={{ flex: 1 }} className="text-xs">
+      <VList className="text-xs flex-1">
         {items.map((v, i) => (
-          <div key={`${i}-${v}`} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-text-tertiary)', width: 48 }}>
+          <div key={`${i}-${v}`} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
+            <div className="px-3 py-1.5 font-mono text-[var(--vos-text-tertiary)] w-12">
               {i}
             </div>
-            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>
+            <div className="px-3 py-1.5 font-mono flex-1 break-all">
               {v}
             </div>
-            <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
+            <div className="px-2 py-1 w-6 text-right">
               <button
                 type="button"
-                className="vos-btn-reset"
-                style={{ color: 'var(--vos-text-tertiary)' }}
+                className="vos-btn-reset text-[var(--vos-text-tertiary)]"
                 onClick={() => delItem(v)}
               >
                 <Trash2 size={11} />
@@ -457,12 +447,10 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
         ))}
       </VList>
       <div
-        className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
-        style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
+        className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]"
       >
         <FormInput
-          className="font-mono"
-          style={{ flex: 1, fontSize: 11 }}
+          className="font-mono flex-1 text-[11px]"
           placeholder="新元素 (追加到末尾)"
           value={newItem}
           onChange={e => setNewItem(e.target.value)}
@@ -510,14 +498,12 @@ function SetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: strin
         {members.map(m => (
           <div
             key={m}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono"
-            style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-primary)]"
           >
             {m}
             <button
               type="button"
-              className="vos-btn-reset"
-              style={{ color: 'var(--vos-text-tertiary)', display: 'flex' }}
+              className="vos-btn-reset text-[var(--vos-text-tertiary)] flex"
               onClick={() => delMember(m)}
             >
               <X size={10} />
@@ -525,18 +511,16 @@ function SetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: strin
           </div>
         ))}
         {members.length === 0 && (
-          <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <span className="text-xs text-[var(--vos-text-tertiary)]">
             空 Set
           </span>
         )}
       </div>
       <div
-        className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
-        style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
+        className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]"
       >
         <FormInput
-          className="font-mono"
-          style={{ flex: 1, fontSize: 11 }}
+          className="font-mono flex-1 text-[11px]"
           placeholder="新成员"
           value={newMember}
           onChange={e => setNewMember(e.target.value)}
@@ -597,30 +581,29 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 text-xs" style={{ background: 'var(--vos-bg-surface)' }}>
-        <div className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-          <div className="px-3 py-1.5 text-left font-medium" style={{ width: 80 }}>
+      <div className="flex-shrink-0 text-xs bg-[var(--vos-bg-surface)]">
+        <div className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
+          <div className="px-3 py-1.5 text-left font-medium w-20">
             Score
           </div>
           <div className="px-3 py-1.5 text-left font-medium flex-1">Member</div>
-          <div style={{ width: 24 }} />
+          <div className="w-6" />
         </div>
       </div>
       {/* Virtualized body */}
-      <VList style={{ flex: 1 }} className="text-xs">
+      <VList className="text-xs flex-1">
         {entries.map(e => (
-          <div key={e.member} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
-            <div className="px-3 py-1.5 font-mono" style={{ color: 'var(--vos-accent-primary)', width: 80 }}>
+          <div key={e.member} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
+            <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-20">
               {e.score}
             </div>
-            <div className="px-3 py-1.5 font-mono flex-1" style={{ wordBreak: 'break-all' }}>
+            <div className="px-3 py-1.5 font-mono flex-1 break-all">
               {e.member}
             </div>
-            <div className="px-2 py-1" style={{ width: 24, textAlign: 'right' }}>
+            <div className="px-2 py-1 w-6 text-right">
               <button
                 type="button"
-                className="vos-btn-reset"
-                style={{ color: 'var(--vos-text-tertiary)' }}
+                className="vos-btn-reset text-[var(--vos-text-tertiary)]"
                 onClick={() => delMember(e.member)}
               >
                 <Trash2 size={11} />
@@ -630,19 +613,16 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
         ))}
       </VList>
       <div
-        className="flex items-center gap-1 px-3 py-2 flex-shrink-0"
-        style={{ borderTop: '0.5px solid var(--vos-border-subtle)' }}
+        className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]"
       >
         <FormInput
-          className="font-mono"
-          style={{ width: 70, fontSize: 11 }}
+          className="font-mono w-[70px] text-[11px]"
           placeholder="Score"
           value={newScore}
           onChange={e => setNewScore(e.target.value)}
         />
         <FormInput
-          className="font-mono"
-          style={{ flex: 1, fontSize: 11 }}
+          className="font-mono flex-1 text-[11px]"
           placeholder="Member"
           value={newMember}
           onChange={e => setNewMember(e.target.value)}
@@ -689,8 +669,7 @@ function ValueViewer({
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
       <div
-        className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
-        style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+        className="flex items-center gap-2 px-3 py-2 flex-shrink-0 bg-[var(--vos-bg-surface)] [border-bottom:0.5px_solid_var(--vos-border-subtle)]"
       >
         <span className="text-xs font-mono font-medium flex-1 truncate">{kv.key}</span>
         <span
@@ -703,27 +682,25 @@ function ValueViewer({
           {kv.key_type.toUpperCase()}
         </span>
         {kv.encoding && (
-          <span className="text-[9px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <span className="text-[9px] text-[var(--vos-text-tertiary)]">
             {kv.encoding}
           </span>
         )}
         {kv.ttl >= 0 && (
           <span
-            className="text-[10px] px-1 py-0.5 rounded"
-            style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-accent-warning)' }}
+            className="text-[10px] px-1 py-0.5 rounded bg-[var(--vos-bg-item-hover)] text-[var(--vos-accent-warning)]"
           >
             TTL: {kv.ttl}s
           </span>
         )}
         {kv.ttl === -1 && (
-          <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <span className="text-[10px] text-[var(--vos-text-tertiary)]">
             永久
           </span>
         )}
         <button
           type="button"
-          className="vos-btn-reset"
-          style={{ color: 'var(--vos-text-tertiary)' }}
+          className="vos-btn-reset text-[var(--vos-text-tertiary)]"
           onClick={handleDelete}
           title="删除 Key"
         >
@@ -738,8 +715,7 @@ function ValueViewer({
       {kv.key_type === 'zset' && <ZSetViewer kv={kv} connId={connId} onRefresh={onRefresh} />}
       {!['string', 'hash', 'list', 'set', 'zset'].includes(kv.key_type) && (
         <div
-          className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap"
-          style={{ color: 'var(--vos-text-primary)' }}
+          className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap text-[var(--vos-text-primary)]"
         >
           {typeof kv.value === 'string' ? kv.value : JSON.stringify(kv.value, null, 2)}
         </div>
@@ -898,16 +874,14 @@ export default function RedisApp(_props: AppComponentProps) {
               <>
                 <button
                   type="button"
-                  className="vos-btn-reset"
-                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  className="vos-btn-reset text-[var(--vos-text-tertiary)]"
                   onClick={reload}
                 >
                   <RefreshCw size={11} />
                 </button>
                 <button
                   type="button"
-                  className="vos-btn-reset"
-                  style={{ color: 'var(--vos-accent-primary)' }}
+                  className="vos-btn-reset text-[var(--vos-accent-primary)]"
                   onClick={() => setShowForm(true)}
                 >
                   <Plus size={13} />
@@ -923,12 +897,10 @@ export default function RedisApp(_props: AppComponentProps) {
             return (
               <div key={conn.id}>
                 <div
-                  className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs group"
+                  className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs group rounded my-px mx-1"
                   style={{
                     background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
-                    color: isActive ? '#fff' : 'var(--vos-text-primary)',
-                    borderRadius: 4,
-                    margin: '1px 4px'
+                    color: isActive ? '#fff' : 'var(--vos-text-primary)'
                   }}
                 >
                   <button type="button" className="vos-btn-reset text-inherit" onClick={() => toggleConn(conn.id)}>
@@ -936,10 +908,8 @@ export default function RedisApp(_props: AppComponentProps) {
                   </button>
                   <Database
                     size={12}
-                    style={{
-                      color: isActive ? '#fff' : connected ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)',
-                      flexShrink: 0
-                    }}
+                    className="shrink-0"
+                    style={{ color: isActive ? '#fff' : connected ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)' }}
                   />
                   <span
                     className="flex-1 truncate"
@@ -982,8 +952,7 @@ export default function RedisApp(_props: AppComponentProps) {
 
           {connections.length === 0 && (
             <div
-              className="flex-1 flex items-center justify-center text-xs"
-              style={{ color: 'var(--vos-text-tertiary)' }}
+              className="flex-1 flex items-center justify-center text-xs text-[var(--vos-text-tertiary)]"
             >
               无连接
             </div>
@@ -1008,13 +977,11 @@ export default function RedisApp(_props: AppComponentProps) {
           <>
             {/* Key filter + mode toggle */}
             <div
-              className="flex items-center gap-2 h-8 px-3 flex-shrink-0"
-              style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+              className="flex items-center gap-2 h-8 px-3 flex-shrink-0 bg-[var(--vos-bg-surface)] [border-bottom:0.5px_solid_var(--vos-border-subtle)]"
             >
-              <Search size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
+              <Search size={12} className="text-[var(--vos-text-tertiary)]" />
               <input
-                className="flex-1 bg-transparent border-none outline-none text-xs"
-                style={{ color: 'var(--vos-text-primary)' }}
+                className="flex-1 bg-transparent border-none outline-none text-xs text-[var(--vos-text-primary)]"
                 placeholder="过滤模式 (如 user:*)"
                 value={pattern}
                 onChange={e => setPattern(e.target.value)}
@@ -1022,13 +989,12 @@ export default function RedisApp(_props: AppComponentProps) {
                   if (e.key === 'Enter' && selectedConn) scanKeys(selectedConn, pattern)
                 }}
               />
-              <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+              <span className="text-[10px] text-[var(--vos-text-tertiary)]">
                 {keys.length} keys
               </span>
               <button
                 type="button"
-                className="vos-btn-reset"
-                style={{ color: 'var(--vos-text-tertiary)' }}
+                className="vos-btn-reset text-[var(--vos-text-tertiary)]"
                 onClick={() => selectedConn && scanKeys(selectedConn, pattern)}
               >
                 <RefreshCw size={11} />
@@ -1048,22 +1014,21 @@ export default function RedisApp(_props: AppComponentProps) {
 
             {cliMode ? (
               /* CLI */
-              <div className="flex-1 flex flex-col overflow-hidden" style={{ background: '#1a1a2e' }}>
-                <div ref={cliRef} className="flex-1 overflow-auto p-3 font-mono text-xs" style={{ color: '#e0e0e0' }}>
+              <div className="flex-1 flex flex-col overflow-hidden bg-[#1a1a2e]">
+                <div ref={cliRef} className="flex-1 overflow-auto p-3 font-mono text-xs text-[#e0e0e0]">
                   {cliHistory.map((h, i) => (
                     <div key={i} className="mb-2">
-                      <div style={{ color: '#6ee7b7' }}>&gt; {h.cmd}</div>
-                      <div className="whitespace-pre-wrap" style={{ color: '#d1d5db' }}>
+                      <div className="text-[#6ee7b7]">&gt; {h.cmd}</div>
+                      <div className="whitespace-pre-wrap text-[#d1d5db]">
                         {h.result}
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 p-2" style={{ borderTop: '1px solid #333' }}>
-                  <span style={{ color: '#6ee7b7' }}>&gt;</span>
+                <div className="flex items-center gap-2 p-2 [border-top:1px_solid_#333]">
+                  <span className="text-[#6ee7b7]">&gt;</span>
                   <input
-                    className="flex-1 bg-transparent border-none outline-none text-xs font-mono"
-                    style={{ color: '#e0e0e0' }}
+                    className="flex-1 bg-transparent border-none outline-none text-xs font-mono text-[#e0e0e0]"
                     value={cliInput}
                     onChange={e => setCliInput(e.target.value)}
                     onKeyDown={e => {
@@ -1071,7 +1036,7 @@ export default function RedisApp(_props: AppComponentProps) {
                     }}
                     placeholder="输入 Redis 命令..."
                   />
-                  <button type="button" className="vos-btn-reset" style={{ color: '#6ee7b7' }} onClick={runCmd}>
+                  <button type="button" className="vos-btn-reset text-[#6ee7b7]" onClick={runCmd}>
                     <Send size={12} />
                   </button>
                 </div>
@@ -1081,8 +1046,7 @@ export default function RedisApp(_props: AppComponentProps) {
               <div className="flex-1 flex overflow-hidden">
                 {/* Key tree */}
                 <div
-                  className="flex flex-col overflow-auto"
-                  style={{ width: 260, borderRight: '0.5px solid var(--vos-border-subtle)' }}
+                  className="flex flex-col overflow-auto w-[260px] [border-right:0.5px_solid_var(--vos-border-subtle)]"
                 >
                   {loading && keys.length === 0 && (
                     <div className="flex items-center justify-center py-4">
@@ -1101,8 +1065,7 @@ export default function RedisApp(_props: AppComponentProps) {
                   </div>
                   {!loading && keys.length === 0 && (
                     <div
-                      className="flex items-center justify-center py-8 text-xs"
-                      style={{ color: 'var(--vos-text-tertiary)' }}
+                      className="flex items-center justify-center py-8 text-xs text-[var(--vos-text-tertiary)]"
                     >
                       无 Key
                     </div>
@@ -1122,8 +1085,7 @@ export default function RedisApp(_props: AppComponentProps) {
                   />
                 ) : (
                   <div
-                    className="flex-1 flex items-center justify-center text-xs"
-                    style={{ color: 'var(--vos-text-tertiary)' }}
+                    className="flex-1 flex items-center justify-center text-xs text-[var(--vos-text-tertiary)]"
                   >
                     选择一个 Key 查看值
                   </div>

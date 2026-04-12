@@ -32,30 +32,12 @@ function SwitchControl({ checked, onChange }: { checked: boolean; onChange: (v: 
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      style={{
-        width: 36,
-        height: 20,
-        borderRadius: 10,
-        border: 'none',
-        cursor: 'pointer',
-        backgroundColor: checked ? 'var(--vos-accent-primary)' : 'var(--vos-border-primary)',
-        position: 'relative',
-        transition: 'background-color 0.2s ease',
-        flexShrink: 0
-      }}
+      className="w-[36px] h-5 rounded-[10px] border-none cursor-pointer relative transition-[background-color] duration-200 shrink-0"
+      style={{ backgroundColor: checked ? 'var(--vos-accent-primary)' : 'var(--vos-border-primary)' }}
     >
       <span
-        style={{
-          position: 'absolute',
-          top: 2,
-          left: checked ? 18 : 2,
-          width: 16,
-          height: 16,
-          borderRadius: '50%',
-          backgroundColor: '#fff',
-          transition: 'left 0.2s ease',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-        }}
+        className="absolute top-[2px] w-4 h-4 rounded-full bg-white transition-[left] duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
+        style={{ left: checked ? 18 : 2 }}
       />
     </button>
   )
@@ -64,22 +46,16 @@ function SwitchControl({ checked, onChange }: { checked: boolean; onChange: (v: 
 function PrefItemRow({ item }: { item: PreferenceItem }) {
   return (
     <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '8px 0',
-        gap: 16
-      }}
+      className="flex justify-between items-center py-2 gap-4"
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: 'var(--vos-text-primary)' }}>{item.label}</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] text-[var(--vos-text-primary)]">{item.label}</div>
         {item.description && (
-          <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 2 }}>{item.description}</div>
+          <div className="text-[11px] text-[var(--vos-text-tertiary)] mt-[2px]">{item.description}</div>
         )}
       </div>
 
-      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div className="shrink-0 flex items-center gap-1">
         {item.type === 'switch' && <SwitchControl checked={Boolean(item.value)} onChange={v => item.onChange(v)} />}
 
         {item.type === 'select' && (
@@ -89,15 +65,7 @@ function PrefItemRow({ item }: { item: PreferenceItem }) {
               const opt = item.options?.find(o => String(o.value) === e.target.value)
               item.onChange(opt?.value ?? e.target.value)
             }}
-            style={{
-              fontSize: 12,
-              padding: '3px 6px',
-              borderRadius: 6,
-              border: '1px solid var(--vos-border-primary)',
-              backgroundColor: 'var(--vos-bg-secondary)',
-              color: 'var(--vos-text-primary)',
-              outline: 'none'
-            }}
+            className="text-xs px-[6px] py-[3px] rounded-[6px] border border-[var(--vos-border-primary)] bg-[var(--vos-bg-secondary)] text-[var(--vos-text-primary)] outline-none"
           >
             {item.options?.map(opt => (
               <option key={opt.value} value={opt.value}>
@@ -116,19 +84,9 @@ function PrefItemRow({ item }: { item: PreferenceItem }) {
               max={item.max}
               step={item.step ?? 1}
               onChange={e => item.onChange(Number(e.target.value))}
-              style={{
-                width: 64,
-                fontSize: 12,
-                padding: '3px 6px',
-                borderRadius: 6,
-                border: '1px solid var(--vos-border-primary)',
-                backgroundColor: 'var(--vos-bg-secondary)',
-                color: 'var(--vos-text-primary)',
-                outline: 'none',
-                textAlign: 'right'
-              }}
+              className="w-16 text-xs px-[6px] py-[3px] rounded-[6px] border border-[var(--vos-border-primary)] bg-[var(--vos-bg-secondary)] text-[var(--vos-text-primary)] outline-none text-right"
             />
-            {item.suffix && <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>{item.suffix}</span>}
+            {item.suffix && <span className="text-[11px] text-[var(--vos-text-tertiary)]">{item.suffix}</span>}
           </>
         )}
 
@@ -137,16 +95,7 @@ function PrefItemRow({ item }: { item: PreferenceItem }) {
             type="text"
             value={String(item.value ?? '')}
             onChange={e => item.onChange(e.target.value)}
-            style={{
-              width: 120,
-              fontSize: 12,
-              padding: '3px 6px',
-              borderRadius: 6,
-              border: '1px solid var(--vos-border-primary)',
-              backgroundColor: 'var(--vos-bg-secondary)',
-              color: 'var(--vos-text-primary)',
-              outline: 'none'
-            }}
+            className="w-[120px] text-xs px-[6px] py-[3px] rounded-[6px] border border-[var(--vos-border-primary)] bg-[var(--vos-bg-secondary)] text-[var(--vos-text-primary)] outline-none"
           />
         )}
       </div>
@@ -160,8 +109,7 @@ export default function PreferencesPanel({ title, groups, onClose }: Preferences
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
       <motion.div
-        className="vos-modal"
-        style={{ width: 440, maxHeight: '70vh', padding: 0, borderRadius: 12 }}
+        className="vos-modal w-[440px] max-h-[70vh] p-0 rounded-xl"
         initial={{ scale: 0.93, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.93, opacity: 0 }}
@@ -169,46 +117,24 @@ export default function PreferencesPanel({ title, groups, onClose }: Preferences
       >
         {/* Header */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '14px 16px 12px',
-            borderBottom: '1px solid var(--vos-border-secondary)'
-          }}
+          className="flex items-center justify-between px-4 pt-[14px] pb-3 border-b border-b-[var(--vos-border-secondary)]"
         >
-          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--vos-text-primary)' }}>{title}</span>
+          <span className="text-[15px] font-semibold text-[var(--vos-text-primary)]">{title}</span>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--vos-text-secondary)',
-              padding: 4,
-              borderRadius: 6,
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="bg-transparent border-none cursor-pointer text-[var(--vos-text-secondary)] p-1 rounded-[6px] flex items-center"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Body */}
-        <div style={{ padding: '8px 16px 16px', overflowY: 'auto', maxHeight: 'calc(70vh - 50px)' }}>
+        <div className="px-4 pt-2 pb-4 overflow-y-auto max-h-[calc(70vh-50px)]">
           {groups.map(group => (
-            <div key={group.id} style={{ marginTop: 12 }}>
+            <div key={group.id} className="mt-3">
               <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: 'var(--vos-text-tertiary)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                  marginBottom: 4
-                }}
+                className="text-[11px] font-semibold text-[var(--vos-text-tertiary)] uppercase tracking-[0.04em] mb-1"
               >
                 {group.title}
               </div>

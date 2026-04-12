@@ -116,7 +116,7 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
         <>
           <div className="flex gap-2">
             <FormInput className="flex-1" placeholder="Host" value={host} onChange={e => setHost(e.target.value)} />
-            <FormInput style={{ width: 70 }} placeholder="Port" value={port} onChange={e => setPort(e.target.value)} />
+            <FormInput className="w-[70px]" placeholder="Port" value={port} onChange={e => setPort(e.target.value)} />
           </div>
           <FormInput placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
           <FormInput
@@ -289,20 +289,14 @@ export default function DatabaseApp(_props: AppComponentProps) {
   const renderDataTable = (result: QueryResult) => (
     <div className="flex flex-col flex-1 overflow-hidden text-xs">
       {/* Sticky header */}
-      <div className="flex-shrink-0 overflow-x-auto" style={{ background: 'var(--vos-bg-surface)' }}>
-        <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+      <div className="flex-shrink-0 overflow-x-auto bg-[var(--vos-bg-surface)]">
+        <table className="w-full border-collapse">
           <thead>
             <tr>
               {result.columns.map(col => (
                 <th
                   key={col}
-                  className="px-2 py-1.5 text-left font-medium"
-                  style={{
-                    background: 'var(--vos-bg-surface)',
-                    borderBottom: '1px solid var(--vos-border-subtle)',
-                    whiteSpace: 'nowrap',
-                    minWidth: 80
-                  }}
+                  className="px-2 py-1.5 text-left font-medium bg-[var(--vos-bg-surface)] border-b border-b-solid border-b-[var(--vos-border-subtle)] whitespace-nowrap min-w-[80px]"
                 >
                   {col}
                 </th>
@@ -313,23 +307,16 @@ export default function DatabaseApp(_props: AppComponentProps) {
       </div>
       {/* Virtualized body */}
       {result.rows.length > 0 ? (
-        <VList style={{ flex: 1, overflowX: 'auto' }}>
+        <VList className="flex-1 overflow-x-auto">
           {result.rows.map((row, i) => (
-            <div key={i} className="flex" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+            <div key={i} className="flex border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
               {row.map((cell, j) => (
                 <div
                   key={j}
-                  className="px-2 py-1 flex-shrink-0"
-                  style={{
-                    whiteSpace: 'nowrap',
-                    minWidth: 80,
-                    maxWidth: 300,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}
+                  className="px-2 py-1 flex-shrink-0 whitespace-nowrap min-w-[80px] max-w-[300px] overflow-hidden text-ellipsis"
                 >
                   {cell === null ? (
-                    <span style={{ color: 'var(--vos-text-tertiary)', fontStyle: 'italic' }}>NULL</span>
+                    <span className="vos-text-tertiary italic">NULL</span>
                   ) : (
                     String(cell)
                   )}
@@ -339,7 +326,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
           ))}
         </VList>
       ) : (
-        <div className="flex items-center justify-center py-8 text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+        <div className="flex items-center justify-center py-8 text-xs vos-text-tertiary">
           无数据
         </div>
       )}
@@ -356,16 +343,14 @@ export default function DatabaseApp(_props: AppComponentProps) {
               <>
                 <button
                   type="button"
-                  className="bg-transparent border-none cursor-pointer p-0"
-                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  className="bg-transparent border-none cursor-pointer p-0 vos-text-tertiary"
                   onClick={reload}
                 >
                   <RefreshCw size={12} />
                 </button>
                 <button
                   type="button"
-                  className="bg-transparent border-none cursor-pointer p-0"
-                  style={{ color: 'var(--vos-accent-primary)' }}
+                  className="bg-transparent border-none cursor-pointer p-0 text-[var(--vos-accent-primary)]"
                   onClick={() => setShowForm(true)}
                 >
                   <Plus size={14} />
@@ -389,8 +374,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 >
                   <button
                     type="button"
-                    className="vos-btn-reset"
-                    style={{ color: 'var(--vos-text-tertiary)' }}
+                    className="vos-btn-reset vos-text-tertiary"
                     onClick={() => toggleConn(conn.id)}
                   >
                     {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -410,8 +394,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                     {isConnected ? (
                       <button
                         type="button"
-                        className="vos-btn-reset"
-                        style={{ color: 'var(--vos-text-tertiary)' }}
+                        className="vos-btn-reset vos-text-tertiary"
                         title="Disconnect"
                         onClick={() => disconnectFrom(conn.id)}
                       >
@@ -420,8 +403,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                     ) : (
                       <button
                         type="button"
-                        className="vos-btn-reset"
-                        style={{ color: 'var(--vos-accent-primary)' }}
+                        className="vos-btn-reset text-[var(--vos-accent-primary)]"
                         title="Connect"
                         onClick={() => connectTo(conn.id)}
                       >
@@ -430,8 +412,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                     )}
                     <button
                       type="button"
-                      className="vos-btn-reset"
-                      style={{ color: 'var(--vos-text-tertiary)' }}
+                      className="vos-btn-reset vos-text-tertiary"
                       title="Delete"
                       onClick={() => deleteConn(conn.id)}
                     >
@@ -447,14 +428,13 @@ export default function DatabaseApp(_props: AppComponentProps) {
                     return (
                       <div key={schema.name} className="ml-4">
                         <div
-                          className="flex items-center gap-1 px-2 py-0.5 cursor-pointer text-xs"
-                          style={{ color: 'var(--vos-text-secondary)' }}
+                          className="flex items-center gap-1 px-2 py-0.5 cursor-pointer text-xs vos-text-secondary"
                           onClick={() => toggleSchema(schemaKey)}
                           onKeyDown={() => {}}
                         >
                           {schemaExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
                           {schema.name}
-                          <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+                          <span className="text-[10px] vos-text-tertiary">
                             ({schema.tables.length})
                           </span>
                         </div>
@@ -489,8 +469,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
 
           {connections.length === 0 && (
             <div
-              className="flex-1 flex items-center justify-center text-xs"
-              style={{ color: 'var(--vos-text-tertiary)' }}
+              className="flex-1 flex items-center justify-center text-xs vos-text-tertiary"
             >
               无连接
             </div>
@@ -513,8 +492,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
         <>
           {/* Tab bar */}
           <div
-            className="flex items-center h-9 flex-shrink-0 px-2 gap-1"
-            style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+            className="flex items-center h-9 flex-shrink-0 px-2 gap-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
           >
             {(['structure', 'data', 'sql'] as const).map(tab => (
               <button
@@ -549,7 +527,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
               </button>
             ))}
             <span className="flex-1" />
-            <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+            <span className="text-xs vos-text-tertiary">
               {selectedTable.table}
             </span>
           </div>
@@ -561,14 +539,13 @@ export default function DatabaseApp(_props: AppComponentProps) {
           ) : rightTab === 'structure' && tableStructure ? (
             <div className="flex-1 overflow-auto text-xs p-3">
               <div className="font-medium mb-2">Columns</div>
-              <table className="w-full mb-4" style={{ borderCollapse: 'collapse' }}>
+              <table className="w-full mb-4 border-collapse">
                 <thead>
                   <tr>
                     {['Name', 'Type', 'Nullable', 'Default', 'PK'].map(h => (
                       <th
                         key={h}
-                        className="px-2 py-1 text-left font-medium"
-                        style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
+                        className="px-2 py-1 text-left font-medium border-b border-b-solid border-b-[var(--vos-border-subtle)]"
                       >
                         {h}
                       </th>
@@ -577,13 +554,13 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 </thead>
                 <tbody>
                   {tableStructure.columns.map((col: ColumnInfo) => (
-                    <tr key={col.name} style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+                    <tr key={col.name} className="border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
                       <td className="px-2 py-1 font-mono">{col.name}</td>
-                      <td className="px-2 py-1" style={{ color: 'var(--vos-accent-primary)' }}>
+                      <td className="px-2 py-1 text-[var(--vos-accent-primary)]">
                         {col.data_type}
                       </td>
                       <td className="px-2 py-1">{col.nullable ? 'YES' : 'NO'}</td>
-                      <td className="px-2 py-1" style={{ color: 'var(--vos-text-tertiary)' }}>
+                      <td className="px-2 py-1 vos-text-tertiary">
                         {col.default_value ?? '—'}
                       </td>
                       <td className="px-2 py-1">{col.is_primary_key ? '🔑' : ''}</td>
@@ -594,14 +571,13 @@ export default function DatabaseApp(_props: AppComponentProps) {
               {tableStructure.indexes.length > 0 && (
                 <>
                   <div className="font-medium mb-2">索引</div>
-                  <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                  <table className="w-full border-collapse">
                     <thead>
                       <tr>
                         {['Name', 'Columns', 'Unique'].map(h => (
                           <th
                             key={h}
-                            className="px-2 py-1 text-left font-medium"
-                            style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
+                            className="px-2 py-1 text-left font-medium border-b border-b-solid border-b-[var(--vos-border-subtle)]"
                           >
                             {h}
                           </th>
@@ -610,7 +586,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                     </thead>
                     <tbody>
                       {tableStructure.indexes.map(idx => (
-                        <tr key={idx.name} style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+                        <tr key={idx.name} className="border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
                           <td className="px-2 py-1 font-mono">{idx.name}</td>
                           <td className="px-2 py-1">{idx.columns.join(', ')}</td>
                           <td className="px-2 py-1">{idx.unique ? 'YES' : 'NO'}</td>
@@ -624,10 +600,9 @@ export default function DatabaseApp(_props: AppComponentProps) {
           ) : rightTab === 'data' && tableData ? (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div
-                className="flex items-center justify-between px-3 py-1"
-                style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+                className="flex items-center justify-between px-3 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
               >
-                <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <span className="text-xs vos-text-tertiary">
                   {tableData.rows.length} 行 · {tableData.execution_time_ms}ms
                 </span>
                 <div className="flex items-center gap-1">
@@ -643,7 +618,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                   >
                     上一页
                   </button>
-                  <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  <span className="text-[10px] vos-text-tertiary">
                     第 {currentPage} 页
                   </span>
                   <button
@@ -665,8 +640,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
           ) : rightTab === 'sql' ? (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div
-                className="flex-shrink-0"
-                style={{ height: 160, borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+                className="flex-shrink-0 h-[160px] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
               >
                 <textarea
                   ref={sqlRef}
@@ -680,8 +654,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 />
               </div>
               <div
-                className="flex items-center gap-2 px-3 py-1"
-                style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+                className="flex items-center gap-2 px-3 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
               >
                 <button
                   type="button"
@@ -690,11 +663,11 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 >
                   <Play size={10} /> 执行
                 </button>
-                <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <span className="text-[10px] vos-text-tertiary">
                   ⌘+Enter
                 </span>
                 {sqlResult && (
-                  <span className="text-xs ml-auto" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  <span className="text-xs ml-auto vos-text-tertiary">
                     {sqlResult.affected_rows} affected · {sqlResult.execution_time_ms}ms
                   </span>
                 )}
@@ -703,8 +676,7 @@ export default function DatabaseApp(_props: AppComponentProps) {
                 renderDataTable(sqlResult)
               ) : (
                 <div
-                  className="flex-1 flex items-center justify-center text-xs"
-                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  className="flex-1 flex items-center justify-center text-xs vos-text-tertiary"
                 >
                   执行查询以查看结果
                 </div>

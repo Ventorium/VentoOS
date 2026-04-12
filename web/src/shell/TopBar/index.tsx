@@ -44,51 +44,30 @@ function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void 
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
       <motion.div
-        className="vos-modal"
-        style={{ width: 320, padding: 0, borderRadius: 12 }}
+        className="vos-modal w-[320px] p-0 rounded-xl"
         initial={{ scale: 0.93, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ padding: '24px 24px 20px', textAlign: 'center' }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 14,
-              margin: '0 auto 16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden'
-            }}
-          >
+        <div className="pt-6 px-6 pb-5 text-center">
+          <div className="w-16 h-16 rounded-[14px] mx-auto mb-4 vos-flex-center overflow-hidden">
             {app.icon ?? '📦'}
           </div>
-          <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--vos-text-primary)' }}>{app.name}</div>
-          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>版本 {app.version}</div>
+          <div className="text-[17px] font-semibold text-[var(--vos-text-primary)]">{app.name}</div>
+          <div className="text-xs text-[var(--vos-text-secondary)] mt-1">版本 {app.version}</div>
           {app.description && (
-            <div
-              style={{
-                fontSize: 12,
-                color: 'var(--vos-text-secondary)',
-                marginTop: 10,
-                lineHeight: 1.6,
-                padding: '0 8px'
-              }}
-            >
+            <div className="text-xs text-[var(--vos-text-secondary)] mt-2.5 leading-[1.6] px-2">
               {app.description}
             </div>
           )}
-          <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginTop: 12 }}>
+          <div className="text-[11px] text-[var(--vos-text-secondary)] mt-3">
             作者: {app.author.name}
             {app.author.email && ` <${app.author.email}>`}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+          <div className="flex justify-center mt-5">
             <button
               type="button"
-              className="vos-btn vos-btn-primary justify-center"
-              style={{ minWidth: 80, width: 'auto' }}
+              className="vos-btn vos-btn-primary justify-center min-w-[80px] w-auto"
               onClick={onClose}
             >
               好
@@ -105,30 +84,29 @@ function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
       <motion.div
-        className="vos-modal"
-        style={{ width: 340, padding: 0 }}
+        className="vos-modal w-[340px] p-0"
         initial={{ scale: 0.93, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ padding: '28px 28px 24px', textAlign: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+        <div className="pt-7 px-7 pb-6 text-center">
+          <div className="flex justify-center mb-3.5">
             <BrandLogo size={72} />
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--vos-text-primary)', letterSpacing: '-0.01em' }}>
+          <div className="text-xl font-bold text-[var(--vos-text-primary)] tracking-[-0.01em]">
             VentoOS
           </div>
-          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 4 }}>版本 1.0.0</div>
-          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginTop: 12, lineHeight: 1.7 }}>
+          <div className="text-xs text-[var(--vos-text-secondary)] mt-1">版本 1.0.0</div>
+          <div className="text-xs text-[var(--vos-text-secondary)] mt-3 leading-[1.7]">
             运维与基础设施管理平台
             <br />
             统一管理 Kubernetes、数据库、Redis 与远程文件系统
           </div>
-          <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginTop: 12, opacity: 0.7 }}>
+          <div className="text-[11px] text-[var(--vos-text-secondary)] mt-3 opacity-70">
             © 2025 VentoOS Project
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
-            <button type="button" className="vos-btn vos-btn-primary" style={{ minWidth: 80 }} onClick={onClose}>
+          <div className="flex justify-center mt-5">
+            <button type="button" className="vos-btn vos-btn-primary min-w-[80px]" onClick={onClose}>
               好
             </button>
           </div>
@@ -274,8 +252,7 @@ function MenuBarLeft({
         <button
           key={group.id}
           type="button"
-          className="vos-topbar-btn"
-          style={{ fontSize: 13 }}
+          className="vos-topbar-btn text-[13px]"
           onClick={e => {
             const rect = e.currentTarget.getBoundingClientRect()
             showCtxMenu(rect.left, rect.bottom + 2, toContextMenuItems(group.items))
@@ -329,9 +306,8 @@ function MenuBarRight() {
           <button
             key={appId}
             type="button"
-            className="vos-topbar-btn"
+            className="vos-topbar-btn relative"
             title={config.tooltip ?? appId}
-            style={{ position: 'relative' }}
             onClick={e => {
               if (config.items && config.items.length > 0) {
                 const rect = e.currentTarget.getBoundingClientRect()
@@ -345,23 +321,11 @@ function MenuBarRight() {
               config.render()
             ) : (
               <>
-                {config.icon ?? <span style={{ fontSize: 13 }}>●</span>}
+                {config.icon ?? <span className="text-[13px]">●</span>}
                 {config.badge && (
                   <span
-                    className="vos-tray-badge"
-                    style={{
-                      position: 'absolute',
-                      top: 2,
-                      right: 2,
-                      fontSize: 9,
-                      lineHeight: 1,
-                      padding: '1px 3px',
-                      borderRadius: 6,
-                      backgroundColor: config.badgeColor ?? 'var(--vos-accent-primary)',
-                      color: '#fff',
-                      fontWeight: 600,
-                      pointerEvents: 'none'
-                    }}
+                    className="vos-tray-badge absolute top-[2px] right-[2px] text-[9px] leading-none px-[3px] py-[1px] rounded-[6px] text-white font-semibold pointer-events-none"
+                    style={{ backgroundColor: config.badgeColor ?? 'var(--vos-accent-primary)' }}
                   >
                     {config.badge}
                   </span>
@@ -374,16 +338,15 @@ function MenuBarRight() {
       {activeTaskCount > 0 && (
         <button type="button" className="vos-topbar-btn" onClick={toggleTaskPanel} title="任务中心">
           <Loader2 size={13} className="vos-spin" />
-          <span style={{ fontSize: 11 }}>{activeTaskCount}</span>
+          <span className="text-[11px]">{activeTaskCount}</span>
         </button>
       )}
 
       <button
         type="button"
-        className="vos-topbar-btn"
+        className="vos-topbar-btn relative"
         onClick={toggleNotifPanel}
         title="通知中心"
-        style={{ position: 'relative' }}
       >
         {doNotDisturb ? (
           <BellOff size={13} />
@@ -403,10 +366,9 @@ function MenuBarRight() {
 
       <button
         type="button"
-        className="vos-topbar-btn"
+        className={aiOpen ? 'vos-topbar-btn text-[var(--vos-accent-primary)]' : 'vos-topbar-btn'}
         onClick={toggleAI}
         title="AI 助手"
-        style={aiOpen ? { color: 'var(--vos-accent-primary)' } : undefined}
       >
         <Sparkles size={13} />
       </button>

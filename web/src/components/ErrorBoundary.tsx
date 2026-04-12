@@ -52,37 +52,16 @@ export default class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flex: 1,
-          gap: 12,
-          padding: 32,
-          color: 'var(--vos-text-secondary)',
-          textAlign: 'center'
-        }}
+        className="flex flex-col items-center justify-center flex-1 gap-3 p-8 text-[var(--vos-text-secondary)] text-center"
       >
         <AlertTriangle size={36} color="var(--vos-accent-warning)" />
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--vos-text-primary)' }}>应用发生错误</div>
-        <div style={{ fontSize: 12, maxWidth: 360, lineHeight: 1.5 }}>{this.state.error?.message ?? '未知错误'}</div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <div className="text-sm font-semibold text-[var(--vos-text-primary)]">应用发生错误</div>
+        <div className="text-xs max-w-[360px] leading-[1.5]">{this.state.error?.message ?? '未知错误'}</div>
+        <div className="flex gap-2 mt-2">
           <button
             type="button"
             onClick={this.handleRetry}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '6px 14px',
-              fontSize: 12,
-              border: '1px solid var(--vos-border-primary)',
-              borderRadius: 6,
-              background: 'var(--vos-bg-secondary)',
-              color: 'var(--vos-text-primary)',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1 px-[14px] py-1.5 text-xs border border-solid border-[var(--vos-border-primary)] rounded-[6px] bg-[var(--vos-bg-secondary)] text-[var(--vos-text-primary)] cursor-pointer"
           >
             <RotateCcw size={12} />
             重试
@@ -90,18 +69,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           <button
             type="button"
             onClick={this.handleOpenLogCenter}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '6px 14px',
-              fontSize: 12,
-              border: '1px solid var(--vos-border-primary)',
-              borderRadius: 6,
-              background: 'var(--vos-bg-secondary)',
-              color: 'var(--vos-text-primary)',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1 px-[14px] py-1.5 text-xs border border-solid border-[var(--vos-border-primary)] rounded-[6px] bg-[var(--vos-bg-secondary)] text-[var(--vos-text-primary)] cursor-pointer"
           >
             <ScrollText size={12} />
             查看日志

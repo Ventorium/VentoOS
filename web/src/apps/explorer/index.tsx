@@ -379,7 +379,7 @@ function MountForm({
 
   return (
     <div className="vos-modal-overlay">
-      <div className="vos-modal-panel" style={{ width: 400 }}>
+      <div className="vos-modal-panel w-[400px]">
         <div className="text-sm font-medium">{isEditing ? '编辑数据源' : '添加数据源'}</div>
         <div>
           <input
@@ -389,7 +389,7 @@ function MountForm({
             onChange={e => handleNameChange(e.target.value)}
           />
           {nameError && (
-            <div className="text-xs mt-0.5" style={{ color: 'var(--vos-accent-danger)' }}>
+            <div className="text-xs mt-0.5 text-[var(--vos-accent-danger)]">
               {nameError}
             </div>
           )}
@@ -425,12 +425,7 @@ function MountForm({
               <div className="flex justify-end">
                 <button
                   type="button"
-                  className="text-xs px-2 py-1 rounded cursor-pointer border-none"
-                  style={{
-                    background: 'var(--vos-bg-item-hover)',
-                    color: 'var(--vos-text-secondary)',
-                    opacity: importingConfig ? 0.5 : 1
-                  }}
+                  className="text-xs px-2 py-1 rounded cursor-pointer border-none bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-secondary)] disabled:opacity-50"
                   onClick={handleImportSshConfig}
                   disabled={importingConfig}
                 >
@@ -441,15 +436,13 @@ function MountForm({
             )}
             <div className="flex gap-2">
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 placeholder="主机地址"
                 value={host}
                 onChange={e => setHost(e.target.value)}
               />
               <input
-                className="vos-input vos-input-sm"
-                style={{ width: 72 }}
+                className="vos-input vos-input-sm w-[72px]"
                 placeholder={kind === 'sftp' ? '22' : '21'}
                 value={port}
                 onChange={e => setPort(e.target.value)}
@@ -457,21 +450,19 @@ function MountForm({
             </div>
             <div className="flex gap-2">
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 placeholder="用户名（可选）"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
               />
               {kind === 'sftp' ? (
-                <div className="flex gap-1" style={{ flex: 1 }}>
+                <div className="flex gap-1 flex-1">
                   <button
                     type="button"
-                    className="text-xs px-2 py-1.5 rounded cursor-pointer border-none"
+                    className="text-xs px-2 py-1.5 rounded cursor-pointer border-none flex-1"
                     style={{
                       background: authMethod === 'password' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-item-hover)',
-                      color: authMethod === 'password' ? '#fff' : 'var(--vos-text-secondary)',
-                      flex: 1
+                      color: authMethod === 'password' ? '#fff' : 'var(--vos-text-secondary)'
                     }}
                     onClick={() => setAuthMethod('password')}
                   >
@@ -479,12 +470,11 @@ function MountForm({
                   </button>
                   <button
                     type="button"
-                    className="text-xs px-2 py-1.5 rounded cursor-pointer border-none"
+                    className="text-xs px-2 py-1.5 rounded cursor-pointer border-none flex-1"
                     style={{
                       background:
                         authMethod === 'private_key' ? 'var(--vos-accent-primary)' : 'var(--vos-bg-item-hover)',
-                      color: authMethod === 'private_key' ? '#fff' : 'var(--vos-text-secondary)',
-                      flex: 1
+                      color: authMethod === 'private_key' ? '#fff' : 'var(--vos-text-secondary)'
                     }}
                     onClick={() => setAuthMethod('private_key')}
                   >
@@ -493,8 +483,7 @@ function MountForm({
                 </div>
               ) : (
                 <input
-                  className="vos-input vos-input-sm"
-                  style={{ flex: 1 }}
+                  className="vos-input vos-input-sm flex-1"
                   type="password"
                   placeholder="密码（可选）"
                   value={password}
@@ -515,16 +504,14 @@ function MountForm({
               <>
                 <div className="flex gap-2">
                   <input
-                    className="vos-input vos-input-sm"
-                    style={{ flex: 1 }}
+                    className="vos-input vos-input-sm flex-1"
                     placeholder="私钥路径（如 ~/.ssh/id_rsa）"
                     value={privateKeyPath}
                     onChange={e => setPrivateKeyPath(e.target.value)}
                   />
                   <button
                     type="button"
-                    className="text-xs px-2 py-1.5 rounded cursor-pointer border-none flex-shrink-0"
-                    style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-secondary)' }}
+                    className="text-xs px-2 py-1.5 rounded cursor-pointer border-none flex-shrink-0 bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-secondary)]"
                     onClick={handleBrowseSshKeys}
                   >
                     <Key size={12} />
@@ -532,11 +519,10 @@ function MountForm({
                 </div>
                 {sshKeyFiles && (
                   <div
-                    className="rounded overflow-hidden"
-                    style={{ maxHeight: 120, overflow: 'auto', border: '0.5px solid var(--vos-border-subtle)' }}
+                    className="rounded overflow-auto max-h-[120px] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
                   >
                     {sshKeyFiles.filter(f => !f.is_public).length === 0 && (
-                      <div className="text-xs px-2 py-1.5" style={{ color: 'var(--vos-text-tertiary)' }}>
+                      <div className="text-xs px-2 py-1.5 text-[var(--vos-text-tertiary)]">
                         未发现私钥文件
                       </div>
                     )}
@@ -546,8 +532,7 @@ function MountForm({
                         <button
                           key={f.path}
                           type="button"
-                          className="w-full text-left text-xs px-2 py-1 cursor-pointer border-none"
-                          style={{ background: 'transparent', color: 'var(--vos-text-primary)' }}
+                          className="w-full text-left text-xs px-2 py-1 cursor-pointer border-none bg-transparent text-[var(--vos-text-primary)]"
                           onMouseOver={e => {
                             ;(e.target as HTMLElement).style.background = 'var(--vos-bg-item-hover)'
                           }}
@@ -587,15 +572,13 @@ function MountForm({
           <>
             <div className="flex gap-2">
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 placeholder="主机地址"
                 value={host}
                 onChange={e => setHost(e.target.value)}
               />
               <input
-                className="vos-input vos-input-sm"
-                style={{ width: 72 }}
+                className="vos-input vos-input-sm w-[72px]"
                 placeholder="445"
                 value={smbPort}
                 onChange={e => setSmbPort(e.target.value)}
@@ -609,15 +592,13 @@ function MountForm({
             />
             <div className="flex gap-2">
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 placeholder="用户名（可选）"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
               />
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 type="password"
                 placeholder="密码（可选）"
                 value={password}
@@ -638,8 +619,7 @@ function MountForm({
             />
             <div className="flex gap-2">
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 placeholder="Region（如 us-east-1）"
                 value={region}
                 onChange={e => setRegion(e.target.value)}
@@ -647,15 +627,13 @@ function MountForm({
             </div>
             <div className="flex gap-2">
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 placeholder="Access Key"
                 value={accessKey}
                 onChange={e => setAccessKey(e.target.value)}
               />
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 type="password"
                 placeholder="Secret Key"
                 value={secretKey}
@@ -674,21 +652,19 @@ function MountForm({
         {/* ── WebDAV ── */}
         {kind === 'webdav' && (
           <>
-            <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+            <label className="flex items-center gap-2 text-xs text-[var(--vos-text-primary)]">
               <input type="checkbox" checked={useHttps} onChange={e => setUseHttps(e.target.checked)} />
               使用 HTTPS（webdavs://）
             </label>
             <div className="flex gap-2">
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 placeholder="主机地址或完整 URL（如 https://example.com/dav/）"
                 value={host}
                 onChange={e => handleWebDavHostChange(e.target.value)}
               />
               <input
-                className="vos-input vos-input-sm"
-                style={{ width: 72 }}
+                className="vos-input vos-input-sm w-[72px]"
                 placeholder={useHttps ? '443' : '80'}
                 value={port}
                 onChange={e => setPort(e.target.value)}
@@ -696,15 +672,13 @@ function MountForm({
             </div>
             <div className="flex gap-2">
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 placeholder="用户名（可选）"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
               />
               <input
-                className="vos-input vos-input-sm"
-                style={{ flex: 1 }}
+                className="vos-input vos-input-sm flex-1"
                 type="password"
                 placeholder="密码（可选）"
                 value={password}
@@ -723,11 +697,10 @@ function MountForm({
         {/* ── Local FUSE Mount Config (non-local sources only) ── */}
         {kind !== 'local' && (
           <div
-            className="flex flex-col gap-1.5 rounded px-2 py-2 mt-1"
-            style={{ background: 'var(--vos-bg-item)', border: '0.5px solid var(--vos-border-subtle)' }}
+            className="flex flex-col gap-1.5 rounded px-2 py-2 mt-1 bg-[var(--vos-bg-item)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
           >
             <label className="flex items-center justify-between gap-2 cursor-pointer" htmlFor="local-mount-toggle">
-              <span className="text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+              <span className="text-xs text-[var(--vos-text-primary)]">
                 启用本地挂载（FUSE）
               </span>
               <input
@@ -751,25 +724,18 @@ function MountForm({
             {localMountEnabled && (
               <div>
                 {fuseChecking && (
-                  <div className="text-xs mb-1 flex items-center gap-1" style={{ color: 'var(--vos-text-secondary)' }}>
-                    <Spinner style={{ width: 12, height: 12 }} /> 正在检测 FUSE 依赖…
+                  <div className="text-xs mb-1 flex items-center gap-1 text-[var(--vos-text-secondary)]">
+                    <Spinner className="w-3 h-3" /> 正在检测 FUSE 依赖…
                   </div>
                 )}
                 {!fuseChecking && fuseAvailable === false && (
                   <div
-                    className="text-xs mb-1 px-2 py-1.5 rounded flex items-center justify-between"
-                    style={{ background: 'rgba(255, 59, 48, 0.1)', color: 'var(--vos-accent-danger)' }}
+                    className="text-xs mb-1 px-2 py-1.5 rounded flex items-center justify-between bg-[rgba(255,59,48,0.1)] text-[var(--vos-accent-danger)]"
                   >
                     <span>未检测到 FUSE 依赖，挂载可能失败</span>
                     <button
                       type="button"
-                      className="text-[10px] px-1.5 py-0.5 rounded"
-                      style={{
-                        background: 'var(--vos-accent-primary)',
-                        color: '#fff',
-                        border: 'none',
-                        cursor: 'pointer'
-                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--vos-accent-primary)] text-white border-none cursor-pointer"
                       onClick={() => openWindow('dependency-manager')}
                     >
                       安装依赖
@@ -778,8 +744,7 @@ function MountForm({
                 )}
                 {!fuseChecking && fuseAvailable === true && (
                   <div
-                    className="text-xs mb-1 px-2 py-1.5 rounded"
-                    style={{ background: 'rgba(52, 199, 89, 0.1)', color: 'var(--vos-accent-success)' }}
+                    className="text-xs mb-1 px-2 py-1.5 rounded bg-[rgba(52,199,89,0.1)] text-[var(--vos-accent-success)]"
                   >
                     FUSE 依赖已安装
                   </div>
@@ -791,11 +756,11 @@ function MountForm({
                   onChange={e => handleLocalMountPathChange(e.target.value)}
                 />
                 {localMountPathError && (
-                  <div className="text-xs mt-0.5" style={{ color: 'var(--vos-accent-danger)' }}>
+                  <div className="text-xs mt-0.5 text-[var(--vos-accent-danger)]">
                     {localMountPathError}
                   </div>
                 )}
-                <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <div className="text-[10px] mt-0.5 text-[var(--vos-text-tertiary)]">
                   将远程文件系统挂载到本机目录，需安装 macFUSE / FUSE-T（macOS）或 libfuse3（Linux）
                 </div>
               </div>
@@ -806,21 +771,13 @@ function MountForm({
         <div className="flex flex-col gap-2 mt-1">
           {testResult && (
             <div
-              className="text-xs px-2 py-1.5 rounded"
-              style={{
-                background: testResult.success ? 'rgba(52, 199, 89, 0.1)' : 'rgba(255, 59, 48, 0.1)',
-                color: testResult.success ? 'var(--vos-accent-success)' : 'var(--vos-accent-danger)',
-                wordBreak: 'break-all',
-                maxHeight: 80,
-                overflow: 'auto'
-              }}
+              className={`text-xs px-2 py-1.5 rounded break-all max-h-[80px] overflow-auto ${testResult.success ? 'bg-[rgba(52,199,89,0.1)] text-[var(--vos-accent-success)]' : 'bg-[rgba(255,59,48,0.1)] text-[var(--vos-accent-danger)]'}`}
             >
               {testResult.message}
               {!testResult.success && (
                 <button
                   type="button"
-                  className="vos-btn-reset ml-2"
-                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  className="vos-btn-reset ml-2 text-[var(--vos-text-tertiary)]"
                   title="复制错误信息"
                   onClick={e => {
                     e.stopPropagation()
@@ -835,8 +792,7 @@ function MountForm({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              className="vos-btn vos-btn-sm vos-btn-ghost"
-              style={{ opacity: isValid() ? 1 : 0.5 }}
+              className="vos-btn vos-btn-sm vos-btn-ghost disabled:opacity-50"
               onClick={handleTest}
               disabled={testing || !isValid()}
             >
@@ -847,8 +803,7 @@ function MountForm({
             </button>
             <button
               type="button"
-              className="vos-btn vos-btn-sm vos-btn-primary"
-              style={{ opacity: isValid() ? 1 : 0.5 }}
+              className="vos-btn vos-btn-sm vos-btn-primary disabled:opacity-50"
               onClick={submit}
               disabled={saving || !isValid()}
             >
@@ -859,41 +814,39 @@ function MountForm({
         {/* SSH Config Import Modal */}
         {sshConfigHosts && (
           <div className="vos-modal-overlay">
-            <div className="vos-modal-panel" style={{ width: 420, maxHeight: 400 }}>
+            <div className="vos-modal-panel w-[420px] max-h-[400px]">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">~/.ssh/config 可用主机</span>
                 <button
                   type="button"
-                  className="vos-btn-reset"
-                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  className="vos-btn-reset text-[var(--vos-text-tertiary)]"
                   onClick={() => setSshConfigHosts(null)}
                 >
                   <X size={14} />
                 </button>
               </div>
-              <div className="overflow-auto flex-1" style={{ gap: 4, display: 'flex', flexDirection: 'column' }}>
+              <div className="overflow-auto flex-1 flex flex-col gap-[4px]">
                 {sshConfigHosts.length === 0 && (
-                  <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  <div className="text-xs text-[var(--vos-text-tertiary)]">
                     未发现 SSH Host 配置
                   </div>
                 )}
                 {sshConfigHosts.map(h => (
                   <div
                     key={h.alias}
-                    className="rounded px-2 py-1.5 cursor-pointer"
-                    style={{ background: 'var(--vos-bg-input)' }}
+                    className="rounded px-2 py-1.5 cursor-pointer bg-[var(--vos-bg-input)]"
                     onClick={() => handleImportSshHost(h)}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+                      <span className="text-xs font-medium text-[var(--vos-text-primary)]">
                         {h.alias}
                       </span>
-                      <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+                      <span className="text-[10px] text-[var(--vos-text-tertiary)]">
                         {h.hostname ?? ''} {h.user ? `(${h.user})` : ''}
                       </span>
                     </div>
                     {h.identity_file && (
-                      <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
+                      <div className="text-[10px] mt-0.5 text-[var(--vos-text-tertiary)]">
                         <Key size={9} className="inline mr-0.5" />
                         {h.identity_file}
                       </div>
@@ -968,7 +921,7 @@ function WebDavServerPanel({
         </div>
       ) : (
         <>
-          <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+          <label className="flex items-center gap-2 text-xs text-[var(--vos-text-primary)]">
             <input
               type="checkbox"
               checked={settings.enabled}
@@ -981,15 +934,13 @@ function WebDavServerPanel({
             <>
               <div className="flex gap-2">
                 <input
-                  className="vos-input vos-input-sm"
-                  style={{ flex: 1 }}
+                  className="vos-input vos-input-sm flex-1"
                   placeholder="访问用户名（留空则无需认证）"
                   value={settings.username}
                   onChange={e => saveSettings({ ...settings, username: e.target.value })}
                 />
                 <input
-                  className="vos-input vos-input-sm"
-                  style={{ flex: 1 }}
+                  className="vos-input vos-input-sm flex-1"
                   type="password"
                   placeholder="访问密码"
                   value={settings.password}
@@ -998,20 +949,19 @@ function WebDavServerPanel({
               </div>
 
               <div>
-                <div className="text-xs mb-1.5" style={{ color: 'var(--vos-text-secondary)' }}>
+                <div className="text-xs mb-1.5 text-[var(--vos-text-secondary)]">
                   暴露的存储源（勾选后可通过 WebDAV 访问）：
                 </div>
                 <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
                   {mounts.length === 0 && (
-                    <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                    <div className="text-xs text-[var(--vos-text-tertiary)]">
                       暂无存储源
                     </div>
                   )}
                   {mounts.map(m => (
                     <label
                       key={m.id}
-                      className="flex items-center gap-2 text-xs"
-                      style={{ color: 'var(--vos-text-primary)' }}
+                      className="flex items-center gap-2 text-xs text-[var(--vos-text-primary)]"
                     >
                       <input
                         type="checkbox"
@@ -1027,7 +977,7 @@ function WebDavServerPanel({
           )}
 
           {saved && (
-            <div className="text-xs text-right" style={{ color: 'var(--vos-accent-primary)' }}>
+            <div className="text-xs text-right text-[var(--vos-accent-primary)]">
               已保存
             </div>
           )}
@@ -1042,13 +992,12 @@ function WebDavServerPanel({
 
   return (
     <div className="vos-modal-overlay">
-      <div className="vos-modal-panel" style={{ width: 420 }}>
+      <div className="vos-modal-panel w-[420px]">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">WebDAV 服务器设置</div>
           <button
             type="button"
-            className="vos-btn-reset"
-            style={{ color: 'var(--vos-text-tertiary)' }}
+            className="vos-btn-reset text-[var(--vos-text-tertiary)]"
             onClick={onClose}
           >
             <X size={14} />
@@ -1214,8 +1163,7 @@ function ColumnView({
   return (
     <div
       ref={scrollRef}
-      className="flex-1 flex overflow-x-auto overflow-y-hidden"
-      style={{ scrollBehavior: 'smooth', minWidth: 0 }}
+      className="flex-1 flex overflow-x-auto overflow-y-hidden min-w-0 scroll-smooth"
     >
       {columns.map((col, colIdx) => {
         const colSelected = multiSelect.get(colIdx)
@@ -1223,13 +1171,7 @@ function ColumnView({
           <div
             key={col.path}
             role="listbox"
-            className="flex flex-col flex-shrink-0 overflow-hidden"
-            style={{
-              width: 220,
-              borderRight: '0.5px solid var(--vos-border-subtle)'
-              // outline: colIdx === activeColumn ? '1px solid var(--vos-accent-primary)' : 'none',
-              // outlineOffset: -1
-            }}
+            className="flex flex-col flex-shrink-0 overflow-hidden w-[220px] border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)]"
             onDragOver={e => {
               e.preventDefault()
               e.dataTransfer.dropEffect = 'move'
@@ -1247,8 +1189,7 @@ function ColumnView({
               </div>
             ) : col.entries.length === 0 ? (
               <div
-                className="flex-1 flex items-center justify-center text-xs"
-                style={{ color: 'var(--vos-text-tertiary)' }}
+                className="flex-1 flex items-center justify-center text-xs text-[var(--vos-text-tertiary)]"
               >
                 空目录
               </div>
@@ -1284,27 +1225,27 @@ function ColumnView({
                       onDragLeave={handleDragLeave}
                       onDrop={e => handleDrop(e, entry)}
                       className="flex items-center gap-1.5 px-2 py-[3px] text-xs cursor-pointer"
-                      style={{
-                        background: isDragTarget
-                          ? 'var(--vos-accent-primary-hover, rgba(59,130,246,0.2))'
-                          : isCurrentSel
-                            ? 'var(--vos-accent-primary)'
-                            : isAncestorSel
-                              ? 'rgba(59,130,246,0.12)'
-                              : isMulti
-                                ? 'var(--vos-accent-primary-muted, rgba(59,130,246,0.25))'
-                                : 'transparent',
-                        color: isCurrentSel
-                          ? '#fff'
-                          : isAncestorSel
-                            ? 'var(--vos-accent-primary)'
-                            : isMulti && colIdx === activeColumn
+                          style={{
+                            background: isDragTarget
+                              ? 'var(--vos-accent-primary-hover, rgba(59,130,246,0.2))'
+                              : isCurrentSel
+                                ? 'var(--vos-accent-primary)'
+                                : isAncestorSel
+                                  ? 'rgba(59,130,246,0.12)'
+                                  : isMulti
+                                    ? 'var(--vos-accent-primary-muted, rgba(59,130,246,0.25))'
+                                    : 'transparent',
+                            color: isCurrentSel
                               ? '#fff'
-                              : 'var(--vos-text-primary)',
-                        borderRadius: 3,
-                        margin: '1px 4px',
-                        outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
-                      }}
+                              : isAncestorSel
+                                ? 'var(--vos-accent-primary)'
+                                : isMulti && colIdx === activeColumn
+                                  ? '#fff'
+                                  : 'var(--vos-text-primary)',
+                            borderRadius: 3,
+                            margin: '1px 4px',
+                            outline: isDragTarget ? '1.5px dashed var(--vos-accent-primary)' : 'none'
+                          }}
                       onClick={e => onItemClick(colIdx, entry, e)}
                       onDoubleClick={() => onItemDoubleClick(colIdx, entry)}
                       onContextMenu={e => onItemContextMenu(colIdx, entry, e)}
@@ -1312,6 +1253,7 @@ function ColumnView({
                       {entry.is_dir ? (
                         <Folder
                           size={13}
+                          className="shrink-0"
                           style={{
                             color: isCurrentSel
                               ? '#fff'
@@ -1319,8 +1261,7 @@ function ColumnView({
                                 ? 'var(--vos-accent-primary)'
                                 : isMulti && colIdx === activeColumn
                                   ? '#fff'
-                                  : 'var(--vos-accent-warning)',
-                            flexShrink: 0
+                                  : 'var(--vos-accent-warning)'
                           }}
                         />
                       ) : (
@@ -1330,14 +1271,14 @@ function ColumnView({
                           return (
                             <IconComp
                               size={13}
+                              className="shrink-0"
                               style={{
                                 color:
                                   isCurrentSel || (isMulti && colIdx === activeColumn)
                                     ? '#fff'
                                     : isAncestorSel
                                       ? 'var(--vos-accent-primary)'
-                                      : iconInfo.color,
-                                flexShrink: 0
+                                      : iconInfo.color
                               }}
                             />
                           )
@@ -1356,12 +1297,7 @@ function ColumnView({
                             }
                           }}
                           autoFocus
-                          className="flex-1 text-xs px-1 py-0 rounded border-none outline-none"
-                          style={{
-                            background: '#fff',
-                            color: '#000',
-                            minWidth: 0
-                          }}
+                          className="flex-1 text-xs px-1 py-0 rounded border-none outline-none bg-white text-black min-w-0"
                           value={renameValue}
                           onChange={e => onRenameChange(e.target.value)}
                           onKeyDown={e => {
@@ -1376,7 +1312,7 @@ function ColumnView({
                         <span className="flex-1 truncate">{entry.name}</span>
                       )}
                       {entry.is_dir && !isRenaming && (
-                        <ChevronRight size={11} style={{ opacity: 0.5, flexShrink: 0 }} />
+                        <ChevronRight size={11} className="opacity-50 shrink-0" />
                       )}
                     </div>
                   )
@@ -1446,39 +1382,26 @@ function ExplorerSettingsDialog({
     <Modal open={true} onClose={onClose} title="偏好设置" width={420}>
       {/* Hidden files toggle */}
       <div className="flex items-center justify-between px-1">
-        <span className="text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+        <span className="text-xs text-[var(--vos-text-primary)]">
           显示隐藏文件
         </span>
         <button
           type="button"
-          className="rounded-full border-none cursor-pointer p-0"
+          className="w-[36px] h-[20px] rounded-[10px] relative transition-[background] duration-200 border-none cursor-pointer p-0"
           style={{
-            width: 36,
-            height: 20,
-            borderRadius: 10,
-            background: showHidden ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)',
-            position: 'relative',
-            transition: 'background 0.2s'
+            background: showHidden ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)'
           }}
           onClick={onToggleHidden}
         >
           <span
-            style={{
-              position: 'absolute',
-              top: 2,
-              left: showHidden ? 18 : 2,
-              width: 16,
-              height: 16,
-              borderRadius: '50%',
-              background: '#fff',
-              transition: 'left 0.2s'
-            }}
+            className="absolute top-[2px] w-4 h-4 rounded-full bg-white transition-[left] duration-200"
+            style={{ left: showHidden ? 18 : 2 }}
           />
         </button>
       </div>
 
       {/* WebDAV server settings */}
-      <div style={{ borderTop: '0.5px solid var(--vos-border-subtle)', margin: '4px 0' }} />
+      <div className="border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)] my-[4px]" />
       <WebDavServerPanel mounts={mounts} onClose={onClose} embedded />
     </Modal>
   )
@@ -1534,42 +1457,39 @@ function FileInfoPanel({
 
   return (
     <div
-      className="flex flex-col overflow-hidden flex-shrink-0"
-      style={{ width: 280, borderLeft: '0.5px solid var(--vos-border-subtle)', background: 'var(--vos-bg-surface)' }}
+      className="flex flex-col overflow-hidden flex-shrink-0 w-[280px] border-l-[0.5px] border-l-solid border-l-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
     >
       <div
-        className="flex items-center justify-between px-3 py-2 flex-shrink-0"
-        style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+        className="flex items-center justify-between px-3 py-2 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
       >
         <span className="text-xs font-medium truncate">{node.name}</span>
-        <button type="button" className="vos-btn-reset" style={{ color: 'var(--vos-text-tertiary)' }} onClick={onClose}>
+        <button type="button" className="vos-btn-reset text-[var(--vos-text-tertiary)]" onClick={onClose}>
           <X size={12} />
         </button>
       </div>
 
       {/* File metadata */}
       <div
-        className="px-3 py-2 text-xs flex flex-col gap-1 flex-shrink-0"
-        style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+        className="px-3 py-2 text-xs flex flex-col gap-1 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
       >
         <div className="flex justify-between">
-          <span style={{ color: 'var(--vos-text-tertiary)' }}>类型</span>
+          <span className="text-[var(--vos-text-tertiary)]">类型</span>
           <span>{node.is_dir ? '目录' : ext ? ext.toUpperCase() : '文件'}</span>
         </div>
         {!node.is_dir && node.size != null && (
           <div className="flex justify-between">
-            <span style={{ color: 'var(--vos-text-tertiary)' }}>大小</span>
+            <span className="text-[var(--vos-text-tertiary)]">大小</span>
             <span>{fmtSize(node.size)}</span>
           </div>
         )}
         {node.modified && (
           <div className="flex justify-between">
-            <span style={{ color: 'var(--vos-text-tertiary)' }}>修改时间</span>
+            <span className="text-[var(--vos-text-tertiary)]">修改时间</span>
             <span>{new Date(node.modified).toLocaleString()}</span>
           </div>
         )}
         {preview?.truncated && (
-          <div className="text-[10px]" style={{ color: 'var(--vos-accent-warning)' }}>
+          <div className="text-[10px] text-[var(--vos-accent-warning)]">
             仅预览前 1MB
           </div>
         )}
@@ -1582,7 +1502,7 @@ function FileInfoPanel({
             <img
               src={imgSrc}
               alt={node.name}
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 4 }}
+              className="max-w-full max-h-full object-contain rounded"
             />
           ) : (
             <Spinner size={14} />
@@ -1595,21 +1515,12 @@ function FileInfoPanel({
         <div className="flex-1 overflow-auto">
           {preview.is_binary ? (
             <div
-              className="flex-1 flex items-center justify-center p-4 text-xs"
-              style={{ color: 'var(--vos-text-tertiary)', fontStyle: 'italic' }}
-            >
+              className="flex-1 flex items-center justify-center p-4 text-xs text-[var(--vos-text-tertiary)] italic">
               二进制文件，无法预览
             </div>
           ) : (
             <pre
-              className={`p-3 text-xs m-0 ${isCode ? 'font-mono' : ''}`}
-              style={{
-                color: 'var(--vos-text-primary)',
-                background: 'transparent',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                lineHeight: 1.6
-              }}
+              className={`p-3 text-xs m-0 ${isCode ? 'font-mono' : ''} whitespace-pre-wrap break-words leading-[1.6] text-[var(--vos-text-primary)] bg-transparent`}
             >
               {displayContent}
             </pre>
@@ -1816,35 +1727,26 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click to close
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.55)' }}
+      className="absolute inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.55)]"
       onClick={onClose}
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: modal panel */}
       <div
-        className="flex flex-col overflow-hidden rounded-lg"
-        style={{
-          width: '82%',
-          height: '82%',
-          background: 'var(--vos-bg-surface)',
-          boxShadow: '0 24px 80px rgba(0,0,0,.6)'
-        }}
+        className="flex flex-col overflow-hidden rounded-lg bg-[var(--vos-bg-surface)] shadow-[0_24px_80px_rgba(0,0,0,.6)] w-[82%] h-[82%]"
         onClick={e => e.stopPropagation()}
       >
         {/* Toolbar */}
         <div
-          className="flex items-center px-3 py-2 gap-2 flex-shrink-0"
-          style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+          className="flex items-center px-3 py-2 gap-2 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
         >
-          <File size={13} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+          <File size={13} className="text-[var(--vos-text-tertiary)] shrink-0" />
           <span className="text-xs font-medium flex-1 truncate">{node.name}</span>
           {/* Image transform toolbar */}
           {isImage && blobUrl && canSaveImage && (
             <>
               <button
                 type="button"
-                className="vos-btn"
-                style={{ fontSize: 11, padding: '2px 6px' }}
+                className="vos-btn text-[11px] px-1.5 py-0.5"
                 title="向左旋转"
                 onClick={() => {
                   const r = imgRotation - 90
@@ -1856,8 +1758,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
               </button>
               <button
                 type="button"
-                className="vos-btn"
-                style={{ fontSize: 11, padding: '2px 6px' }}
+                className="vos-btn text-[11px] px-1.5 py-0.5"
                 title="向右旋转"
                 onClick={() => {
                   const r = imgRotation + 90
@@ -1869,8 +1770,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
               </button>
               <button
                 type="button"
-                className="vos-btn"
-                style={{ fontSize: 11, padding: '2px 6px' }}
+                className="vos-btn text-[11px] px-1.5 py-0.5"
                 title="水平翻转"
                 onClick={() => {
                   const fH = !imgFlipH
@@ -1882,8 +1782,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
               </button>
               <button
                 type="button"
-                className="vos-btn"
-                style={{ fontSize: 11, padding: '2px 6px' }}
+                className="vos-btn text-[11px] px-1.5 py-0.5"
                 title="垂直翻转"
                 onClick={() => {
                   const fV = !imgFlipV
@@ -1904,8 +1803,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
               <>
                 <button
                   type="button"
-                  className="vos-btn vos-btn-primary"
-                  style={{ fontSize: 11, padding: '2px 8px' }}
+                  className="vos-btn vos-btn-primary text-[11px] px-2 py-0.5"
                   disabled={saving}
                   onClick={handleSave}
                 >
@@ -1913,8 +1811,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
                 </button>
                 <button
                   type="button"
-                  className="vos-btn"
-                  style={{ fontSize: 11, padding: '2px 8px' }}
+                  className="vos-btn text-[11px] px-2 py-0.5"
                   onClick={() => {
                     setEditing(false)
                     setEditContent(content.content)
@@ -1926,15 +1823,14 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
             ) : (
               <button
                 type="button"
-                className="vos-btn"
-                style={{ fontSize: 11, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+                className="vos-btn text-[11px] px-2 py-0.5 flex items-center gap-[4px]"
                 onClick={() => setEditing(true)}
               >
                 <Pencil size={11} />
                 编辑
               </button>
             ))}
-          <button type="button" className="vos-btn" style={{ fontSize: 11, padding: '2px 6px' }} onClick={onClose}>
+          <button type="button" className="vos-btn text-[11px] px-1.5 py-0.5" onClick={onClose}>
             <X size={12} />
           </button>
         </div>
@@ -1950,15 +1846,13 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
           {!loading && error && (
             <div className="p-6 flex flex-col gap-2">
               <div
-                className="text-xs"
-                style={{ color: 'var(--vos-accent-danger)', userSelect: 'text', wordBreak: 'break-all' }}
+                className="text-xs select-text break-all text-[var(--vos-accent-danger)]"
               >
                 加载失败：{error}
               </div>
               <button
                 type="button"
-                className="vos-btn text-xs self-start flex items-center gap-1"
-                style={{ padding: '2px 8px' }}
+                className="vos-btn text-xs self-start flex items-center gap-1 px-2 py-0.5"
                 onClick={() => navigator.clipboard.writeText(error)}
               >
                 <Copy size={11} />
@@ -1972,13 +1866,8 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
               <img
                 src={blobUrl}
                 alt={node.name}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                  borderRadius: 4,
-                  transform: `rotate(${imgRotation}deg) scaleX(${imgFlipH ? -1 : 1}) scaleY(${imgFlipV ? -1 : 1})`
-                }}
+                className="max-w-full max-h-full object-contain rounded"
+                style={{ transform: `rotate(${imgRotation}deg) scaleX(${imgFlipH ? -1 : 1}) scaleY(${imgFlipV ? -1 : 1})` }}
               />
             </div>
           )}
@@ -1987,13 +1876,13 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
             <embed
               src={`${blobUrl}#toolbar=1&navpanes=0`}
               type="application/pdf"
-              style={{ width: '100%', height: '100%' }}
+              className="w-full h-full"
             />
           )}
 
           {!loading && !error && content?.is_binary && (
-            <div className="p-6 text-xs font-mono" style={{ color: 'var(--vos-text-tertiary)' }}>
-              <div className="mb-2" style={{ color: 'var(--vos-text-secondary)' }}>
+            <div className="p-6 text-xs font-mono text-[var(--vos-text-tertiary)]">
+              <div className="mb-2 text-[var(--vos-text-secondary)]">
                 二进制文件
               </div>
               <div>大小：{fmtSize(content.size)}</div>
@@ -2008,14 +1897,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
             (editing ? (
               <textarea
                 autoFocus
-                className="w-full h-full p-3 text-xs resize-none border-none outline-none"
-                style={{
-                  background: 'var(--vos-bg-editor, var(--vos-bg-base))',
-                  color: 'var(--vos-text-primary)',
-                  fontFamily: isCode ? 'var(--vos-font-mono, monospace)' : 'inherit',
-                  lineHeight: 1.7,
-                  tabSize: 2
-                }}
+                className={`w-full h-full p-3 text-xs resize-none border-none outline-none leading-[1.7] tab-[2] bg-[var(--vos-bg-editor,var(--vos-bg-base))] text-[var(--vos-text-primary)] ${isCode ? 'font-mono' : ''}`}
                 value={editContent}
                 onChange={e => setEditContent(e.target.value)}
                 spellCheck={false}
@@ -2024,24 +1906,13 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
               <div className="w-full h-full overflow-auto">
                 {content.truncated && (
                   <div
-                    className="px-3 py-1 text-[11px] flex-shrink-0"
-                    style={{
-                      background: 'var(--vos-accent-warning-subtle, rgba(234,179,8,0.1))',
-                      color: 'var(--vos-accent-warning, #ca8a04)',
-                      borderBottom: '0.5px solid var(--vos-border-subtle)'
-                    }}
+                    className="px-3 py-1 text-[11px] flex-shrink-0 bg-[var(--vos-accent-warning-subtle,rgba(234,179,8,0.1))] text-[var(--vos-accent-warning,#ca8a04)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
                   >
                     文件过大，仅预览前 4MB
                   </div>
                 )}
                 <pre
-                  className="p-3 text-xs m-0 whitespace-pre-wrap break-words"
-                  style={{
-                    color: 'var(--vos-text-primary)',
-                    background: 'transparent',
-                    fontFamily: isCode ? 'var(--vos-font-mono, monospace)' : 'inherit',
-                    lineHeight: 1.7
-                  }}
+                  className={`p-3 text-xs m-0 whitespace-pre-wrap break-words leading-[1.7] text-[var(--vos-text-primary)] bg-transparent ${isCode ? 'font-mono' : ''}`}
                 >
                   {content.content}
                 </pre>
@@ -2052,11 +1923,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
         {/* Footer: file info */}
         {content && (
           <div
-            className="flex items-center gap-4 px-3 py-1.5 text-[11px] flex-shrink-0"
-            style={{
-              borderTop: '0.5px solid var(--vos-border-subtle)',
-              color: 'var(--vos-text-tertiary)'
-            }}
+            className="flex items-center gap-4 px-3 py-1.5 text-[11px] flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)] text-[var(--vos-text-tertiary)]"
           >
             <span>{fmtSize(content.size)}</span>
             {node.modified && <span>{new Date(node.modified).toLocaleString()}</span>}
@@ -3239,8 +3106,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               <>
                 <button
                   type="button"
-                  className="vos-btn-reset"
-                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  className="vos-btn-reset text-[var(--vos-text-tertiary)]"
                   onClick={reload}
                   title="刷新"
                 >
@@ -3248,8 +3114,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 </button>
                 <button
                   type="button"
-                  className="vos-btn-reset"
-                  style={{ color: 'var(--vos-accent-primary)' }}
+                  className="vos-btn-reset text-[var(--vos-accent-primary)]"
                   onClick={() => setShowForm(true)}
                 >
                   <Plus size={13} />
@@ -3369,13 +3234,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                   key={m.id}
                   role="button"
                   tabIndex={0}
-                  className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group"
-                  style={{
-                    background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
-                    color: isActive ? '#fff' : 'var(--vos-text-primary)',
-                    borderRadius: 4,
-                    margin: '1px 4px'
-                  }}
+                  className={`flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group rounded my-[1px] mx-1 ${isActive ? 'bg-[var(--vos-accent-primary)] text-white' : 'bg-transparent text-[var(--vos-text-primary)]'}`}
                   onClick={() => selectMount(m.id)}
                   onContextMenu={handleMountContextMenu}
                   onKeyDown={e => {
@@ -3384,7 +3243,8 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 >
                   <KindIcon
                     size={13}
-                    style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)', flexShrink: 0 }}
+                    className="shrink-0"
+                    style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)' }}
                   />
                   <span className="flex-1 truncate">{m.name}</span>
                   {m.local_mount?.enabled && (
@@ -3401,18 +3261,15 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                       }
                     >
                       <span
+                        className="w-[6px] h-[6px] rounded-full shrink-0"
                         style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
                           background: fuseStatus?.error
                             ? 'var(--vos-accent-danger, #ef4444)'
                             : isFuseMounted
                               ? 'var(--vos-accent-success, #22c55e)'
                               : isActive
                                 ? 'rgba(255,255,255,0.3)'
-                                : 'var(--vos-text-tertiary)',
-                          flexShrink: 0
+                                : 'var(--vos-text-tertiary)'
                         }}
                       />
                       {isLoading ? (
@@ -3436,8 +3293,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               return (
                 <div key={label}>
                   <div
-                    className="px-3 pt-2 pb-0.5 text-[10px] font-medium tracking-wide uppercase"
-                    style={{ color: 'var(--vos-text-tertiary)' }}
+                    className="px-3 pt-2 pb-0.5 text-[10px] font-medium tracking-wide uppercase text-[var(--vos-text-tertiary)]"
                   >
                     {label}
                   </div>
@@ -3449,8 +3305,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             if (mounts.length === 0) {
               return (
                 <div
-                  className="flex-1 flex items-center justify-center text-xs"
-                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  className="flex-1 flex items-center justify-center text-xs text-[var(--vos-text-tertiary)]"
                 >
                   无存储源
                 </div>
@@ -3519,7 +3374,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           {/* New folder overlay */}
           {newFolderState.visible && (
             <div className="vos-modal-overlay">
-              <div className="vos-modal-panel" style={{ width: 320 }}>
+              <div className="vos-modal-panel w-[320px]">
                 <div className="text-sm font-medium">新建文件夹</div>
                 <input
                   autoFocus
@@ -3557,7 +3412,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           {/* New file overlay */}
           {newFileState.visible && (
             <div className="vos-modal-overlay">
-              <div className="vos-modal-panel" style={{ width: 320 }}>
+              <div className="vos-modal-panel w-[320px]">
                 <div className="text-sm font-medium">新建文件</div>
                 <input
                   autoFocus
@@ -3609,9 +3464,9 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               className="vos-modal-overlay"
               onClick={() => setOpenWithState({ visible: false, node: null, apps: [], showAll: false })}
             >
-              <div className="vos-modal-panel" style={{ width: 300 }} onClick={e => e.stopPropagation()}>
+              <div className="vos-modal-panel w-[300px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">打开方式</div>
-                <div className="text-xs truncate" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <div className="text-xs truncate text-[var(--vos-text-tertiary)]">
                   {openWithState.node.name}
                 </div>
                 <div className="flex flex-col gap-1">
@@ -3625,8 +3480,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     <button
                       key={app.id}
                       type="button"
-                      className="flex items-center gap-2.5 px-2.5 py-1.5 rounded cursor-pointer border-none text-left transition-colors"
-                      style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 rounded cursor-pointer border-none text-left transition-colors bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-primary)]"
                       onClick={() => {
                         const n = openWithState.node!
                         const ext = getFileExt(n.name)
@@ -3638,7 +3492,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                         openWindow(app.id, { appState: { mountId: selectedMount, node: n } })
                       }}
                     >
-                      <div style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 7, overflow: 'hidden' }}>
+                      <div className="w-7 h-7 shrink-0 rounded-[7px] overflow-hidden">
                         {app.icon}
                       </div>
                       <span className="text-xs font-medium">{app.name}</span>
@@ -3647,8 +3501,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                   {/* File viewer is always available */}
                   <button
                     type="button"
-                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded cursor-pointer border-none text-left transition-colors"
-                    style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded cursor-pointer border-none text-left transition-colors bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-primary)]"
                     onClick={() => {
                       const n = openWithState.node!
                       const ext = getFileExt(n.name)
@@ -3660,16 +3513,12 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     }}
                   >
                     <div
-                      className="flex items-center justify-center"
+                      className="vos-flex-center w-[28px] h-[28px] shrink-0 rounded-[7px]"
                       style={{
-                        width: 28,
-                        height: 28,
-                        flexShrink: 0,
-                        borderRadius: 7,
                         background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
                       }}
                     >
-                      <File size={14} style={{ color: '#fff' }} />
+                      <File size={14} className="text-white" />
                     </div>
                     <span className="text-xs font-medium">文件查看器</span>
                   </button>
@@ -3701,17 +3550,16 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           {/* Set default open-with dialog */}
           {defaultOpenState.visible && defaultOpenState.node && selectedMount && (
             <div className="vos-modal-overlay" onClick={() => setDefaultOpenState(s => ({ ...s, visible: false }))}>
-              <div className="vos-modal-panel" style={{ width: 360 }} onClick={e => e.stopPropagation()}>
+              <div className="vos-modal-panel w-[360px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">设置默认打开方式</div>
-                <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <div className="text-xs text-[var(--vos-text-tertiary)]">
                   为 <strong>.{defaultOpenState.ext}</strong> 文件选择默认应用
                 </div>
-                <div className="flex flex-col gap-1" style={{ maxHeight: 240, overflowY: 'auto' }}>
+                <div className="flex flex-col gap-1 max-h-[240px] overflow-y-auto">
                   {/* File viewer option */}
                   <button
                     type="button"
-                    className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
-                    style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                    className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-primary)]"
                     onClick={() => {
                       const n = defaultOpenState.node!
                       const ext = defaultOpenState.ext
@@ -3722,14 +3570,13 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     }}
                   >
                     <span className="font-medium">文件查看器</span>
-                    <span style={{ color: 'var(--vos-text-tertiary)' }}>预览</span>
+                    <span className="text-[var(--vos-text-tertiary)]">预览</span>
                   </button>
                   {defaultOpenState.apps.map(app => (
                     <button
                       key={app.id}
                       type="button"
-                      className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left"
-                      style={{ background: 'var(--vos-bg-item-hover)', color: 'var(--vos-text-primary)' }}
+                      className="flex items-center gap-2 px-3 py-2 rounded text-xs cursor-pointer border-none text-left bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-primary)]"
                       onClick={() => {
                         const n = defaultOpenState.node!
                         const ext = defaultOpenState.ext
@@ -3740,13 +3587,13 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                       }}
                     >
                       <span className="font-medium">{app.name}</span>
-                      <span style={{ color: 'var(--vos-text-tertiary)' }}>
+                      <span className="text-[var(--vos-text-tertiary)]">
                         {app.associationType === 'preview' ? '预览' : '编辑'}
                       </span>
                     </button>
                   ))}
                 </div>
-                <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                <label className="flex items-center gap-2 text-xs text-[var(--vos-text-secondary)]">
                   <input
                     type="checkbox"
                     checked={defaultOpenState.alsoOpenFile}
@@ -3770,14 +3617,14 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           {/* Compress dialog */}
           {compressState.visible && (
             <div className="vos-modal-overlay" onClick={() => setCompressState(s => ({ ...s, visible: false }))}>
-              <div className="vos-modal-panel" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
+              <div className="vos-modal-panel w-[380px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">压缩文件</div>
-                <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <div className="text-xs text-[var(--vos-text-tertiary)]">
                   压缩 {compressState.items.length} 个项目
                 </div>
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                    <label className="text-xs text-[var(--vos-text-secondary)]">
                       文件名
                     </label>
                     <input
@@ -3788,7 +3635,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                    <label className="text-xs text-[var(--vos-text-secondary)]">
                       格式
                     </label>
                     <select
@@ -3801,7 +3648,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                       <option value="7z">7Z</option>
                     </select>
                   </div>
-                  <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                  <label className="flex items-center gap-2 text-xs text-[var(--vos-text-secondary)]">
                     <input
                       type="checkbox"
                       checked={compressState.encrypt}
@@ -3828,7 +3675,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                       {compressState.password &&
                         compressState.confirmPassword &&
                         compressState.password !== compressState.confirmPassword && (
-                          <div className="text-xs" style={{ color: 'var(--vos-accent-danger)' }}>
+                          <div className="text-xs text-[var(--vos-accent-danger)]">
                             密码不一致
                           </div>
                         )}
@@ -3894,13 +3741,13 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           {/* Extract password dialog */}
           {extractPasswordState.visible && (
             <div className="vos-modal-overlay" onClick={() => setExtractPasswordState(s => ({ ...s, visible: false }))}>
-              <div className="vos-modal-panel" style={{ width: 340 }} onClick={e => e.stopPropagation()}>
+              <div className="vos-modal-panel w-[340px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">解压需要密码</div>
-                <div className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <div className="text-xs text-[var(--vos-text-tertiary)]">
                   该压缩文件已加密，请输入密码后解压
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
+                  <label className="text-xs text-[var(--vos-text-secondary)]">
                     解压密码
                   </label>
                   <input
@@ -3966,54 +3813,54 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
           {/* Properties dialog */}
           {propertiesState.visible && propertiesState.node && (
             <div className="vos-modal-overlay" onClick={() => setPropertiesState({ visible: false, node: null })}>
-              <div className="vos-modal-panel" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
+              <div className="vos-modal-panel w-[380px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium mb-3">属性</div>
                 <div className="flex flex-col gap-2 text-xs">
                   {/* Icon + Name */}
-                  <div className="flex items-center gap-3 pb-2" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+                  <div className="flex items-center gap-3 pb-2 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
                     {propertiesState.node.is_dir ? (
-                      <FolderOpen size={28} style={{ color: 'var(--vos-accent-primary)', flexShrink: 0 }} />
+                      <FolderOpen size={28} className="text-[var(--vos-accent-primary)] shrink-0" />
                     ) : (
                       (() => {
                         const iconInfo = getFileIconByName(propertiesState.node.name)
                         const IconComp = iconInfo.icon
-                        return <IconComp size={28} style={{ color: iconInfo.color, flexShrink: 0 }} />
+                        return <IconComp size={28} className="shrink-0" style={{ color: iconInfo.color }} />
                       })()
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate" style={{ color: 'var(--vos-text-primary)' }}>
+                      <div className="font-medium text-sm truncate text-[var(--vos-text-primary)]">
                         {propertiesState.node.name}
                       </div>
-                      <div style={{ color: 'var(--vos-text-tertiary)' }}>
+                      <div className="text-[var(--vos-text-tertiary)]">
                         {propertiesState.node.is_dir ? '目录' : (getFileExt(propertiesState.node.name).toUpperCase() || '文件')}
                       </div>
                     </div>
                   </div>
 
                   {/* Basic info */}
-                  <div className="flex flex-col gap-1.5 py-1" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+                  <div className="flex flex-col gap-1.5 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
                     <div className="flex justify-between">
-                      <span style={{ color: 'var(--vos-text-tertiary)' }}>名称</span>
-                      <span className="text-right max-w-[60%] truncate" style={{ color: 'var(--vos-text-primary)' }}>
+                      <span className="text-[var(--vos-text-tertiary)]">名称</span>
+                      <span className="text-right max-w-[60%] truncate text-[var(--vos-text-primary)]">
                         {propertiesState.node.name}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span style={{ color: 'var(--vos-text-tertiary)' }}>路径</span>
-                      <span className="text-right max-w-[60%] truncate" title={propertiesState.node.path} style={{ color: 'var(--vos-text-primary)' }}>
+                      <span className="text-[var(--vos-text-tertiary)]">路径</span>
+                      <span className="text-right max-w-[60%] truncate text-[var(--vos-text-primary)]" title={propertiesState.node.path}>
                         {propertiesState.node.path}
                       </span>
                     </div>
                     {!propertiesState.node.is_dir && propertiesState.node.size != null && (
                       <div className="flex justify-between">
-                        <span style={{ color: 'var(--vos-text-tertiary)' }}>大小</span>
-                        <span style={{ color: 'var(--vos-text-primary)' }}>{fmtSize(propertiesState.node.size)}</span>
+                        <span className="text-[var(--vos-text-tertiary)]">大小</span>
+                        <span className="text-[var(--vos-text-primary)]">{fmtSize(propertiesState.node.size)}</span>
                       </div>
                     )}
                     {propertiesState.node.modified && (
                       <div className="flex justify-between">
-                        <span style={{ color: 'var(--vos-text-tertiary)' }}>修改时间</span>
-                        <span style={{ color: 'var(--vos-text-primary)' }}>
+                        <span className="text-[var(--vos-text-tertiary)]">修改时间</span>
+                        <span className="text-[var(--vos-text-primary)]">
                           {new Date(propertiesState.node.modified).toLocaleString()}
                         </span>
                       </div>
@@ -4022,10 +3869,10 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
 
                   {/* Permissions */}
                   {propertiesState.node.permissions && (
-                    <div className="flex flex-col gap-1.5 py-1" style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}>
+                    <div className="flex flex-col gap-1.5 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
                       <div className="flex justify-between">
-                        <span style={{ color: 'var(--vos-text-tertiary)' }}>权限</span>
-                        <span style={{ color: 'var(--vos-text-primary)', fontFamily: 'var(--vos-font-mono, monospace)' }}>
+                        <span className="text-[var(--vos-text-tertiary)]">权限</span>
+                        <span className="text-[var(--vos-text-primary)] font-mono">
                           {propertiesState.node.permissions}
                         </span>
                       </div>
@@ -4047,16 +3894,16 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                         return (
                           <>
                             <div className="flex justify-between">
-                              <span style={{ color: 'var(--vos-text-tertiary)' }}>所有者权限</span>
-                              <span style={{ color: 'var(--vos-text-primary)' }}>{describe(ownerPerm)}</span>
+                              <span className="text-[var(--vos-text-tertiary)]">所有者权限</span>
+                              <span className="text-[var(--vos-text-primary)]">{describe(ownerPerm)}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span style={{ color: 'var(--vos-text-tertiary)' }}>组权限</span>
-                              <span style={{ color: 'var(--vos-text-primary)' }}>{describe(groupPerm)}</span>
+                              <span className="text-[var(--vos-text-tertiary)]">组权限</span>
+                              <span className="text-[var(--vos-text-primary)]">{describe(groupPerm)}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span style={{ color: 'var(--vos-text-tertiary)' }}>其他权限</span>
-                              <span style={{ color: 'var(--vos-text-primary)' }}>{describe(otherPerm)}</span>
+                              <span className="text-[var(--vos-text-tertiary)]">其他权限</span>
+                              <span className="text-[var(--vos-text-primary)]">{describe(otherPerm)}</span>
                             </div>
                           </>
                         )
@@ -4073,8 +3920,8 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     return (
                       <div className="flex flex-col gap-1.5 py-1">
                         <div className="flex justify-between items-center">
-                          <span style={{ color: 'var(--vos-text-tertiary)' }}>打开方式</span>
-                          <span style={{ color: 'var(--vos-text-primary)' }}>
+                          <span className="text-[var(--vos-text-tertiary)]">打开方式</span>
+                          <span className="text-[var(--vos-text-primary)]">
                             {defaultApp?.name ?? (associatedApps.length > 0 ? associatedApps[0].name : '文件查看器')}
                           </span>
                         </div>
@@ -4097,19 +3944,17 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         </>
       }
     >
-      <div ref={containerRef} className="flex flex-col h-full" tabIndex={-1} style={{ outline: 'none' }}>
+      <div ref={containerRef} className="flex flex-col h-full outline-none" tabIndex={-1}>
         {selectedMount ? (
           <>
             {/* Path bar / Menubar */}
             <div
-              className="flex items-center gap-2 h-8 px-3 flex-shrink-0"
-              style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+              className="flex items-center gap-2 h-8 px-3 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
             >
               {/* Back button */}
               <button
                 type="button"
-                className="vos-btn-reset"
-                style={{ color: columns.length > 1 ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)' }}
+                className="vos-btn-reset text-[var(--vos-text-primary)] disabled:text-[var(--vos-text-tertiary)]"
                 disabled={columns.length <= 1}
                 onClick={() => {
                   if (columns.length > 1) {
@@ -4130,8 +3975,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               </button>
               {/* Breadcrumb path */}
               <div
-                className="flex-1 flex items-center gap-0.5 overflow-hidden text-xs"
-                style={{ color: 'var(--vos-text-secondary)' }}
+                className="flex-1 flex items-center gap-0.5 overflow-hidden text-xs text-[var(--vos-text-secondary)]"
               >
                 {(() => {
                   const segments = currentPath.split('/').filter(Boolean)
@@ -4139,8 +3983,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     <>
                       <button
                         type="button"
-                        className="border-none bg-transparent cursor-pointer p-0 text-xs hover:underline"
-                        style={{ color: 'var(--vos-text-secondary)' }}
+                        className="border-none bg-transparent cursor-pointer p-0 text-xs hover:underline text-[var(--vos-text-secondary)]"
                         onClick={() => {
                           const colIdx = 0
                           if (columns.length > 1) {
@@ -4163,15 +4006,10 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                         const targetColIdx = i + 1
                         return (
                           <span key={segPath} className="flex items-center gap-0.5">
-                            <ChevronRight size={10} style={{ opacity: 0.4, flexShrink: 0 }} />
+                            <ChevronRight size={10} className="opacity-40 shrink-0" />
                             <button
                               type="button"
-                              className="border-none bg-transparent cursor-pointer p-0 text-xs truncate"
-                              style={{
-                                color: isLast ? 'var(--vos-text-primary)' : 'var(--vos-text-secondary)',
-                                fontWeight: isLast ? 500 : 400,
-                                maxWidth: 120
-                              }}
+                              className={`border-none bg-transparent cursor-pointer p-0 text-xs truncate max-w-[120px] ${isLast ? 'text-[var(--vos-text-primary)] font-medium' : 'text-[var(--vos-text-secondary)] font-normal'}`}
                               onClick={() => {
                                 if (isLast) return
                                 if (targetColIdx < columns.length) {
@@ -4197,8 +4035,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
               </div>
               <button
                 type="button"
-                className="vos-btn-reset"
-                style={{ color: 'var(--vos-accent-primary)' }}
+                className="vos-btn-reset text-[var(--vos-accent-primary)]"
                 onClick={async () => {
                   if (!selectedMount || columns.length === 0) return
                   const lastCol = columns[columns.length - 1]
@@ -4250,11 +4087,11 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <FolderOpen size={48} style={{ color: 'var(--vos-text-tertiary)', margin: '0 auto 12px' }} />
-              <div className="text-sm" style={{ color: 'var(--vos-text-secondary)' }}>
+              <FolderOpen size={48} className="text-[var(--vos-text-tertiary)] mx-auto mb-3" />
+              <div className="text-sm text-[var(--vos-text-secondary)]">
                 资源管理器
               </div>
-              <div className="text-xs mt-1" style={{ color: 'var(--vos-text-tertiary)' }}>
+              <div className="text-xs mt-1 text-[var(--vos-text-tertiary)]">
                 选择左侧存储源浏览文件
               </div>
             </div>

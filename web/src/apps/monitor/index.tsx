@@ -85,119 +85,9 @@ function usageColor(pct: number): string {
   return 'var(--vos-accent-success)'
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────
+// ─── CSS class constants ───────────────────────────────────────────────────
 
-const styles = {
-  root: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    height: '100%',
-    background: 'var(--vos-bg-primary)',
-    color: 'var(--vos-text-primary)',
-    overflow: 'hidden'
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '8px 16px',
-    borderBottom: '1px solid var(--vos-border-primary)',
-    fontSize: 12,
-    color: 'var(--vos-text-secondary)',
-    flexShrink: 0
-  },
-  body: {
-    display: 'flex',
-    flex: 1,
-    overflow: 'hidden'
-  },
-  sidebar: {
-    width: 120,
-    flexShrink: 0,
-    borderRight: '1px solid var(--vos-border-primary)',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    padding: '8px 0',
-    gap: 2
-  },
-  tabButton: (active: boolean) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '8px 16px',
-    border: 'none',
-    background: active ? 'var(--vos-accent-primary)' : 'transparent',
-    color: active ? '#fff' : 'var(--vos-text-primary)',
-    cursor: 'pointer',
-    fontSize: 13,
-    borderRadius: 6,
-    margin: '0 8px',
-    transition: 'background 0.15s'
-  }),
-  content: {
-    flex: 1,
-    overflow: 'auto',
-    padding: 16
-  },
-  section: {
-    marginBottom: 24
-  },
-  sectionTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    fontSize: 14,
-    fontWeight: 600,
-    marginBottom: 12,
-    color: 'var(--vos-text-primary)'
-  },
-  row: {
-    display: 'flex',
-    gap: 16,
-    flexWrap: 'wrap' as const,
-    alignItems: 'flex-start'
-  },
-  card: {
-    background: 'var(--vos-bg-secondary)',
-    borderRadius: 8,
-    padding: 12,
-    border: '1px solid var(--vos-border-primary)'
-  },
-  coreGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
-    gap: 8
-  },
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: 12
-  },
-  infoItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '6px 0',
-    fontSize: 12,
-    borderBottom: '1px solid var(--vos-border-secondary)'
-  },
-  infoLabel: {
-    color: 'var(--vos-text-secondary)'
-  },
-  infoValue: {
-    fontWeight: 500,
-    fontVariantNumeric: 'tabular-nums'
-  },
-  emptyState: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 40,
-    color: 'var(--vos-text-tertiary)',
-    fontSize: 13
-  }
-}
+const monCard = 'bg-[var(--vos-bg-secondary)] rounded-lg p-3 border border-[var(--vos-border-primary)]'
 
 // ─── Tab Content Components ────────────────────────────────────────────────
 
@@ -212,7 +102,7 @@ function SystemTab({
 }) {
   if (!metrics) {
     return (
-      <div style={styles.emptyState}>
+      <div className="vos-flex-col items-center justify-center gap-2 p-10 text-[var(--vos-text-tertiary)] text-[13px]">
         <Cpu size={32} />
         <span>正在获取系统指标…</span>
       </div>
@@ -241,12 +131,12 @@ function SystemTab({
   return (
     <>
       {/* CPU Section */}
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>
+      <div className="mb-6">
+        <div className="vos-flex-row gap-1.5 text-sm font-semibold mb-3 text-[var(--vos-text-primary)]">
           <Cpu size={15} /> CPU — {metrics.cpu.model_name}
         </div>
-        <div style={styles.row}>
-          <div style={styles.card}>
+        <div className="flex gap-4 flex-wrap items-start">
+          <div className={monCard}>
             <GaugeChart
               value={metrics.cpu.total_usage_percent}
               color={usageColor(metrics.cpu.total_usage_percent)}
@@ -254,16 +144,16 @@ function SystemTab({
               formatValue={formatPercent}
             />
           </div>
-          <div style={{ ...styles.card, flex: 1, minWidth: 260 }}>
+          <div className={`${monCard} flex-1 min-w-[260px]`}>
             <LineChart data={cpuSeries} width={400} height={120} formatValue={formatPercent} />
           </div>
         </div>
         {metrics.cpu.cores.length > 0 && (
-          <div style={{ ...styles.card, marginTop: 12 }}>
-            <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 8 }}>
+          <div className={`${monCard} mt-3`}>
+            <div className="text-xs text-[var(--vos-text-secondary)] mb-2">
               核心使用率 ({metrics.cpu.core_count} 核)
             </div>
-            <div style={styles.coreGrid}>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-2">
               {metrics.cpu.cores.map(c => (
                 <GaugeChart
                   key={c.core_id}
@@ -281,12 +171,12 @@ function SystemTab({
       </div>
 
       {/* Memory Section */}
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>
+      <div className="mb-6">
+        <div className="vos-flex-row gap-1.5 text-sm font-semibold mb-3 text-[var(--vos-text-primary)]">
           <MemoryStick size={15} /> 内存
         </div>
-        <div style={styles.row}>
-          <div style={styles.card}>
+        <div className="flex gap-4 flex-wrap items-start">
+          <div className={monCard}>
             <GaugeChart
               value={metrics.memory.usage_percent}
               color={usageColor(metrics.memory.usage_percent)}
@@ -294,12 +184,12 @@ function SystemTab({
               formatValue={formatPercent}
             />
             <div
-              style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginTop: 6, textAlign: 'center' as const }}
+              className="text-[11px] text-[var(--vos-text-secondary)] mt-1.5 text-center"
             >
               {formatBytes(metrics.memory.used_bytes)} / {formatBytes(metrics.memory.total_bytes)}
             </div>
           </div>
-          <div style={{ ...styles.card, flex: 1, minWidth: 260 }}>
+          <div className={`${monCard} flex-1 min-w-[260px]`}>
             <LineChart data={memSeries} width={400} height={120} formatValue={formatPercent} />
           </div>
         </div>
@@ -307,15 +197,9 @@ function SystemTab({
           (() => {
             const swapPct = (metrics.memory.swap_used_bytes / metrics.memory.swap_total_bytes) * 100
             return (
-              <div style={{ ...styles.card, marginTop: 12 }}>
+              <div className={`${monCard} mt-3`}>
                 <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: 12,
-                    color: 'var(--vos-text-secondary)',
-                    marginBottom: 6
-                  }}
+                  className="flex justify-between text-xs text-[var(--vos-text-secondary)] mb-1.5"
                 >
                   <span>Swap</span>
                   <span>
@@ -323,12 +207,11 @@ function SystemTab({
                   </span>
                 </div>
                 <div
-                  style={{ height: 6, borderRadius: 3, background: 'var(--vos-border-secondary)', overflow: 'hidden' }}
+                  className="h-1.5 rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden"
                 >
                   <div
+                    className="h-full rounded-[3px]"
                     style={{
-                      height: '100%',
-                      borderRadius: 3,
                       width: `${Math.min(swapPct, 100)}%`,
                       background: usageColor(swapPct),
                       transition: 'width 0.6s ease'
@@ -342,22 +225,16 @@ function SystemTab({
 
       {/* Disk Section */}
       {uniqueDisks.length > 0 && (
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>
+        <div className="mb-6">
+          <div className="vos-flex-row gap-1.5 text-sm font-semibold mb-3 text-[var(--vos-text-primary)]">
             <HardDrive size={15} /> 磁盘
           </div>
           {uniqueDisks.map(d => {
             const pct = d.total_bytes > 0 ? (d.used_bytes / d.total_bytes) * 100 : 0
             return (
-              <div key={d.device + d.mount_point} style={{ ...styles.card, marginBottom: 8 }}>
+              <div key={d.device + d.mount_point} className={`${monCard} mb-2`}>
                 <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: 12,
-                    color: 'var(--vos-text-secondary)',
-                    marginBottom: 6
-                  }}
+                  className="flex justify-between text-xs text-[var(--vos-text-secondary)] mb-1.5"
                 >
                   <span>
                     {d.mount_point} ({d.device})
@@ -367,12 +244,11 @@ function SystemTab({
                   </span>
                 </div>
                 <div
-                  style={{ height: 6, borderRadius: 3, background: 'var(--vos-border-secondary)', overflow: 'hidden' }}
+                  className="h-1.5 rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden"
                 >
                   <div
+                    className="h-full rounded-[3px]"
                     style={{
-                      height: '100%',
-                      borderRadius: 3,
                       width: `${Math.min(pct, 100)}%`,
                       background: usageColor(pct),
                       transition: 'width 0.6s ease'
@@ -401,7 +277,7 @@ function VentosTab({
 }) {
   if (!proc) {
     return (
-      <div style={styles.emptyState}>
+      <div className="vos-flex-col items-center justify-center gap-2 p-10 text-[var(--vos-text-tertiary)] text-[13px]">
         <Server size={32} />
         <span>正在获取进程指标…</span>
       </div>
@@ -415,40 +291,40 @@ function VentosTab({
 
   return (
     <>
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>
+      <div className="mb-6">
+        <div className="vos-flex-row gap-1.5 text-sm font-semibold mb-3 text-[var(--vos-text-primary)]">
           <Server size={15} /> VentoOS 进程
         </div>
-        <div style={styles.infoGrid}>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>PID</span>
-            <span style={styles.infoValue}>{proc.pid}</span>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+            <span className="text-[var(--vos-text-secondary)]">PID</span>
+            <span className="font-medium tabular-nums">{proc.pid}</span>
           </div>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>运行时间</span>
-            <span style={styles.infoValue}>{formatUptime(proc.uptime_seconds)}</span>
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+            <span className="text-[var(--vos-text-secondary)]">运行时间</span>
+            <span className="font-medium tabular-nums">{formatUptime(proc.uptime_seconds)}</span>
           </div>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>线程数</span>
-            <span style={styles.infoValue}>{proc.thread_count}</span>
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+            <span className="text-[var(--vos-text-secondary)]">线程数</span>
+            <span className="font-medium tabular-nums">{proc.thread_count}</span>
           </div>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>内存</span>
-            <span style={styles.infoValue}>{formatBytes(proc.memory_bytes)}</span>
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+            <span className="text-[var(--vos-text-secondary)]">内存</span>
+            <span className="font-medium tabular-nums">{formatBytes(proc.memory_bytes)}</span>
           </div>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>虚拟内存</span>
-            <span style={styles.infoValue}>{formatBytes(proc.virtual_memory_bytes)}</span>
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+            <span className="text-[var(--vos-text-secondary)]">虚拟内存</span>
+            <span className="font-medium tabular-nums">{formatBytes(proc.virtual_memory_bytes)}</span>
           </div>
         </div>
       </div>
 
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>
+      <div className="mb-6">
+        <div className="vos-flex-row gap-1.5 text-sm font-semibold mb-3 text-[var(--vos-text-primary)]">
           <Cpu size={15} /> CPU 使用率
         </div>
-        <div style={styles.row}>
-          <div style={styles.card}>
+        <div className="flex gap-4 flex-wrap items-start">
+          <div className={monCard}>
             <GaugeChart
               value={proc.cpu_usage_percent}
               color={usageColor(proc.cpu_usage_percent)}
@@ -456,18 +332,18 @@ function VentosTab({
               formatValue={formatPercent}
             />
           </div>
-          <div style={{ ...styles.card, flex: 1, minWidth: 260 }}>
+          <div className={`${monCard} flex-1 min-w-[260px]`}>
             <LineChart data={cpuSeries} width={400} height={120} formatValue={formatPercent} />
           </div>
         </div>
       </div>
 
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>
+      <div className="mb-6">
+        <div className="vos-flex-row gap-1.5 text-sm font-semibold mb-3 text-[var(--vos-text-primary)]">
           <MemoryStick size={15} /> 内存使用
         </div>
-        <div style={styles.row}>
-          <div style={styles.card}>
+        <div className="flex gap-4 flex-wrap items-start">
+          <div className={monCard}>
             <GaugeChart
               value={proc.memory_bytes}
               max={totalMemoryBytes || proc.memory_bytes * 2}
@@ -476,7 +352,7 @@ function VentosTab({
               formatValue={formatBytes}
             />
           </div>
-          <div style={{ ...styles.card, flex: 1, minWidth: 260 }}>
+          <div className={`${monCard} flex-1 min-w-[260px]`}>
             <LineChart data={memSeries} width={400} height={120} formatValue={v => formatBytes(v)} />
           </div>
         </div>
@@ -580,38 +456,38 @@ function WebTab() {
 
   return (
     <>
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>
+      <div className="mb-6">
+        <div className="vos-flex-row gap-1.5 text-sm font-semibold mb-3 text-[var(--vos-text-primary)]">
           <Globe size={15} /> 网页性能
         </div>
 
         {/* CPU Pressure */}
-        <div style={{ ...styles.card, marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
+        <div className={`${monCard} mb-3`}>
+          <div className="text-xs text-[var(--vos-text-secondary)] mb-1.5">
             CPU 压力 (Compute Pressure API)
           </div>
           {hasPressure ? (
-            <div style={{ fontSize: 14, fontWeight: 500 }}>
+            <div className="text-sm font-medium">
               {cpuPressure ? (pressureLabel[cpuPressure] ?? cpuPressure) : '等待采样…'}
             </div>
           ) : (
-            <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>当前浏览器不支持 Compute Pressure API</div>
+            <div className="text-xs text-[var(--vos-text-tertiary)]">当前浏览器不支持 Compute Pressure API</div>
           )}
         </div>
 
         {/* Device Memory */}
         {deviceMemory != null && (
-          <div style={{ ...styles.card, marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
+          <div className={`${monCard} mb-3`}>
+            <div className="text-xs text-[var(--vos-text-secondary)] mb-1.5">
               设备内存 (navigator.deviceMemory)
             </div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>约 {deviceMemory} GB</div>
+            <div className="text-sm font-medium">约 {deviceMemory} GB</div>
           </div>
         )}
 
         {/* JS Heap Memory */}
-        <div style={styles.card}>
-          <div style={{ fontSize: 12, color: 'var(--vos-text-secondary)', marginBottom: 6 }}>
+        <div className={monCard}>
+          <div className="text-xs text-[var(--vos-text-secondary)] mb-1.5">
             JS 堆内存
             {hasPreciseMem && ' (measureUserAgentSpecificMemory)'}
             {!hasPreciseMem && hasLegacyMem && ' (performance.memory)'}
@@ -619,46 +495,40 @@ function WebTab() {
           {hasAnyMem ? (
             memInfo ? (
               <>
-                <div style={{ display: 'flex', gap: 16, marginBottom: 8, flexWrap: 'wrap' as const }}>
+                <div className="flex gap-4 mb-2 flex-wrap">
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>已使用</div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{formatBytes(memInfo.used)}</div>
+                    <div className="text-[11px] text-[var(--vos-text-tertiary)]">已使用</div>
+                    <div className="text-sm font-semibold">{formatBytes(memInfo.used)}</div>
                   </div>
                   {memInfo.total !== memInfo.used && (
                     <div>
-                      <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>已分配</div>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{formatBytes(memInfo.total)}</div>
+                      <div className="text-[11px] text-[var(--vos-text-tertiary)]">已分配</div>
+                      <div className="text-sm font-semibold">{formatBytes(memInfo.total)}</div>
                     </div>
                   )}
                   {memInfo.limit > 0 && memInfo.limit !== memInfo.used && (
                     <div>
-                      <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>上限</div>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{formatBytes(memInfo.limit)}</div>
+                      <div className="text-[11px] text-[var(--vos-text-tertiary)]">上限</div>
+                      <div className="text-sm font-semibold">{formatBytes(memInfo.limit)}</div>
                     </div>
                   )}
                 </div>
                 {/* Usage bar */}
                 {memInfo.limit > 0 && (
-                  <div style={{ marginBottom: memInfo.breakdown?.length ? 12 : 0 }}>
+                  <div className={memInfo.breakdown?.length ? 'mb-3' : ''}>
                     <div
-                      style={{
-                        height: 8,
-                        borderRadius: 4,
-                        background: 'var(--vos-border-secondary)',
-                        overflow: 'hidden'
-                      }}
+                      className="h-2 rounded-[4px] bg-[var(--vos-border-secondary)] overflow-hidden"
                     >
                       <div
+                        className="h-full rounded-[4px]"
                         style={{
-                          height: '100%',
-                          borderRadius: 4,
                           width: `${Math.min((memInfo.used / memInfo.limit) * 100, 100)}%`,
                           background: usageColor((memInfo.used / memInfo.limit) * 100),
                           transition: 'width 0.6s ease'
                         }}
                       />
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 4 }}>
+                    <div className="text-[11px] text-[var(--vos-text-tertiary)] mt-1">
                       {((memInfo.used / memInfo.limit) * 100).toFixed(1)}% 已使用
                     </div>
                   </div>
@@ -666,7 +536,7 @@ function WebTab() {
                 {/* Breakdown (only from precise API) */}
                 {memInfo.breakdown && memInfo.breakdown.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--vos-text-secondary)', marginBottom: 4 }}>内存分布</div>
+                    <div className="text-[11px] text-[var(--vos-text-secondary)] mb-1">内存分布</div>
                     <BarChart
                       items={memInfo.breakdown.map(b => ({
                         label: b.name,
@@ -679,10 +549,10 @@ function WebTab() {
                 )}
               </>
             ) : (
-              <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>正在测量…</div>
+              <div className="text-xs text-[var(--vos-text-tertiary)]">正在测量…</div>
             )
           ) : (
-            <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>当前浏览器不支持内存测量 API</div>
+            <div className="text-xs text-[var(--vos-text-tertiary)]">当前浏览器不支持内存测量 API</div>
           )}
         </div>
       </div>
@@ -716,8 +586,9 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
   const ventosIntervalRef = useRef<ReturnType<typeof setInterval>>()
   const trayIntervalRef = useRef<ReturnType<typeof setInterval>>()
 
-  // Latest CPU for tray
+  // Latest CPU/Memory for tray
   const latestCpuRef = useRef(0)
+  const latestMemRef = useRef({ used_bytes: 0, total_bytes: 0 })
 
   // ── Load settings ──────────────────────────────────────────────────────
 
@@ -746,6 +617,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
       if (res.data) {
         setSystemMetrics(res.data)
         latestCpuRef.current = res.data.cpu.total_usage_percent
+        latestMemRef.current = { used_bytes: res.data.memory.used_bytes, total_bytes: res.data.memory.total_bytes }
         setCpuHistory(h => pushHistory(h, res.data.cpu.total_usage_percent))
         setMemHistory(h => pushHistory(h, res.data.memory.usage_percent))
       }
@@ -800,14 +672,24 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
 
     const updateTray = () => {
       const cpu = latestCpuRef.current
+      const mem = latestMemRef.current
+      const memUsedGB = (mem.used_bytes / (1024 * 1024 * 1024)).toFixed(0)
+      const memTotalGB = (mem.total_bytes / (1024 * 1024 * 1024)).toFixed(0)
       registerAppTray('monitor', {
-        icon: <Activity size={13} />,
-        tooltip: `CPU: ${cpu.toFixed(1)}%`,
-        badge: `${Math.round(cpu)}%`,
-        badgeColor: usageColor(cpu),
+        tooltip: `CPU: ${cpu.toFixed(1)}% | 内存: ${memUsedGB}/${memTotalGB}GB`,
         visible: true,
         priority: 5,
-        onClick: () => openWindow('monitor')
+        onClick: () => openWindow('monitor'),
+        render: () => (
+          <div
+            className="vos-flex-col items-center justify-center leading-[1.2] text-[9px] font-[var(--vos-font-mono,ui-monospace,monospace)] font-semibold text-[var(--vos-text-primary)] min-w-[42px] px-0.5"
+          >
+            <span style={{ color: usageColor(cpu) }}>{cpu.toFixed(1)}%</span>
+            <span className="text-[8px] text-[var(--vos-text-secondary)]">
+              {memUsedGB}/{memTotalGB}GB
+            </span>
+          </div>
+        )
       })
     }
 
@@ -912,7 +794,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
         {
           id: 'trayEnabled',
           label: '在托盘显示',
-          description: '在系统托盘显示 CPU 使用率',
+          description: '在系统托盘显示 CPU 和内存使用率',
           type: 'switch',
           value: settings.trayEnabled,
           onChange: v => updateSettings({ trayEnabled: v as boolean })
@@ -949,18 +831,18 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div style={styles.root}>
+    <div className="vos-flex-col h-full bg-[var(--vos-bg-primary)] text-[var(--vos-text-primary)] overflow-hidden">
       {/* Header */}
-      <div style={styles.header}>
+      <div className="vos-flex-row gap-2 px-4 py-2 border-b border-[var(--vos-border-primary)] text-xs text-[var(--vos-text-secondary)] shrink-0">
         <Activity size={14} />
         {systemMetrics ? (
           <>
             <span>{systemMetrics.hostname}</span>
-            <span style={{ opacity: 0.5 }}>|</span>
+            <span className="opacity-50">|</span>
             <span>{systemMetrics.os_type}</span>
-            <span style={{ opacity: 0.5 }}>|</span>
+            <span className="opacity-50">|</span>
             <span>{systemMetrics.cpu.core_count} 核</span>
-            <span style={{ opacity: 0.5 }}>|</span>
+            <span className="opacity-50">|</span>
             <span>{formatBytes(systemMetrics.memory.total_bytes)} 内存</span>
           </>
         ) : (
@@ -968,11 +850,11 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
         )}
       </div>
 
-      <div style={styles.body}>
+      <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div style={styles.sidebar}>
+        <div className="w-[120px] shrink-0 border-r border-[var(--vos-border-primary)] vos-flex-col py-2 gap-[2px]">
           {tabs.map(t => (
-            <button key={t.id} type="button" style={styles.tabButton(tab === t.id)} onClick={() => setTab(t.id)}>
+            <button key={t.id} type="button" className={`vos-flex-row gap-2 px-4 py-2 border-none cursor-pointer text-[13px] rounded-[6px] mx-2 transition-[background] duration-150 ${tab === t.id ? 'bg-[var(--vos-accent-primary)] text-white' : 'bg-transparent text-[var(--vos-text-primary)]'}`} onClick={() => setTab(t.id)}>
               <t.icon size={14} />
               {t.label}
             </button>
@@ -980,7 +862,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
         </div>
 
         {/* Content */}
-        <div style={styles.content}>
+        <div className="flex-1 overflow-auto p-4">
           {tab === 'system' && <SystemTab metrics={systemMetrics} cpuHistory={cpuHistory} memHistory={memHistory} />}
           {tab === 'ventos' && (
             <VentosTab

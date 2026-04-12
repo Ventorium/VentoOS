@@ -26,24 +26,18 @@ function NewItemInput({
     requestAnimationFrame(() => inputRef.current?.focus())
   }, [])
   return (
-    <div className="flex items-center gap-1 py-0.5" style={{ paddingLeft: 8 + depth * 12, paddingRight: 6 }}>
+    <div className="flex items-center gap-1 py-0.5 pr-[6px]" style={{ paddingLeft: 8 + depth * 12 }}>
       {isDir ? (
-        <Folder size={12} style={{ flexShrink: 0, color: '#e8a320' }} />
+        <Folder size={12} className="shrink-0 text-[#e8a320]" />
       ) : (
-        <File size={12} style={{ flexShrink: 0, color: 'var(--vos-text-tertiary)' }} />
+        <File size={12} className="shrink-0 text-[var(--vos-text-tertiary)]" />
       )}
       <input
         ref={inputRef}
         type="text"
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="flex-1 ml-1 px-1 text-xs outline-none rounded"
-        style={{
-          background: 'var(--vos-bg-input)',
-          color: 'var(--vos-text-primary)',
-          border: '1px solid var(--vos-accent-primary)',
-          height: 18
-        }}
+        className="flex-1 ml-1 px-1 text-xs outline-none rounded bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)] border border-[var(--vos-accent-primary)] h-[18px]"
         onKeyDown={e => {
           if (e.key === 'Enter') {
             e.preventDefault()
@@ -124,15 +118,11 @@ export default function FileTreeNode({
       <div
         role="button"
         tabIndex={-1}
-        className="flex items-center gap-1 cursor-pointer select-none group"
+        className="flex items-center gap-1 cursor-pointer select-none group py-[2px] pr-[6px] text-[12.5px]"
         style={{
           paddingLeft: 8 + depth * 12,
-          paddingTop: 2,
-          paddingBottom: 2,
-          paddingRight: 6,
           background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
-          color: isActive ? '#fff' : 'var(--vos-text-secondary)',
-          fontSize: 12.5
+          color: isActive ? '#fff' : 'var(--vos-text-secondary)'
         }}
         onMouseEnter={e => {
           if (!isActive) e.currentTarget.style.background = 'var(--vos-bg-item-hover)'
@@ -155,25 +145,24 @@ export default function FileTreeNode({
           <>
             <ChevronRight
               size={11}
+              className="shrink-0 transition-transform duration-100"
               style={{
-                flexShrink: 0,
-                transition: 'transform 0.1s',
                 transform: entry.expanded ? 'rotate(90deg)' : 'none'
               }}
             />
             {entry.expanded ? (
-              <FolderOpen size={12} style={{ flexShrink: 0, color: isActive ? '#fff' : '#e8a320' }} />
+              <FolderOpen size={12} className={`shrink-0 ${isActive ? 'text-white' : 'text-[#e8a320]'}`} />
             ) : (
-              <Folder size={12} style={{ flexShrink: 0, color: isActive ? '#fff' : '#e8a320' }} />
+              <Folder size={12} className={`shrink-0 ${isActive ? 'text-white' : 'text-[#e8a320]'}`} />
             )}
           </>
         ) : (
           <>
-            <span style={{ width: 11, flexShrink: 0 }} />
+            <span className="w-[11px] shrink-0" />
             {FileIconComp ? (
-              <FileIconComp size={12} style={{ flexShrink: 0, color: isActive ? '#fff' : fileIconInfo.color }} />
+              <FileIconComp size={12} className="shrink-0" style={{ color: isActive ? '#fff' : fileIconInfo.color }} />
             ) : (
-              <File size={12} style={{ flexShrink: 0, color: isActive ? '#fff' : 'var(--vos-text-tertiary)' }} />
+              <File size={12} className="shrink-0" style={{ color: isActive ? '#fff' : 'var(--vos-text-tertiary)' }} />
             )}
           </>
         )}
@@ -183,13 +172,7 @@ export default function FileTreeNode({
             type="text"
             value={renameValue}
             onChange={e => onRenameChange(e.target.value)}
-            className="flex-1 ml-1 px-1 text-xs outline-none rounded"
-            style={{
-              background: 'var(--vos-bg-input)',
-              color: 'var(--vos-text-primary)',
-              border: '1px solid var(--vos-accent-primary)',
-              height: 18
-            }}
+            className="flex-1 ml-1 px-1 text-xs outline-none rounded bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)] border border-[var(--vos-accent-primary)] h-[18px]"
             onClick={e => e.stopPropagation()}
             onKeyDown={e => {
               if (e.key === 'Enter') {

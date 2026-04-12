@@ -20,8 +20,6 @@ import { openWindow, useAppStorage } from '@/kernel'
 import type { AgentConfig, AgentProfile, ChatSession, ProviderConfig, StreamEvent } from './api'
 import { agentApi } from './api'
 
-const panelBorder = '0.5px solid var(--vos-border-subtle)'
-
 function SelectInput({
   value,
   onChange,
@@ -37,8 +35,7 @@ function SelectInput({
     <select
       value={value ?? ''}
       onChange={e => onChange(e.target.value)}
-      className="w-full text-xs rounded-lg px-2 py-1.5 border-none outline-none"
-      style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)' }}
+      className="w-full text-xs rounded-lg px-2 py-1.5 border-none outline-none bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)]"
     >
       <option value="">{placeholder ?? '请选择'}</option>
       {options.map(option => (
@@ -57,22 +54,14 @@ function MessageBubble({ msg }: { msg: ChatSession['messages'][number] }) {
     return (
       <div className="flex gap-3 mb-3">
         <div
-          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-          style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-tertiary)' }}
+          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]"
         >
           <Terminal size={14} />
         </div>
         <div
-          className="max-w-[80%] px-3 py-2 rounded-lg text-xs leading-relaxed"
-          style={{
-            color: 'var(--vos-text-secondary)',
-            border: panelBorder,
-            fontFamily: 'monospace',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all'
-          }}
+          className="max-w-[80%] px-3 py-2 rounded-lg text-xs leading-relaxed text-[var(--vos-text-secondary)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] font-mono whitespace-pre-wrap break-all"
         >
-          <div className="text-xs mb-1" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <div className="text-xs mb-1 text-[var(--vos-text-tertiary)]">
             <Wrench size={10} className="inline mr-1" />
             {msg.name ?? 'tool'}
           </div>
@@ -97,12 +86,11 @@ function MessageBubble({ msg }: { msg: ChatSession['messages'][number] }) {
         {isUser ? <User size={14} /> : <Sparkles size={14} />}
       </div>
       <div
-        className="max-w-[72%] px-3 py-2 rounded-lg text-sm leading-relaxed"
+        className="max-w-[72%] px-3 py-2 rounded-lg text-sm leading-relaxed whitespace-pre-wrap"
         style={{
           background: isUser ? 'var(--vos-accent-primary)' : 'var(--vos-bg-surface)',
           color: isUser ? '#fff' : 'var(--vos-text-primary)',
-          borderRadius: isUser ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-          whiteSpace: 'pre-wrap'
+          borderRadius: isUser ? '12px 12px 4px 12px' : '12px 12px 12px 4px'
         }}
       >
         {msg.content ?? ''}
@@ -116,12 +104,11 @@ function ToolCallEvent({ event }: { event: StreamEvent }) {
     return (
       <div className="flex gap-3 mb-2">
         <div
-          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-          style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-tertiary)' }}
+          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]"
         >
           <Wrench size={14} />
         </div>
-        <div className="text-xs py-2" style={{ color: 'var(--vos-text-tertiary)' }}>
+        <div className="text-xs py-2 text-[var(--vos-text-tertiary)]">
           Calling <strong>{event.name}</strong>...
         </div>
       </div>
@@ -141,19 +128,12 @@ function ToolCallEvent({ event }: { event: StreamEvent }) {
           <Terminal size={14} />
         </div>
         <div
-          className="max-w-[80%] px-3 py-2 rounded-lg text-xs"
-          style={{
-            background: 'var(--vos-bg-surface)',
-            border: panelBorder,
-            fontFamily: 'monospace',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all'
-          }}
+          className="max-w-[80%] px-3 py-2 rounded-lg text-xs bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] font-mono whitespace-pre-wrap break-all"
         >
-          <div className="mb-1" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <div className="mb-1 text-[var(--vos-text-tertiary)]">
             {event.name} → {event.success ? '✓' : '✗'}
           </div>
-          <div style={{ color: 'var(--vos-text-secondary)' }}>
+          <div className="text-[var(--vos-text-secondary)]">
             {event.content.slice(0, 300)}
             {event.content.length > 300 && '...'}
           </div>
@@ -313,16 +293,15 @@ export default function AIAssistantApp(_props: AppComponentProps) {
 
   return (
     <div className="flex h-full">
-      <div className="flex flex-col flex-shrink-0 overflow-auto" style={{ width: 220, borderRight: panelBorder }}>
+      <div className="flex flex-col flex-shrink-0 overflow-auto w-[220px] border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)]">
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
-          <span className="text-xs font-medium" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <span className="text-xs font-medium text-[var(--vos-text-tertiary)]">
             会话
           </span>
           <div className="flex items-center gap-1">
             <button
               type="button"
-              className="vos-btn-reset"
-              style={{ color: 'var(--vos-text-tertiary)' }}
+              className="vos-btn-reset text-[var(--vos-text-tertiary)]"
               onClick={() => openWindow('settings', { appState: { category: 'ai' } })}
               title="AI 设置"
             >
@@ -330,8 +309,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
             </button>
             <button
               type="button"
-              className="vos-btn-reset"
-              style={{ color: 'var(--vos-accent-primary)' }}
+              className="vos-btn-reset text-[var(--vos-accent-primary)]"
               onClick={newSession}
               title="New Session"
             >
@@ -345,14 +323,13 @@ export default function AIAssistantApp(_props: AppComponentProps) {
             className="flex items-center gap-1.5 px-2 py-1 text-xs cursor-pointer group"
             style={{ background: currentSession === session.id ? 'var(--vos-bg-item-hover)' : 'transparent' }}
           >
-            <MessageSquare size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
+            <MessageSquare size={12} className="text-[var(--vos-text-tertiary)]" />
             <span className="flex-1 truncate" onClick={() => void selectSession(session.id)} onKeyDown={() => {}}>
               {session.title}
             </span>
             <button
               type="button"
-              className="hidden group-hover:block vos-btn-reset"
-              style={{ color: 'var(--vos-text-tertiary)' }}
+              className="hidden group-hover:block vos-btn-reset text-[var(--vos-text-tertiary)]"
               onClick={() => void deleteSession(session.id)}
             >
               <Trash2 size={10} />
@@ -362,16 +339,15 @@ export default function AIAssistantApp(_props: AppComponentProps) {
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ borderBottom: panelBorder }}>
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
           <div className="flex items-center gap-2">
-            <Wand2 size={16} style={{ color: 'var(--vos-accent-primary)' }} />
+            <Wand2 size={16} className="text-[var(--vos-accent-primary)]" />
             <span className="text-sm font-medium">AI 助手</span>
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
-              className="vos-btn-reset p-1.5 rounded-lg"
-              style={{ color: 'var(--vos-text-tertiary)' }}
+              className="vos-btn-reset p-1.5 rounded-lg text-[var(--vos-text-tertiary)]"
               onClick={() => openWindow('settings', { appState: { category: 'ai' } })}
               title="AI 设置"
             >
@@ -392,15 +368,13 @@ export default function AIAssistantApp(_props: AppComponentProps) {
               />
             </div>
             <div
-              className="flex items-center gap-1.5 text-[11px] px-2 py-1.5 rounded-lg"
-              style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-tertiary)' }}
+              className="flex items-center gap-1.5 text-[11px] px-2 py-1.5 rounded-lg bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]"
             >
               <Cpu size={12} />
               {activeProvider ? activeProvider.name : '未配置 Provider'}
             </div>
             <div
-              className="flex items-center gap-1.5 text-[11px] px-2 py-1.5 rounded-lg"
-              style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-tertiary)' }}
+              className="flex items-center gap-1.5 text-[11px] px-2 py-1.5 rounded-lg bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]"
             >
               <Bot size={12} />
               {activeProfile ? activeProfile.name : '未选择 Agent'}
@@ -412,11 +386,11 @@ export default function AIAssistantApp(_props: AppComponentProps) {
           {messages.length === 0 && !streamingContent && (
             <div className="flex-1 flex items-center justify-center h-full">
               <div className="text-center max-w-[520px]">
-                <Sparkles size={36} style={{ color: 'var(--vos-text-tertiary)', margin: '0 auto 12px' }} />
-                <div className="text-sm" style={{ color: 'var(--vos-text-secondary)' }}>
+                <Sparkles size={36} className="text-[var(--vos-text-tertiary)] mx-auto mb-3" />
+                <div className="text-sm text-[var(--vos-text-secondary)]">
                   VentoOS AI Control Center
                 </div>
-                <div className="text-xs mt-2" style={{ color: 'var(--vos-text-tertiary)' }}>
+                <div className="text-xs mt-2 text-[var(--vos-text-tertiary)]">
                   配置 provider、执行 1+1 最小探针、切换预设 / 自定义 agent，然后开始对话。
                 </div>
               </div>
@@ -434,19 +408,12 @@ export default function AIAssistantApp(_props: AppComponentProps) {
           {streamingContent && (
             <div className="flex gap-3 mb-4">
               <div
-                className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-                style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
+                className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-accent-primary)] text-white"
               >
                 <Sparkles size={14} />
               </div>
               <div
-                className="max-w-[72%] px-3 py-2 rounded-lg text-sm leading-relaxed"
-                style={{
-                  background: 'var(--vos-bg-surface)',
-                  color: 'var(--vos-text-primary)',
-                  borderRadius: '12px 12px 12px 4px',
-                  whiteSpace: 'pre-wrap'
-                }}
+                className="max-w-[72%] px-3 py-2 text-sm leading-relaxed bg-[var(--vos-bg-surface)] text-[var(--vos-text-primary)] rounded-[12px_12px_12px_4px] whitespace-pre-wrap"
               >
                 {streamingContent}
                 <span className="animate-pulse">▊</span>
@@ -457,13 +424,12 @@ export default function AIAssistantApp(_props: AppComponentProps) {
           {sending && !streamingContent && toolEvents.length === 0 && (
             <div className="flex gap-3 mb-4">
               <div
-                className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-                style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
+                className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-accent-primary)] text-white"
               >
                 <Sparkles size={14} />
               </div>
-              <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--vos-bg-surface)' }}>
-                <Loader2 size={14} className="animate-spin" style={{ color: 'var(--vos-text-tertiary)' }} />
+              <div className="px-3 py-2 rounded-lg bg-[var(--vos-bg-surface)]">
+                <Loader2 size={14} className="animate-spin text-[var(--vos-text-tertiary)]" />
               </div>
             </div>
           )}
@@ -471,20 +437,19 @@ export default function AIAssistantApp(_props: AppComponentProps) {
           <div ref={bottomRef} />
         </div>
 
-        <div className="px-4 py-3 flex-shrink-0" style={{ borderTop: panelBorder }}>
+          <div className="px-4 py-3 flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)]">
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <div>
               <input
                 type="text"
-                className="w-full text-sm bg-transparent border-none outline-none rounded-lg px-3 py-2"
-                style={{ background: 'var(--vos-bg-input)', color: 'var(--vos-text-primary)' }}
+                className="w-full text-sm bg-transparent border-none outline-none rounded-lg px-3 py-2 bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)]"
                 placeholder={providers.length === 0 ? '请先在系统设置中配置 Provider...' : '输入消息…'}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && void handleSend()}
                 disabled={providers.length === 0 || !selectedAgentId}
               />
-              <div className="flex items-center gap-4 mt-2 text-[11px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+              <div className="flex items-center gap-4 mt-2 text-[11px] text-[var(--vos-text-tertiary)]">
                 <span className="flex items-center gap-1">
                   <Bot size={11} />
                   {activeProfile?.description ?? '请选择 Agent Profile'}
@@ -500,8 +465,7 @@ export default function AIAssistantApp(_props: AppComponentProps) {
             </div>
             <button
               type="button"
-              className="flex items-center justify-center w-9 h-9 rounded-lg border-none cursor-pointer self-start"
-              style={{ background: 'var(--vos-accent-primary)', color: '#fff' }}
+              className="flex items-center justify-center w-9 h-9 rounded-lg border-none cursor-pointer self-start bg-[var(--vos-accent-primary)] text-white"
               onClick={() => void handleSend()}
               disabled={sending || providers.length === 0 || !selectedAgentId}
             >

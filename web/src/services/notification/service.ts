@@ -24,10 +24,16 @@ function maybeSendNativeNotification(item: NotificationItem): void {
   if (Notification.permission !== 'granted') return
 
   try {
-    new Notification(item.title, {
+    const nativeNotif = new Notification(item.title, {
       body: item.message,
       tag: item.id
     })
+    // Sync: clicking the native notification marks it as read in our store
+    nativeNotif.onclick = () => {
+      window.focus()
+      useNotificationStore.getState().markAsRead(item.id)
+      nativeNotif.close()
+    }
   } catch {
     // Silently fail — some environments don't support Notification constructor
   }

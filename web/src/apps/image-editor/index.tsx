@@ -12,6 +12,7 @@
  */
 
 import { AnimatePresence } from 'framer-motion'
+import { cn } from '@/lib/utils'
 import {
   Crop,
   Download,
@@ -366,32 +367,14 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
 
   // ── Tool button style ──
   const toolBtn = (active: boolean) =>
-    ({
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: 32,
-      height: 32,
-      borderRadius: 6,
-      border: 'none',
-      cursor: 'pointer',
-      background: active ? 'var(--vos-accent-primary)' : 'transparent',
-      color: active ? '#fff' : 'var(--vos-text-secondary)'
-    }) as const
+    cn(
+      'vos-flex-center w-[32px] h-[32px] rounded-md border-none cursor-pointer',
+      active ? 'bg-[var(--vos-accent-primary)] text-white' : 'bg-transparent text-[var(--vos-text-secondary)]'
+    )
 
   if (error) {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--vos-text-tertiary)',
-          fontSize: 13
-        }}
-      >
+      <div className="w-full h-full vos-flex-center text-[var(--vos-text-tertiary)] text-[13px]">
         {error}
       </div>
     )
@@ -399,60 +382,31 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
 
   if (!loaded) {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--vos-text-tertiary)',
-          fontSize: 13
-        }}
-      >
+      <div className="w-full h-full vos-flex-center text-[var(--vos-text-tertiary)] text-[13px]">
         加载中…
       </div>
     )
   }
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--vos-bg-primary)'
-      }}
-    >
+    <div className="w-full h-full flex flex-col bg-[var(--vos-bg-primary)]">
       {/* Toolbar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          padding: '4px 8px',
-          borderBottom: '1px solid var(--vos-border-subtle)',
-          background: 'var(--vos-bg-secondary)',
-          flexShrink: 0,
-          flexWrap: 'wrap'
-        }}
-      >
+      <div className="flex items-center gap-[2px] px-2 py-1 border-b border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] shrink-0 flex-wrap">
         {/* Tools group */}
-        <button type="button" title="移动" style={toolBtn(tool === 'move')} onClick={() => setTool('move')}>
+        <button type="button" title="移动" className={toolBtn(tool === 'move')} onClick={() => setTool('move')}>
           <Move size={16} />
         </button>
-        <button type="button" title="画笔" style={toolBtn(tool === 'brush')} onClick={() => setTool('brush')}>
+        <button type="button" title="画笔" className={toolBtn(tool === 'brush')} onClick={() => setTool('brush')}>
           <Paintbrush size={16} />
         </button>
-        <button type="button" title="橡皮擦" style={toolBtn(tool === 'eraser')} onClick={() => setTool('eraser')}>
+        <button type="button" title="橡皮擦" className={toolBtn(tool === 'eraser')} onClick={() => setTool('eraser')}>
           <Eraser size={16} />
         </button>
-        <button type="button" title="裁剪" style={toolBtn(tool === 'crop')} onClick={() => setTool('crop')}>
+        <button type="button" title="裁剪" className={toolBtn(tool === 'crop')} onClick={() => setTool('crop')}>
           <Crop size={16} />
         </button>
 
-        <div style={{ width: 1, height: 20, background: 'var(--vos-border-subtle)', margin: '0 4px' }} />
+        <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
 
         {/* Brush options */}
         {(tool === 'brush' || tool === 'eraser') && (
@@ -462,19 +416,11 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
                 type="color"
                 value={brushColor}
                 onChange={e => setBrushColor(e.target.value)}
-                style={{ width: 28, height: 28, border: 'none', borderRadius: 4, cursor: 'pointer', padding: 0 }}
+                className="w-[28px] h-[28px] border-none rounded cursor-pointer p-0"
                 title="画笔颜色"
               />
             )}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                fontSize: 11,
-                color: 'var(--vos-text-secondary)'
-              }}
-            >
+            <div className="flex items-center gap-1 text-[11px] text-[var(--vos-text-secondary)]">
               <Minus size={12} />
               <input
                 type="range"
@@ -482,26 +428,26 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
                 max={50}
                 value={brushSize}
                 onChange={e => setBrushSize(Number(e.target.value))}
-                style={{ width: 80, accentColor: 'var(--vos-accent-primary)' }}
+                className="w-[80px] accent-[var(--vos-accent-primary)]"
               />
               <Plus size={12} />
-              <span style={{ minWidth: 20 }}>{brushSize}</span>
+              <span className="min-w-[20px]">{brushSize}</span>
             </div>
           </>
         )}
 
         {/* Transform group */}
-        <div style={{ width: 1, height: 20, background: 'var(--vos-border-subtle)', margin: '0 4px' }} />
-        <button type="button" title="逆时针旋转" style={toolBtn(false)} onClick={() => rotate(-90)}>
+        <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
+        <button type="button" title="逆时针旋转" className={toolBtn(false)} onClick={() => rotate(-90)}>
           <RotateCcw size={16} />
         </button>
-        <button type="button" title="顺时针旋转" style={toolBtn(false)} onClick={() => rotate(90)}>
+        <button type="button" title="顺时针旋转" className={toolBtn(false)} onClick={() => rotate(90)}>
           <RotateCw size={16} />
         </button>
-        <button type="button" title="水平翻转" style={toolBtn(false)} onClick={() => flip('h')}>
+        <button type="button" title="水平翻转" className={toolBtn(false)} onClick={() => flip('h')}>
           <FlipHorizontal2 size={16} />
         </button>
-        <button type="button" title="垂直翻转" style={toolBtn(false)} onClick={() => flip('v')}>
+        <button type="button" title="垂直翻转" className={toolBtn(false)} onClick={() => flip('v')}>
           <FlipVertical2 size={16} />
         </button>
 
@@ -509,61 +455,47 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
           <button
             type="button"
             title="应用裁剪"
-            style={{
-              ...toolBtn(false),
-              background: 'var(--vos-accent-success)',
-              color: '#fff',
-              fontSize: 11,
-              width: 'auto',
-              padding: '0 8px'
-            }}
+            className={cn(toolBtn(false), 'bg-[var(--vos-accent-success)] text-white text-[11px] w-auto px-2')}
             onClick={applyCrop}
           >
             应用裁剪
           </button>
         )}
 
-        <div style={{ width: 1, height: 20, background: 'var(--vos-border-subtle)', margin: '0 4px' }} />
+        <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
 
         {/* Undo / Redo */}
-        <button type="button" title="撤销" style={toolBtn(false)} onClick={undo}>
+        <button type="button" title="撤销" className={toolBtn(false)} onClick={undo}>
           <Undo2 size={16} />
         </button>
-        <button type="button" title="重做" style={toolBtn(false)} onClick={redo}>
+        <button type="button" title="重做" className={toolBtn(false)} onClick={redo}>
           <Redo2 size={16} />
         </button>
 
-        <div style={{ width: 1, height: 20, background: 'var(--vos-border-subtle)', margin: '0 4px' }} />
+        <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
 
         {/* Zoom */}
-        <button type="button" title="缩小" style={toolBtn(false)} onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}>
+        <button type="button" title="缩小" className={toolBtn(false)} onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}>
           <Minus size={14} />
         </button>
-        <span style={{ fontSize: 11, color: 'var(--vos-text-secondary)', minWidth: 40, textAlign: 'center' }}>
+        <span className="text-[11px] text-[var(--vos-text-secondary)] min-w-[40px] text-center">
           {Math.round(zoom * 100)}%
         </span>
-        <button type="button" title="放大" style={toolBtn(false)} onClick={() => setZoom(z => Math.min(10, z + 0.1))}>
+        <button type="button" title="放大" className={toolBtn(false)} onClick={() => setZoom(z => Math.min(10, z + 0.1))}>
           <ZoomIn size={14} />
         </button>
 
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
 
         {/* Info */}
-        <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)' }}>
+        <span className="text-[11px] text-[var(--vos-text-tertiary)]">
           {imgSize.w} × {imgSize.h}
         </span>
 
         {/* Export */}
         <button
           type="button"
-          style={{
-            ...toolBtn(false),
-            width: 'auto',
-            padding: '0 10px',
-            gap: 4,
-            display: 'flex',
-            fontSize: 12
-          }}
+          className={cn(toolBtn(false), 'w-auto px-[10px] gap-1 flex text-xs')}
           onClick={() => setShowExport(true)}
         >
           <Download size={14} />
@@ -574,10 +506,8 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
       {/* Canvas area */}
       <div
         ref={containerRef}
+        className="flex-1 overflow-hidden relative"
         style={{
-          flex: 1,
-          overflow: 'hidden',
-          position: 'relative',
           background: 'repeating-conic-gradient(#e5e5e5 0% 25%, #fff 0% 50%) 50% / 16px 16px',
           cursor:
             tool === 'move'
@@ -594,17 +524,13 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
         onMouseLeave={handleMouseUp}
       >
         <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`
-          }}
+          className="absolute left-1/2 top-1/2"
+          style={{ transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)` }}
         >
           <canvas
             ref={canvasRef}
+            className="block"
             style={{
-              display: 'block',
               transform: `scale(${zoom})`,
               transformOrigin: 'top left',
               imageRendering: zoom > 2 ? 'pixelated' : 'auto'
@@ -613,15 +539,12 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
           {/* Crop overlay */}
           {cropRect && (
             <div
+              className="absolute border-2 border-dashed border-[var(--vos-accent-primary)] bg-[rgba(59,130,246,0.1)] pointer-events-none"
               style={{
-                position: 'absolute',
                 left: cropRect.x * zoom,
                 top: cropRect.y * zoom,
                 width: cropRect.w * zoom,
-                height: cropRect.h * zoom,
-                border: '2px dashed var(--vos-accent-primary)',
-                background: 'rgba(59,130,246,0.1)',
-                pointerEvents: 'none'
+                height: cropRect.h * zoom
               }}
             />
           )}
@@ -631,59 +554,38 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
       {/* Export dialog */}
       {showExport && (
         <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(0,0,0,0.4)',
-            zIndex: 100
-          }}
+          className="absolute inset-0 vos-flex-center bg-[rgba(0,0,0,0.4)] z-[100]"
           onClick={() => setShowExport(false)}
         >
           <div
-            style={{
-              background: 'var(--vos-bg-secondary)',
-              borderRadius: 12,
-              padding: 20,
-              width: 320,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12
-            }}
+            className="bg-[var(--vos-bg-secondary)] rounded-xl p-5 w-[320px] flex flex-col gap-3"
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--vos-text-primary)' }}>导出图片</span>
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-sm text-[var(--vos-text-primary)]">导出图片</span>
               <button
                 type="button"
                 onClick={() => setShowExport(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--vos-text-tertiary)' }}
+                className="bg-transparent border-none cursor-pointer text-[var(--vos-text-tertiary)]"
               >
                 <X size={16} />
               </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontSize: 12, color: 'var(--vos-text-secondary)' }}>格式</label>
-              <div style={{ display: 'flex', gap: 6 }}>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-[var(--vos-text-secondary)]">格式</label>
+              <div className="flex gap-[6px]">
                 {(['png', 'jpeg', 'webp'] as const).map(fmt => (
                   <button
                     key={fmt}
                     type="button"
                     onClick={() => setExportFormat(fmt)}
+                    className="flex-1 py-[6px] rounded-md text-[var(--vos-text-primary)] cursor-pointer text-xs"
                     style={{
-                      flex: 1,
-                      padding: '6px 0',
-                      borderRadius: 6,
                       border:
                         exportFormat === fmt
                           ? '2px solid var(--vos-accent-primary)'
                           : '1px solid var(--vos-border-subtle)',
                       background: exportFormat === fmt ? 'var(--vos-accent-primary-bg)' : 'transparent',
-                      color: 'var(--vos-text-primary)',
-                      cursor: 'pointer',
-                      fontSize: 12,
                       fontWeight: exportFormat === fmt ? 600 : 400
                     }}
                   >
@@ -693,8 +595,8 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
               </div>
             </div>
             {exportFormat !== 'png' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={{ fontSize: 12, color: 'var(--vos-text-secondary)' }}>质量: {exportQuality}%</label>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-[var(--vos-text-secondary)]">质量: {exportQuality}%</label>
                 <input
                   type="range"
                   min={10}
@@ -702,23 +604,14 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
                   step={5}
                   value={exportQuality}
                   onChange={e => setExportQuality(Number(e.target.value))}
-                  style={{ accentColor: 'var(--vos-accent-primary)' }}
+                  className="accent-[var(--vos-accent-primary)]"
                 />
               </div>
             )}
             <button
               type="button"
               onClick={handleExport}
-              style={{
-                padding: '8px 0',
-                borderRadius: 8,
-                border: 'none',
-                background: 'var(--vos-accent-primary)',
-                color: '#fff',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: 13
-              }}
+              className="py-2 rounded-lg border-none bg-[var(--vos-accent-primary)] text-white cursor-pointer font-semibold text-[13px]"
             >
               导出
             </button>

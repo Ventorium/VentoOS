@@ -4,11 +4,11 @@ import { type TaskItem, useTaskStore } from '@/services/task'
 import { tokens } from '@/theme'
 
 const statusIcon: Record<TaskItem['status'], React.ReactNode> = {
-  queued: <Clock size={14} style={{ color: 'var(--vos-text-tertiary)' }} />,
-  running: <Loader2 size={14} className="animate-spin" style={{ color: 'var(--vos-accent-primary)' }} />,
-  success: <CheckCircle size={14} style={{ color: 'var(--vos-accent-success)' }} />,
-  failed: <XCircle size={14} style={{ color: 'var(--vos-accent-danger)' }} />,
-  cancelled: <X size={14} style={{ color: 'var(--vos-text-tertiary)' }} />
+  queued: <Clock size={14} className="text-[var(--vos-text-tertiary)]" />,
+  running: <Loader2 size={14} className="animate-spin text-[var(--vos-accent-primary)]" />,
+  success: <CheckCircle size={14} className="text-[var(--vos-accent-success)]" />,
+  failed: <XCircle size={14} className="text-[var(--vos-accent-danger)]" />,
+  cancelled: <X size={14} className="text-[var(--vos-text-tertiary)]" />
 }
 
 function TaskRow({ task }: { task: TaskItem }) {
@@ -16,28 +16,23 @@ function TaskRow({ task }: { task: TaskItem }) {
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-2.5"
-      style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+      className="flex items-center gap-3 px-4 py-2.5 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
     >
       {statusIcon[task.status]}
       <div className="flex-1 min-w-0">
         <div className="text-xs font-medium truncate">{task.name}</div>
         {task.progress != null && task.status === 'running' && (
-          <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ background: 'var(--vos-bg-input)' }}>
+          <div className="mt-1 h-1 rounded-full overflow-hidden bg-[var(--vos-bg-input)]">
             <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${task.progress}%`,
-                background: 'var(--vos-accent-primary)'
-              }}
+              className="h-full rounded-full transition-all bg-[var(--vos-accent-primary)]"
+              style={{ width: `${task.progress}%` }}
             />
           </div>
         )}
       </div>
       <button
         type="button"
-        className="vos-btn-reset flex-shrink-0"
-        style={{ color: 'var(--vos-text-tertiary)' }}
+        className="vos-btn-reset flex-shrink-0 text-[var(--vos-text-tertiary)]"
         onClick={() => removeTask(task.id)}
       >
         <X size={12} />
@@ -56,29 +51,21 @@ export default function TaskCenter() {
     <AnimatePresence>
       {panelOpen && (
         <>
-          <div role="presentation" className="fixed inset-0" style={{ zIndex: 2999 }} onClick={() => setPanel(false)} />
+          <div role="presentation" className="fixed inset-0 z-[2999]" onClick={() => setPanel(false)} />
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.15 }}
-            className="vos-glass-heavy fixed flex flex-col"
+            className="vos-glass-heavy fixed flex flex-col right-[356px] w-[320px] max-h-[calc(100vh-100px)] bg-[var(--vos-bg-overlay)] border-[0.5px] border-solid border-[var(--vos-border-default)] z-[3000] text-[var(--vos-text-primary)]"
             style={{
               top: tokens.topBar.height + 8,
-              right: 356,
-              width: 320,
-              maxHeight: 'calc(100vh - 100px)',
               borderRadius: tokens.radius.panel,
-              background: 'var(--vos-bg-overlay)',
-              border: '0.5px solid var(--vos-border-default)',
-              boxShadow: tokens.shadow.overlay,
-              zIndex: 3000,
-              color: 'var(--vos-text-primary)'
+              boxShadow: tokens.shadow.overlay
             }}
           >
             <div
-              className="flex items-center justify-between px-4 py-3"
-              style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+              className="flex items-center justify-between px-4 py-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
             >
               <div className="flex items-center gap-2">
                 <Activity size={14} />
@@ -86,8 +73,7 @@ export default function TaskCenter() {
               </div>
               <button
                 type="button"
-                className="text-[11px] bg-transparent border-none cursor-pointer"
-                style={{ color: 'var(--vos-text-tertiary)' }}
+                className="text-[11px] bg-transparent border-none cursor-pointer text-[var(--vos-text-tertiary)]"
                 onClick={clearCompleted}
               >
                 Clear completed
@@ -96,10 +82,7 @@ export default function TaskCenter() {
 
             <div className="flex-1 overflow-auto">
               {tasks.length === 0 ? (
-                <div
-                  className="flex items-center justify-center py-12 text-xs"
-                  style={{ color: 'var(--vos-text-tertiary)' }}
-                >
+                <div className="flex items-center justify-center py-12 text-xs text-[var(--vos-text-tertiary)]">
                   No tasks
                 </div>
               ) : (

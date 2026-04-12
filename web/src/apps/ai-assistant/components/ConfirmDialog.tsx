@@ -70,8 +70,8 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="mx-3 my-2 rounded-lg overflow-hidden"
-      style={{ border: `1px solid ${riskColor}`, background: 'var(--vos-bg-surface)' }}
+      className="mx-3 my-2 rounded-lg overflow-hidden bg-[var(--vos-bg-surface)]"
+      style={{ border: `1px solid ${riskColor}` }}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2" style={{ background: `${riskColor}15` }}>
@@ -88,8 +88,8 @@ export default function ConfirmDialog({
       {/* Body */}
       <div className="px-3 py-2">
         <div className="text-xs mb-2">
-          <span style={{ color: 'var(--vos-text-tertiary)' }}>Tool: </span>
-          <span className="font-mono font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+          <span className="text-[var(--vos-text-tertiary)]">Tool: </span>
+          <span className="font-mono font-medium text-[var(--vos-text-primary)]">
             {toolName}
           </span>
         </div>
@@ -97,8 +97,7 @@ export default function ConfirmDialog({
         {/* Arguments toggle */}
         <button
           type="button"
-          className="flex items-center gap-1 bg-transparent border-none cursor-pointer text-[10px] mb-2 p-0"
-          style={{ color: 'var(--vos-text-tertiary)' }}
+          className="flex items-center gap-1 bg-transparent border-none cursor-pointer text-[10px] mb-2 p-0 text-[var(--vos-text-tertiary)]"
           onClick={() => setExpanded(!expanded)}
         >
           {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
@@ -107,23 +106,14 @@ export default function ConfirmDialog({
 
         {expanded && (
           <pre
-            className="text-[11px] p-2 rounded overflow-x-auto mb-2"
-            style={{
-              background: 'var(--vos-bg-input)',
-              color: 'var(--vos-text-secondary)',
-              fontFamily: "'SF Mono', Menlo, monospace",
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-              maxHeight: 200,
-              overflow: 'auto'
-            }}
+            className="text-[11px] p-2 rounded overflow-x-auto mb-2 bg-[var(--vos-bg-input)] text-[var(--vos-text-secondary)] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto"
           >
             {parsedArgs}
           </pre>
         )}
 
         {/* Countdown */}
-        <div className="text-[10px] mb-2" style={{ color: 'var(--vos-text-tertiary)' }}>
+        <div className="text-[10px] mb-2 text-[var(--vos-text-tertiary)]">
           将在 {countdown} 秒后自动拒绝
         </div>
 
@@ -131,20 +121,15 @@ export default function ConfirmDialog({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border-none cursor-pointer"
-            style={{ background: riskColor, color: '#fff' }}
+            className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border-none cursor-pointer text-white"
+            style={{ background: riskColor }}
             onClick={handleApprove}
           >
             批准执行
           </button>
           <button
             type="button"
-            className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer"
-            style={{
-              background: 'transparent',
-              color: 'var(--vos-text-secondary)',
-              border: '0.5px solid var(--vos-border-subtle)'
-            }}
+            className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer bg-transparent text-[var(--vos-text-secondary)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
             onClick={handleDeny}
           >
             拒绝

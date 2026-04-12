@@ -242,8 +242,8 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <div
-      className="flex flex-col h-full overflow-hidden relative"
-      style={{ background: 'var(--vos-bg-window)', userSelect: resizingRef.current ? 'none' : 'auto' }}
+      className="flex flex-col h-full overflow-hidden relative bg-[var(--vos-bg-window)]"
+      style={{ userSelect: resizingRef.current ? 'none' : 'auto' }}
     >
       {/* ── Main row: ActivityBar + Sidebar + Editor ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">
@@ -254,11 +254,9 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
         {sidebarOpen && (
           <>
             <div
-              className="flex flex-col flex-shrink-0 overflow-hidden"
+              className="flex flex-col flex-shrink-0 overflow-hidden border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
               style={{
-                width: sidebarWidth,
-                borderRight: '0.5px solid var(--vos-border-subtle)',
-                background: 'var(--vos-bg-surface)'
+                width: sidebarWidth
               }}
             >
               {sidebarView === 'files' ? <FileTree onRefresh={handleRefreshWorkspace} /> : <SearchPanel />}
@@ -266,7 +264,7 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
 
             {/* ── Resize Handle ── */}
             <div
-              style={{ width: 4, cursor: 'col-resize', background: 'transparent', flexShrink: 0 }}
+              className="w-[4px] cursor-col-resize bg-transparent shrink-0"
               onMouseDown={e => {
                 e.preventDefault()
                 resizingRef.current = true

@@ -193,38 +193,21 @@ export default function WebShell({ target = 'local', paneId, cwd, shell, onClose
   const bgImage = terminalSettings.backgroundImage
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-        overflow: 'hidden'
-      }}
-    >
+    <div className="w-full h-full relative overflow-hidden">
       {bgImage && (
         <div
+          className="absolute inset-0 bg-cover bg-center pointer-events-none z-0"
           style={{
-            position: 'absolute',
-            inset: 0,
             backgroundImage: `url(${bgImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            opacity: 1 - opacity,
-            pointerEvents: 'none',
-            zIndex: 0
+            opacity: 1 - opacity
           }}
         />
       )}
       <div
         ref={containerRef}
+        className="w-full h-full overflow-hidden relative z-[1] px-[6px] py-1"
         style={{
-          width: '100%',
-          height: '100%',
           background: terminalSettings.backgroundColor ?? '#0d0d0d',
-          padding: '4px 6px',
-          overflow: 'hidden',
-          position: 'relative',
-          zIndex: 1,
           opacity
         }}
       />

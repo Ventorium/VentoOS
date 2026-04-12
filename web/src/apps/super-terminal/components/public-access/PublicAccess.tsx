@@ -87,30 +87,13 @@ function TunnelCard({
 
   return (
     <div
-      className="pa-card"
-      style={{
-        background: '#1e1e1e',
-        border: '1px solid #333',
-        borderRadius: 8,
-        padding: 16,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12
-      }}
+      className="pa-card bg-[#1e1e1e] border border-[#333] rounded-[8px] p-4 flex flex-col gap-3"
     >
       {/* Header: provider + status + actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Globe size={18} style={{ color: statusColor(exposure.status), flexShrink: 0 }} />
+      <div className="flex items-center gap-2">
+        <Globe size={18} className="shrink-0" style={{ color: statusColor(exposure.status) }} />
         <span
-          style={{
-            fontSize: 14,
-            fontWeight: 500,
-            color: 'var(--vos-text-primary)',
-            flex: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
+          className="text-[14px] font-medium text-[var(--vos-text-primary)] flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
         >
           {providerLabel}
         </span>
@@ -118,13 +101,10 @@ function TunnelCard({
       </div>
 
       {/* Local service address */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-        <span style={{ color: 'var(--vos-text-tertiary)' }}>本地服务:</span>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-[var(--vos-text-tertiary)]">本地服务:</span>
         <span
-          style={{
-            fontFamily: 'monospace',
-            color: 'var(--vos-text-secondary)'
-          }}
+          className="font-mono text-[var(--vos-text-secondary)]"
         >
           {exposure.source_host}:{exposure.source_port}
         </span>
@@ -132,22 +112,13 @@ function TunnelCard({
 
       {/* Public URL (if tunnel provides one) */}
       {isRunning && exposure.public_url && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-          <span style={{ color: 'var(--vos-text-tertiary)' }}>公网地址:</span>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-[var(--vos-text-tertiary)]">公网地址:</span>
           <a
             href={exposure.public_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="pa-url"
-            style={{
-              fontFamily: 'monospace',
-              color: 'var(--vos-accent-primary)',
-              textDecoration: 'none',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: 220
-            }}
+            className="pa-url font-mono text-[var(--vos-accent-primary)] no-underline overflow-hidden text-ellipsis whitespace-nowrap max-w-[220px]"
           >
             {exposure.public_url}
           </a>
@@ -156,13 +127,10 @@ function TunnelCard({
 
       {/* Public port (fallback when no URL) */}
       {isRunning && !exposure.public_url && exposure.public_port > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-          <span style={{ color: 'var(--vos-text-tertiary)' }}>公网端口:</span>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-[var(--vos-text-tertiary)]">公网端口:</span>
           <span
-            style={{
-              fontFamily: 'monospace',
-              color: 'var(--vos-accent-primary)'
-            }}
+            className="font-mono text-[var(--vos-accent-primary)]"
           >
             {exposure.public_port}
           </span>
@@ -171,21 +139,21 @@ function TunnelCard({
 
       {/* Starting indicator */}
       {isRunning && !hasPublicInfo && (
-        <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)', fontStyle: 'italic' }}>
+        <div className="text-xs text-[var(--vos-text-tertiary)] italic">
           正在建立隧道，等待公网地址…
         </div>
       )}
 
       {/* Actions row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderTop: '1px solid #2a2a2a', paddingTop: 12 }}>
+      <div className="flex items-center gap-1.5 border-t border-t-[#2a2a2a] pt-3">
         {isRunning ? (
           <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onStop}>
-            <Square size={14} style={{ marginRight: 4, color: 'var(--vos-accent-warning)' }} />
+            <Square size={14} className="mr-1 text-[var(--vos-accent-warning)]" />
             停止
           </button>
         ) : (
           <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onStart}>
-            <Play size={14} style={{ marginRight: 4, color: 'var(--vos-accent-success)' }} />
+            <Play size={14} className="mr-1 text-[var(--vos-accent-success)]" />
             启动
           </button>
         )}
@@ -193,29 +161,19 @@ function TunnelCard({
         {isRunning && hasPublicInfo && (
           <button
             type="button"
-            className="vos-btn vos-btn-ghost vos-btn-sm pa-action-btn"
-            style={{ opacity: 1 }}
+            className="vos-btn vos-btn-ghost vos-btn-sm pa-action-btn opacity-100"
             onClick={() => window.open(exposure.public_url ?? `http://localhost:${exposure.public_port}`, '_blank')}
           >
-            <ExternalLink size={14} style={{ marginRight: 4 }} />
+            <ExternalLink size={14} className="mr-1" />
             打开
           </button>
         )}
 
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
 
         <button
           type="button"
-          className="pa-action-btn"
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 4,
-            color: 'var(--vos-accent-danger)',
-            display: 'flex',
-            alignItems: 'center'
-          }}
+          className="pa-action-btn bg-transparent border-none cursor-pointer p-1 text-[var(--vos-accent-danger)] flex items-center"
           title="删除"
           onClick={onDelete}
         >
@@ -287,29 +245,6 @@ function TunnelFormModal({
     }
   }
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: 12,
-    color: 'var(--vos-text-secondary)',
-    marginBottom: 4
-  }
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '6px 10px',
-    fontSize: 13,
-    background: '#1a1a1a',
-    border: '1px solid #333',
-    borderRadius: 4,
-    color: 'var(--vos-text-primary)',
-    outline: 'none',
-    boxSizing: 'border-box'
-  }
-  const selectStyle: React.CSSProperties = {
-    ...inputStyle,
-    appearance: 'auto'
-  }
-  const rowStyle: React.CSSProperties = { marginBottom: 12 }
-
   const canSubmit = form.localAddress.trim() && (!isCustom || form.customCommand.trim())
 
   return (
@@ -319,7 +254,7 @@ function TunnelFormModal({
       title="新建隧道"
       width={500}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="flex justify-end gap-2">
           <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
             取消
           </button>
@@ -334,11 +269,11 @@ function TunnelFormModal({
         </div>
       }
     >
-      <div style={rowStyle}>
-        <label style={labelStyle}>
-          服务提供商 <span style={{ color: '#ff453a' }}>*</span>
+      <div className="mb-3">
+        <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
+          服务提供商 <span className="text-[#ff453a]">*</span>
         </label>
-        <select style={selectStyle} value={form.providerId} onChange={e => updateField('providerId', e.target.value)}>
+        <select className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border appearance-auto" value={form.providerId} onChange={e => updateField('providerId', e.target.value)}>
           {publicAccessProviders.map(p => (
             <option key={p.id} value={p.id}>
               {p.name} — {p.description}
@@ -348,28 +283,28 @@ function TunnelFormModal({
         </select>
       </div>
 
-      <div style={rowStyle}>
-        <label style={labelStyle}>
-          本地服务地址 <span style={{ color: '#ff453a' }}>*</span>
+      <div className="mb-3">
+        <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
+          本地服务地址 <span className="text-[#ff453a]">*</span>
         </label>
         <input
-          style={inputStyle}
+          className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border"
           value={form.localAddress}
           onChange={e => updateField('localAddress', e.target.value)}
           placeholder="localhost:3000"
         />
-        <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', marginTop: 2, display: 'block' }}>
+        <span className="text-[11px] text-[var(--vos-text-tertiary)] mt-0.5 block">
           要暴露到公网的本地服务地址
         </span>
       </div>
 
       {isCustom && (
-        <div style={rowStyle}>
-          <label style={labelStyle}>
-            自定义 SSH 命令 <span style={{ color: '#ff453a' }}>*</span>
+        <div className="mb-3">
+          <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
+            自定义 SSH 命令 <span className="text-[#ff453a]">*</span>
           </label>
           <input
-            style={inputStyle}
+            className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border"
             value={form.customCommand}
             onChange={e => updateField('customCommand', e.target.value)}
             placeholder="ssh -R 80:localhost:3000 serveo.net"
@@ -379,19 +314,10 @@ function TunnelFormModal({
 
       {/* SSH command preview */}
       {sshCommand && (
-        <div style={rowStyle}>
-          <label style={labelStyle}>SSH 命令预览</label>
+        <div className="mb-3">
+          <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">SSH 命令预览</label>
           <div
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #333',
-              borderRadius: 4,
-              fontFamily: '"JetBrains Mono", "Fira Code", Menlo, Monaco, monospace',
-              fontSize: 12,
-              color: 'var(--vos-accent-success)',
-              lineHeight: 1.6,
-              wordBreak: 'break-all'
-            }}
+            className="py-2 px-3 border border-[#333] rounded font-mono text-xs text-[var(--vos-accent-success)] leading-[1.6] break-all"
           >
             {sshCommand}
           </div>
@@ -421,7 +347,7 @@ function DeleteConfirmModal({
       title="确认删除"
       width={380}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="flex justify-end gap-2">
           <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
             取消
           </button>
@@ -431,7 +357,7 @@ function DeleteConfirmModal({
         </div>
       }
     >
-      <p style={{ fontSize: 13, color: 'var(--vos-text-secondary)', margin: 0 }}>{message}</p>
+      <p className="text-[13px] text-[var(--vos-text-secondary)] m-0">{message}</p>
     </Modal>
   )
 }
@@ -528,28 +454,21 @@ export default function PublicAccess() {
   // ── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1a1a1a' }}>
+    <div className="flex flex-col h-full bg-[#1a1a1a]">
       <style>{hoverStyles}</style>
 
       {/* Toolbar */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '8px 16px',
-          borderBottom: '1px solid #333',
-          flexShrink: 0
-        }}
+        className="flex items-center gap-2 px-4 py-2 border-b border-b-[#333] shrink-0"
       >
         <button type="button" className="vos-btn vos-btn-primary vos-btn-sm" onClick={() => setFormOpen(true)}>
-          <Plus size={14} style={{ marginRight: 4 }} />
+          <Plus size={14} className="mr-1" />
           新建隧道
         </button>
 
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
 
-        <span style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>共 {exposures.length} 个</span>
+        <span className="text-xs text-[var(--vos-text-tertiary)]">共 {exposures.length} 个</span>
       </div>
 
       {/* Content */}
@@ -560,22 +479,14 @@ export default function PublicAccess() {
           description="通过 SSH 隧道服务将本地服务暴露到公网"
           action={
             <button type="button" className="vos-btn vos-btn-primary vos-btn-sm" onClick={() => setFormOpen(true)}>
-              <Plus size={14} style={{ marginRight: 4 }} />
+              <Plus size={14} className="mr-1" />
               新建隧道
             </button>
           }
         />
       ) : (
         <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: 16,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: 12,
-            alignContent: 'start'
-          }}
+          className="flex-1 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3 content-start"
         >
           {exposures.map(exposure => (
             <TunnelCard

@@ -84,11 +84,7 @@ export default function CommandPalette() {
         <>
           <div
             role="presentation"
-            className="fixed inset-0"
-            style={{
-              zIndex: 3999,
-              background: 'rgba(0,0,0,0.25)'
-            }}
+            className="fixed inset-0 z-[3999] bg-black/25"
             onClick={() => setOpen(false)}
           />
           <motion.div
@@ -96,33 +92,21 @@ export default function CommandPalette() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="vos-glass-heavy fixed flex flex-col"
+            className="vos-glass-heavy fixed flex flex-col top-[18%] left-1/2 -translate-x-1/2 w-[520px] max-h-[400px] bg-[var(--vos-bg-overlay)] border-[0.5px] border-solid border-[var(--vos-border-default)] z-[4000] text-[var(--vos-text-primary)] overflow-hidden"
             style={{
-              top: '18%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 520,
-              maxHeight: 400,
               borderRadius: tokens.radius.panel,
-              background: 'var(--vos-bg-overlay)',
-              border: '0.5px solid var(--vos-border-default)',
-              boxShadow: tokens.shadow.overlay,
-              zIndex: 4000,
-              color: 'var(--vos-text-primary)',
-              overflow: 'hidden'
+              boxShadow: tokens.shadow.overlay
             }}
           >
             {/* Search input */}
             <div
-              className="flex items-center gap-2 px-4"
-              style={{ borderBottom: '0.5px solid var(--vos-border-subtle)', height: 48 }}
+              className="flex items-center gap-2 px-4 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] h-12"
             >
-              <Search size={16} style={{ color: 'var(--vos-text-tertiary)', flexShrink: 0 }} />
+              <Search size={16} className="text-[var(--vos-text-tertiary)] shrink-0" />
               <input
                 ref={inputRef}
                 type="text"
-                className="flex-1 bg-transparent border-none outline-none text-sm"
-                style={{ color: 'var(--vos-text-primary)' }}
+                className="flex-1 bg-transparent border-none outline-none text-sm text-[var(--vos-text-primary)]"
                 placeholder="Type a command…"
                 value={query}
                 onChange={e => {
@@ -132,12 +116,7 @@ export default function CommandPalette() {
                 onKeyDown={onKeyDown}
               />
               <kbd
-                className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded"
-                style={{
-                  background: 'var(--vos-bg-input)',
-                  color: 'var(--vos-text-tertiary)',
-                  border: '0.5px solid var(--vos-border-default)'
-                }}
+                className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)] border-[0.5px] border-solid border-[var(--vos-border-default)]"
               >
                 ⌘K
               </kbd>
@@ -146,10 +125,7 @@ export default function CommandPalette() {
             {/* Results */}
             <div className="flex-1 overflow-auto py-2">
               {filtered.length === 0 ? (
-                <div
-                  className="flex items-center justify-center py-8 text-xs"
-                  style={{ color: 'var(--vos-text-tertiary)' }}
-                >
+                <div className="flex items-center justify-center py-8 text-xs text-[var(--vos-text-tertiary)]">
                   No results
                 </div>
               ) : (

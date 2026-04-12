@@ -94,41 +94,19 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
 
   if (error) {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          background: 'var(--vos-bg-primary)'
-        }}
-      >
-        <Type size={48} style={{ opacity: 0.3, color: 'var(--vos-text-tertiary)' }} />
-        <div style={{ fontSize: 14, color: 'var(--vos-text-secondary)' }}>无法预览字体</div>
-        <div style={{ fontSize: 12, color: 'var(--vos-text-tertiary)' }}>{error}</div>
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-[var(--vos-bg-primary)]">
+        <Type size={48} className="opacity-30 text-[var(--vos-text-tertiary)]" />
+        <div className="text-sm text-[var(--vos-text-secondary)]">无法预览字体</div>
+        <div className="text-xs text-[var(--vos-text-tertiary)]">{error}</div>
       </div>
     )
   }
 
   if (!loaded) {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          background: 'var(--vos-bg-primary)'
-        }}
-      >
-        <Type size={32} style={{ opacity: 0.4, color: 'var(--vos-text-tertiary)' }} />
-        <div style={{ fontSize: 13, color: 'var(--vos-text-tertiary)' }}>正在加载字体…</div>
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-[var(--vos-bg-primary)]">
+        <Type size={32} className="opacity-40 text-[var(--vos-text-tertiary)]" />
+        <div className="text-[13px] text-[var(--vos-text-tertiary)]">正在加载字体…</div>
       </div>
     )
   }
@@ -136,29 +114,11 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
   const fontStyle = { fontFamily: `"${fontFamily}"` }
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--vos-bg-primary)'
-      }}
-    >
+    <div className="w-full h-full flex flex-col bg-[var(--vos-bg-primary)]">
       {/* Toolbar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '6px 12px',
-          borderBottom: '1px solid var(--vos-border-subtle)',
-          background: 'var(--vos-bg-secondary)',
-          flexShrink: 0
-        }}
-      >
-        <Type size={16} style={{ color: 'var(--vos-accent-info)' }} />
-        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--vos-text-primary)', flex: 1, ...fontStyle }}>
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] shrink-0">
+        <Type size={16} className="text-[var(--vos-accent-info)]" />
+        <span className="text-[13px] font-medium text-[var(--vos-text-primary)] flex-1" style={fontStyle}>
           {node?.name ?? 'Font'}
         </span>
 
@@ -168,15 +128,7 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            style={{
-              padding: '3px 10px',
-              fontSize: 11,
-              borderRadius: 4,
-              border: 'none',
-              cursor: 'pointer',
-              background: activeTab === tab ? 'var(--vos-accent-primary)' : 'transparent',
-              color: activeTab === tab ? '#fff' : 'var(--vos-text-secondary)'
-            }}
+            className={`px-[10px] py-[3px] text-[11px] rounded border-none cursor-pointer ${activeTab === tab ? 'bg-[var(--vos-accent-primary)] text-white' : 'bg-transparent text-[var(--vos-text-secondary)]'}`}
           >
             {tab === 'preview' ? '预览' : '字符表'}
           </button>
@@ -185,18 +137,7 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
         <button
           type="button"
           onClick={handleDownload}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '4px 10px',
-            fontSize: 12,
-            borderRadius: 6,
-            border: 'none',
-            cursor: 'pointer',
-            background: 'transparent',
-            color: 'var(--vos-text-secondary)'
-          }}
+          className="flex items-center gap-1 px-[10px] py-1 text-xs rounded-md border-none cursor-pointer bg-transparent text-[var(--vos-text-secondary)]"
         >
           <Download size={14} />
           下载
@@ -204,80 +145,48 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
       </div>
 
       {/* Custom text input */}
-      <div
-        style={{
-          padding: '6px 12px',
-          borderBottom: '1px solid var(--vos-border-subtle)',
-          flexShrink: 0
-        }}
-      >
+      <div className="px-3 py-1.5 border-b border-b-solid border-b-[var(--vos-border-subtle)] shrink-0">
         <input
           type="text"
           placeholder="输入自定义预览文本…"
           value={customText}
           onChange={e => setCustomText(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '6px 8px',
-            fontSize: 14,
-            borderRadius: 6,
-            border: '1px solid var(--vos-border-subtle)',
-            background: 'var(--vos-bg-secondary)',
-            color: 'var(--vos-text-primary)',
-            outline: 'none',
-            ...fontStyle
-          }}
+          className="w-full px-2 py-1.5 text-sm rounded-md border border-solid border-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] text-[var(--vos-text-primary)] outline-none"
+          style={fontStyle}
         />
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+      <div className="flex-1 overflow-auto p-4">
         {activeTab === 'preview' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div className="flex flex-col gap-6">
             {/* Large hero preview */}
             <div
-              style={{
-                ...fontStyle,
-                fontSize: 48,
-                lineHeight: 1.3,
-                color: 'var(--vos-text-primary)',
-                wordBreak: 'break-word'
-              }}
+              className="text-[48px] leading-[1.3] text-[var(--vos-text-primary)] break-words"
+              style={fontStyle}
             >
               {customText || SAMPLE_TEXT_EN}
             </div>
 
             {/* Chinese sample */}
             <div
-              style={{
-                ...fontStyle,
-                fontSize: 32,
-                lineHeight: 1.5,
-                color: 'var(--vos-text-primary)',
-                wordBreak: 'break-word'
-              }}
+              className="text-[32px] leading-[1.5] text-[var(--vos-text-primary)] break-words"
+              style={fontStyle}
             >
               {customText || SAMPLE_TEXT_CN}
             </div>
 
             {/* All sizes */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: 'var(--vos-text-tertiary)',
-                  textTransform: 'uppercase',
-                  letterSpacing: 1
-                }}
-              >
+            <div className="flex flex-col gap-3">
+              <div className="text-[11px] text-[var(--vos-text-tertiary)] uppercase tracking-[1px]">
                 各尺寸预览
               </div>
               {PREVIEW_SIZES.map(size => (
-                <div key={size} style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-                  <span style={{ fontSize: 11, color: 'var(--vos-text-tertiary)', minWidth: 32, textAlign: 'right' }}>
+                <div key={size} className="flex items-baseline gap-3">
+                  <span className="text-[11px] text-[var(--vos-text-tertiary)] min-w-[32px] text-right">
                     {size}px
                   </span>
-                  <span style={{ ...fontStyle, fontSize: size, lineHeight: 1.4, color: 'var(--vos-text-primary)' }}>
+                  <span className="leading-[1.4] text-[var(--vos-text-primary)]" style={{ ...fontStyle, fontSize: size }}>
                     {customText || SAMPLE_TEXT_NUM}
                   </span>
                 </div>
@@ -286,31 +195,16 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
           </div>
         ) : (
           /* Character grid */
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))',
-              gap: 4
-            }}
-          >
+          <div className="grid gap-1 grid-cols-[repeat(auto-fill,minmax(48px,1fr))]">
             {SAMPLE_CHARS.split('').map((char, i) => (
               <div
                 key={`${char}-${i}`}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 6,
-                  borderRadius: 6,
-                  border: '1px solid var(--vos-border-subtle)',
-                  background: 'var(--vos-bg-secondary)'
-                }}
+                className="flex flex-col items-center justify-center p-[6px] rounded-md border border-solid border-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)]"
               >
-                <span style={{ ...fontStyle, fontSize: 24, lineHeight: 1.2, color: 'var(--vos-text-primary)' }}>
+                <span className="text-[24px] leading-[1.2] text-[var(--vos-text-primary)]" style={fontStyle}>
                   {char}
                 </span>
-                <span style={{ fontSize: 9, color: 'var(--vos-text-tertiary)', marginTop: 2 }}>
+                <span className="text-[9px] text-[var(--vos-text-tertiary)] mt-[2px]">
                   U+{char.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}
                 </span>
               </div>

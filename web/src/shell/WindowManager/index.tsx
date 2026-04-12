@@ -12,15 +12,7 @@ export default function WindowManager() {
   const windows = useWindowStore(s => s.windows)
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        overflow: 'hidden',
-        pointerEvents: 'none',
-        zIndex: 100
-      }}
-    >
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-[100]">
       <AnimatePresence>
         {windows.map(win => {
           const AppComponent = getAppComponent(win.appId)
@@ -30,16 +22,7 @@ export default function WindowManager() {
               {AppComponent ? (
                 <AppComponent windowId={win.id} processId={win.processId ?? 0} initialAppState={win.appState} />
               ) : (
-                <div
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--vos-text-tertiary)',
-                    fontSize: 13
-                  }}
-                >
+                <div className="flex-1 flex items-center justify-center text-[var(--vos-text-tertiary)] text-[13px]">
                   未找到应用: {win.appId}
                 </div>
               )}
