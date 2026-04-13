@@ -69,12 +69,11 @@ cmd_build() {
     # ── Compile extension ─────────────────────────────────────────────
     info "Compiling FileProvider extension …"
 
-    local swift_files=(
+    local ext_swift_files=(
         "${SOURCES}/VentoAPIClient.swift"
         "${SOURCES}/FileProviderItem.swift"
         "${SOURCES}/FileProviderEnumerator.swift"
         "${SOURCES}/Extension.swift"
-        "${SOURCES}/DomainManager.swift"
     )
 
     swiftc \
@@ -83,40 +82,43 @@ cmd_build() {
         -F "$(xcrun --show-sdk-path)/System/Library/Frameworks" \
         -framework FileProvider \
         -framework UniformTypeIdentifiers \
+        -framework Network \
         -emit-library \
         -module-name VentoFSFileProvider \
         -o "${APPEX_BUNDLE}/Contents/MacOS/VentoFSFileProvider" \
-        "${swift_files[@]}"
+        "${ext_swift_files[@]}"
 
     # Remove Swift module artifacts that break codesigning
     rm -f "${APPEX_BUNDLE}/Contents/MacOS/"*.abi.json
     rm -f "${APPEX_BUNDLE}/Contents/MacOS/"*.swiftmodule
     rm -f "${APPEX_BUNDLE}/Contents/MacOS/"*.swiftdoc
 
-    # ── Compile minimal host app ──────────────────────────────────────
-    info "Compiling host app …"
+    # ── Compile host app (domain manager CLI) ────────────────────────
+    info "Compiling host app (domain manager CLI) …"
 
-    local host_main="${BUILD_DIR}/HostMain.swift"
-    cat > "${host_main}" <<'SWIFT'
-import Foundation
-// Minimal host app — the extension runs inside the appex, not here.
-// This binary exists only to satisfy the bundle structure requirement.
-RunLoop.current.run(until: Date(timeIntervalSinceNow: 1))
-SWIFT
+    local host_swift_files=(
+        "${SOURCES}/DomainManager.swift"
+        "${SOURCES}/main.swift"
+    )
 
     swiftc \
         -target "arm64-apple-macos${MIN_MACOS}" \
         -sdk "$(xcrun --show-sdk-path)" \
+        -F "$(xcrun --show-sdk-path)/System/Library/Frameworks" \
+        -framework FileProvider \
         -o "${APP_BUNDLE}/Contents/MacOS/VentoFS" \
-        "${host_main}"
+        "${host_swift_files[@]}"
 
-    rm -f "${host_main}"
-
-    # ── Copy Info.plists ──────────────────────────────────────────────
-    info "Copying plists and entitlements …"
+    # ── Copy Info.plists and icon ─────────────────────────────────────
+    info "Copying plists, entitlements, and icon …"
 
     cp "${RESOURCES}/Host-Info.plist"      "${APP_BUNDLE}/Contents/Info.plist"
     cp "${RESOURCES}/Extension-Info.plist" "${APPEX_BUNDLE}/Contents/Info.plist"
+
+    # Copy AppIcon if present
+    if [[ -f "${RESOURCES}/AppIcon.icns" ]]; then
+        cp "${RESOURCES}/AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
+    fi
 
     # ── Ad-hoc code signing ───────────────────────────────────────────
     info "Signing with ad-hoc identity …"
