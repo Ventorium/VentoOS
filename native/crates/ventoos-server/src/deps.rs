@@ -8,6 +8,7 @@ use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::process::Command;
 
 use ventoos_core::types::ApiResponse;
@@ -299,6 +300,86 @@ async fn check_fileprovider() -> Json<ApiResponse<serde_json::Value>> {
     })))
 }
 
+/// POST /api/system/install-fileprovider — build and install VentoFS.app.
+async fn install_fileprovider_handler() -> impl IntoResponse {
+    // Locate build.sh relative to the executable or source dir env var
+    let build_sh = find_fileprovider_build_sh();
+    let Some(build_sh) = build_sh else {
+        return Json(ApiResponse::<serde_json::Value>::err(
+            "FileProvider source not found",
+        ))
+        .into_response();
+    };
+
+    let dir = build_sh.parent().unwrap().to_path_buf();
+
+    // Run build then install, collecting combined output
+    let mut combined = String::new();
+
+    for step in &["build", "install"] {
+        let result = Command::new("bash")
+            .arg("build.sh")
+            .arg(step)
+            .current_dir(&dir)
+            .output();
+
+        match result {
+            Ok(output) => {
+                combined.push_str(&String::from_utf8_lossy(&output.stdout));
+                combined.push_str(&String::from_utf8_lossy(&output.stderr));
+                if !output.status.success() {
+                    return Json(ApiResponse::<serde_json::Value>::err(format!(
+                        "build.sh {step} failed:\n{combined}"
+                    )))
+                    .into_response();
+                }
+            }
+            Err(e) => {
+                return Json(ApiResponse::<serde_json::Value>::err(format!(
+                    "Failed to run build.sh {step}: {e}"
+                )))
+                .into_response();
+            }
+        }
+    }
+
+    Json(ApiResponse::ok(serde_json::json!({
+        "success": true,
+        "message": "VentoFS.app installed",
+        "output": combined,
+    })))
+    .into_response()
+}
+
+/// Find the `build.sh` for the FileProvider companion app.
+fn find_fileprovider_build_sh() -> Option<PathBuf> {
+    // 1. Dev layout: exe is at native/target/debug/ventoos, source is native/fileprovider/
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            // native/target/debug/ -> ../../fileprovider/
+            let candidate = exe_dir.join("../../fileprovider/build.sh");
+            if candidate.exists() {
+                return Some(candidate.canonicalize().unwrap_or(candidate));
+            }
+            // One level up
+            let candidate = exe_dir.join("../fileprovider/build.sh");
+            if candidate.exists() {
+                return Some(candidate.canonicalize().unwrap_or(candidate));
+            }
+        }
+    }
+
+    // 3. Explicit source dir env var
+    if let Ok(source_dir) = std::env::var("VENTOOS_SOURCE_DIR") {
+        let candidate = PathBuf::from(&source_dir).join("native/fileprovider/build.sh");
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    None
+}
+
 /// Build the dependency management routes.
 pub fn dependency_routes() -> Router<crate::state::AppState> {
     Router::new()
@@ -309,4 +390,8 @@ pub fn dependency_routes() -> Router<crate::state::AppState> {
         )
         .route("/api/dependencies/check-fuse", get(check_fuse))
         .route("/api/dependencies/check-fileprovider", get(check_fileprovider))
+        .route(
+            "/api/system/install-fileprovider",
+            axum::routing::post(install_fileprovider_handler),
+        )
 }

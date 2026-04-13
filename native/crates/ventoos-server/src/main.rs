@@ -46,7 +46,27 @@ async fn main() -> Result<()> {
         .layer(CorsLayer::permissive())
         .layer(axum::middleware::from_fn(cross_origin_isolation_headers));
 
-    // Bind and serve
+    // Unix domain socket listener (macOS/Linux only)
+    #[cfg(unix)]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            let socket_dir = PathBuf::from(&home).join(".ventoos");
+            std::fs::create_dir_all(&socket_dir)?;
+            let socket_path = socket_dir.join("server.sock");
+            // Remove stale socket file
+            let _ = std::fs::remove_file(&socket_path);
+            info!("Unix socket: {}", socket_path.display());
+            let unix_app = app.clone();
+            let unix_listener = tokio::net::UnixListener::bind(&socket_path)?;
+            tokio::spawn(async move {
+                if let Err(e) = axum::serve(unix_listener, unix_app).await {
+                    tracing::error!("Unix socket server error: {e}");
+                }
+            });
+        }
+    }
+
+    // Bind and serve TCP
     let addr = SocketAddr::from(([0, 0, 0, 0], 5454));
     info!("Listening on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await?;

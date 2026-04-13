@@ -64,7 +64,15 @@ fn extension_app_path() -> PathBuf {
         return global;
     }
 
-    // 3. Per-user Application Support
+    // 3. ~/Library/VentoOS/VentoFS.app (install script default)
+    if let Some(home) = dirs_fallback_home() {
+        let install_path = home.join("Library/VentoOS/VentoFS.app");
+        if install_path.exists() {
+            return install_path;
+        }
+    }
+
+    // 4. Per-user Application Support
     if let Some(home) = dirs_fallback_home() {
         let user_path = home
             .join("Library/Application Support/VentoOS/VentoFS.app");

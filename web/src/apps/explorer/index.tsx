@@ -181,6 +181,8 @@ function MountForm({
   const [fuseAvailable, setFuseAvailable] = useState<boolean | null>(null)
   const [fuseChecking, setFuseChecking] = useState(false)
   const [fileProviderAvailable, setFileProviderAvailable] = useState<boolean | null>(null)
+  const [installingFileProvider, setInstallingFileProvider] = useState(false)
+  const [installFileProviderError, setInstallFileProviderError] = useState<string | null>(null)
 
   // Check FUSE dependency when local mount is enabled
   const checkFuseDep = useCallback(async () => {
@@ -783,7 +785,31 @@ function MountForm({
                     className="text-xs mb-1 px-2 py-1.5 rounded"
                     style={{ background: 'rgba(255, 149, 0, 0.1)', color: 'var(--vos-accent-warning, #ff9500)' }}
                   >
-                    FileProvider 扩展未安装，需要构建并安装 VentoFS.app（参见 native/fileprovider/README.md）
+                    <div className="mb-1.5">FileProvider 扩展未安装，需要构建并安装 VentoFS.app（参见 native/fileprovider/README.md）</div>
+                    {installFileProviderError && (
+                      <div className="mb-1.5" style={{ color: 'var(--vos-accent-danger)' }}>
+                        {installFileProviderError}
+                      </div>
+                    )}
+                    <button
+                      className="vos-btn vos-btn-primary vos-btn-sm"
+                      disabled={installingFileProvider}
+                      onClick={async () => {
+                        setInstallingFileProvider(true)
+                        setInstallFileProviderError(null)
+                        try {
+                          await vfsApi.installFileProvider()
+                          const result = await vfsApi.checkFileProvider()
+                          setFileProviderAvailable(result.data?.available ?? false)
+                        } catch (e) {
+                          setInstallFileProviderError(e instanceof Error ? e.message : '安装失败，请手动安装 VentoFS.app')
+                        } finally {
+                          setInstallingFileProvider(false)
+                        }
+                      }}
+                    >
+                      {installingFileProvider ? '正在安装...' : '安装 VentoFS 扩展'}
+                    </button>
                   </div>
                 )}
                 {!fuseChecking && mountBackend === 'fileprovider' && fileProviderAvailable === true && (
