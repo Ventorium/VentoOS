@@ -20,6 +20,21 @@ export interface LocalMountConfig {
   backend?: MountBackend
 }
 
+export interface FileProviderDiagnostics {
+  available: boolean
+  probe_succeeded?: boolean | null
+  platform: string
+  macos_version?: string | null
+  app_path: string
+  helper_path: string
+  plugin_bundle_id: string
+  app_installed: boolean
+  helper_binary_exists: boolean
+  plugin_registered: boolean
+  reason?: string | null
+  details: string[]
+}
+
 export interface VfsMount {
   id: string
   name: string
@@ -107,10 +122,10 @@ export const vfsApi = {
     if (maxBytes) params.set('max_bytes', String(maxBytes))
     return request<ApiResponse<VfsFileContent>>('GET', `/api/vfs/mounts/${id}/read?${params}`, undefined, { signal })
   },
-  readVfsFileRaw: async (id: string, path: string): Promise<Blob> => {
+  readVfsFileRaw: async (id: string, path: string, signal?: AbortSignal): Promise<Blob> => {
     const headers = getAuthHeaders()
     const params = new URLSearchParams({ path })
-    const res = await fetch(`/api/vfs/mounts/${id}/raw?${params}`, { headers })
+    const res = await fetch(`/api/vfs/mounts/${id}/raw?${params}`, { headers, signal })
     if (!res.ok) {
       handleUnauthorized(res)
       throw new Error(`HTTP ${res.status}`)
@@ -180,9 +195,12 @@ export const vfsApi = {
 
   // Check FileProvider availability
   checkFileProvider: () =>
-    request<ApiResponse<{ available: boolean; platform: string }>>('GET', '/api/dependencies/check-fileprovider'),
+    request<ApiResponse<FileProviderDiagnostics>>('GET', '/api/dependencies/check-fileprovider'),
 
   // Install FileProvider (VentoFS.app)
   installFileProvider: () =>
-    request<ApiResponse<{ success: boolean; message: string }>>('POST', '/api/system/install-fileprovider')
+    request<ApiResponse<{ success: boolean; message: string; output: string; diagnostics: FileProviderDiagnostics }>>(
+      'POST',
+      '/api/system/install-fileprovider'
+    )
 }

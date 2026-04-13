@@ -56,7 +56,16 @@ import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { PathPickerInput } from '@/shell/FilePicker'
 import type { SshConfigHost, SshKeyFile } from '../ssh/api'
 import { sshApi } from '../ssh/api'
-import type { CreateVfsMountReq, MountBackend, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from './api'
+import type {
+  CreateVfsMountReq,
+  FileProviderDiagnostics,
+  MountBackend,
+  VfsFileContent,
+  VfsMount,
+  VfsNode,
+  VfsSourceKind,
+  WebDavServerSettings
+} from './api'
 import { vfsApi } from './api'
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent)
@@ -180,7 +189,7 @@ function MountForm({
   const [mountBackend, setMountBackend] = useState<MountBackend>(mountToEdit?.local_mount?.backend ?? 'fuse')
   const [fuseAvailable, setFuseAvailable] = useState<boolean | null>(null)
   const [fuseChecking, setFuseChecking] = useState(false)
-  const [fileProviderAvailable, setFileProviderAvailable] = useState<boolean | null>(null)
+  const [fileProviderStatus, setFileProviderStatus] = useState<FileProviderDiagnostics | null>(null)
   const [installingFileProvider, setInstallingFileProvider] = useState(false)
   const [installFileProviderError, setInstallFileProviderError] = useState<string | null>(null)
 
@@ -193,10 +202,10 @@ function MountForm({
         vfsApi.checkFileProvider()
       ])
       setFuseAvailable(fuseRes.data?.available ?? false)
-      setFileProviderAvailable(fpRes.data?.available ?? false)
+      setFileProviderStatus(fpRes.data ?? null)
     } catch {
       setFuseAvailable(false)
-      setFileProviderAvailable(false)
+      setFileProviderStatus(null)
     } finally {
       setFuseChecking(false)
     }
@@ -780,12 +789,19 @@ function MountForm({
                     FUSE 依赖已安装
                   </div>
                 )}
-                {!fuseChecking && mountBackend === 'fileprovider' && fileProviderAvailable === false && (
+                {!fuseChecking && mountBackend === 'fileprovider' && fileProviderStatus?.available === false && (
                   <div
                     className="text-xs mb-1 px-2 py-1.5 rounded"
                     style={{ background: 'rgba(255, 149, 0, 0.1)', color: 'var(--vos-accent-warning, #ff9500)' }}
                   >
-                    <div className="mb-1.5">FileProvider 扩展未安装，需要构建并安装 VentoFS.app（参见 native/fileprovider/README.md）</div>
+                    <div className="mb-1">
+                      {fileProviderStatus.reason ?? 'FileProvider 当前不可用，请安装或重新检测 VentoFS 扩展'}
+                    </div>
+                    {fileProviderStatus.details.length > 0 && (
+                      <div className="mb-1.5 text-[10px]" style={{ color: 'var(--vos-text-secondary)' }}>
+                        {fileProviderStatus.details.join('；')}
+                      </div>
+                    )}
                     {installFileProviderError && (
                       <div className="mb-1.5" style={{ color: 'var(--vos-accent-danger)' }}>
                         {installFileProviderError}
@@ -798,9 +814,15 @@ function MountForm({
                         setInstallingFileProvider(true)
                         setInstallFileProviderError(null)
                         try {
-                          await vfsApi.installFileProvider()
-                          const result = await vfsApi.checkFileProvider()
-                          setFileProviderAvailable(result.data?.available ?? false)
+                          const installResult = await vfsApi.installFileProvider()
+                          const diagnostics =
+                            installResult.data?.diagnostics ?? (await vfsApi.checkFileProvider()).data ?? null
+                          setFileProviderStatus(diagnostics)
+                          if (!installResult.data?.success) {
+                            setInstallFileProviderError(
+                              installResult.data?.message ?? diagnostics?.reason ?? '安装后 FileProvider 仍不可用'
+                            )
+                          }
                         } catch (e) {
                           setInstallFileProviderError(e instanceof Error ? e.message : '安装失败，请手动安装 VentoFS.app')
                         } finally {
@@ -808,16 +830,23 @@ function MountForm({
                         }
                       }}
                     >
-                      {installingFileProvider ? '正在安装...' : '安装 VentoFS 扩展'}
+                      {installingFileProvider
+                        ? '正在安装...'
+                        : fileProviderStatus.app_installed
+                          ? '重新安装并检测 VentoFS 扩展'
+                          : '安装 VentoFS 扩展'}
                     </button>
                   </div>
                 )}
-                {!fuseChecking && mountBackend === 'fileprovider' && fileProviderAvailable === true && (
+                {!fuseChecking && mountBackend === 'fileprovider' && fileProviderStatus?.available === true && (
                   <div
                     className="text-xs mb-1 px-2 py-1.5 rounded"
                     style={{ background: 'rgba(52, 199, 89, 0.1)', color: 'var(--vos-accent-success)' }}
                   >
                     FileProvider 扩展已就绪
+                    <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-secondary)' }}>
+                      {fileProviderStatus.app_path}
+                    </div>
                   </div>
                 )}
                 {mountBackend === 'fuse' && (
@@ -1507,15 +1536,21 @@ function FileInfoPanel({
       setImgSrc(null)
       return
     }
+    const abortController = new AbortController()
     let url: string | null = null
     vfsApi
-      .readVfsFileRaw(mountId, node.path)
+      .readVfsFileRaw(mountId, node.path, abortController.signal)
       .then(blob => {
+        if (abortController.signal.aborted) return
         url = URL.createObjectURL(blob)
         setImgSrc(url)
       })
-      .catch(() => setImgSrc(null))
+      .catch(e => {
+        if ((e as Error)?.name === 'AbortError') return
+        setImgSrc(null)
+      })
     return () => {
+      abortController.abort()
       if (url) URL.revokeObjectURL(url)
     }
   }, [mountId, node])
@@ -2318,6 +2353,14 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
       setActiveColumn(colIndex + 1)
     } else {
       setSelectedNode(entry)
+      // Images are previewed via /raw in FileInfoPanel — skip /read to avoid duplicate requests
+      const ext = getFileExt(entry.name)
+      if (IMAGE_EXTS.has(ext)) {
+        previewAbortRef.current?.abort()
+        previewAbortRef.current = null
+        setPreview(null)
+        return
+      }
       // Cancel previous preview request
       previewAbortRef.current?.abort()
       const abortController = new AbortController()

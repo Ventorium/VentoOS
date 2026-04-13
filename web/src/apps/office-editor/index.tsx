@@ -70,38 +70,6 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
   }, [mountId])
 
   useEffect(() => {
-    if (mode !== 'docx' || !docxBlob) return
-    let cancelled = false
-    ;(async () => {
-      // Wait for next frame to ensure ref is populated
-      await new Promise(r => requestAnimationFrame(r))
-      if (cancelled || !docxContainerRef.current) return
-      try {
-        const { renderAsync } = await import('docx-preview')
-        if (!cancelled && docxContainerRef.current) {
-          await renderAsync(docxBlob, docxContainerRef.current, undefined, {
-            className: 'vos-docx-viewer',
-            inWrapper: true,
-            ignoreWidth: false,
-            ignoreHeight: false,
-            ignoreFonts: false,
-            breakPages: true,
-            ignoreLastRenderedPageBreak: true,
-            experimental: false,
-            trimXmlDeclaration: true,
-            useBase64URL: true
-          })
-        }
-      } catch (err) {
-        console.error('DOCX render error:', err)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [mode, docxBlob])
-
-  useEffect(() => {
     currentNodeRef.current = node
   }, [node])
 
