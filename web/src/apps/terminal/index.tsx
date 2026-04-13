@@ -7,7 +7,7 @@
  */
 import { Minus, Plus, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { useAppStorage, useWindowStore } from '@/kernel'
+import { useAppStorage, useAppStateSync, useWindowStore } from '@/kernel'
 
 const WebShell = lazy(() => import('@/shell/WebShell'))
 
@@ -30,14 +30,24 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
   const sshTarget = win?.appState?.sshTarget as string | undefined
   const sshName = win?.appState?.sshName as string | undefined
   const initialCwd = win?.appState?.cwd as string | undefined
+  const savedTabs = win?.appState?.tabs as Tab[] | undefined
+  const savedActiveTab = win?.appState?.activeTab as string | undefined
 
   const [tabs, setTabs] = useState<Tab[]>(() => {
+    if (savedTabs && savedTabs.length > 0) {
+      return savedTabs
+    }
     const id = nextTabId()
     const title = sshName ? `SSH: ${sshName}` : 'Shell 1'
     const target = sshTarget ?? 'local'
     return [{ id, title, target, cwd: initialCwd }]
   })
-  const [activeTab, setActiveTab] = useState(tabs[0].id)
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (savedActiveTab && tabs.some(t => t.id === savedActiveTab)) {
+      return savedActiveTab
+    }
+    return tabs[0]?.id ?? ''
+  })
   const [fontSize, setFontSize] = useState(13)
   const editingRef = useRef<string | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -48,6 +58,9 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
       if (prefs?.fontSize) setFontSize(prefs.fontSize)
     })
   }, [storage])
+
+  // Sync app state
+  useAppStateSync(_props.windowId, { tabs, activeTab }, [tabs, activeTab])
 
   const addTab = useCallback(() => {
     const id = nextTabId()

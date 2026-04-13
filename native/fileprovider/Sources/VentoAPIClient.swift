@@ -1,11 +1,9 @@
 // VentoAPIClient.swift — HTTP client for VentoOS VFS REST API
 //
 // Translates FileProvider operations into HTTP requests.
-// Primary transport: HTTP/1.1 over Unix domain socket (~/.ventoos/server.sock).
-// Fallback: HTTP over TCP (http://localhost:5454) when socket is unavailable.
+// Transport: HTTP over TCP (http://localhost:5454).
 
 import Foundation
-import Network
 
 // MARK: - Error Types
 
@@ -54,10 +52,9 @@ struct VfsNode: Decodable {
     let modified: String? // ISO-8601 or Unix timestamp string
 }
 
-// MARK: - UnixSocketHTTP
+// MARK: - (Unix socket transport removed — extension uses URLSession HTTP to :5454)
 
-/// Raw HTTP/1.1 client over a Unix domain socket using NWConnection.
-/// Used as the primary transport to reach the VentoOS server at
+/*
 /// ~/.ventoos/server.sock without requiring a TCP port.
 final class UnixSocketHTTP {
     let socketPath: String
@@ -188,16 +185,13 @@ final class UnixSocketHTTP {
         if resultStatus == 0 { throw VentoAPIError.serverUnreachable }
         return (resultStatus, resultBody)
     }
-}
+*/
 
 // MARK: - VentoAPIClient
 
 /// HTTP client for VentoOS VFS REST API.
 ///
-/// Transport priority:
-/// 1. Unix socket at `VENTOOS_SOCKET_PATH` (env) or `~/.ventoos/server.sock`
-/// 2. HTTP over TCP at `VENTOOS_SERVER_URL` (env) or `http://localhost:5454`
-///    (used as fallback when the socket file does not exist)
+/// Communicates with VentoOS over HTTP on `localhost:5454`.
 final class VentoAPIClient {
 
     /// Shared singleton.
@@ -205,41 +199,23 @@ final class VentoAPIClient {
 
     // MARK: Transport
 
-    /// Resolved Unix socket path (may not exist at runtime).
-    let socketPath: String
-    /// Fallback HTTP base URL.
-    let fallbackURL: String
+    /// HTTP base URL for VentoOS server.
+    let serverURL: String
 
-    private let socketClient: UnixSocketHTTP
     private let session: URLSession
     private let decoder: JSONDecoder
 
     // MARK: Initialisation
 
-    init(socketPath: String? = nil, serverURL: String? = nil) {
-        // Socket path resolution: explicit → env VENTOOS_SOCKET_PATH → ~/.ventoos/server.sock
+    init(serverURL: String? = nil) {
         let env = ProcessInfo.processInfo.environment
-        if let explicit = socketPath {
-            self.socketPath = explicit
-        } else if let fromEnv = env["VENTOOS_SOCKET_PATH"] {
-            self.socketPath = fromEnv
-        } else {
-            let home = env["HOME"] ?? NSHomeDirectory()
-            self.socketPath = "\(home)/.ventoos/server.sock"
-        }
-
-        // Fallback HTTP URL: explicit → env VENTOOS_SERVER_URL → UserDefaults → default
         if let explicit = serverURL {
-            self.fallbackURL = explicit
+            self.serverURL = explicit
         } else if let fromEnv = env["VENTOOS_SERVER_URL"] {
-            self.fallbackURL = fromEnv
-        } else if let fromDefaults = UserDefaults(suiteName: "io.ventoos.shared")?.string(forKey: "serverURL") {
-            self.fallbackURL = fromDefaults
+            self.serverURL = fromEnv
         } else {
-            self.fallbackURL = "http://localhost:5454"
+            self.serverURL = "http://localhost:5454"
         }
-
-        self.socketClient = UnixSocketHTTP(socketPath: self.socketPath)
 
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
@@ -248,17 +224,12 @@ final class VentoAPIClient {
         self.decoder = JSONDecoder()
     }
 
-    /// True when the Unix socket file is present on disk.
-    private var socketAvailable: Bool {
-        FileManager.default.fileExists(atPath: socketPath)
-    }
-
     // MARK: - Public API
 
     /// List directory contents.
     func listDir(mountId: String, path: String) throws -> [VfsNode] {
         let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? path
-        let apiPath = "/api/vfs/mounts/\(mountId)/list?path=\(encoded)&show_hidden=true"
+        let apiPath = "/api/vfs/mounts/\(mountId)/ls?path=\(encoded)&show_hidden=true"
         let response: VentoResponse<[VfsNode]> = try requestJSON(.GET, apiPath: apiPath)
         return response.data ?? []
     }
@@ -324,7 +295,6 @@ final class VentoAPIClient {
     private struct EmptyData: Decodable {}
 
     /// Perform a request and decode the JSON response into `T`.
-    /// `apiPath` must start with "/" (e.g. "/api/vfs/mounts/x/list?path=...").
     private func requestJSON<T: Decodable>(
         _ method: HTTPMethod,
         apiPath: String,
@@ -336,7 +306,6 @@ final class VentoAPIClient {
             bodyData = try JSONSerialization.data(withJSONObject: body)
             extraHeaders["Content-Type"] = "application/json"
         }
-
         let data = try performRequest(method: method, apiPath: apiPath, headers: extraHeaders, body: bodyData)
         do {
             return try decoder.decode(T.self, from: data)
@@ -351,43 +320,22 @@ final class VentoAPIClient {
         return try performRequest(method: method, apiPath: apiPath, headers: [:], body: nil)
     }
 
-    /// Dispatch to socket or HTTP fallback, return response body bytes.
+    /// Execute HTTP request via URLSession (synchronous via semaphore).
     private func performRequest(
         method: HTTPMethod,
         apiPath: String,
         headers: [String: String],
         body: Data?
     ) throws -> Data {
-        if socketAvailable {
-            let (status, data) = try socketClient.request(
-                method: method.rawValue,
-                path: apiPath,
-                headers: headers,
-                body: body
-            )
-            guard (200..<300).contains(status) else {
-                let msg = String(data: data.prefix(512), encoding: .utf8) ?? ""
-                throw VentoAPIError.httpError(statusCode: status, message: msg)
-            }
-            return data
-        } else {
-            // Fallback: plain HTTP over TCP
-            let urlString = fallbackURL + apiPath
-            guard let url = URL(string: urlString) else {
-                throw VentoAPIError.invalidURL(urlString)
-            }
-            var request = URLRequest(url: url)
-            request.httpMethod = method.rawValue
-            for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
-            request.httpBody = body
-
-            let (data, _) = try performSyncHTTP(request)
-            return data
+        let urlString = serverURL + apiPath
+        guard let url = URL(string: urlString) else {
+            throw VentoAPIError.invalidURL(urlString)
         }
-    }
+        var request = URLRequest(url: url)
+        request.httpMethod = method.rawValue
+        for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
+        request.httpBody = body
 
-    /// Execute a URLRequest synchronously using a semaphore (TCP fallback).
-    private func performSyncHTTP(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
         let semaphore = DispatchSemaphore(value: 0)
         var resultData: Data?
         var resultResponse: HTTPURLResponse?
@@ -404,21 +352,16 @@ final class VentoAPIClient {
 
         if let error = resultError {
             let nsError = error as NSError
-            if nsError.domain == NSURLErrorDomain {
-                throw VentoAPIError.serverUnreachable
-            }
+            if nsError.domain == NSURLErrorDomain { throw VentoAPIError.serverUnreachable }
             throw VentoAPIError.unknown(error)
         }
-
         guard let data = resultData, let response = resultResponse else {
             throw VentoAPIError.serverUnreachable
         }
-
         guard (200..<300).contains(response.statusCode) else {
-            let body = String(data: data.prefix(512), encoding: .utf8) ?? ""
-            throw VentoAPIError.httpError(statusCode: response.statusCode, message: body)
+            let msg = String(data: data.prefix(512), encoding: .utf8) ?? ""
+            throw VentoAPIError.httpError(statusCode: response.statusCode, message: msg)
         }
-
-        return (data, response)
+        return data
     }
 }

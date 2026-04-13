@@ -93,6 +93,9 @@ pub enum MountBackend {
     Fuse,
     /// Apple FileProvider framework (macOS 12+ only).
     FileProvider,
+    /// WebDAV mounting via the built-in VentoOS WebDAV server.
+    /// Uses `mount_webdav` on macOS (no extra dependencies required).
+    WebDav,
 }
 
 /// Local filesystem mount configuration (FUSE/WinFSP/FileProvider).

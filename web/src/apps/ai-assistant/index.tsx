@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
-import { openWindow, useAppStorage } from '@/kernel'
+import { openWindow, useAppStorage, useAppStateSync } from '@/kernel'
 import type { AgentConfig, AgentProfile, ChatSession, ProviderConfig, StreamEvent } from './api'
 import { agentApi } from './api'
 
@@ -145,10 +145,12 @@ function ToolCallEvent({ event }: { event: StreamEvent }) {
   return null
 }
 
-export default function AIAssistantApp(_props: AppComponentProps) {
+export default function AIAssistantApp({ windowId, initialAppState }: AppComponentProps) {
   const storage = useAppStorage('ai-assistant')
   const [sessions, setSessions] = useState<ChatSession[]>([])
-  const [currentSession, setCurrentSession] = useState<string | null>(null)
+  const [currentSession, setCurrentSession] = useState<string | null>(
+    () => (initialAppState?.currentSessionId as string) ?? null
+  )
   const [messages, setMessages] = useState<ChatSession['messages']>([])
   const [streamingContent, setStreamingContent] = useState('')
   const [toolEvents, setToolEvents] = useState<StreamEvent[]>([])
@@ -200,6 +202,9 @@ export default function AIAssistantApp(_props: AppComponentProps) {
   useEffect(() => {
     void Promise.all([loadSessions(), loadProviders(), loadProfiles(), loadConfig()])
   }, [loadSessions, loadProviders, loadProfiles, loadConfig])
+
+  // Sync app state
+  useAppStateSync(windowId, { currentSessionId: currentSession }, [currentSession])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

@@ -92,7 +92,9 @@ mod tests {
 
     #[test]
     fn expand_home_basic() {
-        std::env::set_var("HOME", "/home/testuser");
+        unsafe {
+            std::env::set_var("HOME", "/home/testuser");
+        }
         assert_eq!(expand_home("~/mnt/test"), "/home/testuser/mnt/test");
         assert_eq!(expand_home("~"), "/home/testuser");
         assert_eq!(expand_home("/absolute/path"), "/absolute/path");

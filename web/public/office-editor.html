@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Office Editor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    #editor-container { width: 100%; height: 100%; }
+    #loading {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #999; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="editor-container"></div>
+  <div id="loading">Loading editor…</div>
+  <script src="/web-apps/apps/api/documents/api.js"></script>
+  <script>
+    let editor = null;
+    const loading = document.getElementById('loading');
+
+    function hideLoading() {
+      if (loading) loading.style.display = 'none';
+    }
+
+    // Listen for commands from parent window
+    window.addEventListener('message', function(e) {
+      const msg = e.data;
+
+      if (msg.type === 'openDocument') {
+        openDoc(msg.payload);
+      }
+
+      if (msg.type === 'destroy') {
+        destroyEditor();
+      }
+
+      if (msg.type === 'updateMedia' && editor && msg.media) {
+        editor.sendCommand({ command: 'asc_setImageUrls', data: { urls: msg.media } });
+      }
+    });
+
+    function destroyEditor() {
+      if (editor) {
+        try { editor.destroyEditor(); } catch (_) {}
+        editor = null;
+      }
+    }
+
+    function openDoc(opts) {
+      destroyEditor();
+      hideLoading();
+
+      if (!window.DocsAPI) {
+        parent.postMessage({ type: 'editorError', error: 'DocsAPI not loaded' }, '*');
+        return;
+      }
+
+      const { fileExt, fileName, bin, media, token } = opts;
+
+      editor = new window.DocsAPI.DocEditor('editor-container', {
+        document: {
+          title: fileName,
+          url: fileName,
+          fileType: fileExt,
+          permissions: { edit: true, chat: false, protect: false },
+        },
+        editorConfig: {
+          lang: 'zh',
+          customization: {
+            help: false,
+            about: false,
+            hideRightMenu: true,
+            features: { spellcheck: { change: false } },
+            anonymous: { request: false, label: 'Guest' },
+          },
+        },
+        events: {
+          onAppReady: function() {
+            if (media && Object.keys(media).length > 0) {
+              editor.sendCommand({ command: 'asc_setImageUrls', data: { urls: media } });
+            }
+            editor.sendCommand({ command: 'asc_openDocument', data: { buf: bin } });
+            parent.postMessage({ type: 'editorReady', token }, '*');
+          },
+          onDocumentReady: function() {
+            parent.postMessage({ type: 'documentReady', token }, '*');
+          },
+          onSave: function(event) {
+            parent.postMessage({
+              type: 'saveDocument',
+              token,
+              data: {
+                data: event.data.data,
+                option: event.data.option
+              }
+            }, '*');
+          },
+          writeFile: function(event) {
+            parent.postMessage({
+              type: 'writeFile',
+              token,
+              data: {
+                data: event.data.data,
+                file: event.data.file
+              }
+            }, '*');
+          },
+          onError: function(event) {
+            parent.postMessage({
+              type: 'editorError',
+              token,
+              error: event.data?.errorDescription || 'Unknown editor error'
+            }, '*');
+          }
+        },
+      });
+    }
+
+    // Notify parent that iframe is ready
+    parent.postMessage({ type: 'iframeReady' }, '*');
+  </script>
+</body>
+</html>

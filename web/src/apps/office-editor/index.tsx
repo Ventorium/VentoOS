@@ -2,8 +2,8 @@
  * Office Editor App
  *
  * Full OnlyOffice WASM integration for editing Word, Excel, and PowerPoint documents.
- * Uses OnlyOffice DocEditor + X2T WASM for document format conversion.
- * Save operations use the Rust backend VFS upload API.
+ * Uses an iframe to isolate OnlyOffice's global JS from the main app.
+ * Communication between parent and iframe via postMessage.
  *
  * Supports: DOCX, DOC, XLSX, XLS, PPTX, PPT
  */
@@ -18,17 +18,6 @@ import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 import { c_oAscFileType2, convertBinToDocument, convertDocument, initX2T, initX2TScript } from './x2t'
-
-declare global {
-  interface Window {
-    DocsAPI: {
-      DocEditor: new (elementId: string, config: Record<string, unknown>) => {
-        destroyEditor: () => void
-        sendCommand: (cmd: { command: string; data: unknown }) => void
-      }
-    }
-  }
-}
 
 const SUPPORTED_EXTS = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'odt', 'ods', 'odp', 'rtf', 'csv']
 
@@ -58,12 +47,12 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   const [mode, setMode] = useState<AppMode>('nofile')
   const [errorMsg, setErrorMsg] = useState('')
-  const editorRef = useRef<ReturnType<typeof window.DocsAPI.DocEditor> | null>(null)
-  // Track current mountId/path for save operations
+  const iframeRef = useRef<HTMLIFrameElement>(null)
   const currentMountIdRef = useRef(mountId)
   const currentNodeRef = useRef(node)
-  // Media URL map for embedded images
   const mediaRef = useRef<Record<string, string>>({})
+  // Token to match postMessage responses to the correct request
+  const tokenRef = useRef(0)
 
   useEffect(() => {
     currentMountIdRef.current = mountId
@@ -73,168 +62,132 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
     currentNodeRef.current = node
   }, [node])
 
-  const destroyEditor = useCallback(() => {
-    if (editorRef.current) {
-      try {
-        editorRef.current.destroyEditor()
-      } catch (_e) {
-        // ignore
-      }
-      editorRef.current = null
-    }
-    // Revoke media object URLs
-    for (const url of Object.values(mediaRef.current)) {
-      if (url.startsWith('blob:')) URL.revokeObjectURL(url)
-    }
-    mediaRef.current = {}
-  }, [])
-
-  const loadEditorApi = useCallback((): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      if (window.DocsAPI) {
-        resolve()
-        return
-      }
-      const script = document.createElement('script')
-      script.src = './web-apps/apps/api/documents/api.js'
-      script.onload = () => resolve()
-      script.onerror = (err) => reject(new Error(`Failed to load OnlyOffice API: ${err}`))
-      document.head.appendChild(script)
-    })
-  }, [])
-
-  const handleSaveDocument = useCallback(async (event: { data: { data: Uint8Array; option: { outputformat: number } } }) => {
-    const editorInst = editorRef.current
-    const mId = currentMountIdRef.current
-    const nd = currentNodeRef.current
-
-    try {
-      if (!event.data?.data) return
-      const { data: binData, option } = event.data
-      const ext = c_oAscFileType2[option.outputformat]?.toLowerCase() ?? nd?.name.split('.').pop() ?? 'docx'
-      const fileName = nd?.name ?? `document.${ext}`
-
-      // Convert bin back to document format
-      const fileData = await convertBinToDocument(binData, fileName, ext.toUpperCase())
-
-      // Upload to VFS backend
-      const formData = new FormData()
-      formData.append('path', nd?.path ?? `/${fileName}`)
-      formData.append('file', new Blob([fileData]), fileName)
-
-      const resp = await fetch(`/api/vfs/mounts/${encodeURIComponent(mId)}/upload`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: formData,
-      })
-
-      if (!resp.ok) {
-        const errText = await resp.text()
-        console.error('Save failed:', errText)
-      }
-    } catch (err) {
-      console.error('Save error:', err)
-    } finally {
-      // Notify editor save callback
-      editorInst?.sendCommand({ command: 'asc_onSaveCallback', data: { err_code: 0 } })
-    }
-  }, [])
-
-  const handleWriteFile = useCallback((event: { data: { data: Uint8Array; file: string } }) => {
-    try {
-      const { data: imageData, file: fileName } = event.data
-      if (!imageData || !fileName) return
-      const ext = fileName.split('.').pop()?.toLowerCase() ?? 'png'
-      const mimeMap: Record<string, string> = {
-        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-        gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp', svg: 'image/svg+xml',
-      }
-      const blob = new Blob([imageData], { type: mimeMap[ext] ?? 'image/png' })
-      const url = URL.createObjectURL(blob)
-      mediaRef.current[`media/${fileName}`] = url
-      editorRef.current?.sendCommand({ command: 'asc_setImageUrls', data: { urls: mediaRef.current } })
-      editorRef.current?.sendCommand({ command: 'asc_writeFileCallback', data: { path: url, imgName: fileName } })
-    } catch (err) {
-      console.error('handleWriteFile error:', err)
-    }
-  }, [])
-
-  const openDocument = useCallback(async (mId: string, nd: { name: string; path: string }) => {
-    setMode('loading')
-    destroyEditor()
-
-    try {
-      // Load OnlyOffice API and X2T WASM in parallel
-      await Promise.all([loadEditorApi(), initX2TScript()])
-      await initX2T()
-
-      // Fetch file from VFS
-      const url = `/api/vfs/mounts/${encodeURIComponent(mId)}/raw?path=${encodeURIComponent(nd.path)}`
-      const resp = await fetch(url, { headers: getAuthHeaders() })
-      if (!resp.ok) throw new Error(`Failed to fetch: ${resp.statusText}`)
-      const blob = await resp.blob()
-      const file = new File([blob], nd.name)
-
-      // Convert to OnlyOffice bin format
-      const { bin, media } = await convertDocument(file)
-
-      // Store media refs
-      mediaRef.current = media as Record<string, string>
-
-      const fileExt = nd.name.split('.').pop()?.toLowerCase() ?? ''
-      const editorId = 'vos-office-editor-iframe'
-
-      // Ensure container exists
-      const container = document.getElementById(editorId)
-      if (!container) throw new Error('Editor container not found')
-
-      editorRef.current = new window.DocsAPI.DocEditor(editorId, {
-        document: {
-          title: nd.name,
-          url: nd.name,
-          fileType: fileExt,
-          permissions: { edit: true, chat: false, protect: false },
-        },
-        editorConfig: {
-          lang: 'zh',
-          customization: {
-            help: false,
-            about: false,
-            hideRightMenu: true,
-            features: { spellcheck: { change: false } },
-            anonymous: { request: false, label: 'Guest' },
-          },
-        },
-        events: {
-          onAppReady: () => {
-            if (Object.keys(media).length > 0) {
-              editorRef.current?.sendCommand({ command: 'asc_setImageUrls', data: { urls: media } })
-            }
-            editorRef.current?.sendCommand({ command: 'asc_openDocument', data: { buf: bin } })
-          },
-          onDocumentReady: () => console.log('Document ready:', nd.name),
-          onSave: handleSaveDocument,
-          writeFile: handleWriteFile,
-        },
-      })
-
-      setMode('editor')
-    } catch (err) {
-      console.error('Office Editor error:', err)
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to load document')
-      setMode('error')
-    }
-  }, [destroyEditor, loadEditorApi, handleSaveDocument, handleWriteFile])
-
-  // Reload editor when file changes
+  // Handle messages from iframe
   useEffect(() => {
-    if (mountId && node) {
-      openDocument(mountId, node)
-    } else {
-      setMode('nofile')
+    const handler = async (e: MessageEvent) => {
+      if (e.data?.type === 'editorError') {
+        console.error('Office Editor iframe error:', e.data.error)
+        setErrorMsg(e.data.error)
+        setMode('error')
+      }
+
+      if (e.data?.type === 'saveDocument') {
+        const mId = currentMountIdRef.current
+        const nd = currentNodeRef.current
+        const { data: binData, option } = e.data.data
+        try {
+          if (!binData) return
+          const ext = c_oAscFileType2[option.outputformat]?.toLowerCase() ?? nd?.name.split('.').pop() ?? 'docx'
+          const fileName = nd?.name ?? `document.${ext}`
+          const fileData = await convertBinToDocument(binData, fileName, ext.toUpperCase())
+          const formData = new FormData()
+          formData.append('path', nd?.path ?? `/${fileName}`)
+          formData.append('file', new Blob([fileData]), fileName)
+          const resp = await fetch(`/api/vfs/mounts/${encodeURIComponent(mId)}/upload`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: formData,
+          })
+          if (!resp.ok) console.error('Save failed:', await resp.text())
+        } catch (err) {
+          console.error('Save error:', err)
+        }
+      }
+
+      if (e.data?.type === 'writeFile') {
+        try {
+          const { data: imageData, file: fileName } = e.data.data
+          if (!imageData || !fileName) return
+          const ext = fileName.split('.').pop()?.toLowerCase() ?? 'png'
+          const mimeMap: Record<string, string> = {
+            png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+            gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp', svg: 'image/svg+xml',
+          }
+          const blob = new Blob([imageData], { type: mimeMap[ext] ?? 'image/png' })
+          const url = URL.createObjectURL(blob)
+          mediaRef.current[`media/${fileName}`] = url
+          // Forward updated media map back to iframe
+          iframeRef.current?.contentWindow?.postMessage({
+            type: 'updateMedia',
+            media: mediaRef.current
+          }, '*')
+        } catch (err) {
+          console.error('handleWriteFile error:', err)
+        }
+      }
     }
-    return destroyEditor
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
+  // Open document: fetch, convert, send to iframe
+  useEffect(() => {
+    if (!mountId || !node) {
+      setMode('nofile')
+      return
+    }
+
+    let cancelled = false
+    const token = ++tokenRef.current
+
+    ;(async () => {
+      setMode('loading')
+      setErrorMsg('')
+
+      try {
+        await Promise.all([initX2TScript(), Promise.resolve()])
+        await initX2T()
+
+        // Fetch file from VFS
+        const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
+        const resp = await fetch(url, { headers: getAuthHeaders() })
+        if (!resp.ok) throw new Error(`Failed to fetch: ${resp.statusText}`)
+        const blob = await resp.blob()
+        const file = new File([blob], node.name)
+
+        // Convert to OnlyOffice bin format
+        const { bin, media } = await convertDocument(file)
+        mediaRef.current = media as Record<string, string>
+
+        const fileExt = node.name.split('.').pop()?.toLowerCase() ?? ''
+
+        if (cancelled) return
+
+        // Wait for iframe to be ready, then send document data
+        const sendToIframe = () => {
+          const win = iframeRef.current?.contentWindow
+          if (!win) return
+          win.postMessage({
+            type: 'openDocument',
+            token,
+            payload: { bin, media, fileExt, fileName: node.name }
+          }, '*')
+        }
+
+        setMode('editor')
+
+        // Small delay to let iframe mount and become ready
+        setTimeout(sendToIframe, 200)
+      } catch (err) {
+        if (cancelled) return
+        console.error('Office Editor error:', err)
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to load document')
+        setMode('error')
+      }
+    })()
+
+    return () => { cancelled = true }
   }, [mountId, node?.path]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      iframeRef.current?.contentWindow?.postMessage({ type: 'destroy' }, '*')
+      for (const url of Object.values(mediaRef.current)) {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+      }
+    }
+  }, [])
 
   const filePicker = (
     <AnimatePresence>
@@ -277,8 +230,13 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-[var(--vos-bg-primary)]">
-      <div id="vos-office-editor-iframe" className="flex-1 w-full" />
+    <div className="w-full h-full bg-[var(--vos-bg-primary)]">
+      <iframe
+        ref={iframeRef}
+        src="/office-editor.html"
+        className="w-full h-full border-none"
+        title="Office Editor"
+      />
       {filePicker}
     </div>
   )

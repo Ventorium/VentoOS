@@ -13,7 +13,7 @@ import { ChevronLeft, ChevronRight, Folder, Globe, Network, Plus, Server, Settin
 import { AnimatePresence } from 'framer-motion'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getAuthHeaders } from '@/infra/api/client'
-import { useAppStorage } from '@/kernel'
+import { useAppStorage, useAppStateSync } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 import { superTerminalApi } from './api'
 import { useSuperTerminalStore } from './store'
@@ -58,6 +58,15 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
     terminalSettings
   } = useSuperTerminalStore()
 
+  // Restore activeNavTab from app state
+  useEffect(() => {
+    const win = useWindowStore.getState().windows.find(w => w.id === _props.windowId)
+    const savedNavTab = win?.appState?.activeNavTab as NavTab | undefined
+    if (savedNavTab) {
+      setActiveNavTab(savedNavTab)
+    }
+  }, [_props.windowId, setActiveNavTab])
+
   const [leftPanelWidth] = useState(44)
   const [showMoreTabs, setShowMoreTabs] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
@@ -83,6 +92,9 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
       }
     })
   }, [storage, setCommands, setTerminalSettings])
+
+  // Sync app state
+  useAppStateSync(_props.windowId, { activeNavTab }, [activeNavTab])
 
   // Close "more" dropdown on outside click
   useEffect(() => {

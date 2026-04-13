@@ -1,15 +1,12 @@
 import { motion, useAnimationControls } from 'framer-motion'
 import type React from 'react'
 import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import ErrorBoundary from '@/components/ErrorBoundary'
-import type { AppMenuEntry, AppMenuGroup, AppMenuItem } from '@/kernel'
 import {
   closeWindow,
   focusWindow,
   minimizeWindow,
   toggleMaximize,
-  useMenuStore,
   useWindowStore,
   type WindowInstance
 } from '@/kernel'
@@ -18,8 +15,6 @@ import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
 import { tokens } from '@/theme'
 
 // Stable empty reference — must NOT be recreated inline or Zustand snapshot loop triggers
-const EMPTY_MENUS: AppMenuGroup[] = []
-
 const TOPBAR_H = tokens.topBar.height
 const TITLE_H = tokens.window.titleBarHeight
 const MIN_W = tokens.window.minWidth
@@ -138,200 +133,11 @@ function ResizeHandles({ onResizeStart }: { onResizeStart: (dir: ResizeDir, e: R
   )
 }
 
-/* -------- Menu Dropdown -------- */
-
-function MenuDropdown({
-  group,
-  anchorEl,
-  onClose,
-  onHoverGroup
-}: {
-  group: AppMenuGroup
-  anchorEl: HTMLElement
-  onClose: () => void
-  onHoverGroup?: (groupId: string) => void
-}) {
-  const rect = anchorEl.getBoundingClientRect()
-  const [focusedIdx, setFocusedIdx] = useState(-1)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (!dropdownRef.current?.contains(e.target as Node) && e.target !== anchorEl) {
-        onClose()
-      }
-    }
-    // Slight delay so the opener click doesn't immediately close
-    const id = setTimeout(() => document.addEventListener('mousedown', handler), 50)
-    return () => {
-      clearTimeout(id)
-      document.removeEventListener('mousedown', handler)
-    }
-  }, [anchorEl, onClose])
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const visible = group.items.filter(item => !('type' in item) || item.type !== 'separator')
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onClose()
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setFocusedIdx(i => Math.min(i + 1, visible.length - 1))
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setFocusedIdx(i => Math.max(i - 1, 0))
-      } else if (e.key === 'Enter') {
-        e.preventDefault()
-        const idx = group.items.findIndex((item, i) => {
-          if ('type' in item) return false
-          const visIdx = group.items.slice(0, i + 1).filter(x => !('type' in x)).length - 1
-          return visIdx === focusedIdx
-        })
-        if (idx >= 0) {
-          const item = group.items[idx] as AppMenuItem
-          if (!item.disabled) {
-            item.action?.()
-            onClose()
-          }
-        }
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [group.items, focusedIdx, onClose])
-
-  let visibleItemIdx = -1
-
-  return createPortal(
-    <div
-      ref={dropdownRef}
-      className="fixed max-w-[320px] bg-[var(--vos-bg-context-menu)] border border-solid border-[var(--vos-border-subtle)] rounded-[6px] z-[99999] py-1 px-0 overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
-      style={{
-        left: rect.left,
-        top: rect.bottom + 1,
-        minWidth: Math.max(180, rect.width)
-      }}
-    >
-      {group.items.map((entry, i) => {
-        if ('type' in entry && entry.type === 'separator') {
-          return <div key={i} className="h-px my-[3px] mx-0 bg-[var(--vos-border-subtle)]" />
-        }
-        const item = entry as AppMenuItem
-        if (item.hidden) return null
-        visibleItemIdx++
-        const vIdx = visibleItemIdx
-        const isActive = focusedIdx === vIdx
-        return (
-          <button
-            key={item.id}
-            type="button"
-            className={`w-full flex items-center justify-between gap-4 text-sm text-left px-3 py-[5px] border-none ${isActive ? 'bg-[var(--vos-accent-primary)]' : 'bg-transparent'} ${item.disabled ? 'text-[var(--vos-text-tertiary)] cursor-default opacity-50' : isActive ? 'text-white cursor-pointer opacity-100' : item.danger ? 'text-[#ff4d4f] cursor-pointer opacity-100' : 'text-[var(--vos-text-primary)] cursor-pointer opacity-100'}`}
-            onMouseEnter={() => setFocusedIdx(vIdx)}
-            onMouseLeave={() => setFocusedIdx(-1)}
-            onMouseDown={e => e.stopPropagation()}
-            onClick={() => {
-              if (!item.disabled) {
-                item.action?.()
-                onClose()
-              }
-            }}
-          >
-            <span className="flex-1">{item.label}</span>
-            {item.checked && <span className="opacity-80 text-xs">✓</span>}
-            {item.shortcut && (
-              <kbd
-                className={`font-mono text-[11px] bg-transparent border-none p-0 shrink-0 ${isActive ? 'text-[rgba(255,255,255,0.7)]' : 'text-[var(--vos-text-tertiary)]'}`}
-              >
-                {item.shortcut}
-              </kbd>
-            )}
-          </button>
-        )
-      })}
-    </div>,
-    document.body
-  )
-}
-
-/* -------- Window Menu Bar -------- */
-
-function WindowMenuBar({ groups, isFocused }: { groups: AppMenuGroup[]; isFocused: boolean }) {
-  const [openId, setOpenId] = useState<string | null>(null)
-  const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
-
-  // Close on window blur
-  useEffect(() => {
-    if (!openId) return
-    const handler = () => setOpenId(null)
-    window.addEventListener('blur', handler)
-    return () => window.removeEventListener('blur', handler)
-  }, [openId])
-
-  if (groups.length === 0) return null
-
-  return (
-    <div
-      className="flex items-center ml-1 shrink-0"
-      onMouseDown={e => e.stopPropagation()}
-    >
-      {groups.map(group => {
-        const isOpen = openId === group.id
-        return (
-          <button
-            key={group.id}
-            ref={el => {
-              if (el) buttonRefs.current.set(group.id, el)
-              else buttonRefs.current.delete(group.id)
-            }}
-            type="button"
-            className={`flex items-center px-2 py-[2px] rounded text-[13px] border-none cursor-pointer select-none h-6 leading-none transition-[background,color] duration-100 ${isOpen ? 'bg-[var(--vos-accent-primary)] text-white' : isFocused ? 'bg-transparent text-[var(--vos-text-primary)]' : 'bg-transparent text-[var(--vos-text-tertiary)]'}`}
-
-            onMouseDown={e => {
-              e.stopPropagation()
-              e.preventDefault()
-              setOpenId(isOpen ? null : group.id)
-            }}
-            onMouseEnter={() => {
-              if (openId !== null && openId !== group.id) setOpenId(group.id)
-            }}
-          >
-            {group.label}
-          </button>
-        )
-      })}
-
-      {openId &&
-        (() => {
-          const group = groups.find(g => g.id === openId)
-          const btn = buttonRefs.current.get(openId)
-          if (!group || !btn) return null
-          return (
-            <MenuDropdown
-              group={group}
-              anchorEl={btn}
-              onClose={() => setOpenId(null)}
-              onHoverGroup={id => setOpenId(id)}
-            />
-          )
-        })()}
-    </div>
-  )
-}
-
 /* ——— Window Component ——— */
 export default function Window({ win, children }: { win: WindowInstance; children: ReactNode }) {
   const moveWindow = useWindowStore(s => s.moveWindow)
   const resizeWindow = useWindowStore(s => s.resizeWindow)
   const shouldRender = !win.isMinimized
-
-  // Menus registered by windowId first, fall back to appId.
-  // IMPORTANT: both get() calls must return the same reference across renders,
-  // otherwise Zustand's useSyncExternalStore snapshot comparison fails → infinite loop.
-  // We read the raw Map and let Zustand compare Map identity (stable reference).
-  const winId = win.id
-  const appId = win.appId
-  const menus = useMenuStore(s => s.menus.get(winId) ?? s.menus.get(appId) ?? EMPTY_MENUS)
 
   // Wallpaper for per-window glass morphism
   const wallpaper = useSettingsStore(s => s.wallpaper)
@@ -633,7 +439,6 @@ export default function Window({ win, children }: { win: WindowInstance; childre
             onMinimize={() => minimizeWindow(win.id)}
             onMaximize={() => toggleMaximize(win.id)}
           />
-          <WindowMenuBar groups={menus} isFocused={win.isFocused} />
           <div
             className={`vos-flex-1 text-center text-[13px] font-medium overflow-hidden text-ellipsis whitespace-nowrap px-2 ${win.isFocused ? 'text-[var(--vos-text-primary)]' : 'text-[var(--vos-text-tertiary)]'}`}
           >

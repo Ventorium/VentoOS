@@ -14,7 +14,7 @@ import { ConfirmDialog } from '@/components'
 import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import type { AppComponentProps } from '@/kernel'
-import { useWindowActions } from '@/kernel'
+import { useAppStateSync, useWindowActions } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 import type { VfsNode } from '../explorer/api'
 import { vfsApi } from '../explorer/api'
@@ -68,6 +68,20 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
   const startRename = useUiStore(s => s.startRename)
   const startNewItem = useUiStore(s => s.startNewItem)
   const setDeleteTarget = useUiStore(s => s.setDeleteTarget)
+
+  // Get all tabs for state persistence
+  const tabs = useEditorStore(s => s.tabs)
+
+  // ── Persist app state ───────────────────────────────────────────────────
+  useAppStateSync(
+    windowId,
+    {
+      tabPaths: tabs.map(t => ({ mountId: t.mountId, path: t.node.path, name: t.node.name })),
+      activeTabPath: activeTab?.node.path ?? null,
+      workspace: workspace
+    },
+    [tabs, activeTab, workspace]
+  )
 
   // ── Sidebar resize ────────────────────────────────────────────────────
   const resizingRef = useRef(false)
@@ -230,13 +244,42 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
   // ── Load initial state ────────────────────────────────────────────────
   // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount
   useEffect(() => {
-    if (initDirNode && initMountId) {
+    // Restore workspace from initialAppState if present
+    const savedWorkspace = initialAppState?.workspace as { mountId: string; path: string; name: string } | undefined
+    if (savedWorkspace) {
+      setWorkspace(savedWorkspace)
+      loadTree(savedWorkspace.mountId, savedWorkspace.path).then(() => {
+        buildFullIndex(savedWorkspace.mountId, savedWorkspace.path)
+      })
+    } else if (initDirNode && initMountId) {
       setWorkspace({ mountId: initMountId, path: initDirNode.path, name: initDirNode.name })
       loadTree(initMountId, initDirNode.path).then(() => {
         buildFullIndex(initMountId, initDirNode.path)
       })
     }
-    if (initNode && initMountId) openFile(initMountId, initNode)
+
+    // Restore tabs from initialAppState if present
+    const savedTabs = initialAppState?.tabPaths as Array<{ mountId: string; path: string; name: string }> | undefined
+    const savedActivePath = initialAppState?.activeTabPath as string | undefined
+
+    if (savedTabs && savedTabs.length > 0) {
+      // Open all saved tabs
+      savedTabs.forEach(tab => {
+        openFile(tab.mountId, { name: tab.name, path: tab.path, is_dir: false })
+      })
+
+      // Set active tab after all tabs are opened
+      if (savedActivePath) {
+        // Use setTimeout to ensure tabs are fully loaded before setting active
+        setTimeout(() => {
+          useEditorStore.getState().setActiveTab(
+            savedTabs.find(t => t.path === savedActivePath)?.mountId + '::' + savedActivePath ?? null
+          )
+        }, 100)
+      }
+    } else if (initNode && initMountId) {
+      openFile(initMountId, initNode)
+    }
   }, [])
 
   // ── Render ────────────────────────────────────────────────────────────

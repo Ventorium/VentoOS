@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VList } from 'virtua'
 import { AppLayout, AppSidebar, EmptyState, FormInput, Modal, SectionHeader, Spinner } from '@/components'
 import type { AppComponentProps } from '@/kernel'
-import { useAppStorage } from '@/kernel'
+import { useAppStorage, useAppStateSync } from '@/kernel'
 import type { CreateRedisConnectionReq, RedisConnectionConfig, RedisKeyInfo, RedisKeyValue } from './api'
 import { redisApi } from './api'
 
@@ -726,20 +726,26 @@ function ValueViewer({
 
 // ─── Main app ──────────────────────────────────────────────────────────────
 
-export default function RedisApp(_props: AppComponentProps) {
+export default function RedisApp({ windowId, initialAppState }: AppComponentProps) {
   const storage = useAppStorage('redis')
   const [connections, setConnections] = useState<RedisConnectionConfig[]>([])
   const [showForm, setShowForm] = useState(false)
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set())
-  const [expandedConns, setExpandedConns] = useState<Set<string>>(new Set())
-  const [selectedConn, setSelectedConn] = useState<string | null>(null)
-  const [pattern, setPattern] = useState('*')
+  const [expandedConns, setExpandedConns] = useState<Set<string>>(
+    () => new Set(initialAppState?.expandedConns as string[] ?? [])
+  )
+  const [selectedConn, setSelectedConn] = useState<string | null>(
+    () => (initialAppState?.selectedConnId as string) ?? null
+  )
+  const [pattern, setPattern] = useState(initialAppState?.pattern as string ?? '*')
   const [keys, setKeys] = useState<RedisKeyInfo[]>([])
   const [selectedKey, setSelectedKey] = useState<RedisKeyValue | null>(null)
   const [loading, setLoading] = useState(false)
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
+    () => new Set(initialAppState?.expandedPaths as string[] ?? [])
+  )
   // CLI state
-  const [cliMode, setCliMode] = useState(false)
+  const [cliMode, setCliMode] = useState(initialAppState?.cliMode as boolean ?? false)
   const [cliInput, setCliInput] = useState('')
   const [cliHistory, setCliHistory] = useState<{ cmd: string; result: string }[]>([])
   const cliRef = useRef<HTMLDivElement>(null)
@@ -750,6 +756,15 @@ export default function RedisApp(_props: AppComponentProps) {
       if (prefs?.cliHistory) setCliHistory(prefs.cliHistory)
     })
   }, [storage])
+
+  // Sync app state to window manager
+  useAppStateSync(windowId, {
+    selectedConnId: selectedConn,
+    pattern,
+    expandedPaths: [...expandedPaths],
+    expandedConns: [...expandedConns],
+    cliMode
+  }, [selectedConn, pattern, expandedPaths, expandedConns, cliMode])
 
   // Build trie from flat key list
   const trie = useMemo(() => buildTrie(keys, ':'), [keys])

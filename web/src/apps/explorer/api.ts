@@ -12,7 +12,7 @@ import { getAuthHeaders, handleUnauthorized, request } from '@/infra/api'
 
 export type VfsSourceKind = 'local' | 'sftp' | 'ftp' | 'smb' | 's3' | 'webdav'
 
-export type MountBackend = 'fuse' | 'fileprovider'
+export type MountBackend = 'fuse' | 'fileprovider' | 'webdav'
 
 export interface LocalMountConfig {
   enabled: boolean
@@ -202,5 +202,11 @@ export const vfsApi = {
     request<ApiResponse<{ success: boolean; message: string; output: string; diagnostics: FileProviderDiagnostics }>>(
       'POST',
       '/api/system/install-fileprovider'
-    )
+    ),
+
+  // Get WebDAV mount URL for a VFS source (for macOS Finder "Connect to Server")
+  getWebDavMountUrl: (mountId: string) => {
+    const base = window.location.hostname === 'localhost' ? 'http://localhost:5454' : window.location.origin
+    return `${base}/dav/${mountId}/`
+  }
 }

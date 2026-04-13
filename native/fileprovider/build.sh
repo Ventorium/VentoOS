@@ -82,7 +82,6 @@ cmd_build() {
         -F "$(xcrun --show-sdk-path)/System/Library/Frameworks" \
         -framework FileProvider \
         -framework UniformTypeIdentifiers \
-        -framework Network \
         -emit-library \
         -module-name VentoFSFileProvider \
         -o "${APPEX_BUNDLE}/Contents/MacOS/VentoFSFileProvider" \

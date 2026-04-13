@@ -14,7 +14,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { AppLayout, AppSidebar, EmptyState, FormInput, Modal, SectionHeader, Spinner } from '@/components'
 import type { AppComponentProps } from '@/kernel'
-import { useAppStorage } from '@/kernel'
+import { useAppStorage, useAppStateSync } from '@/kernel'
 import type { VfsPickerResult } from '@/shell/FilePicker'
 import { VfsPathPickerInput } from '@/shell/FilePicker'
 import type { CreateK8sClusterReq, K8sCluster, K8sNamespace, K8sResource, K8sResourceKind } from './api'
@@ -144,7 +144,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
 // ─── Main app ──────────────────────────────────────────────────────────────
 
-export default function KubernetesApp(_props: AppComponentProps) {
+export default function KubernetesApp({ windowId, initialAppState }: AppComponentProps) {
   const storage = useAppStorage('kubernetes')
   const [clusters, setClusters] = useState<K8sCluster[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -156,7 +156,10 @@ export default function KubernetesApp(_props: AppComponentProps) {
   const [selectedKind, setSelectedKind] = useState<K8sResourceKind>('pod')
   const [resources, setResources] = useState<K8sResource[]>([])
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['工作负载']))
-  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set())
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(() => {
+    const saved = initialAppState?.expandedClusters as string[] | undefined
+    return saved ? new Set(saved) : new Set()
+  })
   const [loading, setLoading] = useState(false)
 
   const fetchResources = useCallback(async (clusterId: string, ns: string, kind: K8sResourceKind) => {
@@ -301,6 +304,11 @@ export default function KubernetesApp(_props: AppComponentProps) {
       active = false
     }
   }, [storage, reload, selectCluster])
+
+  // Sync app state
+  useAppStateSync(windowId, {
+    expandedClusters: [...expandedClusters]
+  }, [expandedClusters])
 
   return (
     <AppLayout

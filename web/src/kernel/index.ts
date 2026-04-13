@@ -61,3 +61,4 @@ export {
 // ── Window management ──────────────────────────────────────────────────────
 export { useWindowStore } from './window/store'
 export type { WindowInstance, WindowOpenOptions } from './window/types'
+export { useAppStateSync } from './window/useAppStateSync'

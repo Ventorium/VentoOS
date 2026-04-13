@@ -48,6 +48,7 @@ import {
   registerAppMenus,
   unregisterAppMenus,
   useAppStorage,
+  useAppStateSync,
   useFileDefaultsStore
 } from '@/kernel'
 import { taskService } from '@/services/task'
@@ -309,7 +310,7 @@ function MountForm({
 
   const isValid = (): boolean => {
     if (!name || nameError) return false
-    if (localMountEnabled && mountBackend === 'fuse' && (!!localMountPathError || !localMountPath)) return false
+    if (localMountEnabled && (mountBackend === 'fuse' || mountBackend === 'webdav') && (!!localMountPathError || !localMountPath)) return false
     switch (kind) {
       case 'local':
         return !!localPath
@@ -752,6 +753,7 @@ function MountForm({
                     onChange={e => setMountBackend(e.target.value as MountBackend)}
                   >
                     <option value="fuse">FUSE（macFUSE / libfuse3）</option>
+                    <option value="webdav">WebDAV（内置，无需额外依赖）</option>
                     <option value="fileprovider">FileProvider（macOS 原生）</option>
                   </select>
                 </div>
@@ -849,7 +851,18 @@ function MountForm({
                     </div>
                   </div>
                 )}
-                {mountBackend === 'fuse' && (
+                {mountBackend === 'webdav' && (
+                  <div
+                    className="text-xs mb-1 px-2 py-1.5 rounded"
+                    style={{ background: 'rgba(52, 199, 89, 0.1)', color: 'var(--vos-accent-success)' }}
+                  >
+                    内置 WebDAV 服务，无需安装任何依赖
+                    <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-secondary)' }}>
+                      macOS 原生 mount_webdav 挂载，Finder 可直接访问
+                    </div>
+                  </div>
+                )}
+                {(mountBackend === 'fuse' || mountBackend === 'webdav') && (
                   <>
                     <input
                       className="vos-input vos-input-sm"
@@ -867,7 +880,9 @@ function MountForm({
                 <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
                   {mountBackend === 'fuse'
                     ? '将远程文件系统挂载到本机目录，需安装 macFUSE / FUSE-T（macOS）或 libfuse3（Linux）'
-                    : '使用 macOS 原生 FileProvider 框架，在 Finder 侧栏显示远程文件系统，无需第三方依赖（macOS 12+）'}
+                    : mountBackend === 'webdav'
+                      ? '通过内置 WebDAV 服务挂载到本机目录，使用 macOS 原生 mount_webdav，无需额外依赖'
+                      : '使用 macOS 原生 FileProvider 框架，在 Finder 侧栏显示远程文件系统，无需第三方依赖（macOS 12+）'}
                 </div>
               </div>
             )}
@@ -2061,13 +2076,13 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
 
 // ─── Main app ──────────────────────────────────────────────────────────────
 
-export default function ExplorerApp({ windowId }: AppComponentProps) {
+export default function ExplorerApp({ windowId, initialAppState }: AppComponentProps) {
   const storage = useAppStorage('explorer')
   const [mounts, setMounts] = useState<VfsMount[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingMount, setEditingMount] = useState<VfsMount | null>(null)
   const [showExplorerSettings, setShowExplorerSettings] = useState(false)
-  const [selectedMount, setSelectedMount] = useState<string | null>(null)
+  const [selectedMount, setSelectedMount] = useState<string | null>((initialAppState?.selectedMount as string) ?? null)
   // local mount statuses: id -> { mounted, mount_point, error }
   const [localMountStatuses, setLocalMountStatuses] = useState<
     Record<string, { mounted: boolean; mount_point: string | null; error: string | null }>
@@ -2179,6 +2194,17 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
   // Context menu
   const showContextMenu = useContextMenuStore(s => s.show)
 
+  // Persist app state
+  useAppStateSync(
+    windowId,
+    {
+      selectedMount,
+      columnPaths: columns.map(c => c.path),
+      selectedNodeName: selectedNode?.name ?? null
+    },
+    [selectedMount, columns, selectedNode]
+  )
+
   // Register app menus via kernel menu system
   useEffect(() => {
     const menus: AppMenuGroup[] = [
@@ -2211,10 +2237,39 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         }
       }
       setMounts(mountList)
-      // Auto-select first mount if nothing selected
-      if (!selectedMount && mountList.length > 0) {
+
+      // Restore state from initialAppState or auto-select first mount
+      const savedMountId = initialAppState?.selectedMount as string | undefined
+      const savedColumnPaths = initialAppState?.columnPaths as string[] | undefined
+
+      if (savedMountId && mountList.some(m => m.id === savedMountId)) {
+        // Restore saved mount and columns
+        setSelectedMount(savedMountId)
+        setPreview(null)
+        setSelectedNode(null)
+        setMultiSelect(new Map())
+        setActiveColumn(0)
+
+        if (savedColumnPaths && savedColumnPaths.length > 0) {
+          // Restore saved columns
+          const restoredColumns = await Promise.all(
+            savedColumnPaths.map(async path => {
+              const entries = await loadColumn(savedMountId, path)
+              return { path, entries, loading: false }
+            })
+          )
+          setColumns(restoredColumns)
+        } else {
+          // No saved columns, load root
+          setColumns([{ path: '/', entries: [], loading: true }])
+          const entries = await loadColumn(savedMountId, '/')
+          setColumns([{ path: '/', entries, loading: false }])
+        }
+      } else if (!selectedMount && mountList.length > 0) {
+        // Auto-select first mount if nothing selected
         selectMount(mountList[0].id)
       }
+
       // Fetch local mount statuses for enabled mounts
       const enabledMounts = mountList.filter(m => m.local_mount?.enabled)
       if (enabledMounts.length > 0) {
@@ -2232,7 +2287,7 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
     } catch (e) {
       console.error(e)
     }
-  }, [])
+  }, [initialAppState])
 
   useEffect(() => {
     reload()
@@ -3324,6 +3379,23 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                     id: 'mount-toggle',
                     label: isFuseMounted ? '取消挂载' : '挂载到本机',
                     action: handleFuseToggle
+                  })
+                }
+                // WebDAV "Mount in Finder" for non-local sources
+                if (m.kind !== 'local') {
+                  items.push({
+                    id: 'mount-webdav-finder',
+                    label: '在 Finder 中打开（WebDAV）',
+                    action: () => {
+                      const url = vfsApi.getWebDavMountUrl(m.id)
+                      window.open(`x-apple.systempreferences://open?message=webdav:${encodeURIComponent(url)}`, '_blank')
+                      // Fallback: copy URL and show instructions
+                      navigator.clipboard.writeText(url).then(() => {
+                        alert(`WebDAV URL 已复制到剪贴板：\n${url}\n\n在 Finder 中选择"前往 > 连接服务器"并粘贴此地址`)
+                      }).catch(() => {
+                        alert(`WebDAV 地址：\n${url}\n\n在 Finder 中选择"前往 > 连接服务器"并输入此地址`)
+                      })
+                    }
                   })
                 }
                 items.push({ type: 'separator' as const })

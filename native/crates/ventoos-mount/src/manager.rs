@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 use ventoos_vfs::VfsManager;
 use ventoos_vfs::types::{LocalMountConfig, MountBackend};
 
-use crate::types::{MountError, MountStatus};
+use crate::types::{FileProviderAvailability, MountError, MountStatus};
 use crate::validate::{expand_home, validate_mount_path};
 
 /// Handle to an active FUSE mount task.
@@ -30,6 +30,8 @@ pub(crate) enum MountState {
     Mounted(MountHandle),
     /// Mount managed by the macOS FileProvider extension.
     MountedFileProvider { display_name: String },
+    /// Mount managed by macOS `mount_webdav` pointed at our built-in WebDAV server.
+    MountedWebDav { mount_point: String },
     Error(String),
 }
 
@@ -71,14 +73,62 @@ impl LocalMountManager {
 
     /// Check whether the macOS FileProvider extension is available.
     pub fn is_fileprovider_available() -> bool {
+        Self::fileprovider_availability().available
+    }
+
+    /// Return structured diagnostics for the macOS FileProvider backend.
+    pub fn fileprovider_availability() -> FileProviderAvailability {
         #[cfg(target_os = "macos")]
         {
-            crate::fileprovider_impl::is_fileprovider_available()
-                && crate::fileprovider_impl::is_extension_installed()
+            crate::fileprovider_impl::diagnostics()
         }
         #[cfg(not(target_os = "macos"))]
         {
-            false
+            FileProviderAvailability {
+                available: false,
+                probe_succeeded: Some(false),
+                macos_version: None,
+                app_path: String::new(),
+                helper_path: String::new(),
+                plugin_bundle_id: "io.ventoos.VentoFS.FileProvider".to_string(),
+                app_installed: false,
+                helper_binary_exists: false,
+                plugin_registered: false,
+                reason: Some("FileProvider 仅支持 macOS 12+".to_string()),
+                details: vec!["当前平台不是 macOS，无法使用 FileProvider 挂载".to_string()],
+            }
+        }
+    }
+
+    /// Run a deeper health-check that verifies FileProvider domain registration works.
+    pub async fn fileprovider_healthcheck() -> FileProviderAvailability {
+        #[cfg(target_os = "macos")]
+        {
+            let mut diagnostics = crate::fileprovider_impl::diagnostics();
+            if !diagnostics.available {
+                diagnostics.probe_succeeded = Some(false);
+                return diagnostics;
+            }
+
+            match crate::fileprovider_impl::probe_registration().await {
+                Ok(()) => {
+                    diagnostics.probe_succeeded = Some(true);
+                    diagnostics
+                }
+                Err(error) => {
+                    diagnostics.available = false;
+                    diagnostics.probe_succeeded = Some(false);
+                    diagnostics.reason = Some("FileProvider 注册探针失败".to_string());
+                    diagnostics
+                        .details
+                        .push(format!("注册探针失败：{error}"));
+                    diagnostics
+                }
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            Self::fileprovider_availability()
         }
     }
 
@@ -100,6 +150,9 @@ impl LocalMountManager {
             }
             MountBackend::Fuse => {
                 self.mount_fuse(mount_id, mount_name, config, vfs).await
+            }
+            MountBackend::WebDav => {
+                self.mount_webdav_server(mount_id, mount_name, config).await
             }
         }
     }
@@ -208,13 +261,20 @@ impl LocalMountManager {
     ) -> Result<(), MountError> {
         #[cfg(target_os = "macos")]
         {
-            if !Self::is_fileprovider_available() {
+            let diagnostics = Self::fileprovider_availability();
+            if !diagnostics.available {
                 return Err(MountError::FileProvider(
-                    "FileProvider 不可用：需要 macOS 12+ 并安装 VentoFS.app".to_string(),
+                    diagnostics.reason.unwrap_or_else(|| {
+                        "FileProvider 当前不可用，请检查 VentoFS 扩展安装状态".to_string()
+                    }),
                 ));
             }
 
             crate::fileprovider_impl::register_domain(mount_id, mount_name).await?;
+            if let Err(error) = crate::fileprovider_impl::probe_domain_access(mount_name).await {
+                let _ = crate::fileprovider_impl::unregister_domain(mount_id).await;
+                return Err(MountError::FileProvider(error));
+            }
 
             self.state.write().await.insert(
                 mount_id.to_string(),
@@ -230,6 +290,57 @@ impl LocalMountManager {
             Err(MountError::FileProvider(
                 "FileProvider is only supported on macOS".to_string(),
             ))
+        }
+    }
+
+    /// Mount using the built-in VentoOS WebDAV server and `mount_webdav` (macOS).
+    /// No extra software required — the WebDAV server runs inside VentoOS itself.
+    async fn mount_webdav_server(
+        &self,
+        mount_id: &str,
+        mount_name: &str,
+        config: &LocalMountConfig,
+    ) -> Result<(), MountError> {
+        #[cfg(target_os = "macos")]
+        {
+            use crate::validate::expand_home;
+            let mount_point = expand_home(&config.mount_point);
+            std::fs::create_dir_all(&mount_point).map_err(|e| {
+                MountError::Fuse(format!("无法创建挂载目录 {mount_point}: {e}"))
+            })?;
+
+            // Build the WebDAV URL pointing to our built-in server.
+            let webdav_url = format!("http://localhost:5454/dav/{mount_id}/");
+
+            // Use `mount_webdav` to mount — it is bundled with macOS.
+            let output = tokio::process::Command::new("mount_webdav")
+                .arg(&webdav_url)
+                .arg(&mount_point)
+                .output()
+                .await
+                .map_err(|e| MountError::Fuse(format!("无法执行 mount_webdav: {e}")))?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(MountError::Fuse(format!(
+                    "mount_webdav 失败 (exit {}): {stderr}",
+                    output.status.code().unwrap_or(-1)
+                )));
+            }
+
+            self.state.write().await.insert(
+                mount_id.to_string(),
+                MountState::MountedWebDav {
+                    mount_point: mount_point.clone(),
+                },
+            );
+            tracing::info!("WebDAV mounted '{mount_name}' at '{mount_point}' via {webdav_url}");
+            Ok(())
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (mount_id, mount_name, config);
+            Err(MountError::Unsupported)
         }
     }
 
@@ -255,6 +366,17 @@ impl LocalMountManager {
                 }
                 Ok(())
             }
+            Some(MountState::MountedWebDav { mount_point }) => {
+                // Use `umount` (or `diskutil unmount`) to detach the WebDAV volume.
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = tokio::process::Command::new("diskutil")
+                        .args(["unmount", &mount_point])
+                        .output()
+                        .await;
+                }
+                Ok(())
+            }
             Some(MountState::Error(_)) | None => Ok(()),
         }
     }
@@ -268,6 +390,9 @@ impl LocalMountManager {
             },
             Some(MountState::MountedFileProvider { display_name }) => MountStatus::Mounted {
                 mount_point: format!("FileProvider:{display_name}"),
+            },
+            Some(MountState::MountedWebDav { mount_point }) => MountStatus::Mounted {
+                mount_point: mount_point.clone(),
             },
             Some(MountState::Error(e)) => MountStatus::Error { error: e.clone() },
             None => MountStatus::Unmounted,

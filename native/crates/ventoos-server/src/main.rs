@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use axum::Router;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing::info;
@@ -40,10 +41,19 @@ async fn main() -> Result<()> {
         db_path.display()
     );
 
-    // Build router
-    let app = routes::create_router(&state)
+    // Build router.
+    // WebDAV routes are merged WITHOUT the CorsLayer so that OPTIONS requests
+    // reach the DAV handler and return the required "DAV: 1, 2" header.
+    // (tower-http's CorsLayer short-circuits OPTIONS for CORS preflight,
+    //  which would strip our DAV header and cause mount_webdav to fail.)
+    let main_router = routes::create_router(&state)
+        .layer(CorsLayer::permissive());
+    let webdav_router = routes::create_webdav_router(&state);
+
+    let app = Router::new()
+        .merge(webdav_router)
+        .merge(main_router)
         .layer(TraceLayer::new_for_http())
-        .layer(CorsLayer::permissive())
         .layer(axum::middleware::from_fn(cross_origin_isolation_headers));
 
     // Unix domain socket listener (macOS/Linux only)

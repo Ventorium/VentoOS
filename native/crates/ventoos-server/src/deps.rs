@@ -291,12 +291,22 @@ async fn check_fuse() -> Json<ApiResponse<serde_json::Value>> {
 
 /// GET /api/dependencies/check-fileprovider — check if `FileProvider` backend is available.
 async fn check_fileprovider() -> Json<ApiResponse<serde_json::Value>> {
-    let available = ventoos_mount::LocalMountManager::is_fileprovider_available();
+    let diagnostics = ventoos_mount::LocalMountManager::fileprovider_healthcheck().await;
     let platform = current_platform();
 
     Json(ApiResponse::ok(serde_json::json!({
-        "available": available,
+        "available": diagnostics.available,
+        "probe_succeeded": diagnostics.probe_succeeded,
         "platform": platform,
+        "macos_version": diagnostics.macos_version,
+        "app_path": diagnostics.app_path,
+        "helper_path": diagnostics.helper_path,
+        "plugin_bundle_id": diagnostics.plugin_bundle_id,
+        "app_installed": diagnostics.app_installed,
+        "helper_binary_exists": diagnostics.helper_binary_exists,
+        "plugin_registered": diagnostics.plugin_registered,
+        "reason": diagnostics.reason,
+        "details": diagnostics.details,
     })))
 }
 
@@ -343,10 +353,22 @@ async fn install_fileprovider_handler() -> impl IntoResponse {
         }
     }
 
+    let diagnostics = ventoos_mount::LocalMountManager::fileprovider_healthcheck().await;
+    let success = diagnostics.available;
+    let message = if success {
+        "VentoFS.app installed and recognized by macOS".to_string()
+    } else {
+        diagnostics
+            .reason
+            .clone()
+            .unwrap_or_else(|| "VentoFS.app installed, but FileProvider is still unavailable".to_string())
+    };
+
     Json(ApiResponse::ok(serde_json::json!({
-        "success": true,
-        "message": "VentoFS.app installed",
+        "success": success,
+        "message": message,
         "output": combined,
+        "diagnostics": diagnostics,
     })))
     .into_response()
 }

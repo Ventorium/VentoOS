@@ -8,24 +8,30 @@
  * which calls the backend process API. There is NO direct dependency on
  * a frontend process store — the backend owns process truth.
  *
- * PERSISTENCE: Window state is persisted to the backend SQLite database.
- * On boot, state is loaded from backend; on changes, state is debounced-synced back.
+ * PERSISTENCE: Window state is persisted to the backend SQLite database
+ * using INCREMENTAL per-window CRUD operations:
+ *   - Add window → POST /api/settings/windows
+ *   - Update window → PUT /api/settings/windows/{id} (debounced per-window)
+ *   - Remove window → DELETE /api/settings/windows/{id}
  */
 
 import { create } from 'zustand'
 import { apiClient } from '@/infra/api'
 import { createLogger } from '@/infra/logger'
 import type { WindowInstance } from './types'
+import type { WindowStateDTO } from '@/infra/api/types'
 
 const logger = createLogger('kernel/window/store')
 
-/** Debounce timer for syncing window states to backend. */
-let _syncTimer: ReturnType<typeof setTimeout> | null = null
+/** Debounce interval for per-window sync. */
 const SYNC_DEBOUNCE_MS = 500
 
-/** Convert frontend WindowInstance[] to backend WindowStateDTO[] */
-function toBackendStates(windows: WindowInstance[]) {
-  return windows.map(w => ({
+/** Per-window debounce timers for incremental sync. */
+const _syncTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+/** Convert a single frontend WindowInstance to backend WindowStateDTO */
+function toBackendState(w: WindowInstance): WindowStateDTO {
+  return {
     id: w.id,
     app_id: w.appId,
     title: w.title,
@@ -38,17 +44,23 @@ function toBackendStates(windows: WindowInstance[]) {
     is_maximized: w.isMaximized,
     tab_states: w.restoreBounds ? w.restoreBounds : undefined,
     app_state: w.appState
-  }))
+  }
 }
 
-/** Debounced sync of window states to backend. */
-function scheduleSyncToBackend(windows: WindowInstance[]) {
-  if (_syncTimer) clearTimeout(_syncTimer)
-  _syncTimer = setTimeout(() => {
-    apiClient.saveWindowSettings(toBackendStates(windows)).catch(err => {
-      logger.warn('Failed to sync window states to backend', err)
-    })
-  }, SYNC_DEBOUNCE_MS)
+/** Debounced sync of a single window's state to backend. */
+function syncWindowToBackend(win: WindowInstance) {
+  const existing = _syncTimers.get(win.id)
+  if (existing) clearTimeout(existing)
+
+  _syncTimers.set(
+    win.id,
+    setTimeout(() => {
+      _syncTimers.delete(win.id)
+      apiClient.updateWindowState(win.id, toBackendState(win)).catch(err => {
+        logger.warn(`Failed to sync window ${win.id} to backend`, err)
+      })
+    }, SYNC_DEBOUNCE_MS)
+  )
 }
 
 interface WindowStore {
@@ -96,14 +108,24 @@ export const useWindowStore = create<WindowStore>()((set, get) => ({
   nextZIndex: 1,
 
   _addWindow(win) {
-    set(state => {
-      const windows = [...state.windows.map(w => ({ ...w, isFocused: false })), win]
-      scheduleSyncToBackend(windows)
-      return { windows, nextZIndex: state.nextZIndex + 1 }
+    set(state => ({
+      windows: [...state.windows.map(w => ({ ...w, isFocused: false })), win],
+      nextZIndex: state.nextZIndex + 1
+    }))
+    // Immediate POST for new window
+    apiClient.createWindowState(toBackendState(win)).catch(err => {
+      logger.warn(`Failed to create window state ${win.id}`, err)
     })
   },
 
   _removeWindow(id) {
+    // Cancel any pending sync for this window
+    const timer = _syncTimers.get(id)
+    if (timer) {
+      clearTimeout(timer)
+      _syncTimers.delete(id)
+    }
+
     set(state => {
       const remaining = state.windows.filter(w => w.id !== id)
       let windows: WindowInstance[]
@@ -113,8 +135,11 @@ export const useWindowStore = create<WindowStore>()((set, get) => ({
       } else {
         windows = remaining
       }
-      scheduleSyncToBackend(windows)
       return { windows }
+    })
+    // Immediate DELETE
+    apiClient.deleteWindowState(id).catch(err => {
+      logger.warn(`Failed to delete window state ${id}`, err)
     })
   },
 
@@ -123,30 +148,34 @@ export const useWindowStore = create<WindowStore>()((set, get) => ({
       const windows = state.windows.map(w =>
         w.id === id ? { ...w, isFocused: true, zIndex: nextZ, isMinimized: false } : { ...w, isFocused: false }
       )
-      scheduleSyncToBackend(windows)
       return { windows, nextZIndex: nextZ + 1 }
     })
+    // Sync focused window and previously focused window
+    const wins = get().windows
+    for (const w of wins) {
+      syncWindowToBackend(w)
+    }
   },
 
   _minimizeWindow(id) {
-    set(state => {
-      const windows = state.windows.map(w => (w.id === id ? { ...w, isMinimized: true, isFocused: false } : w))
-      scheduleSyncToBackend(windows)
-      return { windows }
-    })
+    set(state => ({
+      windows: state.windows.map(w => (w.id === id ? { ...w, isMinimized: true, isFocused: false } : w))
+    }))
+    const win = get().windows.find(w => w.id === id)
+    if (win) syncWindowToBackend(win)
   },
 
   _restoreWindowState(id) {
-    set(state => {
-      const windows = state.windows.map(w => (w.id === id ? { ...w, isMinimized: false } : w))
-      scheduleSyncToBackend(windows)
-      return { windows }
-    })
+    set(state => ({
+      windows: state.windows.map(w => (w.id === id ? { ...w, isMinimized: false } : w))
+    }))
+    const win = get().windows.find(w => w.id === id)
+    if (win) syncWindowToBackend(win)
   },
 
   _toggleMaximize(id) {
-    set(state => {
-      const windows = state.windows.map(w => {
+    set(state => ({
+      windows: state.windows.map(w => {
         if (w.id !== id) return w
         if (w.isMaximized) {
           return {
@@ -162,9 +191,9 @@ export const useWindowStore = create<WindowStore>()((set, get) => ({
           restoreBounds: { x: w.x, y: w.y, width: w.width, height: w.height }
         }
       })
-      scheduleSyncToBackend(windows)
-      return { windows }
-    })
+    }))
+    const win = get().windows.find(w => w.id === id)
+    if (win) syncWindowToBackend(win)
   },
 
   _setProcessId(windowId, pid) {
@@ -174,33 +203,35 @@ export const useWindowStore = create<WindowStore>()((set, get) => ({
   },
 
   moveWindow(id, x, y) {
-    set(state => {
-      const windows = state.windows.map(w => (w.id === id ? { ...w, x, y } : w))
-      scheduleSyncToBackend(windows)
-      return { windows }
-    })
+    set(state => ({
+      windows: state.windows.map(w => (w.id === id ? { ...w, x, y } : w))
+    }))
+    const win = get().windows.find(w => w.id === id)
+    if (win) syncWindowToBackend(win)
   },
 
   resizeWindow(id, width, height) {
-    set(state => {
-      const windows = state.windows.map(w => (w.id === id ? { ...w, width, height } : w))
-      scheduleSyncToBackend(windows)
-      return { windows }
-    })
+    set(state => ({
+      windows: state.windows.map(w => (w.id === id ? { ...w, width, height } : w))
+    }))
+    const win = get().windows.find(w => w.id === id)
+    if (win) syncWindowToBackend(win)
   },
 
   updateTitle(id, title) {
     set(state => ({
       windows: state.windows.map(w => (w.id === id ? { ...w, title } : w))
     }))
+    const win = get().windows.find(w => w.id === id)
+    if (win) syncWindowToBackend(win)
   },
 
   updateAppState(id, appState) {
-    set(state => {
-      const windows = state.windows.map(w => (w.id === id ? { ...w, appState } : w))
-      scheduleSyncToBackend(windows)
-      return { windows }
-    })
+    set(state => ({
+      windows: state.windows.map(w => (w.id === id ? { ...w, appState } : w))
+    }))
+    const win = get().windows.find(w => w.id === id)
+    if (win) syncWindowToBackend(win)
   },
 
   async loadFromBackend() {

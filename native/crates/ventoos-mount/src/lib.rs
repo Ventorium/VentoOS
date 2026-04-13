@@ -29,6 +29,6 @@ pub(crate) mod stub_impl;
 mod manager;
 
 pub use manager::LocalMountManager;
-pub use types::{MountError, MountStatus};
+pub use types::{FileProviderAvailability, MountError, MountStatus};
 pub use validate::validate_mount_path;
 pub use ventoos_vfs::types::MountBackend;

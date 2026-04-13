@@ -2,7 +2,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::middleware;
 use axum::response::{Html, IntoResponse};
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use chrono::NaiveDate;
 use rust_embed::Embed;
@@ -14,6 +14,7 @@ use crate::deps;
 use crate::monitor;
 use crate::shell;
 use crate::state::AppState;
+use crate::webdav;
 use crate::websocket;
 use ventoos_core::process::CreateProcessRequest;
 use ventoos_core::task::CreateTaskRequest;
@@ -140,7 +141,11 @@ pub fn create_router(state: &AppState) -> Router {
         )
         .route(
             "/api/settings/windows",
-            get(get_window_states).put(save_window_states),
+            get(get_window_states).post(create_window_state),
+        )
+        .route(
+            "/api/settings/windows/{id}",
+            put(update_window_state).delete(delete_window_state),
         )
         .route(
             "/api/settings/system",
@@ -191,6 +196,29 @@ pub fn create_router(state: &AppState) -> Router {
         .merge(protected_routes)
         .merge(protected_api)
         .fallback(frontend_handler)
+}
+
+/// WebDAV routes — returned separately so callers can apply layers selectively.
+/// These routes must NOT go through the CORS layer (CORS intercepts OPTIONS,
+/// which breaks the DAV: header required by mount_webdav).
+pub fn create_webdav_router(state: &AppState) -> Router {
+    Router::new()
+        // exact /dav/{id}  — no trailing slash
+        .route(
+            "/dav/{mount_id}",
+            axum::routing::any(webdav::webdav_root_handler),
+        )
+        // /dav/{id}/  — trailing slash (Finder and mount_webdav add one)
+        .route(
+            "/dav/{mount_id}/",
+            axum::routing::any(webdav::webdav_root_handler),
+        )
+        // /dav/{id}/some/path
+        .route(
+            "/dav/{mount_id}/{*path}",
+            axum::routing::any(webdav::webdav_handler),
+        )
+        .with_state(state.clone())
 }
 
 // --- Health Check ---
@@ -457,6 +485,43 @@ async fn save_window_states(
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"saved": true}))),
         Err(e) => Json(ApiResponse::err(format!(
             "Failed to save window states: {e}"
+        ))),
+    }
+}
+
+async fn create_window_state(
+    State(state): State<AppState>,
+    Json(body): Json<ventoos_core::window::WindowState>,
+) -> Json<ApiResponse<serde_json::Value>> {
+    match state.window_states.save_one(&body) {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"id": body.id}))),
+        Err(e) => Json(ApiResponse::err(format!(
+            "Failed to create window state: {e}"
+        ))),
+    }
+}
+
+async fn update_window_state(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<ventoos_core::window::WindowState>,
+) -> Json<ApiResponse<serde_json::Value>> {
+    match state.window_states.update_one(&id, &body) {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"updated": true}))),
+        Err(e) => Json(ApiResponse::err(format!(
+            "Failed to update window state: {e}"
+        ))),
+    }
+}
+
+async fn delete_window_state(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Json<ApiResponse<serde_json::Value>> {
+    match state.window_states.delete_one(&id) {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"deleted": true}))),
+        Err(e) => Json(ApiResponse::err(format!(
+            "Failed to delete window state: {e}"
         ))),
     }
 }

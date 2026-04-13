@@ -75,6 +75,71 @@ impl WindowStateManager {
         })
     }
 
+    /// Save a single window state (INSERT OR REPLACE).
+    pub fn save_one(&self, state: &WindowState) -> Result<(), rusqlite::Error> {
+        self.db.with_conn(|conn| {
+            let tab_states_json = state.tab_states.as_ref().map(|v| v.to_string());
+            let app_state_json = state.app_state.as_ref().map(|v| v.to_string());
+            conn.execute(
+                "INSERT OR REPLACE INTO window_states (id, app_id, title, x, y, width, height, z_index, status, is_maximized, tab_states, app_state)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                rusqlite::params![
+                    state.id.to_string(),
+                    state.app_id,
+                    state.title,
+                    state.x,
+                    state.y,
+                    state.width,
+                    state.height,
+                    state.z_index,
+                    format_window_status(&state.status),
+                    i64::from(state.is_maximized),
+                    tab_states_json,
+                    app_state_json,
+                ],
+            )?;
+            Ok(())
+        })
+    }
+
+    /// Update a single window state by id.
+    pub fn update_one(&self, id: &str, state: &WindowState) -> Result<(), rusqlite::Error> {
+        self.db.with_conn(|conn| {
+            let tab_states_json = state.tab_states.as_ref().map(|v| v.to_string());
+            let app_state_json = state.app_state.as_ref().map(|v| v.to_string());
+            let rows = conn.execute(
+                "UPDATE window_states SET app_id=?2, title=?3, x=?4, y=?5, width=?6, height=?7, z_index=?8, status=?9, is_maximized=?10, tab_states=?11, app_state=?12
+                 WHERE id=?1",
+                rusqlite::params![
+                    id.to_string(),
+                    state.app_id,
+                    state.title,
+                    state.x,
+                    state.y,
+                    state.width,
+                    state.height,
+                    state.z_index,
+                    format_window_status(&state.status),
+                    i64::from(state.is_maximized),
+                    tab_states_json,
+                    app_state_json,
+                ],
+            )?;
+            if rows == 0 {
+                return Err(rusqlite::Error::QueryReturnedNoRows);
+            }
+            Ok(())
+        })
+    }
+
+    /// Delete a single window state by id.
+    pub fn delete_one(&self, id: &str) -> Result<(), rusqlite::Error> {
+        self.db.with_conn(|conn| {
+            conn.execute("DELETE FROM window_states WHERE id=?1", [id])?;
+            Ok(())
+        })
+    }
+
     /// Clear all persisted window states.
     pub fn clear_all(&self) -> Result<(), rusqlite::Error> {
         self.db.with_conn(|conn| {
@@ -162,6 +227,83 @@ mod tests {
         let loaded = mgr.load_all().unwrap();
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].app_id, "c");
+    }
+
+    #[test]
+    fn test_save_one() {
+        let db = Arc::new(Database::open_in_memory().unwrap());
+        let mgr = WindowStateManager::new(db);
+
+        let state = make_state("explorer", 1);
+        mgr.save_one(&state).unwrap();
+
+        let loaded = mgr.load_all().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].id, state.id);
+        assert_eq!(loaded[0].app_id, "explorer");
+    }
+
+    #[test]
+    fn test_save_one_upsert() {
+        let db = Arc::new(Database::open_in_memory().unwrap());
+        let mgr = WindowStateManager::new(db);
+
+        let mut state = make_state("explorer", 1);
+        mgr.save_one(&state).unwrap();
+
+        state.title = "updated title".to_string();
+        state.x = 200.0;
+        mgr.save_one(&state).unwrap();
+
+        let loaded = mgr.load_all().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].title, "updated title");
+        assert_eq!(loaded[0].x, 200.0);
+    }
+
+    #[test]
+    fn test_update_one() {
+        let db = Arc::new(Database::open_in_memory().unwrap());
+        let mgr = WindowStateManager::new(db);
+
+        let mut state = make_state("explorer", 1);
+        mgr.save_one(&state).unwrap();
+
+        state.title = "renamed".to_string();
+        state.app_state = Some(serde_json::json!({"path": "/home"}));
+        mgr.update_one(&state.id, &state).unwrap();
+
+        let loaded = mgr.load_all().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].title, "renamed");
+        assert_eq!(loaded[0].app_state.as_ref().unwrap()["path"], "/home");
+    }
+
+    #[test]
+    fn test_update_one_missing() {
+        let db = Arc::new(Database::open_in_memory().unwrap());
+        let mgr = WindowStateManager::new(db);
+
+        let state = make_state("explorer", 1);
+        let result = mgr.update_one(&state.id, &state);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_delete_one() {
+        let db = Arc::new(Database::open_in_memory().unwrap());
+        let mgr = WindowStateManager::new(db);
+
+        let s1 = make_state("a", 1);
+        let s2 = make_state("b", 2);
+        mgr.save_one(&s1).unwrap();
+        mgr.save_one(&s2).unwrap();
+        assert_eq!(mgr.load_all().unwrap().len(), 2);
+
+        mgr.delete_one(&s1.id).unwrap();
+        let loaded = mgr.load_all().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].id, s2.id);
     }
 
     #[test]

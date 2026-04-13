@@ -125,6 +125,12 @@ export const apiClient = {
     request<ApiResponse<unknown>>('PUT', '/api/settings/desktop', body),
   getWindowSettings: () => request<ApiResponse<WindowStateDTO[]>>('GET', '/api/settings/windows'),
   saveWindowSettings: (body: WindowStateDTO[]) => request<ApiResponse<unknown>>('PUT', '/api/settings/windows', body),
+  createWindowState: (body: WindowStateDTO) =>
+    request<ApiResponse<{ id: string }>>('POST', '/api/settings/windows', body),
+  updateWindowState: (id: string, body: WindowStateDTO) =>
+    request<ApiResponse<unknown>>('PUT', `/api/settings/windows/${encodeURIComponent(id)}`, body),
+  deleteWindowState: (id: string) =>
+    request<ApiResponse<unknown>>('DELETE', `/api/settings/windows/${encodeURIComponent(id)}`),
 
   // System Settings (sound, lockscreen, location, etc.)
   getSystemSettings: () => request<ApiResponse<SystemSettings>>('GET', '/api/settings/system'),

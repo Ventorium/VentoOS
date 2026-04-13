@@ -5,7 +5,15 @@
       "Bash(git stash:*)",
       "Bash(cargo check:*)",
       "Bash(pnpm build:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(curl -s \"https://api.github.com/repos/sweetwisdom/onlyoffice-web-local/git/trees/main?recursive=1\")",
+      "Bash(python3 -c \" import json, sys data = json.load\\(sys.stdin\\) for t in data.get\\('tree', []\\): p = t['path'] if p.startswith\\('public/sdkjs'\\): print\\(p\\) \")",
+      "Bash(mkdir -p /Users/erguotou/workspace/doremi/VentoOS/web/public/sdkjs)",
+      "Bash(cp -R /Users/erguotou/workspace/doremi/VentoOS/.repos/onlyoffice-web-local/public/sdkjs/* /Users/erguotou/workspace/doremi/VentoOS/web/public/sdkjs/)",
+      "Bash(cargo test:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(pnpm exec:*)",
+      "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics"
     ]
   }
 }

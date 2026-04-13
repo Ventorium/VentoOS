@@ -15,7 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { VList } from 'virtua'
 import { AppLayout, AppSidebar, EmptyState, FormInput, FormSelect, Modal, SectionHeader, Spinner } from '@/components'
 import type { AppComponentProps } from '@/kernel'
-import { useAppStorage } from '@/kernel'
+import { useAppStorage, useAppStateSync } from '@/kernel'
 import { PathPickerInput } from '@/shell/FilePicker'
 import type {
   ColumnInfo,
@@ -152,19 +152,27 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
 
 // ─── Main app ──────────────────────────────────────────────────────────────
 
-export default function DatabaseApp(_props: AppComponentProps) {
+export default function DatabaseApp({ windowId, initialAppState }: AppComponentProps) {
   const storage = useAppStorage('database')
   const [connections, setConnections] = useState<DbConnectionConfig[]>([])
   const [showForm, setShowForm] = useState(false)
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set())
   const [schemas, setSchemas] = useState<Record<string, SchemaInfo[]>>({})
-  const [expandedConns, setExpandedConns] = useState<Set<string>>(new Set())
-  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set())
-  const [selectedTable, setSelectedTable] = useState<{ connId: string; table: string } | null>(null)
+  const [expandedConns, setExpandedConns] = useState<Set<string>>(
+    () => new Set(initialAppState?.expandedConns as string[] ?? [])
+  )
+  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(
+    () => new Set(initialAppState?.expandedSchemas as string[] ?? [])
+  )
+  const [selectedTable, setSelectedTable] = useState<{ connId: string; table: string } | null>(
+    () => (initialAppState?.selectedTable as { connId: string; table: string }) ?? null
+  )
   const [tableStructure, setTableStructure] = useState<TableStructure | null>(null)
   const [tableData, setTableData] = useState<QueryResult | null>(null)
-  const [rightTab, setRightTab] = useState<'structure' | 'data' | 'sql'>('data')
-  const [sqlText, setSqlText] = useState('')
+  const [rightTab, setRightTab] = useState<'structure' | 'data' | 'sql'>(
+    () => (initialAppState?.rightTab as 'structure' | 'data' | 'sql') ?? 'data'
+  )
+  const [sqlText, setSqlText] = useState(initialAppState?.sqlText as string ?? '')
   const [sqlResult, setSqlResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -177,6 +185,15 @@ export default function DatabaseApp(_props: AppComponentProps) {
       if (prefs?.rightTab) setRightTab(prefs.rightTab)
     })
   }, [storage])
+
+  // Sync app state to window manager
+  useAppStateSync(windowId, {
+    expandedConns: [...expandedConns],
+    expandedSchemas: [...expandedSchemas],
+    selectedTable,
+    sqlText,
+    rightTab
+  }, [expandedConns, expandedSchemas, selectedTable, sqlText, rightTab])
 
   const reload = useCallback(async () => {
     try {
