@@ -1,17 +1,18 @@
-//! `LocalMountManager` — manages the lifecycle of FUSE mounts for VFS sources.
+//! `LocalMountManager` — manages the lifecycle of FUSE and FileProvider mounts
+//! for VFS sources.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
 use ventoos_vfs::VfsManager;
-use ventoos_vfs::types::LocalMountConfig;
+use ventoos_vfs::types::{LocalMountConfig, MountBackend};
 
 use crate::types::{MountError, MountStatus};
 use crate::validate::{expand_home, validate_mount_path};
 
-/// Handle to an active mount task. The handle is used to unmount.
-struct MountHandle {
+/// Handle to an active FUSE mount task.
+pub(crate) struct MountHandle {
     /// The expanded mount point path.
     mount_point: String,
     /// Abort handle for the spawned FUSE task.
@@ -19,7 +20,7 @@ struct MountHandle {
     abort: tokio::task::AbortHandle,
 }
 
-/// Manages local FUSE mounts for VFS sources.
+/// Manages local FUSE / FileProvider mounts for VFS sources.
 pub struct LocalMountManager {
     /// Map of mount_id → (status, optional handle).
     state: Arc<RwLock<HashMap<String, MountState>>>,
@@ -27,6 +28,8 @@ pub struct LocalMountManager {
 
 pub(crate) enum MountState {
     Mounted(MountHandle),
+    /// Mount managed by the macOS FileProvider extension.
+    MountedFileProvider { display_name: String },
     Error(String),
 }
 
@@ -43,15 +46,81 @@ impl LocalMountManager {
         }
     }
 
+    /// Check whether the platform FUSE dependency is installed.
+    pub fn is_fuse_available() -> bool {
+        #[cfg(target_os = "macos")]
+        {
+            std::path::Path::new("/Library/Filesystems/macfuse.fs").exists()
+                || std::path::Path::new("/Library/Filesystems/fuse-t.fs").exists()
+                || std::process::Command::new("pkgutil")
+                    .args(["--pkg-info", "io.macfuse.installer.components.core"])
+                    .status()
+                    .is_ok_and(|s| s.success())
+        }
+        #[cfg(target_os = "linux")]
+        {
+            std::path::Path::new("/usr/lib/x86_64-linux-gnu/libfuse3.so").exists()
+                || std::path::Path::new("/usr/lib/libfuse3.so").exists()
+                || std::path::Path::new("/usr/lib64/libfuse3.so").exists()
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            false
+        }
+    }
+
+    /// Check whether the macOS FileProvider extension is available.
+    pub fn is_fileprovider_available() -> bool {
+        #[cfg(target_os = "macos")]
+        {
+            crate::fileprovider_impl::is_fileprovider_available()
+                && crate::fileprovider_impl::is_extension_installed()
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            false
+        }
+    }
+
     /// Mount the given VFS source at the configured local path.
     pub async fn mount(
         &self,
         mount_id: &str,
+        mount_name: &str,
         config: &LocalMountConfig,
         vfs: Arc<VfsManager>,
     ) -> Result<(), MountError> {
         if !config.enabled {
             return Ok(());
+        }
+
+        match config.backend {
+            MountBackend::FileProvider => {
+                self.mount_fileprovider(mount_id, mount_name).await
+            }
+            MountBackend::Fuse => {
+                self.mount_fuse(mount_id, mount_name, config, vfs).await
+            }
+        }
+    }
+
+    /// Mount using the FUSE backend (macFUSE / libfuse3).
+    async fn mount_fuse(
+        &self,
+        mount_id: &str,
+        mount_name: &str,
+        config: &LocalMountConfig,
+        vfs: Arc<VfsManager>,
+    ) -> Result<(), MountError> {
+        // Check FUSE availability before attempting mount.
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if !Self::is_fuse_available() {
+            return Err(MountError::Fuse(
+                #[cfg(target_os = "macos")]
+                "macFUSE 未安装，请先安装 macFUSE 后重试".to_string(),
+                #[cfg(target_os = "linux")]
+                "libfuse3 未安装，请先安装 libfuse3 后重试".to_string(),
+            ));
         }
 
         // Validate and expand path.
@@ -66,6 +135,7 @@ impl LocalMountManager {
         crate::fuse_impl::force_unmount(&mount_point);
 
         let mount_id_owned = mount_id.to_string();
+        let name_owned = mount_name.to_string();
         let mp_clone = mount_point.clone();
         let state_ref = Arc::clone(&self.state);
 
@@ -75,7 +145,7 @@ impl LocalMountManager {
 
             let task = tokio::task::spawn(crate::fuse_impl::run_fuse_mount(
                 mount_id_owned.clone(),
-                mount_id_owned.clone(),
+                name_owned,
                 mp_clone.clone(),
                 Arc::clone(&vfs),
                 Arc::clone(&state_ref),
@@ -99,17 +169,23 @@ impl LocalMountManager {
                     Ok(())
                 }
                 Ok(Ok(Err(e))) => {
-                    // FUSE mount failed.
+                    // FUSE mount failed with an error message.
                     tracing::error!("FUSE mount for {mount_id_owned} failed: {e}");
+                    let _ = tokio::fs::remove_dir(&mp_clone).await;
                     Err(MountError::Fuse(e))
                 }
                 Ok(Err(_)) => {
                     // oneshot sender dropped without sending — mount task panicked.
-                    Err(MountError::Fuse("FUSE mount task terminated unexpectedly".to_string()))
+                    let err = "FUSE mount task terminated unexpectedly".to_string();
+                    tracing::error!("FUSE mount for {mount_id_owned}: {err}");
+                    let _ = tokio::fs::remove_dir(&mp_clone).await;
+                    Err(MountError::Fuse(err))
                 }
                 Err(_) => {
                     // Timeout — mount didn't complete in time.
                     task.abort();
+                    tracing::error!("FUSE mount for {mount_id_owned} timed out");
+                    let _ = tokio::fs::remove_dir(&mp_clone).await;
                     Err(MountError::Fuse(
                         "FUSE mount timed out after 15 seconds".to_string(),
                     ))
@@ -119,8 +195,41 @@ impl LocalMountManager {
 
         #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
-            let _ = (vfs, state_ref, mp_clone, mount_id_owned);
+            let _ = (vfs, state_ref, mp_clone, mount_id_owned, name_owned);
             Err(MountError::Unsupported)
+        }
+    }
+
+    /// Mount using the macOS FileProvider backend.
+    async fn mount_fileprovider(
+        &self,
+        mount_id: &str,
+        mount_name: &str,
+    ) -> Result<(), MountError> {
+        #[cfg(target_os = "macos")]
+        {
+            if !Self::is_fileprovider_available() {
+                return Err(MountError::FileProvider(
+                    "FileProvider 不可用：需要 macOS 12+ 并安装 VentoFS.app".to_string(),
+                ));
+            }
+
+            crate::fileprovider_impl::register_domain(mount_id, mount_name).await?;
+
+            self.state.write().await.insert(
+                mount_id.to_string(),
+                MountState::MountedFileProvider {
+                    display_name: mount_name.to_string(),
+                },
+            );
+            Ok(())
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (mount_id, mount_name);
+            Err(MountError::FileProvider(
+                "FileProvider is only supported on macOS".to_string(),
+            ))
         }
     }
 
@@ -139,6 +248,13 @@ impl LocalMountManager {
                 crate::fuse_impl::force_unmount(&h.mount_point);
                 Ok(())
             }
+            Some(MountState::MountedFileProvider { .. }) => {
+                #[cfg(target_os = "macos")]
+                {
+                    crate::fileprovider_impl::unregister_domain(mount_id).await?;
+                }
+                Ok(())
+            }
             Some(MountState::Error(_)) | None => Ok(()),
         }
     }
@@ -149,6 +265,9 @@ impl LocalMountManager {
         match state.get(mount_id) {
             Some(MountState::Mounted(h)) => MountStatus::Mounted {
                 mount_point: h.mount_point.clone(),
+            },
+            Some(MountState::MountedFileProvider { display_name }) => MountStatus::Mounted {
+                mount_point: format!("FileProvider:{display_name}"),
             },
             Some(MountState::Error(e)) => MountStatus::Error { error: e.clone() },
             None => MountStatus::Unmounted,
@@ -165,7 +284,8 @@ impl LocalMountManager {
         for mount in mounts {
             if let Some(cfg) = &mount.local_mount {
                 if cfg.enabled {
-                    if let Err(e) = self.mount(&mount.id, cfg, Arc::clone(&vfs)).await {
+                    if let Err(e) = self.mount(&mount.id, &mount.name, cfg, Arc::clone(&vfs)).await
+                    {
                         tracing::warn!(
                             "Auto-mount failed for '{}' (id={}): {e}",
                             mount.name,

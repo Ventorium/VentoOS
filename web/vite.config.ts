@@ -18,6 +18,7 @@ export default defineConfig({
     css: false
   },
   server: {
+    allowedHosts: ['druuw-3-0-181-53.run.pinggy-free.link'],
     proxy: {
       '/api': 'http://localhost:5454',
       // Proxy WebSocket shell endpoint first (more specific path first)

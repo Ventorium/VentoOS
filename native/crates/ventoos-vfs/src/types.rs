@@ -84,13 +84,27 @@ pub fn validate_mount_name(name: &str) -> Option<String> {
     None
 }
 
-/// Local filesystem mount configuration (FUSE/WinFSP).
+/// Mount backend selection for local filesystem mounting.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum MountBackend {
+    /// FUSE-based mounting (macFUSE on macOS, libfuse3 on Linux).
+    #[default]
+    Fuse,
+    /// Apple FileProvider framework (macOS 12+ only).
+    FileProvider,
+}
+
+/// Local filesystem mount configuration (FUSE/WinFSP/FileProvider).
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct LocalMountConfig {
-    /// Whether local FUSE mounting is enabled.
+    /// Whether local mounting is enabled.
     pub enabled: bool,
     /// Target directory on the local filesystem (`~` will be expanded by the server).
     pub mount_point: String,
+    /// Mount backend to use. Defaults to Fuse for backward compatibility.
+    #[serde(default)]
+    pub backend: MountBackend,
 }
 
 /// A mount source configuration.

@@ -288,6 +288,17 @@ async fn check_fuse() -> Json<ApiResponse<serde_json::Value>> {
     })))
 }
 
+/// GET /api/dependencies/check-fileprovider — check if `FileProvider` backend is available.
+async fn check_fileprovider() -> Json<ApiResponse<serde_json::Value>> {
+    let available = ventoos_mount::LocalMountManager::is_fileprovider_available();
+    let platform = current_platform();
+
+    Json(ApiResponse::ok(serde_json::json!({
+        "available": available,
+        "platform": platform,
+    })))
+}
+
 /// Build the dependency management routes.
 pub fn dependency_routes() -> Router<crate::state::AppState> {
     Router::new()
@@ -297,4 +308,5 @@ pub fn dependency_routes() -> Router<crate::state::AppState> {
             axum::routing::post(install_dependency),
         )
         .route("/api/dependencies/check-fuse", get(check_fuse))
+        .route("/api/dependencies/check-fileprovider", get(check_fileprovider))
 }

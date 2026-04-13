@@ -19,6 +19,26 @@ body,
   user-select: none;
 }
 
+/* Allow text selection in content elements */
+p,
+label,
+span,
+code,
+pre,
+a,
+li,
+td,
+th,
+blockquote,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  user-select: text;
+}
+
 /* Suppress active/focus flash on listbox items */
 [role="option"]:active,
 [role="option"]:focus {
@@ -278,6 +298,8 @@ body,
 }
 
 .vos-dock-dot {
+  position: absolute;
+  bottom: -10px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -289,14 +311,14 @@ body,
 
 /* Running dot on left side of icon for vertical dock */
 .vos-dock-dot-left {
-  margin-top: 0;
-  margin-left: 4px;
+  left: -10px;
+  bottom: calc(50% - 2.5px);
 }
 
 .vos-dock-tooltip {
   position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
+  /* bottom: calc(100% + 8px); */
+  /* left: 50%; */
   transform: translateX(-50%);
   background: var(--vos-bg-overlay);
   backdrop-filter: blur(8px);
@@ -314,8 +336,8 @@ body,
 
 /* Tooltip for vertical (left) dock — appears to the right of the icon */
 .vos-dock-tooltip-left {
-  bottom: unset;
-  left: unset;
+  /* bottom: unset;
+  left: unset; */
   transform: translateY(-50%);
 }
 

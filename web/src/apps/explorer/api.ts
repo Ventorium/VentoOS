@@ -12,9 +12,12 @@ import { getAuthHeaders, handleUnauthorized, request } from '@/infra/api'
 
 export type VfsSourceKind = 'local' | 'sftp' | 'ftp' | 'smb' | 's3' | 'webdav'
 
+export type MountBackend = 'fuse' | 'fileprovider'
+
 export interface LocalMountConfig {
   enabled: boolean
   mount_point: string
+  backend?: MountBackend
 }
 
 export interface VfsMount {
@@ -173,5 +176,9 @@ export const vfsApi = {
     request<ApiResponse<{ mounted: boolean; mount_point: string | null; error: string | null }>>(
       'GET',
       `/api/vfs/mounts/${id}/local-mount`
-    )
+    ),
+
+  // Check FileProvider availability
+  checkFileProvider: () =>
+    request<ApiResponse<{ available: boolean; platform: string }>>('GET', '/api/dependencies/check-fileprovider')
 }

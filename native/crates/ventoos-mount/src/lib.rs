@@ -20,6 +20,9 @@ pub mod validate;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) mod fuse_impl;
 
+#[cfg(target_os = "macos")]
+pub(crate) mod fileprovider_impl;
+
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
 pub(crate) mod stub_impl;
 
@@ -28,3 +31,4 @@ mod manager;
 pub use manager::LocalMountManager;
 pub use types::{MountError, MountStatus};
 pub use validate::validate_mount_path;
+pub use ventoos_vfs::types::MountBackend;

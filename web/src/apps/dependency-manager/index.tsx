@@ -1,7 +1,7 @@
 /**
  * Dependency Manager — checks and installs system-level dependencies
  */
-import { AlertTriangle, CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, Check, CheckCircle2, Copy, Download, ExternalLink, Loader2, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
 import { type Dependency, depsApi } from './api'
@@ -18,7 +18,7 @@ export default function DependencyManager(_props: AppComponentProps) {
     setLoading(true)
     try {
       const res = await depsApi.list()
-      if (res.ok) setDeps(res.data)
+      if (res.success) setDeps(res.data)
     } catch {
       /* ignore */
     } finally {
@@ -35,14 +35,14 @@ export default function DependencyManager(_props: AppComponentProps) {
     setInstallOutputs(prev => ({ ...prev, [id]: '' }))
     try {
       const res = await depsApi.install(id)
-      if (res.ok) {
+      if (res.success) {
         setInstallStates(prev => ({ ...prev, [id]: res.data.success ? 'success' : 'error' }))
         setInstallOutputs(prev => ({ ...prev, [id]: res.data.output }))
         // Update the dep in list
         setDeps(prev => prev.map(d => (d.id === id ? res.data.dependency : d)))
       } else {
         setInstallStates(prev => ({ ...prev, [id]: 'error' }))
-        setInstallOutputs(prev => ({ ...prev, [id]: res.error ?? '安装失败' }))
+        setInstallOutputs(prev => ({ ...prev, [id]: res.message ?? '安装失败' }))
       }
     } catch (e) {
       setInstallStates(prev => ({ ...prev, [id]: 'error' }))
@@ -57,16 +57,33 @@ export default function DependencyManager(_props: AppComponentProps) {
   const hasUninstalled = deps.length > 0 && deps.some(d => !d.installed)
 
   return (
-    <div className="flex flex-col h-full bg-[var(--vos-bg-window)]">
-      {/* Header */}
+    <div className="flex flex-col h-full" style={{ background: 'var(--vos-bg-window)' }}>
+      {/* Status summary */}
       <div
-        className="flex items-center justify-between px-5 py-3 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
+        className="px-5 py-3 flex items-center justify-between flex-shrink-0"
+        style={{
+          background: hasUninstalled
+            ? 'color-mix(in srgb, var(--vos-accent-warning) 8%, transparent)'
+            : 'color-mix(in srgb, var(--vos-accent-success) 8%, transparent)',
+          borderBottom: '0.5px solid var(--vos-border-subtle)'
+        }}
       >
         <div className="flex items-center gap-2">
-          <ShieldCheck size={18} className="text-[var(--vos-accent-primary)]" />
-          <span className="text-sm font-medium text-[var(--vos-text-primary)]">
-            系统依赖管理
-          </span>
+          {hasUninstalled ? (
+            <>
+              <AlertTriangle size={16} style={{ color: 'var(--vos-accent-warning)' }} />
+              <span className="text-xs" style={{ color: 'var(--vos-accent-warning)' }}>
+                部分依赖未安装，某些功能可能不可用
+              </span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 size={16} style={{ color: 'var(--vos-accent-success)' }} />
+              <span className="text-xs" style={{ color: 'var(--vos-accent-success)' }}>
+                所有依赖已安装
+              </span>
+            </>
+          )}
         </div>
         <button
           type="button"
@@ -77,32 +94,6 @@ export default function DependencyManager(_props: AppComponentProps) {
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           刷新检测
         </button>
-      </div>
-
-      {/* Status summary */}
-      <div
-        className="px-5 py-3 flex items-center gap-2 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
-        style={{
-          background: hasUninstalled
-            ? 'color-mix(in srgb, var(--vos-accent-warning) 8%, transparent)'
-            : 'color-mix(in srgb, var(--vos-accent-success) 8%, transparent)'
-        }}
-      >
-        {hasUninstalled ? (
-          <>
-            <AlertTriangle size={16} className="text-[var(--vos-accent-warning)]" />
-            <span className="text-xs text-[var(--vos-accent-warning)]">
-              部分依赖未安装，某些功能可能不可用
-            </span>
-          </>
-        ) : (
-          <>
-            <CheckCircle2 size={16} className="text-[var(--vos-accent-success)]" />
-            <span className="text-xs text-[var(--vos-accent-success)]">
-              所有依赖已安装
-            </span>
-          </>
-        )}
       </div>
 
       {/* Dependency list */}
@@ -178,11 +169,19 @@ function DepCard({
             {dep.description}
           </p>
           {dep.install_command && (
-            <code
-              className="text-[10px] px-2 py-0.5 rounded block bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)] font-mono"
-            >
-              {dep.install_command}
-            </code>
+            <div className="flex items-center gap-1.5 mt-1 group/cmd" style={{ maxWidth: 'fit-content' }}>
+              <code
+                className="text-[10px] px-2 py-0.5 rounded select-all"
+                style={{
+                  background: 'var(--vos-bg-input)',
+                  color: 'var(--vos-text-tertiary)',
+                  fontFamily: 'var(--vos-font-mono, monospace)'
+                }}
+              >
+                {dep.install_command}
+              </code>
+              <CopyButton text={dep.install_command!} />
+            </div>
           )}
         </div>
 
@@ -232,5 +231,27 @@ function DepCard({
         </div>
       )}
     </div>
+  )
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="opacity-0 group-hover/cmd:opacity-100 flex items-center justify-center w-5 h-5 rounded transition-opacity"
+      style={{ color: copied ? 'var(--vos-accent-success)' : 'var(--vos-text-tertiary)' }}
+      title="复制命令"
+    >
+      {copied ? <Check size={10} /> : <Copy size={10} />}
+    </button>
   )
 }

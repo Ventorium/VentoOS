@@ -1,10 +1,5 @@
+import type { ApiResponse } from '@/infra/api'
 import { request } from '@/infra/api/client'
-
-interface ApiResponse<T> {
-  ok: boolean
-  data: T
-  error?: string
-}
 
 export interface Dependency {
   id: string

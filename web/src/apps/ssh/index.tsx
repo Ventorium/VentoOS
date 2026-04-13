@@ -193,7 +193,9 @@ function ServersTab({
     try {
       const authMethod: CreateSshServerReq['auth_method'] = host.identity_file
         ? { type: 'private_key', key_path: host.identity_file }
-        : { type: 'password' }
+        : host.auto_detected_key
+          ? { type: 'private_key', key_path: host.auto_detected_key }
+          : { type: 'agent' }
       await api.createSshServer({
         name: host.alias,
         host: host.hostname ?? host.alias,
@@ -365,7 +367,12 @@ function ServersTab({
                     {h.user && <span>User: {h.user}</span>}
                     {h.port && <span>Port: {h.port}</span>}
                     {h.identity_file && <span>Key: {h.identity_file}</span>}
-                    {!h.hostname && !h.user && !h.port && !h.identity_file && <span>（无额外配置）</span>}
+                    {!h.identity_file && h.auto_detected_key && (
+                      <span style={{ color: 'var(--vos-accent-success)' }}>
+                        Key (auto): {h.auto_detected_key.split('/').pop()}
+                      </span>
+                    )}
+                    {!h.identity_file && !h.auto_detected_key && <span>Auth: SSH Agent / 系统默认</span>}
                   </div>
                 </div>
               ))}

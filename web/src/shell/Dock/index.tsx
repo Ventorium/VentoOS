@@ -158,7 +158,7 @@ function DockSeparator({ iconSize, isHorizontal }: { iconSize: number; isHorizon
         width: isHorizontal ? 1 : iconSize * 0.6,
         height: isHorizontal ? iconSize * 0.6 : 1,
         background: 'var(--vos-border-default)',
-        margin: `0 ${gap}px`,
+        margin: '0 4px',
         alignSelf: 'center'
       }}
     />
@@ -426,7 +426,7 @@ export default function Dock() {
     alignItems: isHorizontal ? 'flex-end' : 'center',
     flexDirection: isHorizontal ? 'row' : 'column',
     gap: gap,
-    padding: '8px',
+    padding: '12px',
     background: 'var(--vos-bg-dock)',
     backdropFilter: 'blur(24px) saturate(180%)',
     WebkitBackdropFilter: 'blur(24px) saturate(180%)',

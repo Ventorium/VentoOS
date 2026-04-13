@@ -56,7 +56,7 @@ import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { PathPickerInput } from '@/shell/FilePicker'
 import type { SshConfigHost, SshKeyFile } from '../ssh/api'
 import { sshApi } from '../ssh/api'
-import type { CreateVfsMountReq, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from './api'
+import type { CreateVfsMountReq, MountBackend, VfsFileContent, VfsMount, VfsNode, VfsSourceKind, WebDavServerSettings } from './api'
 import { vfsApi } from './api'
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent)
@@ -177,17 +177,24 @@ function MountForm({
   const [localMountEnabled, setLocalMountEnabled] = useState(mountToEdit?.local_mount?.enabled ?? false)
   const [localMountPath, setLocalMountPath] = useState(mountToEdit?.local_mount?.mount_point ?? '')
   const [localMountPathError, setLocalMountPathError] = useState<string | null>(null)
+  const [mountBackend, setMountBackend] = useState<MountBackend>(mountToEdit?.local_mount?.backend ?? 'fuse')
   const [fuseAvailable, setFuseAvailable] = useState<boolean | null>(null)
   const [fuseChecking, setFuseChecking] = useState(false)
+  const [fileProviderAvailable, setFileProviderAvailable] = useState<boolean | null>(null)
 
   // Check FUSE dependency when local mount is enabled
   const checkFuseDep = useCallback(async () => {
     setFuseChecking(true)
     try {
-      const res = await request<ApiResponse<{ available: boolean }>>('GET', '/api/dependencies/check-fuse')
-      setFuseAvailable(res.data?.available ?? false)
+      const [fuseRes, fpRes] = await Promise.all([
+        request<ApiResponse<{ available: boolean }>>('GET', '/api/dependencies/check-fuse'),
+        vfsApi.checkFileProvider()
+      ])
+      setFuseAvailable(fuseRes.data?.available ?? false)
+      setFileProviderAvailable(fpRes.data?.available ?? false)
     } catch {
       setFuseAvailable(false)
+      setFileProviderAvailable(false)
     } finally {
       setFuseChecking(false)
     }
@@ -291,7 +298,7 @@ function MountForm({
 
   const isValid = (): boolean => {
     if (!name || nameError) return false
-    if (localMountEnabled && (!!localMountPathError || !localMountPath)) return false
+    if (localMountEnabled && mountBackend === 'fuse' && (!!localMountPathError || !localMountPath)) return false
     switch (kind) {
       case 'local':
         return !!localPath
@@ -361,7 +368,7 @@ function MountForm({
     setSaving(true)
     try {
       const localMount =
-        kind !== 'local' && localMountEnabled ? { enabled: true, mount_point: localMountPath } : undefined
+        kind !== 'local' && localMountEnabled ? { enabled: true, mount_point: localMountPath, backend: mountBackend } : undefined
       const body: CreateVfsMountReq = { name, kind, root: buildRoot(), local_mount: localMount }
       if (isEditing && mountToEdit) {
         const res = await vfsApi.updateVfsMount(mountToEdit.id, body)
@@ -694,14 +701,15 @@ function MountForm({
           </>
         )}
 
-        {/* ── Local FUSE Mount Config (non-local sources only) ── */}
+        {/* ── Local Mount Config (non-local sources only) ── */}
         {kind !== 'local' && (
           <div
-            className="flex flex-col gap-1.5 rounded px-2 py-2 mt-1 bg-[var(--vos-bg-item)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
+            className="flex flex-col gap-1.5 rounded px-2 py-2 mt-1"
+            style={{ background: 'var(--vos-bg-item)', border: '0.5px solid var(--vos-border-subtle)' }}
           >
             <label className="flex items-center justify-between gap-2 cursor-pointer" htmlFor="local-mount-toggle">
-              <span className="text-xs text-[var(--vos-text-primary)]">
-                启用本地挂载（FUSE）
+              <span className="text-xs" style={{ color: 'var(--vos-text-primary)' }}>
+                启用本地挂载
               </span>
               <input
                 id="local-mount-toggle"
@@ -723,45 +731,88 @@ function MountForm({
             </label>
             {localMountEnabled && (
               <div>
+                {/* Backend selection */}
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[10px] shrink-0" style={{ color: 'var(--vos-text-secondary)' }}>挂载方式</span>
+                  <select
+                    className="vos-input vos-input-sm flex-1"
+                    style={{ fontSize: 11, padding: '1px 4px' }}
+                    value={mountBackend}
+                    onChange={e => setMountBackend(e.target.value as MountBackend)}
+                  >
+                    <option value="fuse">FUSE（macFUSE / libfuse3）</option>
+                    <option value="fileprovider">FileProvider（macOS 原生）</option>
+                  </select>
+                </div>
                 {fuseChecking && (
-                  <div className="text-xs mb-1 flex items-center gap-1 text-[var(--vos-text-secondary)]">
-                    <Spinner className="w-3 h-3" /> 正在检测 FUSE 依赖…
+                  <div className="text-xs mb-1 flex items-center gap-1" style={{ color: 'var(--vos-text-secondary)' }}>
+                    <Spinner style={{ width: 12, height: 12 }} /> 正在检测依赖…
                   </div>
                 )}
-                {!fuseChecking && fuseAvailable === false && (
+                {!fuseChecking && mountBackend === 'fuse' && fuseAvailable === false && (
                   <div
-                    className="text-xs mb-1 px-2 py-1.5 rounded flex items-center justify-between bg-[rgba(255,59,48,0.1)] text-[var(--vos-accent-danger)]"
+                    className="text-xs mb-1 px-2 py-1.5 rounded flex items-center justify-between"
+                    style={{ background: 'rgba(255, 59, 48, 0.1)', color: 'var(--vos-accent-danger)' }}
                   >
                     <span>未检测到 FUSE 依赖，挂载可能失败</span>
                     <button
                       type="button"
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--vos-accent-primary)] text-white border-none cursor-pointer"
+                      className="text-[10px] px-1.5 py-0.5 rounded"
+                      style={{
+                        background: 'var(--vos-accent-primary)',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
                       onClick={() => openWindow('dependency-manager')}
                     >
                       安装依赖
                     </button>
                   </div>
                 )}
-                {!fuseChecking && fuseAvailable === true && (
+                {!fuseChecking && mountBackend === 'fuse' && fuseAvailable === true && (
                   <div
-                    className="text-xs mb-1 px-2 py-1.5 rounded bg-[rgba(52,199,89,0.1)] text-[var(--vos-accent-success)]"
+                    className="text-xs mb-1 px-2 py-1.5 rounded"
+                    style={{ background: 'rgba(52, 199, 89, 0.1)', color: 'var(--vos-accent-success)' }}
                   >
                     FUSE 依赖已安装
                   </div>
                 )}
-                <input
-                  className="vos-input vos-input-sm"
-                  placeholder={`~/mnt/${name || 'source'}`}
-                  value={localMountPath}
-                  onChange={e => handleLocalMountPathChange(e.target.value)}
-                />
-                {localMountPathError && (
-                  <div className="text-xs mt-0.5 text-[var(--vos-accent-danger)]">
-                    {localMountPathError}
+                {!fuseChecking && mountBackend === 'fileprovider' && fileProviderAvailable === false && (
+                  <div
+                    className="text-xs mb-1 px-2 py-1.5 rounded"
+                    style={{ background: 'rgba(255, 149, 0, 0.1)', color: 'var(--vos-accent-warning, #ff9500)' }}
+                  >
+                    FileProvider 扩展未安装，需要构建并安装 VentoFS.app（参见 native/fileprovider/README.md）
                   </div>
                 )}
-                <div className="text-[10px] mt-0.5 text-[var(--vos-text-tertiary)]">
-                  将远程文件系统挂载到本机目录，需安装 macFUSE / FUSE-T（macOS）或 libfuse3（Linux）
+                {!fuseChecking && mountBackend === 'fileprovider' && fileProviderAvailable === true && (
+                  <div
+                    className="text-xs mb-1 px-2 py-1.5 rounded"
+                    style={{ background: 'rgba(52, 199, 89, 0.1)', color: 'var(--vos-accent-success)' }}
+                  >
+                    FileProvider 扩展已就绪
+                  </div>
+                )}
+                {mountBackend === 'fuse' && (
+                  <>
+                    <input
+                      className="vos-input vos-input-sm"
+                      placeholder={`~/mnt/${name || 'source'}`}
+                      value={localMountPath}
+                      onChange={e => handleLocalMountPathChange(e.target.value)}
+                    />
+                    {localMountPathError && (
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--vos-accent-danger)' }}>
+                        {localMountPathError}
+                      </div>
+                    )}
+                  </>
+                )}
+                <div className="text-[10px] mt-0.5" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  {mountBackend === 'fuse'
+                    ? '将远程文件系统挂载到本机目录，需安装 macFUSE / FUSE-T（macOS）或 libfuse3（Linux）'
+                    : '使用 macOS 原生 FileProvider 框架，在 Finder 侧栏显示远程文件系统，无需第三方依赖（macOS 12+）'}
                 </div>
               </div>
             )}
@@ -2628,15 +2679,18 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
             ...(() => {
               // Only show "Open in Terminal" for local or FUSE-mounted sources
               const mount = mounts.find(m => m.id === selectedMount)
-              const canOpenTerminal = mount && (
-                mount.kind === 'local' ||
-                (mount.local_mount?.enabled && localMountStatuses[mount.id]?.mounted)
-              )
-              return canOpenTerminal ? [{
-                id: 'open-shell',
-                label: '在终端中打开',
-                action: () => handleOpenInShell(entry)
-              }] : []
+              const canOpenTerminal =
+                mount &&
+                (mount.kind === 'local' || (mount.local_mount?.enabled && localMountStatuses[mount.id]?.mounted))
+              return canOpenTerminal
+                ? [
+                    {
+                      id: 'open-shell',
+                      label: '在终端中打开',
+                      action: () => handleOpenInShell(entry)
+                    }
+                  ]
+                : []
             })(),
             { type: 'separator' as const },
             {
@@ -3147,7 +3201,11 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                   } else {
                     const res = await vfsApi.localMountVfs(m.id)
                     if (res.data?.error) {
-                      if (res.data.error.includes('FUSE') || res.data.error.includes('macFUSE') || res.data.error.includes('libfuse')) {
+                      if (
+                        res.data.error.includes('FUSE') ||
+                        res.data.error.includes('macFUSE') ||
+                        res.data.error.includes('libfuse')
+                      ) {
                         openWindow('dependency-manager')
                       }
                     }
@@ -3817,7 +3875,10 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                 <div className="text-sm font-medium mb-3">属性</div>
                 <div className="flex flex-col gap-2 text-xs">
                   {/* Icon + Name */}
-                  <div className="flex items-center gap-3 pb-2 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
+                  <div
+                    className="flex items-center gap-3 pb-2"
+                    style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+                  >
                     {propertiesState.node.is_dir ? (
                       <FolderOpen size={28} className="text-[var(--vos-accent-primary)] shrink-0" />
                     ) : (
@@ -3831,14 +3892,19 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                       <div className="font-medium text-sm truncate text-[var(--vos-text-primary)]">
                         {propertiesState.node.name}
                       </div>
-                      <div className="text-[var(--vos-text-tertiary)]">
-                        {propertiesState.node.is_dir ? '目录' : (getFileExt(propertiesState.node.name).toUpperCase() || '文件')}
+                      <div style={{ color: 'var(--vos-text-tertiary)' }}>
+                        {propertiesState.node.is_dir
+                          ? '目录'
+                          : getFileExt(propertiesState.node.name).toUpperCase() || '文件'}
                       </div>
                     </div>
                   </div>
 
                   {/* Basic info */}
-                  <div className="flex flex-col gap-1.5 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
+                  <div
+                    className="flex flex-col gap-1.5 py-1"
+                    style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+                  >
                     <div className="flex justify-between">
                       <span className="text-[var(--vos-text-tertiary)]">名称</span>
                       <span className="text-right max-w-[60%] truncate text-[var(--vos-text-primary)]">
@@ -3846,8 +3912,12 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[var(--vos-text-tertiary)]">路径</span>
-                      <span className="text-right max-w-[60%] truncate text-[var(--vos-text-primary)]" title={propertiesState.node.path}>
+                      <span style={{ color: 'var(--vos-text-tertiary)' }}>路径</span>
+                      <span
+                        className="text-right max-w-[60%] truncate"
+                        title={propertiesState.node.path}
+                        style={{ color: 'var(--vos-text-primary)' }}
+                      >
                         {propertiesState.node.path}
                       </span>
                     </div>
@@ -3869,10 +3939,15 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
 
                   {/* Permissions */}
                   {propertiesState.node.permissions && (
-                    <div className="flex flex-col gap-1.5 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
+                    <div
+                      className="flex flex-col gap-1.5 py-1"
+                      style={{ borderBottom: '0.5px solid var(--vos-border-subtle)' }}
+                    >
                       <div className="flex justify-between">
-                        <span className="text-[var(--vos-text-tertiary)]">权限</span>
-                        <span className="text-[var(--vos-text-primary)] font-mono">
+                        <span style={{ color: 'var(--vos-text-tertiary)' }}>权限</span>
+                        <span
+                          style={{ color: 'var(--vos-text-primary)', fontFamily: 'var(--vos-font-mono, monospace)' }}
+                        >
                           {propertiesState.node.permissions}
                         </span>
                       </div>
@@ -3912,22 +3987,23 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
                   )}
 
                   {/* Default open-with app (files only) */}
-                  {!propertiesState.node.is_dir && (() => {
-                    const fileExt = getFileExt(propertiesState.node.name)
-                    const defaultAppId = useFileDefaultsStore.getState().getDefault(fileExt)
-                    const defaultApp = defaultAppId ? getApp(defaultAppId) : null
-                    const associatedApps = getAppsForFile(fileExt)
-                    return (
-                      <div className="flex flex-col gap-1.5 py-1">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[var(--vos-text-tertiary)]">打开方式</span>
-                          <span className="text-[var(--vos-text-primary)]">
-                            {defaultApp?.name ?? (associatedApps.length > 0 ? associatedApps[0].name : '文件查看器')}
-                          </span>
+                  {!propertiesState.node.is_dir &&
+                    (() => {
+                      const fileExt = getFileExt(propertiesState.node.name)
+                      const defaultAppId = useFileDefaultsStore.getState().getDefault(fileExt)
+                      const defaultApp = defaultAppId ? getApp(defaultAppId) : null
+                      const associatedApps = getAppsForFile(fileExt)
+                      return (
+                        <div className="flex flex-col gap-1.5 py-1">
+                          <div className="flex justify-between items-center">
+                            <span style={{ color: 'var(--vos-text-tertiary)' }}>打开方式</span>
+                            <span style={{ color: 'var(--vos-text-primary)' }}>
+                              {defaultApp?.name ?? (associatedApps.length > 0 ? associatedApps[0].name : '文件查看器')}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })()}
+                      )
+                    })()}
                 </div>
                 <div className="flex justify-end mt-3">
                   <button

@@ -32,6 +32,9 @@ pub enum MountError {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("FileProvider error: {0}")]
+    FileProvider(String),
+
     #[error("Unsupported platform")]
     Unsupported,
 

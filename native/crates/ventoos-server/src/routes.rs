@@ -772,9 +772,10 @@ async fn fuse_mount_handler(
         )
             .into_response();
     }
+    let mount_name = mount.name.clone();
     match state
         .mount_mgr
-        .mount(&id, &local_cfg, Arc::clone(&state.vfs))
+        .mount(&id, &mount_name, &local_cfg, Arc::clone(&state.vfs))
         .await
     {
         Ok(()) => Json(ApiResponse::ok(

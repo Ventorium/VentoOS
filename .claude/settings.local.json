@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(git stash:*)",
+      "Bash(cargo check:*)",
+      "Bash(pnpm build:*)",
+      "Bash(git add:*)"
     ]
   }
 }

@@ -93,6 +93,8 @@ export interface SshConfigHost {
   user: string | null
   port: number | null
   identity_file: string | null
+  /** Auto-detected default key when no IdentityFile is set in config */
+  auto_detected_key: string | null
 }
 
 export interface SshKeyFile {
