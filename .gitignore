@@ -33,3 +33,6 @@ pnpm-debug.log*
 
 native/storage/
 native/fileprovider/build/
+
+!.claude/
+!.claude/skills/
