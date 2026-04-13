@@ -74,6 +74,21 @@ pub struct ProcessMetrics {
     pub uptime_seconds: u64,
 }
 
+/// Network interface information.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkInterfaceInfo {
+    pub name: String,
+    /// "wifi", "ethernet", "loopback"
+    pub if_type: String,
+    pub ip: String,
+    pub netmask: String,
+    pub gateway: String,
+    pub dns: Vec<String>,
+    pub mac: String,
+    /// "up" or "down"
+    pub status: String,
+}
+
 /// Combined system metrics snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMetrics {

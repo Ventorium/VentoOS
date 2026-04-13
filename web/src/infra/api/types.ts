@@ -78,3 +78,52 @@ export interface LocalFsNode {
   size?: number
   modified?: string
 }
+
+// ─── Notifications ────────────────────────────────────────────────────────
+
+export interface NotificationDTO {
+  id: string
+  title: string
+  message: string
+  level: 'info' | 'success' | 'warning' | 'error'
+  source: 'system' | 'connection' | 'task' | 'agent' | 'app'
+  read: boolean
+  action_url: string | null
+  task_id: string | null
+  created_at: string
+}
+
+export interface CreateNotificationReq {
+  title: string
+  message: string
+  level?: string
+  source?: string
+  dedup_key?: string
+}
+
+// ─── Network ────────────────────────────────────────────────────────
+
+export interface NetworkInterfaceDTO {
+  name: string
+  if_type: string
+  ip: string
+  netmask: string
+  gateway: string
+  dns: string[]
+  mac: string
+  status: string
+}
+
+// ─── System Settings ────────────────────────────────────────────────
+
+export interface SystemSettings {
+  sound_alert_volume: number
+  sound_notif_volume: number
+  sound_alert_muted: boolean
+  sound_notif_muted: boolean
+  sound_alert_type: string
+  sound_notif_type: string
+  lockscreen_enabled: boolean
+  lockscreen_idle_minutes: number
+  location_enabled: boolean
+}

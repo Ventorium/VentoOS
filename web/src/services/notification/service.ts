@@ -1,17 +1,18 @@
 /**
  * Notification Service
  *
- * Creates notifications and listens to backend-pushed notifications.
+ * Creates notifications in the backend database and keeps the local store in sync.
  * Supports task completion notifications, AI agent result notifications,
  * and browser native Notification API.
  */
 
+import { apiClient } from '@/infra/api'
 import { createLogger } from '@/infra/logger'
 import type { NotificationPayload } from '@/infra/ws'
 import { wsClient } from '@/infra/ws'
 import { systemChannel } from '@/kernel/channel'
 import type { NotificationItem, NotificationSource } from './store'
-import { generateNotifId, useNotificationStore } from './store'
+import { generateNotifId, sourceToBackend, useNotificationStore } from './store'
 
 const logger = createLogger('services/notification')
 
@@ -28,7 +29,6 @@ function maybeSendNativeNotification(item: NotificationItem): void {
       body: item.message,
       tag: item.id
     })
-    // Sync: clicking the native notification marks it as read in our store
     nativeNotif.onclick = () => {
       window.focus()
       useNotificationStore.getState().markAsRead(item.id)
@@ -40,7 +40,7 @@ function maybeSendNativeNotification(item: NotificationItem): void {
 }
 
 export const notificationService = {
-  /** Add a notification programmatically. */
+  /** Add a notification — persists to backend and updates local store. */
   add(n: Omit<NotificationItem, 'id' | 'read' | 'createdAt'>): string {
     const id = generateNotifId()
     const item: NotificationItem = {
@@ -49,9 +49,29 @@ export const notificationService = {
       read: false,
       createdAt: Date.now()
     }
+    // Update local store immediately (optimistic)
     useNotificationStore.getState()._addNotification(item)
     systemChannel.notify('notification:added', { notificationId: id })
     maybeSendNativeNotification(item)
+
+    // Persist to backend
+    apiClient
+      .createNotification({
+        title: n.title,
+        message: n.message,
+        level: n.level,
+        source: sourceToBackend(n.source),
+        dedup_key: n.dedupKey
+      })
+      .then(res => {
+        if (res.data?.id) {
+          logger.debug('Notification persisted to backend', { id: res.data.id })
+        }
+      })
+      .catch(err => {
+        logger.warn('Failed to persist notification to backend', err)
+      })
+
     logger.debug('Notification added', { id, title: n.title, level: n.level })
     return id
   },

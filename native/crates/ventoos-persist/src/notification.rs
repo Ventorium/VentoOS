@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
+use chrono::{DateTime, NaiveDateTime, Utc};
 use ventoos_core::notification::{Notification, NotificationLevel, NotificationSource};
-use ventoos_core::types::{Id, new_id};
+use ventoos_core::types::Id;
+use uuid::Uuid;
 
 use crate::Database;
 
@@ -26,17 +28,7 @@ impl NotificationStore {
                  FROM notifications ORDER BY created_at DESC LIMIT ?1",
             )?;
             let rows = stmt.query_map([MAX_NOTIFICATIONS as i64], |row| {
-                Ok(Notification {
-                    id: row.get(0)?,
-                    title: row.get(1)?,
-                    message: row.get(2)?,
-                    level: parse_level(&row.get::<_, String>(3)?),
-                    source: parse_source(&row.get::<_, String>(4)?),
-                    read: row.get::<_, i32>(5)? != 0,
-                    action_url: row.get(6)?,
-                    task_id: row.get(7)?,
-                    created_at: row.get(8)?,
-                })
+                Ok(row_to_notification(row))
             })?;
             rows.collect()
         })
@@ -44,24 +36,13 @@ impl NotificationStore {
 
     /// Get a single notification by ID.
     pub fn get(&self, id: &Id) -> Result<Option<Notification>, rusqlite::Error> {
+        let id_str = id.to_string();
         self.db.with_conn(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, title, message, level, source, read, action_url, task_id, created_at \
                  FROM notifications WHERE id = ?1",
             )?;
-            let result = stmt.query_row([id], |row| {
-                Ok(Notification {
-                    id: row.get(0)?,
-                    title: row.get(1)?,
-                    message: row.get(2)?,
-                    level: parse_level(&row.get::<_, String>(3)?),
-                    source: parse_source(&row.get::<_, String>(4)?),
-                    read: row.get::<_, i32>(5)? != 0,
-                    action_url: row.get(6)?,
-                    task_id: row.get(7)?,
-                    created_at: row.get(8)?,
-                })
-            });
+            let result = stmt.query_row([id_str], |row| Ok(row_to_notification(row)));
             match result {
                 Ok(n) => Ok(Some(n)),
                 Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -81,7 +62,7 @@ impl NotificationStore {
         dedup_key: Option<&str>,
     ) -> Result<Id, rusqlite::Error> {
         self.db.with_conn(|conn| {
-            let id = new_id();
+            let id = Uuid::new_v4();
 
             // Handle dedup: if dedup_key provided, delete existing
             if let Some(key) = dedup_key {
@@ -95,7 +76,7 @@ impl NotificationStore {
                 "INSERT INTO notifications (id, title, message, level, source, read, action_url, task_id, created_at) \
                  VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, NULL, datetime('now'))",
                 rusqlite::params![
-                    id,
+                    id.to_string(),
                     title,
                     message,
                     level_to_str(&level),
@@ -118,10 +99,11 @@ impl NotificationStore {
 
     /// Mark a single notification as read.
     pub fn mark_read(&self, id: &Id) -> Result<bool, rusqlite::Error> {
+        let id_str = id.to_string();
         self.db.with_conn(|conn| {
             let rows = conn.execute(
                 "UPDATE notifications SET read = 1 WHERE id = ?1",
-                [id],
+                [id_str],
             )?;
             Ok(rows > 0)
         })
@@ -137,8 +119,9 @@ impl NotificationStore {
 
     /// Delete a single notification.
     pub fn delete(&self, id: &Id) -> Result<bool, rusqlite::Error> {
+        let id_str = id.to_string();
         self.db.with_conn(|conn| {
-            let rows = conn.execute("DELETE FROM notifications WHERE id = ?1", [id])?;
+            let rows = conn.execute("DELETE FROM notifications WHERE id = ?1", [id_str])?;
             Ok(rows > 0)
         })
     }
@@ -152,6 +135,7 @@ impl NotificationStore {
     }
 
     /// Count unread notifications.
+    #[allow(dead_code)]
     pub fn unread_count(&self) -> Result<usize, rusqlite::Error> {
         self.db.with_conn(|conn| {
             let count: i64 = conn.query_row(
@@ -199,6 +183,28 @@ fn parse_source(s: &str) -> NotificationSource {
         "agent" => NotificationSource::Agent,
         "app" => NotificationSource::App,
         _ => NotificationSource::System,
+    }
+}
+
+/// Parse a row into a Notification.
+fn row_to_notification(row: &rusqlite::Row) -> Notification {
+    let id_str: String = row.get(0).unwrap_or_default();
+    let id: Id = id_str.parse().unwrap_or_else(|_| Uuid::nil());
+    let created_at_str: String = row.get(8).unwrap_or_default();
+    let created_at = NaiveDateTime::parse_from_str(&created_at_str, "%Y-%m-%d %H:%M:%S")
+        .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+        .unwrap_or_else(|_| Utc::now());
+
+    Notification {
+        id,
+        title: row.get(1).unwrap_or_default(),
+        message: row.get(2).unwrap_or_default(),
+        level: parse_level(&row.get::<_, String>(3).unwrap_or_default()),
+        source: parse_source(&row.get::<_, String>(4).unwrap_or_default()),
+        read: row.get::<_, i32>(5).unwrap_or(0) != 0,
+        action_url: row.get(6).unwrap_or(None),
+        task_id: row.get::<_, Option<String>>(7).unwrap_or(None).and_then(|s| s.parse().ok()),
+        created_at,
     }
 }
 
@@ -303,7 +309,6 @@ mod tests {
         }
         let list = store.list().unwrap();
         assert_eq!(list.len(), 100);
-        // Newest first — should start from index 109
         assert_eq!(list[0].title, "Notif 109");
     }
 }

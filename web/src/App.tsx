@@ -3,6 +3,8 @@ import { useThemeSync } from '@/hooks/useTheme'
 import { wsClient } from '@/infra/ws'
 import { useWindowStore } from '@/kernel'
 import { authService, useAuthStore } from '@/services/auth'
+import { useNotificationStore } from '@/services/notification'
+import { notificationService } from '@/services/notification'
 import { useSettingsStore } from '@/services/settings/store'
 import AISidePanel from '@/shell/AISidePanel'
 
@@ -36,9 +38,11 @@ function App() {
             .then(valid => {
               if (valid) {
                 wsClient.connect()
+                notificationService.listenToBackendNotifications()
                 // Load persisted state from backend
                 useWindowStore.getState().loadFromBackend()
                 useSettingsStore.getState().loadFromBackend()
+                useNotificationStore.getState().loadFromBackend()
               }
             })
             .catch(() => useAuthStore.getState().lock())

@@ -126,7 +126,13 @@ pub fn create_router(state: &AppState) -> Router {
         .route("/api/tasks/{id}", get(get_task))
         .route("/api/tasks/{id}/cancel", post(cancel_task))
         // Notification routes
-        .route("/api/notifications", get(list_notifications))
+        .route("/api/notifications", get(list_notifications).post(create_notification))
+        .route("/api/notifications/mark-all-read", post(mark_all_notifications_read))
+        .route("/api/notifications/clear", post(clear_all_notifications))
+        .route(
+            "/api/notifications/{id}",
+            get(get_notification).delete(delete_notification).put(mark_notification_read),
+        )
         // Settings routes
         .route(
             "/api/settings/desktop",
@@ -135,6 +141,10 @@ pub fn create_router(state: &AppState) -> Router {
         .route(
             "/api/settings/windows",
             get(get_window_states).put(save_window_states),
+        )
+        .route(
+            "/api/settings/system",
+            get(get_system_settings).put(save_system_settings),
         )
         // Bing daily wallpapers (cached per-day)
         .route("/api/bing-wallpapers", get(get_bing_wallpapers))
@@ -151,6 +161,7 @@ pub fn create_router(state: &AppState) -> Router {
         // Monitor routes
         .route("/api/monitor/system", get(monitor::get_system_metrics))
         .route("/api/monitor/process", get(monitor::get_process_metrics))
+        .route("/api/monitor/network", get(monitor::get_network_info))
         // Local FUSE mount routes
         .route(
             "/api/vfs/mounts/{id}/local-mount",
@@ -232,9 +243,118 @@ async fn cancel_task(State(state): State<AppState>, Path(id): Path<Id>) -> impl 
 
 // --- Notification Routes ---
 
-async fn list_notifications() -> Json<ApiResponse<Vec<ventoos_core::notification::Notification>>> {
-    // Stub - return empty list for now
-    Json(ApiResponse::ok(vec![]))
+async fn list_notifications(State(state): State<AppState>) -> Json<ApiResponse<Vec<ventoos_core::notification::Notification>>> {
+    match state.notification_mgr.list() {
+        Ok(list) => Json(ApiResponse::ok(list)),
+        Err(e) => Json(ApiResponse::err(&format!("Failed to list notifications: {}", e))),
+    }
+}
+
+async fn get_notification(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.notification_mgr.get(&id) {
+        Ok(Some(n)) => Json(ApiResponse::ok(n)).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Notification not found")),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::err(&format!("Failed to get notification: {}", e))),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct CreateNotificationRequest {
+    title: String,
+    message: String,
+    level: Option<String>,
+    source: Option<String>,
+    dedup_key: Option<String>,
+}
+
+async fn create_notification(
+    State(state): State<AppState>,
+    Json(body): Json<CreateNotificationRequest>,
+) -> impl IntoResponse {
+    let level = match body.level.as_deref() {
+        Some("success") => ventoos_core::notification::NotificationLevel::Success,
+        Some("warning") => ventoos_core::notification::NotificationLevel::Warning,
+        Some("error") => ventoos_core::notification::NotificationLevel::Error,
+        _ => ventoos_core::notification::NotificationLevel::Info,
+    };
+    let source = match body.source.as_deref() {
+        Some("connection") => ventoos_core::notification::NotificationSource::Connection,
+        Some("task") => ventoos_core::notification::NotificationSource::Task,
+        Some("agent") => ventoos_core::notification::NotificationSource::Agent,
+        Some("app") => ventoos_core::notification::NotificationSource::App,
+        _ => ventoos_core::notification::NotificationSource::System,
+    };
+    match state.notification_mgr.create(&body.title, &body.message, level, source, body.dedup_key.as_deref()) {
+        Ok(id) => Json(ApiResponse::ok(serde_json::json!({ "id": id.to_string() }))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::err(&format!("Failed to create notification: {}", e))),
+        )
+            .into_response(),
+    }
+}
+
+async fn mark_notification_read(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.notification_mgr.mark_read(&id) {
+        Ok(true) => Json(ApiResponse::ok(serde_json::json!({ "marked": true }))).into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Notification not found")),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::err(&format!("Failed to mark as read: {}", e))),
+        )
+            .into_response(),
+    }
+}
+
+async fn mark_all_notifications_read(State(state): State<AppState>) -> Json<ApiResponse<serde_json::Value>> {
+    match state.notification_mgr.mark_all_read() {
+        Ok(count) => Json(ApiResponse::ok(serde_json::json!({ "count": count }))),
+        Err(e) => Json(ApiResponse::err(&format!("Failed to mark all as read: {}", e))),
+    }
+}
+
+async fn delete_notification(
+    State(state): State<AppState>,
+    Path(id): Path<Id>,
+) -> impl IntoResponse {
+    match state.notification_mgr.delete(&id) {
+        Ok(true) => Json(ApiResponse::ok(serde_json::json!({ "deleted": true }))).into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("Notification not found")),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::err(&format!("Failed to delete notification: {}", e))),
+        )
+            .into_response(),
+    }
+}
+
+async fn clear_all_notifications(State(state): State<AppState>) -> Json<ApiResponse<serde_json::Value>> {
+    match state.notification_mgr.clear_all() {
+        Ok(count) => Json(ApiResponse::ok(serde_json::json!({ "count": count }))),
+        Err(e) => Json(ApiResponse::err(&format!("Failed to clear notifications: {}", e))),
+    }
 }
 
 // --- Settings Routes ---
@@ -339,6 +459,81 @@ async fn save_window_states(
             "Failed to save window states: {e}"
         ))),
     }
+}
+
+// --- System Settings Routes (key-value for all settings panels) ---
+
+/// All known system setting keys with defaults
+const SYSTEM_SETTING_KEYS: &[&str] = &[
+    "sound_alert_volume",
+    "sound_notif_volume",
+    "sound_alert_muted",
+    "sound_notif_muted",
+    "sound_alert_type",
+    "sound_notif_type",
+    "lockscreen_enabled",
+    "lockscreen_idle_minutes",
+    "location_enabled",
+];
+
+async fn get_system_settings(State(state): State<AppState>) -> Json<ApiResponse<serde_json::Value>> {
+    match state.settings_mgr.get_batch(SYSTEM_SETTING_KEYS) {
+        Ok(settings) => {
+            let get_or = |key: &str, default: &str| -> String {
+                settings.get(key).cloned().unwrap_or(default.to_string())
+            };
+            let get_bool = |key: &str, default: bool| -> bool {
+                settings
+                    .get(key)
+                    .map(|s| s == "true")
+                    .unwrap_or(default)
+            };
+            let get_num = |key: &str, default: i64| -> i64 {
+                settings
+                    .get(key)
+                    .and_then(|s| s.parse::<i64>().ok())
+                    .unwrap_or(default)
+            };
+            let result = serde_json::json!({
+                "sound_alert_volume": get_num("sound_alert_volume", 80),
+                "sound_notif_volume": get_num("sound_notif_volume", 60),
+                "sound_alert_muted": get_bool("sound_alert_muted", false),
+                "sound_notif_muted": get_bool("sound_notif_muted", false),
+                "sound_alert_type": get_or("sound_alert_type", "default"),
+                "sound_notif_type": get_or("sound_notif_type", "default"),
+                "lockscreen_enabled": get_bool("lockscreen_enabled", true),
+                "lockscreen_idle_minutes": get_num("lockscreen_idle_minutes", 5),
+                "location_enabled": get_bool("location_enabled", false),
+            });
+            Json(ApiResponse::ok(result))
+        }
+        Err(e) => Json(ApiResponse::err(format!(
+            "Failed to load system settings: {e}"
+        ))),
+    }
+}
+
+async fn save_system_settings(
+    State(state): State<AppState>,
+    Json(body): Json<serde_json::Value>,
+) -> Json<ApiResponse<serde_json::Value>> {
+    // Extract all string/number/boolean values from the JSON body
+    if let Some(obj) = body.as_object() {
+        for (key, value) in obj {
+            let val_str = match value {
+                serde_json::Value::String(s) => s.clone(),
+                serde_json::Value::Number(n) => n.to_string(),
+                serde_json::Value::Bool(b) => b.to_string(),
+                _ => continue,
+            };
+            if let Err(e) = state.settings_mgr.set(key, &val_str) {
+                return Json(ApiResponse::err(format!(
+                    "Failed to save setting '{key}': {e}"
+                )));
+            }
+        }
+    }
+    Json(ApiResponse::ok(serde_json::json!({"saved": true})))
 }
 
 // --- Per-App Storage Routes ---

@@ -9,9 +9,13 @@ import type {
   ApiResponse,
   AuthLoginData,
   AuthStatusData,
+  CreateNotificationReq,
   CreateProcessReq,
   DesktopSettings,
   LocalFsNode,
+  NetworkInterfaceDTO,
+  NotificationDTO,
+  SystemSettings,
   VProcess,
   WindowStateDTO
 } from './types'
@@ -103,7 +107,17 @@ export const apiClient = {
   createTask: (body: unknown) => request<ApiResponse<unknown>>('POST', '/api/tasks', body),
 
   // Notifications
-  getNotifications: () => request<ApiResponse<unknown[]>>('GET', '/api/notifications'),
+  getNotifications: () => request<ApiResponse<NotificationDTO[]>>('GET', '/api/notifications'),
+  createNotification: (body: CreateNotificationReq) =>
+    request<ApiResponse<{ id: string }>>('POST', '/api/notifications', body),
+  markNotificationRead: (id: string) =>
+    request<ApiResponse<{ marked: boolean }>>('PUT', `/api/notifications/${encodeURIComponent(id)}`),
+  markAllNotificationsRead: () =>
+    request<ApiResponse<{ count: number }>>('POST', '/api/notifications/mark-all-read'),
+  deleteNotification: (id: string) =>
+    request<ApiResponse<{ deleted: boolean }>>('DELETE', `/api/notifications/${encodeURIComponent(id)}`),
+  clearAllNotifications: () =>
+    request<ApiResponse<{ count: number }>>('POST', '/api/notifications/clear'),
 
   // Desktop & Window Settings
   getDesktopSettings: () => request<ApiResponse<DesktopSettings>>('GET', '/api/settings/desktop'),
@@ -111,6 +125,14 @@ export const apiClient = {
     request<ApiResponse<unknown>>('PUT', '/api/settings/desktop', body),
   getWindowSettings: () => request<ApiResponse<WindowStateDTO[]>>('GET', '/api/settings/windows'),
   saveWindowSettings: (body: WindowStateDTO[]) => request<ApiResponse<unknown>>('PUT', '/api/settings/windows', body),
+
+  // System Settings (sound, lockscreen, location, etc.)
+  getSystemSettings: () => request<ApiResponse<SystemSettings>>('GET', '/api/settings/system'),
+  saveSystemSettings: (body: Partial<SystemSettings>) =>
+    request<ApiResponse<unknown>>('PUT', '/api/settings/system', body),
+
+  // Network info (real interfaces from host OS)
+  getNetworkInfo: () => request<ApiResponse<NetworkInterfaceDTO[]>>('GET', '/api/monitor/network'),
 
   // Per-App Storage
   listStorageKeys: (appId: string) =>

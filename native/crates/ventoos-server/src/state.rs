@@ -6,7 +6,7 @@ use ventoos_core::plugin::AppPlugin;
 use ventoos_db::{DbManager, DbPlugin};
 use ventoos_k8s::{K8sManager, K8sPlugin};
 use ventoos_mount::LocalMountManager;
-use ventoos_persist::{Database, SettingsManager, StorageManager, WindowStateManager};
+use ventoos_persist::{Database, NotificationStore, SettingsManager, StorageManager, WindowStateManager};
 use ventoos_redis::{RedisManager, RedisPlugin};
 use ventoos_ssh::{SshManager, SshPlugin};
 use ventoos_task::TaskEngine;
@@ -27,6 +27,7 @@ pub struct AppState {
     pub settings_mgr: Arc<SettingsManager>,
     pub window_states: Arc<WindowStateManager>,
     pub storage: Arc<StorageManager>,
+    pub notification_mgr: Arc<NotificationStore>,
     /// Application plugins (K8s, DB, Redis, VFS, Agent, SSH).
     pub plugins: Arc<Vec<Box<dyn AppPlugin>>>,
     /// VFS source manager (shared with VfsPlugin).
@@ -61,6 +62,7 @@ impl AppState {
             settings_mgr: Arc::new(SettingsManager::new(Arc::clone(&db))),
             window_states: Arc::new(WindowStateManager::new(Arc::clone(&db))),
             storage: Arc::new(StorageManager::new(data_dir)),
+            notification_mgr: Arc::new(NotificationStore::new(Arc::clone(&db))),
             auth: AuthManager::new(Arc::clone(&db)),
             db,
             tasks: Arc::new(TaskEngine::new()),
@@ -99,6 +101,7 @@ impl AppState {
             settings_mgr: Arc::new(SettingsManager::new(Arc::clone(&db))),
             window_states: Arc::new(WindowStateManager::new(Arc::clone(&db))),
             storage: Arc::new(StorageManager::new(&tmp_dir)),
+            notification_mgr: Arc::new(NotificationStore::new(Arc::clone(&db))),
             auth: AuthManager::new(Arc::clone(&db)),
             db,
             tasks: Arc::new(TaskEngine::new()),

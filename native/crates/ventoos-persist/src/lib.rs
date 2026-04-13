@@ -1,4 +1,5 @@
 mod migrations;
+pub mod notification;
 pub mod settings;
 pub mod storage;
 pub mod vfs_mounts;
@@ -10,6 +11,7 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 use tracing::info;
 
+pub use notification::NotificationStore;
 pub use settings::SettingsManager;
 pub use storage::StorageManager;
 pub use vfs_mounts::{PersistedVfsMount, VfsMountStore};

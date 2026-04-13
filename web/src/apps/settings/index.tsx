@@ -5,6 +5,7 @@
  * Categories: Appearance, Desktop & Dock, Notifications, AI, General
  */
 
+import { BaiduOutlined, GithubOutlined, GoogleOutlined } from '@ant-design/icons'
 import {
   Bell,
   Bot,
@@ -42,6 +43,7 @@ import { agentApi } from '@/apps/ai-assistant/api'
 import { apiClient } from '@/infra/api'
 import { useWindowStore } from '@/kernel'
 import { useNotificationStore, notificationService } from '@/services/notification'
+import { authService, useAuthStore } from '@/services/auth'
 import { type ThemeMode, useSettingsStore } from '@/services/settings'
 
 import BrandLogo from '@/components/BrandLogo'
@@ -416,50 +418,55 @@ function GeneralPanel() {
 
 interface NetworkInterface {
   name: string
-  type: 'wifi' | 'ethernet' | 'loopback'
+  type: string
   ip: string
   netmask: string
   gateway: string
   dns: string[]
   mac: string
-  status: 'up' | 'down'
+  status: string
 }
 
-const MOCK_NETWORK: NetworkInterface[] = [
-  { name: 'en0', type: 'wifi', ip: '192.168.1.100', netmask: '255.255.255.0', gateway: '192.168.1.1', dns: ['192.168.1.1', '8.8.8.8'], mac: 'A4:B1:C2:D3:E4:F5', status: 'up' },
-  { name: 'en1', type: 'ethernet', ip: '10.0.0.50', netmask: '255.255.255.0', gateway: '10.0.0.1', dns: ['10.0.0.1'], mac: 'B5:C2:D3:E4:F5:A6', status: 'down' }
-]
-
 function NetworkPanel() {
-  const [interfaces] = useState<NetworkInterface[]>(MOCK_NETWORK)
-  const [speedTesting, setSpeedTesting] = useState(false)
-  const [speedResult, setSpeedResult] = useState<{ download: number; upload: number; ping: number } | null>(null)
+  const [interfaces, setInterfaces] = useState<NetworkInterface[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const runSpeedTest = useCallback(() => {
-    setSpeedTesting(true)
-    setSpeedResult(null)
-    // Mock speed test — simulates 3 seconds of testing
-    setTimeout(() => {
-      setSpeedResult({
-        download: +(Math.random() * 200 + 50).toFixed(1),
-        upload: +(Math.random() * 50 + 10).toFixed(1),
-        ping: +(Math.random() * 20 + 5).toFixed(0)
-      })
-      setSpeedTesting(false)
-    }, 3000)
+  useEffect(() => {
+    apiClient.getNetworkInfo().then(res => {
+      if (res.data) setInterfaces(res.data)
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  const typeLabel = { wifi: 'Wi-Fi', ethernet: '以太网', loopback: '回环' }
+  const typeLabel: Record<string, string> = { wifi: 'Wi-Fi', ethernet: '以太网', loopback: '回环' }
+
+  const speedTargets = [
+    { name: '百度', url: 'https://www.baidu.com', icon: 'baidu' },
+    { name: 'Google', url: 'https://www.google.com', icon: 'google' },
+    { name: 'GitHub', url: 'https://github.com', icon: 'github' }
+  ]
 
   return (
     <div className="vos-settings-content">
       <h2 className="vos-settings-section-title">网络</h2>
 
       {/* Network Interfaces */}
+      {loading && (
+        <div className="vos-settings-group">
+          <div className="flex items-center gap-3 text-[13px] vos-text-secondary">
+            <div className="vos-loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
+            正在获取网络信息...
+          </div>
+        </div>
+      )}
+      {!loading && interfaces.length === 0 && (
+        <div className="vos-settings-group">
+          <p className="text-[13px] vos-text-secondary">未检测到网络接口</p>
+        </div>
+      )}
       {interfaces.map(iface => (
         <div key={iface.name} className="vos-settings-group">
           <label className="vos-settings-label">
-            {typeLabel[iface.type]} — {iface.name}
+            {typeLabel[iface.type] ?? iface.type} — {iface.name}
             <span className={`ml-2 inline-block w-2 h-2 rounded-full align-middle ${iface.status === 'up' ? 'bg-green-500' : 'bg-gray-400'}`} />
           </label>
           <div className="rounded-lg border-[0.5px] border-solid border-[var(--vos-border-default)] bg-[var(--vos-bg-surface)] overflow-hidden">
@@ -487,53 +494,101 @@ function NetworkPanel() {
         </div>
       ))}
 
-      {/* Speed Test */}
+      {/* Speed Test — per-site */}
       <div className="vos-settings-group">
         <label className="vos-settings-label">网络测速</label>
-        <div className="rounded-lg border-[0.5px] border-solid border-[var(--vos-border-default)] bg-[var(--vos-bg-surface)] p-4">
-          {speedTesting && (
-            <div className="flex items-center gap-3 text-[13px] vos-text-secondary">
-              <div className="vos-loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
-              正在测速...
-            </div>
-          )}
-          {speedResult && !speedTesting && (
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div className="text-center">
-                <div className="text-[11px] vos-text-tertiary mb-1">下载</div>
-                <div className="text-lg font-semibold text-[var(--vos-accent-primary)]">{speedResult.download}</div>
-                <div className="text-[10px] vos-text-tertiary">Mbps</div>
-              </div>
-              <div className="text-center">
-                <div className="text-[11px] vos-text-tertiary mb-1">上传</div>
-                <div className="text-lg font-semibold text-[var(--vos-accent-success)]">{speedResult.upload}</div>
-                <div className="text-[10px] vos-text-tertiary">Mbps</div>
-              </div>
-              <div className="text-center">
-                <div className="text-[11px] vos-text-tertiary mb-1">延迟</div>
-                <div className="text-lg font-semibold text-[var(--vos-accent-warning)]">{speedResult.ping}</div>
-                <div className="text-[10px] vos-text-tertiary">ms</div>
-              </div>
-            </div>
-          )}
-          {!speedResult && !speedTesting && (
-            <p className="text-[13px] vos-text-secondary mb-4">点击下方按钮开始网络速度测试</p>
-          )}
-          <button
-            type="button"
-            className="vos-btn vos-btn-primary text-[13px]"
-            disabled={speedTesting}
-            onClick={runSpeedTest}
-          >
-            {speedTesting ? '测速中...' : '开始测速'}
-          </button>
+        <div className="rounded-lg border-[0.5px] border-solid border-[var(--vos-border-default)] bg-[var(--vos-bg-surface)] overflow-hidden">
+          {speedTargets.map((target, idx) => (
+            <SpeedTestRow key={target.name} target={target} isLast={idx === speedTargets.length - 1} />
+          ))}
         </div>
       </div>
     </div>
   )
 }
 
+function SpeedTestRow({ target, isLast }: { target: { name: string; url: string; icon: string }; isLast: boolean }) {
+  const IconComponent = target.icon === 'baidu' ? BaiduOutlined : target.icon === 'google' ? GoogleOutlined : GithubOutlined
+  const [testing, setTesting] = useState(false)
+  const [result, setResult] = useState<{ latency: number; status: string } | null>(null)
+
+  const runTest = useCallback(() => {
+    setTesting(true)
+    setResult(null)
+    const start = performance.now()
+    // Use no-cors mode so we can measure latency even for sites that block CORS
+    fetch(target.url, { mode: 'no-cors', cache: 'no-store' })
+      .then(() => {
+        const latency = Math.round(performance.now() - start)
+        setResult({ latency, status: 'ok' })
+      })
+      .catch(() => {
+        const latency = Math.round(performance.now() - start)
+        setResult({ latency, status: 'error' })
+      })
+      .finally(() => setTesting(false))
+  }, [target.url])
+
+  return (
+    <div
+      className="flex items-center justify-between px-4 py-3"
+      style={!isLast ? { borderBottom: '0.5px solid var(--vos-border-subtle)' } : undefined}
+    >
+      <div className="flex items-center gap-2">
+        <IconComponent style={{ fontSize: 16, color: 'var(--vos-text-secondary)' }} />
+        <span className="text-[13px] font-medium">{target.name}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        {testing && (
+          <div className="vos-loading-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+        )}
+        {result && !testing && (
+          <span className={`text-[13px] font-mono ${result.status === 'ok' ? 'vos-text-secondary' : ''}`} style={result.status === 'error' ? { color: 'var(--vos-accent-danger)' } : undefined}>
+            {result.status === 'ok' ? `${result.latency} ms` : '超时'}
+          </span>
+        )}
+        <button
+          type="button"
+          className="vos-btn text-[12px] min-w-[60px]"
+          disabled={testing}
+          onClick={runTest}
+        >
+          {testing ? '...' : '测速'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ---- Sound Settings ---- */
+
+const SOUND_TYPES = [
+  { value: 'default', label: '默认', freq: 880, type: 'sine' as OscillatorType, duration: 0.15 },
+  { value: 'crystal', label: '水晶', freq: 1200, type: 'sine' as OscillatorType, duration: 0.3 },
+  { value: 'digital', label: '数码', freq: 660, type: 'square' as OscillatorType, duration: 0.1 },
+  { value: 'gentle', label: '柔和', freq: 520, type: 'triangle' as OscillatorType, duration: 0.4 },
+  { value: 'alert', label: '警报', freq: 440, type: 'sawtooth' as OscillatorType, duration: 0.2 }
+]
+
+function playSound(type: string, volume: number) {
+  try {
+    const ctx = new AudioContext()
+    const preset = SOUND_TYPES.find(s => s.value === type) ?? SOUND_TYPES[0]
+    const gain = ctx.createGain()
+    gain.gain.value = (volume / 100) * 0.3
+    gain.connect(ctx.destination)
+
+    const osc = ctx.createOscillator()
+    osc.type = preset.type
+    osc.frequency.value = preset.freq
+    osc.connect(gain)
+    osc.start()
+    osc.stop(ctx.currentTime + preset.duration)
+    setTimeout(() => ctx.close(), preset.duration * 1000 + 100)
+  } catch {
+    // Web Audio not available
+  }
+}
 
 function SoundPanel() {
   const [alertVolume, setAlertVolume] = useState(80)
@@ -542,14 +597,38 @@ function SoundPanel() {
   const [notifSound, setNotifSound] = useState('default')
   const [muteAlerts, setMuteAlerts] = useState(false)
   const [muteNotifs, setMuteNotifs] = useState(false)
+  const [loaded, setLoaded] = useState(false)
 
-  const sounds = [
-    { value: 'default', label: '默认' },
-    { value: 'crystal', label: '水晶' },
-    { value: 'digital', label: '数码' },
-    { value: 'gentle', label: '柔和' },
-    { value: 'alert', label: '警报' }
-  ]
+  // Load from backend
+  useEffect(() => {
+    apiClient.getSystemSettings().then(res => {
+      if (res.data) {
+        const d = res.data
+        setAlertVolume(d.sound_alert_volume)
+        setNotifVolume(d.sound_notif_volume)
+        setMuteAlerts(d.sound_alert_muted)
+        setMuteNotifs(d.sound_notif_muted)
+        setAlertSound(d.sound_alert_type)
+        setNotifSound(d.sound_notif_type)
+      }
+    }).catch(() => {}).finally(() => setLoaded(true))
+  }, [])
+
+  // Sync to backend on change (debounced)
+  useEffect(() => {
+    if (!loaded) return
+    const timer = setTimeout(() => {
+      apiClient.saveSystemSettings({
+        sound_alert_volume: alertVolume,
+        sound_notif_volume: notifVolume,
+        sound_alert_muted: muteAlerts,
+        sound_notif_muted: muteNotifs,
+        sound_alert_type: alertSound,
+        sound_notif_type: notifSound
+      }).catch(() => {})
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [loaded, alertVolume, notifVolume, muteAlerts, muteNotifs, alertSound, notifSound])
 
   return (
     <div className="vos-settings-content">
@@ -575,9 +654,9 @@ function SoundPanel() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-[13px] min-w-[40px]">音效</span>
-              <div className="flex gap-2">
-                {sounds.map(s => (
-                  <button key={s.value} type="button" className={`vos-settings-chip text-[12px] ${alertSound === s.value ? 'active' : ''}`} onClick={() => setAlertSound(s.value)}>
+              <div className="flex gap-2 flex-wrap">
+                {SOUND_TYPES.map(s => (
+                  <button key={s.value} type="button" className={`vos-settings-chip text-[12px] ${alertSound === s.value ? 'active' : ''}`} onClick={() => { setAlertSound(s.value); playSound(s.value, alertVolume) }}>
                     {s.label}
                   </button>
                 ))}
@@ -607,9 +686,9 @@ function SoundPanel() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-[13px] min-w-[40px]">音效</span>
-              <div className="flex gap-2">
-                {sounds.map(s => (
-                  <button key={s.value} type="button" className={`vos-settings-chip text-[12px] ${notifSound === s.value ? 'active' : ''}`} onClick={() => setNotifSound(s.value)}>
+              <div className="flex gap-2 flex-wrap">
+                {SOUND_TYPES.map(s => (
+                  <button key={s.value} type="button" className={`vos-settings-chip text-[12px] ${notifSound === s.value ? 'active' : ''}`} onClick={() => { setNotifSound(s.value); playSound(s.value, notifVolume) }}>
                     {s.label}
                   </button>
                 ))}
@@ -625,35 +704,66 @@ function SoundPanel() {
 /* ---- Lock Screen Settings ---- */
 
 function LockScreenPanel() {
-  const [enabled, setEnabled] = useState(false)
+  const initialized = useAuthStore(s => s.initialized)
+  const [enabled, setEnabled] = useState(true)
   const [idleMinutes, setIdleMinutes] = useState(5)
-  const [showPasswordSetup, setShowPasswordSetup] = useState(false)
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-  const [hasPassword, setHasPassword] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [currentPwd, setCurrentPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [pwdError, setPwdError] = useState('')
+  const [pwdSaving, setPwdSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
 
-  const handleSetPassword = useCallback(() => {
-    if (!password || password.length < 4) {
-      setPasswordError('密码至少需要 4 位')
-      return
-    }
-    if (password !== confirmPassword) {
-      setPasswordError('两次输入的密码不一致')
-      return
-    }
-    setHasPassword(true)
-    setShowPasswordSetup(false)
-    setPassword('')
-    setConfirmPassword('')
-    setPasswordError('')
-  }, [password, confirmPassword])
-
-  const handleRemovePassword = useCallback(() => {
-    setHasPassword(false)
-    setPassword('')
-    setConfirmPassword('')
+  // Load lockscreen settings from backend (enabled + idle minutes only, NOT password)
+  useEffect(() => {
+    apiClient.getSystemSettings().then(res => {
+      if (res.data) {
+        setEnabled(res.data.lockscreen_enabled)
+        setIdleMinutes(res.data.lockscreen_idle_minutes)
+      }
+    }).catch(() => {}).finally(() => setLoaded(true))
   }, [])
+
+  // Sync enabled/idle to backend (debounced)
+  useEffect(() => {
+    if (!loaded) return
+    const timer = setTimeout(() => {
+      apiClient.saveSystemSettings({
+        lockscreen_enabled: enabled,
+        lockscreen_idle_minutes: idleMinutes
+      }).catch(() => {})
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [loaded, enabled, idleMinutes])
+
+  const handleChangePassword = useCallback(() => {
+    if (!newPwd || newPwd.length < 6) {
+      setPwdError('新密码至少需要 6 位')
+      return
+    }
+    if (newPwd !== confirmPwd) {
+      setPwdError('两次输入的密码不一致')
+      return
+    }
+    if (!currentPwd) {
+      setPwdError('请输入当前密码')
+      return
+    }
+    setPwdSaving(true)
+    setPwdError('')
+    authService.changePassword(currentPwd, newPwd)
+      .then(() => {
+        setShowChangePassword(false)
+        setCurrentPwd('')
+        setNewPwd('')
+        setConfirmPwd('')
+      })
+      .catch(err => {
+        setPwdError(err instanceof Error ? err.message : '密码修改失败')
+      })
+      .finally(() => setPwdSaving(false))
+  }, [currentPwd, newPwd, confirmPwd])
 
   const idleOptions = [
     { value: 1, label: '1 分钟' },
@@ -683,7 +793,7 @@ function LockScreenPanel() {
       {enabled && (
         <div className="vos-settings-group">
           <label className="vos-settings-label">空闲时间</label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {idleOptions.map(opt => (
               <button key={opt.value} type="button" className={`vos-settings-chip text-[12px] ${idleMinutes === opt.value ? 'active' : ''}`} onClick={() => setIdleMinutes(opt.value)}>
                 {opt.label}
@@ -693,57 +803,58 @@ function LockScreenPanel() {
         </div>
       )}
 
-      {/* Password */}
+      {/* Password — uses the auth system */}
       <div className="vos-settings-group">
-        <label className="vos-settings-label">锁屏密码</label>
-        {hasPassword ? (
+        <label className="vos-settings-label">解锁密码</label>
+        {initialized ? (
           <div className="vos-settings-toggle-row">
             <div>
               <div className="text-sm font-medium">密码已设置</div>
-              <div className="text-xs vos-text-secondary">解锁时需要输入密码</div>
+              <div className="text-xs vos-text-secondary">解锁时需要输入系统密码</div>
             </div>
-            <div className="flex gap-2">
-              <button type="button" className="vos-btn text-[12px]" onClick={() => { setShowPasswordSetup(true); setPassword(''); setConfirmPassword(''); setPasswordError('') }}>
-                修改密码
-              </button>
-              <button type="button" className="vos-btn text-[12px]" style={{ color: 'var(--vos-accent-danger)' }} onClick={handleRemovePassword}>
-                移除
-              </button>
-            </div>
+            <button type="button" className="vos-btn text-[12px]" onClick={() => { setShowChangePassword(true); setCurrentPwd(''); setNewPwd(''); setConfirmPwd(''); setPwdError('') }}>
+              修改密码
+            </button>
           </div>
         ) : (
           <div className="vos-settings-toggle-row">
             <div>
-              <div className="text-sm font-medium">未设置密码</div>
-              <div className="text-xs vos-text-secondary">建议设置锁屏密码以保护数据安全</div>
+              <div className="text-sm font-medium">设置解锁密码</div>
+              <div className="text-xs vos-text-secondary">首次使用需要设置系统密码以保护数据安全</div>
             </div>
-            <button type="button" className="vos-btn vos-btn-primary text-[12px]" onClick={() => { setShowPasswordSetup(true); setPassword(''); setConfirmPassword(''); setPasswordError('') }}>
-              设置密码
+            <button type="button" className="vos-btn vos-btn-primary text-[12px]" onClick={() => authService.lock()}>
+              前往设置
             </button>
           </div>
         )}
       </div>
 
-      {/* Password Setup Dialog */}
-      {showPasswordSetup && (
-        <div className="vos-modal-overlay" onClick={() => setShowPasswordSetup(false)}>
+      {/* Change Password Dialog */}
+      {showChangePassword && (
+        <div className="vos-modal-overlay" onClick={() => setShowChangePassword(false)}>
           <div className="vos-modal" style={{ width: 360, zIndex: 7000 }} onClick={e => e.stopPropagation()}>
             <div className="p-6">
-              <h3 className="text-[15px] font-semibold mb-4">{hasPassword ? '修改锁屏密码' : '设置锁屏密码'}</h3>
+              <h3 className="text-[15px] font-semibold mb-4">修改解锁密码</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="text-[11px] vos-text-tertiary block mb-1">新密码</label>
-                  <input type="password" className="vos-input w-full" value={password} onChange={e => { setPassword(e.target.value); setPasswordError('') }} placeholder="至少 4 位" />
+                  <label className="text-[11px] vos-text-tertiary block mb-1">当前密码</label>
+                  <input type="password" className="vos-input w-full" value={currentPwd} onChange={e => { setCurrentPwd(e.target.value); setPwdError('') }} placeholder="输入当前密码" />
                 </div>
                 <div>
-                  <label className="text-[11px] vos-text-tertiary block mb-1">确认密码</label>
-                  <input type="password" className="vos-input w-full" value={confirmPassword} onChange={e => { setConfirmPassword(e.target.value); setPasswordError('') }} placeholder="再次输入密码" />
+                  <label className="text-[11px] vos-text-tertiary block mb-1">新密码</label>
+                  <input type="password" className="vos-input w-full" value={newPwd} onChange={e => { setNewPwd(e.target.value); setPwdError('') }} placeholder="至少 6 位" />
                 </div>
-                {passwordError && <p className="text-[12px]" style={{ color: 'var(--vos-accent-danger)' }}>{passwordError}</p>}
+                <div>
+                  <label className="text-[11px] vos-text-tertiary block mb-1">确认新密码</label>
+                  <input type="password" className="vos-input w-full" value={confirmPwd} onChange={e => { setConfirmPwd(e.target.value); setPwdError('') }} placeholder="再次输入新密码" />
+                </div>
+                {pwdError && <p className="text-[12px]" style={{ color: 'var(--vos-accent-danger)' }}>{pwdError}</p>}
               </div>
               <div className="flex justify-end gap-2 mt-5">
-                <button type="button" className="vos-btn text-[13px]" onClick={() => setShowPasswordSetup(false)}>取消</button>
-                <button type="button" className="vos-btn vos-btn-primary text-[13px]" onClick={handleSetPassword}>确定</button>
+                <button type="button" className="vos-btn text-[13px]" onClick={() => setShowChangePassword(false)}>取消</button>
+                <button type="button" className="vos-btn vos-btn-primary text-[13px]" disabled={pwdSaving} onClick={handleChangePassword}>
+                  {pwdSaving ? '保存中...' : '确定'}
+                </button>
               </div>
             </div>
           </div>
@@ -759,20 +870,59 @@ function LocationPanel() {
   const [enabled, setEnabled] = useState(false)
   const [locating, setLocating] = useState(false)
   const [location, setLocation] = useState<{ city: string; address: string; lat: number; lon: number } | null>(null)
+  const [locError, setLocError] = useState('')
+  const [loaded, setLoaded] = useState(false)
+
+  // Load from backend
+  useEffect(() => {
+    apiClient.getSystemSettings().then(res => {
+      if (res.data) setEnabled(res.data.location_enabled)
+    }).catch(() => {}).finally(() => setLoaded(true))
+  }, [])
+
+  // Sync enabled state to backend
+  useEffect(() => {
+    if (!loaded) return
+    const timer = setTimeout(() => {
+      apiClient.saveSystemSettings({ location_enabled: enabled }).catch(() => {})
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [loaded, enabled])
 
   const locate = useCallback(() => {
     if (!enabled) return
+    if (!navigator.geolocation) {
+      setLocError('浏览器不支持定位功能')
+      return
+    }
     setLocating(true)
-    // Mock geolocation — simulates a 1.5s request
-    setTimeout(() => {
-      setLocation({
-        city: '北京市',
-        address: '北京市海淀区中关村南大街',
-        lat: 39.9042,
-        lon: 116.4074
-      })
-      setLocating(false)
-    }, 1500)
+    setLocError('')
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords
+        // Reverse geocode using free Nominatim API
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=zh`,
+            { headers: { 'User-Agent': 'VentoOS/1.0' } }
+          )
+          const data = await res.json()
+          const addr = data.address ?? {}
+          const city = addr.city || addr.town || addr.county || addr.state || ''
+          const address = data.display_name ?? ''
+          setLocation({ city, address, lat: latitude, lon: longitude })
+        } catch {
+          // Fallback: just show coordinates
+          setLocation({ city: '', address: '', lat: latitude, lon: longitude })
+        }
+        setLocating(false)
+      },
+      (err) => {
+        setLocError(err.message === 'User denied Geolocation' ? '定位权限被拒绝，请在浏览器设置中允许' : `定位失败: ${err.message}`)
+        setLocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
   }, [enabled])
 
   return (
@@ -785,7 +935,7 @@ function LocationPanel() {
             <div className="text-sm font-medium">定位服务</div>
             <div className="text-xs vos-text-secondary">允许应用获取当前位置信息</div>
           </div>
-          <button type="button" className={`vos-toggle ${enabled ? 'on' : ''}`} onClick={() => { setEnabled(!enabled); if (!enabled) setLocation(null) }} aria-label="定位服务">
+          <button type="button" className={`vos-toggle ${enabled ? 'on' : ''}`} onClick={() => { setEnabled(!enabled); if (enabled) setLocation(null) }} aria-label="定位服务">
             <div className="vos-toggle-thumb" />
           </button>
         </div>
@@ -802,23 +952,30 @@ function LocationPanel() {
                   正在获取位置...
                 </div>
               )}
+              {locError && !locating && (
+                <p className="text-[12px] mb-3" style={{ color: 'var(--vos-accent-danger)' }}>{locError}</p>
+              )}
               {location && !locating && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px]">城市</span>
-                    <span className="text-[13px] vos-text-secondary">{location.city}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px]">地址</span>
-                    <span className="text-[13px] vos-text-secondary">{location.address}</span>
-                  </div>
+                  {location.city && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px]">城市</span>
+                      <span className="text-[13px] vos-text-secondary">{location.city}</span>
+                    </div>
+                  )}
+                  {location.address && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px]">地址</span>
+                      <span className="text-[13px] vos-text-secondary text-right max-w-[60%]">{location.address}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-[13px]">经纬度</span>
-                    <span className="text-[13px] vos-text-secondary font-mono">{location.lat}, {location.lon}</span>
+                    <span className="text-[13px] vos-text-secondary font-mono">{location.lat.toFixed(4)}, {location.lon.toFixed(4)}</span>
                   </div>
                 </div>
               )}
-              {!location && !locating && (
+              {!location && !locating && !locError && (
                 <p className="text-[13px] vos-text-secondary mb-3">点击刷新按钮获取当前位置</p>
               )}
               <button type="button" className="vos-btn text-[13px] mt-3" disabled={locating} onClick={locate}>

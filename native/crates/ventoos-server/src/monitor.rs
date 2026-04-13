@@ -5,7 +5,8 @@ use tokio::process::Command;
 use tracing::warn;
 
 use ventoos_core::monitor::{
-    CpuCoreInfo, CpuInfo, DiskInfo, MemoryInfo, ProcessMetrics, SystemMetrics,
+    CpuCoreInfo, CpuInfo, DiskInfo, MemoryInfo, NetworkInterfaceInfo, ProcessMetrics,
+    SystemMetrics,
 };
 use ventoos_core::types::ApiResponse;
 
@@ -138,6 +139,11 @@ pub async fn get_system_metrics(State(_state): State<AppState>) -> impl IntoResp
 pub async fn get_process_metrics(State(_state): State<AppState>) -> impl IntoResponse {
     let metrics = collect_process_metrics().await;
     Json(ApiResponse::ok(metrics))
+}
+
+pub async fn get_network_info(State(_state): State<AppState>) -> impl IntoResponse {
+    let info = collect_network_info().await;
+    Json(ApiResponse::ok(info))
 }
 
 // ---------------------------------------------------------------------------
@@ -839,4 +845,288 @@ mod tests {
         assert_eq!(parse_etime("2-01:00:00"), 2 * 86400 + 3600);
         assert_eq!(parse_etime("45"), 45);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Network info collection
+// ---------------------------------------------------------------------------
+
+async fn collect_network_info() -> Vec<NetworkInterfaceInfo> {
+    #[cfg(target_os = "macos")]
+    {
+        collect_network_info_macos().await
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        collect_network_info_linux().await
+    }
+}
+
+#[cfg(target_os = "macos")]
+async fn collect_network_info_macos() -> Vec<NetworkInterfaceInfo> {
+    let ifconfig_out = run_cmd("ifconfig", &[]).await;
+    let route_out = run_cmd("route", &["-n", "get", "default"]).await;
+    let dns_out = run_cmd("scutil", &["--dns"]).await;
+    let netstat_out = run_cmd("netstat", &["-I", "-an"]).await;
+
+    // Parse gateway
+    let gateway = route_out
+        .lines()
+        .find_map(|line| {
+            let trimmed = line.trim();
+            trimmed
+                .strip_prefix("gateway:")
+                .map(|s| s.trim().to_string())
+        })
+        .unwrap_or_default();
+
+    // Parse DNS servers
+    let dns_servers: Vec<String> = dns_out
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.starts_with("nameserver[") {
+                trimmed.find(']').and_then(|idx| {
+                    let rest = trimmed[idx + 1..].trim();
+                    rest.strip_prefix(':')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty() && s != "0.0.0.0")
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // Parse ifconfig output — split into interface blocks
+    let mut interfaces: Vec<NetworkInterfaceInfo> = Vec::new();
+    let mut current_name = String::new();
+    let mut current_mac = String::new();
+    let mut current_ip = String::new();
+    let mut current_netmask = String::new();
+    let mut current_status = "down".to_string();
+    let mut current_if_type = "ethernet".to_string();
+
+    for line in ifconfig_out.lines() {
+        let trimmed = line.trim();
+
+        // New interface line starts at column 0 (not indented)
+        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.contains(':') {
+            // Save previous interface
+            if !current_name.is_empty() && !current_ip.is_empty() {
+                let dns = if dns_servers.is_empty() {
+                    vec![gateway.clone()]
+                } else {
+                    dns_servers.clone()
+                };
+                interfaces.push(NetworkInterfaceInfo {
+                    name: current_name.clone(),
+                    if_type: current_if_type.clone(),
+                    ip: current_ip.clone(),
+                    netmask: current_netmask.clone(),
+                    gateway: gateway.clone(),
+                    dns,
+                    mac: current_mac.clone(),
+                    status: current_status.clone(),
+                });
+            }
+            // Parse new interface name (e.g., "en0:" or "lo0:")
+            current_name = trimmed
+                .split(':')
+                .next()
+                .unwrap_or("")
+                .to_string();
+            current_mac.clear();
+            current_ip.clear();
+            current_netmask.clear();
+            current_status = if trimmed.contains("flags") {
+                if trimmed.contains("UP") || trimmed.contains("RUNNING") {
+                    "up".to_string()
+                } else {
+                    "down".to_string()
+                }
+            } else {
+                "down".to_string()
+            };
+            current_if_type = if current_name.starts_with("lo") {
+                "loopback".to_string()
+            } else if current_name.starts_with("en") {
+                "ethernet".to_string()
+            } else {
+                "ethernet".to_string()
+            };
+        } else if let Some(rest) = trimmed.strip_prefix("ether ") {
+            current_mac = rest.split_whitespace().next().unwrap_or("").to_string();
+        } else if let Some(rest) = trimmed.strip_prefix("inet ") {
+            let parts: Vec<&str> = rest.split_whitespace().collect();
+            if !parts.is_empty() {
+                current_ip = parts[0].to_string();
+            }
+            // Find netmask
+            for (i, p) in parts.iter().enumerate() {
+                if *p == "netmask" && i + 1 < parts.len() {
+                    current_netmask = parts[i + 1].to_string();
+                }
+            }
+        }
+    }
+    // Don't forget the last interface
+    if !current_name.is_empty() && !current_ip.is_empty() {
+        let dns = if dns_servers.is_empty() {
+            vec![gateway.clone()]
+        } else {
+            dns_servers.clone()
+        };
+        interfaces.push(NetworkInterfaceInfo {
+            name: current_name.clone(),
+            if_type: current_if_type,
+            ip: current_ip,
+            netmask: current_netmask,
+            gateway: gateway.clone(),
+            dns,
+            mac: current_mac,
+            status: current_status,
+        });
+    }
+
+    // Filter out loopback
+    interfaces.retain(|i| i.if_type != "loopback");
+    interfaces
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn collect_network_info_linux() -> Vec<NetworkInterfaceInfo> {
+    let ip_addr_out = run_cmd("ip", &["-j", "addr"]).await;
+    let ip_route_out = run_cmd("ip", &["route"]).await;
+    let resolv_out = run_cmd("cat", &["/etc/resolv.conf"]).await;
+
+    // Parse default gateway
+    let gateway = ip_route_out
+        .lines()
+        .find_map(|line| {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.first() == Some(&"default") {
+                parts.iter().position(|p| *p == "via").and_then(|idx| {
+                    parts.get(idx + 1).map(|s| (*s).to_string())
+                })
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default();
+
+    // Parse DNS
+    let dns_servers: Vec<String> = resolv_out
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            trimmed
+                .strip_prefix("nameserver ")
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        })
+        .collect();
+
+    // Try to parse JSON output from `ip -j addr`
+    let mut interfaces: Vec<NetworkInterfaceInfo> = Vec::new();
+
+    if let Ok(iface_list) = serde_json::from_str::<Vec<serde_json::Value>>(&ip_addr_out) {
+        for iface in iface_list {
+            let name = iface
+                .get("ifname")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let operstate = iface
+                .get("operstate")
+                .and_then(|v| v.as_str())
+                .unwrap_or("DOWN");
+            let status = if operstate == "UP" || operstate == "UNKNOWN" {
+                "up"
+            } else {
+                "down"
+            };
+
+            let if_type = if name.starts_with("lo") {
+                "loopback"
+            } else if name.starts_with("wl") || name.starts_with("wlan") {
+                "wifi"
+            } else {
+                "ethernet"
+            };
+
+            let mac = iface
+                .get("address")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            if let Some(addr_infos) = iface.get("addr_info").and_then(|v| v.as_array()) {
+                for addr_info in addr_infos {
+                    let family = addr_info
+                        .get("family")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    if family != "inet" {
+                        continue;
+                    }
+                    let ip = addr_info
+                        .get("local")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let netmask = addr_info
+                        .get("prefixlen")
+                        .map(|v| {
+                            let prefix = v.as_u64().unwrap_or(24);
+                            prefix_to_netmask(prefix)
+                        })
+                        .unwrap_or_default();
+
+                    if ip.is_empty() {
+                        continue;
+                    }
+
+                    let dns = if dns_servers.is_empty() {
+                        vec![gateway.clone()]
+                    } else {
+                        dns_servers.clone()
+                    };
+
+                    interfaces.push(NetworkInterfaceInfo {
+                        name: name.clone(),
+                        if_type: if_type.to_string(),
+                        ip,
+                        netmask,
+                        gateway: gateway.clone(),
+                        dns,
+                        mac: mac.clone(),
+                        status: status.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    interfaces.retain(|i| i.if_type != "loopback" && !i.ip.is_empty());
+    interfaces
+}
+
+#[cfg(not(target_os = "macos"))]
+fn prefix_to_netmask(prefix: u64) -> String {
+    if prefix > 32 {
+        return String::new();
+    }
+    let mask: u32 = if prefix == 0 {
+        0
+    } else {
+        !0u32 << (32 - prefix as u32)
+    };
+    format!(
+        "{}.{}.{}.{}",
+        (mask >> 24) & 0xFF,
+        (mask >> 16) & 0xFF,
+        (mask >> 8) & 0xFF,
+        mask & 0xFF
+    )
 }
