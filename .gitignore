@@ -31,4 +31,5 @@ pnpm-debug.log*
 .repos
 .superpowers
 
-native/storage/native/fileprovider/build/
+native/storage/
+native/fileprovider/build/
