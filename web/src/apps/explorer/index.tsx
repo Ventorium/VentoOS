@@ -1525,17 +1525,23 @@ function FileInfoPanel({
   onClose: () => void
 }) {
   const [imgSrc, setImgSrc] = useState<string | null>(null)
+  const [imgLoading, setImgLoading] = useState(false)
 
   useEffect(() => {
     if (!node || node.is_dir) {
       setImgSrc(null)
+      setImgLoading(false)
       return
     }
     const ext = getFileExt(node.name)
     if (!IMAGE_EXTS.has(ext)) {
       setImgSrc(null)
+      setImgLoading(false)
       return
     }
+    // Clear stale image immediately so user sees loading state, not the previous image
+    setImgSrc(null)
+    setImgLoading(true)
     const abortController = new AbortController()
     let url: string | null = null
     vfsApi
@@ -1544,10 +1550,12 @@ function FileInfoPanel({
         if (abortController.signal.aborted) return
         url = URL.createObjectURL(blob)
         setImgSrc(url)
+        setImgLoading(false)
       })
       .catch(e => {
         if ((e as Error)?.name === 'AbortError') return
         setImgSrc(null)
+        setImgLoading(false)
       })
     return () => {
       abortController.abort()
@@ -1610,22 +1618,26 @@ function FileInfoPanel({
       {/* Image preview */}
       {isImage && (
         <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
-          {imgSrc ? (
+          {imgLoading ? (
+            <Spinner size={14} />
+          ) : imgSrc ? (
             <img
               src={imgSrc}
               alt={node.name}
               className="max-w-full max-h-full object-contain rounded"
             />
-          ) : (
-            <Spinner size={14} />
-          )}
+          ) : null}
         </div>
       )}
 
-      {/* Text / code preview */}
-      {!isImage && preview && !node.is_dir && (
+      {/* Text / code preview — show spinner while loading, content when ready */}
+      {!isImage && !node.is_dir && (
         <div className="flex-1 overflow-auto">
-          {preview.is_binary ? (
+          {!preview ? (
+            <div className="flex-1 flex items-center justify-center p-4">
+              <Spinner size={14} />
+            </div>
+          ) : preview.is_binary ? (
             <div
               className="flex-1 flex items-center justify-center p-4 text-xs text-[var(--vos-text-tertiary)] italic">
               二进制文件，无法预览
@@ -2361,6 +2373,8 @@ export default function ExplorerApp({ windowId }: AppComponentProps) {
         setPreview(null)
         return
       }
+      // Clear previous preview immediately so panel shows loading spinner, not stale content
+      setPreview(null)
       // Cancel previous preview request
       previewAbortRef.current?.abort()
       const abortController = new AbortController()

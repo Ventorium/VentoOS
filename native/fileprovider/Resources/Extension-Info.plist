@@ -32,14 +32,11 @@
 
     <key>NSExtension</key>
     <dict>
-        <key>NSExtensionFileProviderDocumentGroup</key>
-        <string>group.io.ventoos.VentoFS</string>
-
         <key>NSExtensionPointIdentifier</key>
         <string>com.apple.fileprovider-nonui</string>
 
         <key>NSExtensionPrincipalClass</key>
-        <string>$(PRODUCT_MODULE_NAME).Extension</string>
+        <string>VentoFSFileProvider.Extension</string>
 
         <key>NSExtensionFileProviderSupportsEnumeration</key>
         <true/>
