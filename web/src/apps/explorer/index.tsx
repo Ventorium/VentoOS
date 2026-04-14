@@ -2078,11 +2078,13 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
 
 export default function ExplorerApp({ windowId, initialAppState }: AppComponentProps) {
   const storage = useAppStorage('explorer')
+  // Capture initial state once — avoid re-triggering reload when appState is synced back
+  const initialAppStateRef = useRef(initialAppState)
   const [mounts, setMounts] = useState<VfsMount[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingMount, setEditingMount] = useState<VfsMount | null>(null)
   const [showExplorerSettings, setShowExplorerSettings] = useState(false)
-  const [selectedMount, setSelectedMount] = useState<string | null>((initialAppState?.selectedMount as string) ?? null)
+  const [selectedMount, setSelectedMount] = useState<string | null>((initialAppStateRef.current?.selectedMount as string) ?? null)
   // local mount statuses: id -> { mounted, mount_point, error }
   const [localMountStatuses, setLocalMountStatuses] = useState<
     Record<string, { mounted: boolean; mount_point: string | null; error: string | null }>
@@ -2239,8 +2241,8 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
       setMounts(mountList)
 
       // Restore state from initialAppState or auto-select first mount
-      const savedMountId = initialAppState?.selectedMount as string | undefined
-      const savedColumnPaths = initialAppState?.columnPaths as string[] | undefined
+      const savedMountId = initialAppStateRef.current?.selectedMount as string | undefined
+      const savedColumnPaths = initialAppStateRef.current?.columnPaths as string[] | undefined
 
       if (savedMountId && mountList.some(m => m.id === savedMountId)) {
         // Restore saved mount and columns
@@ -2287,7 +2289,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
     } catch (e) {
       console.error(e)
     }
-  }, [initialAppState])
+  }, [])
 
   useEffect(() => {
     reload()
