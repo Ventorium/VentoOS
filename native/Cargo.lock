@@ -4693,6 +4693,7 @@ dependencies = [
  "tracing",
  "uuid",
  "ventoos-core",
+ "ventoos-vfs",
  "webpki-roots 1.0.6",
 ]
 

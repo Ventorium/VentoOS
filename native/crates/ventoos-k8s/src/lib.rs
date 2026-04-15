@@ -9,9 +9,11 @@ pub mod manager;
 pub mod port_forward;
 pub mod routes;
 pub mod service_bridge;
+pub mod teleport;
 pub mod types;
 
 pub use manager::K8sManager;
 pub use port_forward::PortForwardManager;
 pub use routes::K8sPlugin;
+pub use teleport::TeleportManager;
 pub use types::*;

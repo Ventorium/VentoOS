@@ -12,6 +12,7 @@ use ventoos_core::types::ApiResponse;
 
 use crate::manager::K8sManager;
 use crate::port_forward::PortForwardManager;
+use crate::teleport::{TeleportLoginReq, TeleportManager};
 use crate::types::{
     CreateK8sClusterReq, CreatePortForwardReq, K8sCluster, K8sResourceKind, K8sResourceListReq,
     PodExecReq, PodLogStreamReq,
@@ -22,6 +23,7 @@ use crate::types::{
 pub struct K8sState {
     pub manager: Arc<K8sManager>,
     pub port_forwards: Arc<PortForwardManager>,
+    pub teleport: Arc<TeleportManager>,
 }
 
 /// Kubernetes application plugin.
@@ -35,6 +37,7 @@ impl K8sPlugin {
             state: K8sState {
                 manager,
                 port_forwards: Arc::new(PortForwardManager::new()),
+                teleport: Arc::new(TeleportManager::new()),
             },
         }
     }
@@ -113,6 +116,15 @@ impl AppPlugin for K8sPlugin {
             )
             // Kubeconfig parse
             .route("/api/k8s/kubeconfig/parse", post(parse_kubeconfig))
+            // Teleport
+            .route("/api/k8s/teleport/check", get(teleport_check))
+            .route("/api/k8s/teleport/login", post(teleport_login))
+            .route("/api/k8s/teleport/clusters", get(teleport_list_clusters))
+            .route(
+                "/api/k8s/teleport/clusters/{cluster_name}/kubeconfig",
+                post(teleport_get_kubeconfig),
+            )
+            .route("/api/k8s/teleport/logout", post(teleport_logout))
             .with_state(self.state.clone())
     }
 }
@@ -590,6 +602,73 @@ async fn parse_kubeconfig(
     };
     match result {
         Ok(contexts) => Json(ApiResponse::ok(contexts)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── Teleport Handlers ─────────────────────────────────────────────────────
+
+async fn teleport_check() -> Json<ApiResponse<serde_json::Value>> {
+    let available = TeleportManager::check_tsh_available().await;
+    Json(ApiResponse::ok(
+        serde_json::json!({ "available": available }),
+    ))
+}
+
+async fn teleport_login(
+    State(st): State<K8sState>,
+    Json(req): Json<TeleportLoginReq>,
+) -> impl IntoResponse {
+    let result = st.teleport.login(&req).await;
+    if result.success {
+        Json(ApiResponse::ok(result)).into_response()
+    } else if result.needs_otp {
+        // Return 200 with needs_otp flag so frontend can prompt for OTP
+        Json(ApiResponse::ok(result)).into_response()
+    } else {
+        (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&result.message))).into_response()
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct TeleportProxyQuery {
+    proxy: String,
+}
+
+async fn teleport_list_clusters(
+    State(st): State<K8sState>,
+    Query(q): Query<TeleportProxyQuery>,
+) -> impl IntoResponse {
+    match st.teleport.list_kube_clusters(&q.proxy).await {
+        Ok(clusters) => Json(ApiResponse::ok(clusters)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct TeleportKubeConfigPath {
+    cluster_name: String,
+}
+
+async fn teleport_get_kubeconfig(
+    State(st): State<K8sState>,
+    Path(TeleportKubeConfigPath { cluster_name }): Path<TeleportKubeConfigPath>,
+    Query(q): Query<TeleportProxyQuery>,
+) -> impl IntoResponse {
+    let result = st.teleport.get_kube_config(&q.proxy, &cluster_name).await;
+    if result.success {
+        Json(ApiResponse::ok(result)).into_response()
+    } else {
+        (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&result.message))).into_response()
+    }
+}
+
+async fn teleport_logout(
+    State(st): State<K8sState>,
+    Query(q): Query<TeleportProxyQuery>,
+) -> impl IntoResponse {
+    match st.teleport.logout(&q.proxy).await {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"success": true}))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }

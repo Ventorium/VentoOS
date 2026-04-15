@@ -43,10 +43,10 @@ impl AppState {
         let ssh = Arc::new(SshManager::new_with_db(Arc::clone(&db)).await);
         let db_manager = Arc::new(DbManager::new());
         let redis_manager = Arc::new(RedisManager::new());
-        let k8s_manager = Arc::new(K8sManager::new());
         let vfs_manager = Arc::new(
             VfsManager::with_db_and_ssh_provider(Arc::clone(&db), Arc::clone(&ssh) as _).await,
         );
+        let k8s_manager = Arc::new(K8sManager::new_with_vfs(Arc::clone(&vfs_manager)));
         let agent_manager = Arc::new(AgentManager::new());
 
         let plugins: Vec<Box<dyn AppPlugin>> = vec![
@@ -82,8 +82,8 @@ impl AppState {
         let ssh = Arc::new(SshManager::new());
         let db_manager = Arc::new(DbManager::new());
         let redis_manager = Arc::new(RedisManager::new());
-        let k8s_manager = Arc::new(K8sManager::new());
         let vfs_manager = Arc::new(VfsManager::with_ssh_provider(Arc::clone(&ssh) as _));
+        let k8s_manager = Arc::new(K8sManager::new_with_vfs(Arc::clone(&vfs_manager)));
         let agent_manager = Arc::new(AgentManager::new());
 
         let plugins: Vec<Box<dyn AppPlugin>> = vec![

@@ -76,6 +76,33 @@ export interface KubeconfigContext {
   namespace?: string
 }
 
+// ── Teleport Types ─────────────────────────────────────────────────────────
+
+export interface TeleportLoginReq {
+  proxy: string
+  user: string
+  password: string
+  otp?: string
+}
+
+export interface TeleportLoginResult {
+  success: boolean
+  message: string
+  needs_otp: boolean
+}
+
+export interface TeleportKubeCluster {
+  name: string
+  labels: Record<string, string>
+  selected: boolean
+}
+
+export interface TeleportKubeConfigResult {
+  success: boolean
+  message: string
+  kubeconfig?: string
+}
+
 // ── API ─────────────────────────────────────────────────────────────────────
 
 export const k8sApi = {
@@ -121,5 +148,17 @@ export const k8sApi = {
   drainNode: (id: string, name: string, force?: boolean, ignoreDaemonSets?: boolean) =>
     request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/nodes/${name}/drain`, { force: force ?? false, ignore_daemonsets: ignoreDaemonSets ?? false }),
   parseKubeconfig: (body: { path?: string; content?: string }) =>
-    request<ApiResponse<KubeconfigContext[]>>('POST', '/api/k8s/kubeconfig/parse', body)
+    request<ApiResponse<KubeconfigContext[]>>('POST', '/api/k8s/kubeconfig/parse', body),
+
+  // ── Teleport ──────────────────────────────────────────────────────────────
+  teleportCheck: () =>
+    request<ApiResponse<{ available: boolean }>>('GET', '/api/k8s/teleport/check'),
+  teleportLogin: (body: TeleportLoginReq) =>
+    request<ApiResponse<TeleportLoginResult>>('POST', '/api/k8s/teleport/login', body),
+  teleportListClusters: (proxy: string) =>
+    request<ApiResponse<TeleportKubeCluster[]>>('GET', `/api/k8s/teleport/clusters?proxy=${encodeURIComponent(proxy)}`),
+  teleportGetKubeconfig: (proxy: string, clusterName: string) =>
+    request<ApiResponse<TeleportKubeConfigResult>>('POST', `/api/k8s/teleport/clusters/${encodeURIComponent(clusterName)}/kubeconfig?proxy=${encodeURIComponent(proxy)}`),
+  teleportLogout: (proxy: string) =>
+    request<ApiResponse<{ success: boolean }>>('POST', `/api/k8s/teleport/logout?proxy=${encodeURIComponent(proxy)}`),
 }

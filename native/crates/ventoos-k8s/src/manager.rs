@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 use tracing::{error, info};
+use ventoos_vfs::VfsManager;
 
 use crate::k8s_client::{K8sClient, Kubeconfig, parse_resource_list, parse_single_resource};
 use crate::types::{
@@ -14,12 +15,22 @@ use crate::types::{
 /// Manages registered clusters, connects via kubeconfig, browses resources.
 pub struct K8sManager {
     clusters: Arc<RwLock<HashMap<String, K8sCluster>>>,
+    /// Optional VFS manager for resolving `vfs://<mount_id>/<path>` kubeconfig paths.
+    vfs: Option<Arc<VfsManager>>,
 }
 
 impl K8sManager {
     pub fn new() -> Self {
         Self {
             clusters: Arc::new(RwLock::new(HashMap::new())),
+            vfs: None,
+        }
+    }
+
+    pub fn new_with_vfs(vfs: Arc<VfsManager>) -> Self {
+        Self {
+            clusters: Arc::new(RwLock::new(HashMap::new())),
+            vfs: Some(vfs),
         }
     }
 
@@ -586,11 +597,27 @@ impl K8sManager {
     // ------- internal helpers -------
 
     /// Load kubeconfig YAML from cluster's file path or inline data.
+    /// Supports `vfs://<mount_id>/<path>` URIs for VFS-mounted files.
     async fn load_kubeconfig(&self, cluster: &K8sCluster) -> Result<String, String> {
         if let Some(ref path) = cluster.kubeconfig_path {
-            tokio::fs::read_to_string(path)
-                .await
-                .map_err(|e| format!("Read kubeconfig {path}: {e}"))
+            if let Some(rest) = path.strip_prefix("vfs://") {
+                // Parse vfs://<mount_id>/<vfs_path>
+                let (mount_id, vfs_path) = rest
+                    .split_once('/')
+                    .map(|(m, p)| (m, format!("/{p}")))
+                    .ok_or_else(|| format!("Invalid VFS path: {path}"))?;
+                let vfs = self
+                    .vfs
+                    .as_ref()
+                    .ok_or("VFS manager not available for VFS kubeconfig path")?;
+                let bytes = vfs.read_file_raw(mount_id, &vfs_path).await?;
+                String::from_utf8(bytes)
+                    .map_err(|e| format!("Kubeconfig is not valid UTF-8: {e}"))
+            } else {
+                tokio::fs::read_to_string(path)
+                    .await
+                    .map_err(|e| format!("Read kubeconfig {path}: {e}"))
+            }
         } else if let Some(ref inline) = cluster.kubeconfig_inline {
             Ok(inline.clone())
         } else {

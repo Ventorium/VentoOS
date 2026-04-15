@@ -18,9 +18,10 @@ import { K8sTabBar } from './K8sTabBar'
 interface Props {
   children: ReactNode
   overlay?: ReactNode
+  onAddCluster?: () => void
 }
 
-export function K8sLayout({ children, overlay }: Props) {
+export function K8sLayout({ children, overlay, onAddCluster }: Props) {
   const detailOpen = useKubernetesStore(s => s.detailOpen)
   const detailWidth = useKubernetesStore(s => s.detailWidth)
   const setDetailWidth = useKubernetesStore(s => s.setDetailWidth)
@@ -82,7 +83,7 @@ export function K8sLayout({ children, overlay }: Props) {
     <AppLayout
       sidebar={
         <AppSidebar width={220}>
-          <K8sSidebar />
+          <K8sSidebar onAddCluster={onAddCluster} />
         </AppSidebar>
       }
       overlay={overlay}
