@@ -458,16 +458,48 @@ export function VfsFilePickerModal({
         setFetchingContent(false)
       }
     } else {
-      // Local mount: path is already mount-relative (e.g. /teleport-kubeconfig.yaml).
-      // The backend joins mount.root + path, so we must NOT prepend the root here.
+      // Local mount: use vfs:// URI so backend can resolve via VfsManager
       onConfirm({
-        path: finalPath,
+        path: `vfs://${selectedMount.id}${finalPath}`,
         mountId: selectedMount.id,
         mountKind: selectedMount.kind,
         isRemote: false
       })
     }
   }
+
+  // doConfirm: used by double-click to confirm with an explicit node without waiting for state update
+  const doConfirm = useCallback(async (targetNode: VfsNode) => {
+    if (!selectedMount) return
+    const finalPath = targetNode.path
+    if (!finalPath) return
+
+    const isRemote = selectedMount.kind !== 'local'
+    if (isRemote && !targetNode.is_dir) {
+      setFetchingContent(true)
+      try {
+        const blob = await vfsApi.readVfsFileRaw(selectedMount.id, finalPath)
+        onConfirm({
+          path: `vfs://${selectedMount.id}${finalPath}`,
+          mountId: selectedMount.id,
+          mountKind: selectedMount.kind,
+          isRemote: true,
+          content: blob
+        })
+      } catch (e) {
+        console.error('VFS fetch content error:', e)
+      } finally {
+        setFetchingContent(false)
+      }
+    } else {
+      onConfirm({
+        path: `vfs://${selectedMount.id}${finalPath}`,
+        mountId: selectedMount.id,
+        mountKind: selectedMount.kind,
+        isRemote: false
+      })
+    }
+  }, [selectedMount, onConfirm])
 
   // Breadcrumb
   const segments: Array<{ label: string; path: string }> = [{ label: '/', path: '/' }]
@@ -596,7 +628,11 @@ export function VfsFilePickerModal({
                         }
                       }}
                       onDoubleClick={() => {
-                        if (node.is_dir) navigate(node)
+                        if (node.is_dir) {
+                          navigate(node)
+                        } else if (mode === 'file') {
+                          doConfirm(node)
+                        }
                       }}
                     >
                       {node.is_dir ? (
