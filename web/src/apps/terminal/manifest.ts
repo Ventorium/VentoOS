@@ -6,13 +6,14 @@ function TerminalIcon() {
   return React.createElement(
     'div',
     {
-      className: 'dock-icon-terminal',
       style: {
         width: '100%',
         height: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        borderRadius: '22%',
         color: '#fff'
       }
     },

@@ -38,7 +38,6 @@ const { gap } = tokens.dock
 const HOVER_SCALE = 1.45
 const NEIGHBOR_SCALE = 1.0
 const LONG_PRESS_MS = 500
-const FOLDER_HOVER_MS = 2000
 const DRAG_MOVE_THRESHOLD = 5
 
 /* ─── SVG circular progress ring for folder hover ─── */
@@ -718,11 +717,8 @@ export default function Dock() {
   const loaded = useDockLayoutStore(s => s.loaded)
   const setItems = useDockLayoutStore(s => s.setItems)
   const moveItem = useDockLayoutStore(s => s.moveItem)
-  const createFolder = useDockLayoutStore(s => s.createFolder)
-  const addAppToFolder = useDockLayoutStore(s => s.addAppToFolder)
   const renameFolder = useDockLayoutStore(s => s.renameFolder)
   const reorderFolderApp = useDockLayoutStore(s => s.reorderFolderApp)
-  const removeFromFolder = useDockLayoutStore(s => s.removeFromFolder)
   const pinApp = useDockLayoutStore(s => s.pin)
   const unpinApp = useDockLayoutStore(s => s.unpin)
 
@@ -806,76 +802,17 @@ export default function Dock() {
     return rects.filter(Boolean).length
   }
 
-  function getHoveredItemIndex(clientX: number, clientY: number): number | null {
-    const from = dragFromIndexRef.current
-    const items = itemRefs.current.slice(0, displayItemsRef.current.length)
-    for (let i = 0; i < items.length; i++) {
-      if (i === from) continue
-      const el = items[i]
-      if (!el) continue
-      const r = el.getBoundingClientRect()
-      const cz = 0.6
-      const cx = r.left + (r.width * (1 - cz)) / 2
-      const cy = r.top + (r.height * (1 - cz)) / 2
-      if (clientX >= cx && clientX <= cx + r.width * cz && clientY >= cy && clientY <= cy + r.height * cz) {
-        return i
-      }
-    }
-    return null
-  }
-
   const handleGlobalMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!dragActiveRef.current) return
       setGhostPos({ x: e.clientX, y: e.clientY })
-      const hoveredIdx = getHoveredItemIndex(e.clientX, e.clientY)
-
-      if (hoveredIdx !== null) {
-        setDropGapIndex(null)
-        dropGapIndexRef.current = null
-        if (mergeTimerRef.current?.index === hoveredIdx) return // same target, continuing
-        clearMergeTimer()
-        const enterTime = Date.now()
-        const currentHoveredIdx = hoveredIdx
-        const animate = () => {
-          const elapsed = Date.now() - enterTime
-          const progress = Math.min(elapsed / FOLDER_HOVER_MS, 1)
-          setMergeTarget({ index: currentHoveredIdx, progress })
-          if (progress < 1) {
-            if (mergeTimerRef.current) mergeTimerRef.current.rafId = requestAnimationFrame(animate)
-          } else {
-            const from = dragFromIndexRef.current
-            if (from !== null && from !== currentHoveredIdx) {
-              const items = displayItemsRef.current
-              const fromItem = items[from]
-              const ontoItem = items[currentHoveredIdx]
-              if (fromItem?.type === 'app') {
-                if (ontoItem?.type === 'folder') {
-                  addAppToFolder(from, ontoItem.id)
-                } else {
-                  createFolder(from, currentHoveredIdx)
-                }
-              } else if (fromItem?.type === 'folder' && ontoItem?.type === 'folder') {
-                // Merge two folders
-                const merged = { ...fromItem, appIds: [...ontoItem.appIds, ...fromItem.appIds] }
-                const newItems = displayItemsRef.current.filter((_, i) => i !== from && i !== currentHoveredIdx)
-                const insertAt = Math.min(from, currentHoveredIdx)
-                newItems.splice(insertAt, 0, merged)
-                setItems(newItems)
-              }
-            }
-            endDrag()
-          }
-        }
-        mergeTimerRef.current = { index: currentHoveredIdx, enterTime, rafId: requestAnimationFrame(animate) }
-      } else {
-        clearMergeTimer()
-        const gapIdx = computeDropGap(e.clientX, e.clientY)
-        setDropGapIndex(gapIdx)
-        dropGapIndexRef.current = gapIdx
-      }
+      // Dock drag only reorders — no folder creation
+      clearMergeTimer()
+      const gapIdx = computeDropGap(e.clientX, e.clientY)
+      setDropGapIndex(gapIdx)
+      dropGapIndexRef.current = gapIdx
     },
-    [addAppToFolder, createFolder, setItems] // eslint-disable-line react-hooks/exhaustive-deps
+    [] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   function endDrag() {

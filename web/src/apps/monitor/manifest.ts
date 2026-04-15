@@ -6,13 +6,14 @@ function MonitorIcon() {
   return React.createElement(
     'div',
     {
-      className: 'dock-icon-monitor',
       style: {
         width: '100%',
         height: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+        borderRadius: '22%',
         color: '#fff'
       }
     },

@@ -6,13 +6,14 @@ function AIAssistantIcon() {
   return React.createElement(
     'div',
     {
-      className: 'dock-icon-ai-assistant',
       style: {
         width: '100%',
         height: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+        borderRadius: '22%',
         color: '#fff'
       }
     },

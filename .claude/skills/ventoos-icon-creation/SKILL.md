@@ -22,18 +22,6 @@ description: Use when creating or updating app icons for VentoOS applications, n
 - **图标内容**：白色，使用 Lucide React 图标库中的图标
 - **颜色体系**：每个应用使用独特的渐变配色，参考现有应用颜色避免重复
 
-### 现有应用参考色板（避免重复）
-| 应用 | 渐变色 |
-|------|--------|
-| AI 助手 | `#6366f1 → #8b5cf6` |
-| 图片编辑器 | `#ec4899 → #8b5cf6` |
-| 文件管理器 | `#3b82f6 → #06b6d4` |
-| 数据库 | `#16a34a → #0891b2` |
-| Redis | `#dc2626 → #ea580c` |
-| Kubernetes | `#2563eb → #7c3aed` |
-| 终端 | `#1e1e2e → #313244` |
-| 设置 | `#6b7280 → #9ca3af` |
-
 ## React 内联图标实现（推荐方案）
 
 在 `manifest.ts` 中用 React 内联实现图标：

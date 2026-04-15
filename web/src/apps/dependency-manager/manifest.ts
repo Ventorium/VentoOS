@@ -13,6 +13,7 @@ function DepManagerIcon() {
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+        borderRadius: '22%',
         color: '#fff'
       }
     },

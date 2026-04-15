@@ -6,13 +6,14 @@ function LogCenterIcon() {
   return React.createElement(
     'div',
     {
-      className: 'dock-icon-log-center',
       style: {
         width: '100%',
         height: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        background: 'linear-gradient(135deg, #64748b 0%, #1e293b 100%)',
+        borderRadius: '22%',
         color: '#fff'
       }
     },

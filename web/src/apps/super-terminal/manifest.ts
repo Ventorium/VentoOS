@@ -12,6 +12,8 @@ function SuperTerminalIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        background: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+        borderRadius: '22%',
         color: '#fff'
       }
     },

@@ -12,6 +12,8 @@ function FileViewerIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        background: 'linear-gradient(135deg, #06b6d4 0%, #0284c7 100%)',
+        borderRadius: '22%',
         color: '#fff'
       }
     },

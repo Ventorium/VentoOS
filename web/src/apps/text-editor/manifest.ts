@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react'
+import { PenLine } from 'lucide-react'
 import React from 'react'
 import type { AppManifest } from '@/kernel'
 
@@ -12,12 +12,12 @@ function TextEditorIcon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
+        background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
         borderRadius: '22%',
         color: '#fff'
       }
     },
-    React.createElement(FileText, { size: 22 })
+    React.createElement(PenLine, { size: 22 })
   )
 }
 

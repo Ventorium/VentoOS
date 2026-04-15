@@ -6,13 +6,14 @@ function SettingsIcon() {
   return React.createElement(
     'div',
     {
-      className: 'dock-icon-settings',
       style: {
         width: '100%',
         height: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        background: 'linear-gradient(135deg, #6b7280 0%, #374151 100%)',
+        borderRadius: '22%',
         color: '#fff'
       }
     },
