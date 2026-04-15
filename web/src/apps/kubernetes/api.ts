@@ -85,11 +85,41 @@ export const k8sApi = {
   deleteK8sCluster: (id: string) => request<ApiResponse<null>>('DELETE', `/api/k8s/clusters/${id}`),
   testK8sCluster: (id: string) => request<ApiResponse<K8sTestResult>>('POST', `/api/k8s/clusters/${id}/test`),
   getK8sNamespaces: (id: string) => request<ApiResponse<K8sNamespace[]>>('GET', `/api/k8s/clusters/${id}/namespaces`),
-  getK8sResources: (id: string, kind: K8sResourceKind, namespace?: string) => {
+  getK8sResources: (id: string, kind: K8sResourceKind, namespace?: string, labelSelector?: string) => {
     const params = new URLSearchParams({ kind })
     if (namespace) params.set('namespace', namespace)
+    if (labelSelector) params.set('label_selector', labelSelector)
     return request<ApiResponse<K8sResource[]>>('GET', `/api/k8s/clusters/${id}/resources?${params}`)
   },
+  getK8sResourceYaml: (id: string, kind: K8sResourceKind, name: string, namespace?: string) => {
+    const params = new URLSearchParams()
+    if (namespace) params.set('ns', namespace)
+    return request<ApiResponse<string>>('GET', `/api/k8s/clusters/${id}/resources/${kind}/${name}/yaml?${params}`)
+  },
+  updateK8sResourceYaml: (id: string, kind: K8sResourceKind, name: string, namespace: string, yaml: string) => {
+    const params = new URLSearchParams()
+    if (namespace) params.set('ns', namespace)
+    return request<ApiResponse<null>>('PUT', `/api/k8s/clusters/${id}/resources/${kind}/${name}/yaml?${params}`, yaml)
+  },
+  getK8sResourceEvents: (id: string, kind: K8sResourceKind, name: string, namespace?: string) => {
+    const params = new URLSearchParams()
+    if (namespace) params.set('ns', namespace)
+    return request<ApiResponse<unknown[]>>('GET', `/api/k8s/clusters/${id}/resources/${kind}/${name}/events?${params}`)
+  },
+  scaleDeployment: (id: string, kind: K8sResourceKind, name: string, namespace: string, replicas: number) => {
+    const params = new URLSearchParams()
+    if (namespace) params.set('ns', namespace)
+    return request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/resources/${kind}/${name}/scale?${params}`, { replicas })
+  },
+  restartDeployment: (id: string, kind: K8sResourceKind, name: string, namespace: string) => {
+    const params = new URLSearchParams()
+    if (namespace) params.set('ns', namespace)
+    return request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/resources/${kind}/${name}/restart?${params}`)
+  },
+  cordonNode: (id: string, name: string, cordon: boolean) =>
+    request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/nodes/${name}/cordon`, { cordon }),
+  drainNode: (id: string, name: string, force?: boolean, ignoreDaemonSets?: boolean) =>
+    request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/nodes/${name}/drain`, { force: force ?? false, ignore_daemonsets: ignoreDaemonSets ?? false }),
   parseKubeconfig: (body: { path?: string; content?: string }) =>
     request<ApiResponse<KubeconfigContext[]>>('POST', '/api/k8s/kubeconfig/parse', body)
 }

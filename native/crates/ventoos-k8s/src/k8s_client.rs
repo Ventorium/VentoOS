@@ -504,11 +504,37 @@ impl K8sClient {
 
     /// Execute an HTTP PUT request with a JSON body and return the JSON response.
     pub async fn put_json(&self, path: &str, body: &str) -> Result<Value, String> {
+        self.send_json_body("PUT", path, body, "application/json").await
+    }
+
+    /// Execute an HTTP POST request with a JSON body and return the JSON response.
+    pub async fn post_json(&self, path: &str, body: &str) -> Result<Value, String> {
+        self.send_json_body("POST", path, body, "application/json").await
+    }
+
+    /// Execute an HTTP PATCH request with a JSON body and return the JSON response.
+    pub async fn patch_json(&self, path: &str, body: &str) -> Result<Value, String> {
+        self.send_json_body(
+            "PATCH",
+            path,
+            body,
+            "application/strategic-merge-patch+json",
+        )
+        .await
+    }
+
+    pub async fn send_json_body(
+        &self,
+        method: &str,
+        path: &str,
+        body: &str,
+        content_type: &str,
+    ) -> Result<Value, String> {
         let content_len = body.len();
         let request = format!(
-            "PUT {path} HTTP/1.1\r\n\
+            "{method} {path} HTTP/1.1\r\n\
              Host: {host}\r\n\
-             Content-Type: application/json\r\n\
+             Content-Type: {content_type}\r\n\
              Accept: application/json\r\n\
              Content-Length: {content_len}\r\n\
              Connection: close\r\n\

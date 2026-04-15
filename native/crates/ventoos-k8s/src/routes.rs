@@ -69,6 +69,22 @@ impl AppPlugin for K8sPlugin {
                 "/api/k8s/clusters/{id}/resources/{kind}/{name}/events",
                 get(get_resource_events),
             )
+            .route(
+                "/api/k8s/clusters/{id}/resources/{kind}/{name}/scale",
+                post(scale_resource),
+            )
+            .route(
+                "/api/k8s/clusters/{id}/resources/{kind}/{name}/restart",
+                post(restart_resource),
+            )
+            .route(
+                "/api/k8s/clusters/{id}/nodes/{name}/cordon",
+                post(cordon_node),
+            )
+            .route(
+                "/api/k8s/clusters/{id}/nodes/{name}/drain",
+                post(drain_node),
+            )
             // Pod logs
             .route("/api/k8s/clusters/{id}/pods/{name}/logs", get(get_pod_logs))
             .route(
@@ -272,6 +288,97 @@ async fn get_resource_events(
         Ok(events) => Json(ApiResponse::ok(events)).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
+}
+
+#[derive(serde::Deserialize)]
+struct ScaleBody {
+    replicas: i32,
+}
+
+async fn scale_resource(
+    State(st): State<K8sState>,
+    Path(ResourcePathParams { id, kind, name }): Path<ResourcePathParams>,
+    Query(q): Query<NsQuery>,
+    Json(body): Json<ScaleBody>,
+) -> impl IntoResponse {
+    let kind_lower = kind.to_lowercase();
+    if kind_lower != "deployment" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::err("Scale is only supported for deployments")),
+        )
+            .into_response();
+    }
+    let ns = q.namespace.as_deref().unwrap_or("default");
+    match st.manager.scale_deployment(&id, ns, &name, body.replicas).await {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn restart_resource(
+    State(st): State<K8sState>,
+    Path(ResourcePathParams { id, kind, name }): Path<ResourcePathParams>,
+    Query(q): Query<NsQuery>,
+) -> impl IntoResponse {
+    let kind_lower = kind.to_lowercase();
+    if kind_lower != "deployment" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::err("Restart is only supported for deployments")),
+        )
+            .into_response();
+    }
+    let ns = q.namespace.as_deref().unwrap_or("default");
+    match st.manager.restart_deployment(&id, ns, &name).await {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct CordonBody {
+    cordon: bool,
+}
+
+async fn cordon_node(
+    State(st): State<K8sState>,
+    Path(NodePathParams { id, name }): Path<NodePathParams>,
+    Json(body): Json<CordonBody>,
+) -> impl IntoResponse {
+    match st.manager.cordon_node(&id, &name, body.cordon).await {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct DrainBody {
+    #[serde(default)]
+    force: bool,
+    #[serde(default)]
+    ignore_daemonsets: bool,
+}
+
+async fn drain_node(
+    State(st): State<K8sState>,
+    Path(NodePathParams { id, name }): Path<NodePathParams>,
+    Json(body): Json<DrainBody>,
+) -> impl IntoResponse {
+    match st
+        .manager
+        .drain_node(&id, &name, body.force, body.ignore_daemonsets)
+        .await
+    {
+        Ok(result) => Json(ApiResponse::ok(result)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct NodePathParams {
+    id: String,
+    name: String,
 }
 
 // ─── Pod Log Handlers ──────────────────────────────────────────────────────

@@ -424,6 +424,156 @@ impl K8sManager {
         })
     }
 
+    /// Scale a Deployment to the desired number of replicas.
+    pub async fn scale_deployment(
+        &self,
+        cluster_id: &str,
+        namespace: &str,
+        name: &str,
+        replicas: i32,
+    ) -> Result<serde_json::Value, String> {
+        let client = self.build_client(cluster_id).await?;
+        let url = format!("/apis/apps/v1/namespaces/{namespace}/deployments/{name}");
+        let body = serde_json::json!({"spec": {"replicas": replicas}}).to_string();
+        client.patch_json(&url, &body).await
+    }
+
+    /// Restart a Deployment by updating its pod-template annotation.
+    pub async fn restart_deployment(
+        &self,
+        cluster_id: &str,
+        namespace: &str,
+        name: &str,
+    ) -> Result<serde_json::Value, String> {
+        let client = self.build_client(cluster_id).await?;
+        let url = format!("/apis/apps/v1/namespaces/{namespace}/deployments/{name}");
+        let now = chrono::Utc::now().to_rfc3339();
+        let body = serde_json::json!({
+            "spec": {
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "kubectl.kubernetes.io/restartedAt": now
+                        }
+                    }
+                }
+            }
+        })
+        .to_string();
+        client.patch_json(&url, &body).await
+    }
+
+    /// Cordon or uncordon a node.
+    pub async fn cordon_node(
+        &self,
+        cluster_id: &str,
+        name: &str,
+        cordon: bool,
+    ) -> Result<serde_json::Value, String> {
+        let client = self.build_client(cluster_id).await?;
+        let url = format!("/api/v1/nodes/{name}");
+        let body = serde_json::json!({"spec": {"unschedulable": cordon}}).to_string();
+        client.patch_json(&url, &body).await
+    }
+
+    /// Drain a node by cordoning it and evicting all pods.
+    pub async fn drain_node(
+        &self,
+        cluster_id: &str,
+        name: &str,
+        force: bool,
+        ignore_daemonsets: bool,
+    ) -> Result<serde_json::Value, String> {
+        let client = self.build_client(cluster_id).await?;
+
+        // 1. Cordon
+        self.cordon_node(cluster_id, name, true).await?;
+
+        // 2. List pods on this node
+        let url = format!("/api/v1/pods?fieldSelector=spec.nodeName={name}");
+        let pod_list = client.get(&url).await?;
+        let items = pod_list
+            .get("items")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        let mut evicted = 0;
+        let mut skipped = 0;
+
+        for item in items {
+            let pod_name = item
+                .pointer("/metadata/name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let pod_ns = item
+                .pointer("/metadata/namespace")
+                .and_then(|v| v.as_str())
+                .unwrap_or("default")
+                .to_string();
+            let owner_kinds: Vec<String> = item
+                .pointer("/metadata/ownerReferences")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|o| o.get("kind").and_then(|v| v.as_str()).map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            if pod_name.is_empty() {
+                continue;
+            }
+
+            // Skip mirror pods (static pods)
+            if owner_kinds.iter().any(|k| k == "Node") {
+                skipped += 1;
+                continue;
+            }
+
+            // Skip DaemonSet pods unless ignored
+            if owner_kinds.iter().any(|k| k == "DaemonSet") && !ignore_daemonsets {
+                skipped += 1;
+                continue;
+            }
+
+            // Evict via policy/v1 Eviction
+            let eviction_url = format!(
+                "/api/v1/namespaces/{pod_ns}/pods/{pod_name}/eviction"
+            );
+            let eviction_body = serde_json::json!({
+                "apiVersion": "policy/v1",
+                "kind": "Eviction",
+                "metadata": {
+                    "name": pod_name,
+                    "namespace": pod_ns
+                },
+                "deleteOptions": {
+                    "gracePeriodSeconds": if force { Some(0i64) } else { None }
+                }
+            });
+            match client
+                .post_json(&eviction_url, &eviction_body.to_string())
+                .await
+            {
+                Ok(_) => evicted += 1,
+                Err(e) => {
+                    if !force {
+                        return Err(format!("Failed to evict {pod_ns}/{pod_name}: {e}"));
+                    }
+                    skipped += 1;
+                }
+            }
+        }
+
+        Ok(serde_json::json!({
+            "cordoned": true,
+            "evicted": evicted,
+            "skipped": skipped
+        }))
+    }
+
     /// Build a shareable client Arc for WebSocket handlers.
     pub async fn build_shared_client(
         &self,
