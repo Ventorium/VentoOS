@@ -35,12 +35,38 @@ impl K8sManager {
     }
 
     /// Register a new cluster.
+    /// If `context_name` is not specified, the kubeconfig's `current-context` is used.
     pub async fn create_cluster(&self, req: CreateK8sClusterReq) -> K8sCluster {
         let id = uuid::Uuid::new_v4().to_string();
+
+        // Resolve context: use explicit value, or read current-context from kubeconfig.
+        let context_name = if let Some(ctx) = req.context_name.filter(|s| !s.is_empty()) {
+            ctx
+        } else {
+            // Build a temporary cluster stub to reuse load_kubeconfig logic.
+            let stub = K8sCluster {
+                id: id.clone(),
+                name: String::new(),
+                context_name: String::new(),
+                kubeconfig_path: req.kubeconfig_path.clone(),
+                kubeconfig_inline: req.kubeconfig_inline.clone(),
+                server_url: None,
+                namespace: None,
+                group: req.group.clone(),
+            };
+            match self.load_kubeconfig(&stub).await {
+                Ok(yaml) => Kubeconfig::parse(&yaml)
+                    .ok()
+                    .and_then(|kc| kc.current_context)
+                    .unwrap_or_else(|| "default".into()),
+                Err(_) => "default".into(),
+            }
+        };
+
         let cluster = K8sCluster {
             id: id.clone(),
             name: req.name,
-            context_name: req.context_name.unwrap_or_else(|| "default".into()),
+            context_name,
             kubeconfig_path: req.kubeconfig_path,
             kubeconfig_inline: req.kubeconfig_inline,
             server_url: None,

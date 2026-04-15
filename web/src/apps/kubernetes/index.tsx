@@ -222,10 +222,6 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
               className="vos-input vos-input-sm"
             />
           </div>
-          <div className="vos-form-row">
-            <label>Context（可选）</label>
-            <FormInput placeholder="Context（可选）" value={context} onChange={e => setContext(e.target.value)} />
-          </div>
         </>
       ) : (
         <>
