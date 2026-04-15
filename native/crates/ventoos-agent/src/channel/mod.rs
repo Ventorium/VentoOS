@@ -116,6 +116,7 @@ impl Default for ChannelRegistry {
 // ─── Shared Helpers ─────────────────────────────────────────────────────────
 
 /// Extract the bot token from credentials JSON.
+#[allow(dead_code)]
 fn extract_token(credentials: &serde_json::Value) -> Result<String, AgentError> {
     credentials
         .get("token")
@@ -125,6 +126,7 @@ fn extract_token(credentials: &serde_json::Value) -> Result<String, AgentError> 
 }
 
 /// Extract the app secret from credentials JSON.
+#[allow(dead_code)]
 fn extract_secret(credentials: &serde_json::Value) -> Result<String, AgentError> {
     credentials
         .get("secret")
@@ -134,6 +136,7 @@ fn extract_secret(credentials: &serde_json::Value) -> Result<String, AgentError>
 }
 
 /// Extract the app ID from credentials JSON.
+#[allow(dead_code)]
 fn extract_app_id(credentials: &serde_json::Value) -> Result<String, AgentError> {
     credentials
         .get("app_id")

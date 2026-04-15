@@ -477,18 +477,6 @@ async fn get_window_states(
     }
 }
 
-async fn save_window_states(
-    State(state): State<AppState>,
-    Json(body): Json<Vec<ventoos_core::window::WindowState>>,
-) -> Json<ApiResponse<serde_json::Value>> {
-    match state.window_states.save_all(&body) {
-        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"saved": true}))),
-        Err(e) => Json(ApiResponse::err(format!(
-            "Failed to save window states: {e}"
-        ))),
-    }
-}
-
 async fn create_window_state(
     State(state): State<AppState>,
     Json(body): Json<ventoos_core::window::WindowState>,

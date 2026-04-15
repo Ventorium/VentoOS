@@ -3,6 +3,8 @@
 //! Uses the Kubernetes API (via HTTPS) to execute commands in pods for file operations.
 //! This is a self-contained implementation that does not depend on the kube-rs crate,
 //! using direct HTTPS calls to the Kubernetes API server.
+// This module contains planned VFS-over-pod functionality not yet wired into VfsManager.
+#![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
 

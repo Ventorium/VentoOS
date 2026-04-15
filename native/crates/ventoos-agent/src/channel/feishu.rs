@@ -18,6 +18,8 @@ pub struct FeishuAdapter {
     app_id: String,
     app_secret: String,
     verification_token: Option<String>,
+    /// Planned: used for decrypting encrypted Feishu webhook payloads.
+    #[allow(dead_code)]
     encrypt_key: Option<String>,
 }
 

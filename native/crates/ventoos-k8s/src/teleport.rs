@@ -19,6 +19,7 @@ use tracing::{error, info, warn};
 
 /// A Teleport session keyed by proxy address.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TeleportSession {
     proxy: String,
     user: String,

@@ -867,7 +867,6 @@ async fn collect_network_info_macos() -> Vec<NetworkInterfaceInfo> {
     let ifconfig_out = run_cmd("ifconfig", &[]).await;
     let route_out = run_cmd("route", &["-n", "get", "default"]).await;
     let dns_out = run_cmd("scutil", &["--dns"]).await;
-    let netstat_out = run_cmd("netstat", &["-I", "-an"]).await;
 
     // Parse gateway
     let gateway = route_out
