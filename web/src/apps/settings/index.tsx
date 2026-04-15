@@ -224,14 +224,14 @@ function DesktopPanel() {
       <div className="vos-settings-group">
         <label className="vos-settings-label">Dock位置</label>
         <div className="flex gap-2">
-          {(['bottom', 'left'] as const).map(pos => (
+          {(['bottom', 'left', 'right'] as const).map(pos => (
             <button
               key={pos}
               type="button"
               className={`vos-settings-chip ${dockPosition === pos ? 'active' : ''}`}
               onClick={() => setDockPosition(pos)}
             >
-              {pos === 'bottom' ? '底部' : '左侧'}
+              {pos === 'bottom' ? '底部' : pos === 'left' ? '左侧' : '右侧'}
             </button>
           ))}
         </div>

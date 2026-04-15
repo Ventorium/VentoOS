@@ -26,7 +26,7 @@ import {
   useAppStore,
   useWindowStore
 } from '@/kernel'
-import { useSettingsStore } from '@/services/settings'
+import { type DockPosition, useSettingsStore } from '@/services/settings'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
 import { tokens } from '@/theme'
@@ -765,9 +765,13 @@ export default function Dock() {
 
   // ─── Settings ───
   const iconSize = useSettingsStore(s => s.dockIconSize)
+  const setDockIconSize = useSettingsStore(s => s.setDockIconSize)
   const dockPosition = useSettingsStore(s => s.dockPosition)
+  const setDockPosition = useSettingsStore(s => s.setDockPosition)
   const magnification = useSettingsStore(s => s.dockMagnification)
+  const setMagnification = useSettingsStore(s => s.setDockMagnification)
   const autoHide = useSettingsStore(s => s.dockAutoHide)
+  const setAutoHide = useSettingsStore(s => s.setDockAutoHide)
   const [visible, setVisible] = useState(!autoHide)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mouseX = useMotionValue(999)
@@ -946,6 +950,59 @@ export default function Dock() {
     window.addEventListener('mousemove', cancelLongPress)
     window.addEventListener('mouseup', cleanup)
   }
+
+  // ─── Dock background context menu (adjust size, position, etc.) ───
+  const handleDockContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      const { dockIconSize, dockPosition: pos, dockMagnification, dockAutoHide } = useSettingsStore.getState()
+      const anchor = pos === 'bottom' ? ('bottom-left' as const) : pos === 'left' ? ('top-right' as const) : ('top-left' as const)
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const menuY = pos === 'bottom' ? rect.top : e.clientY
+      const menuX = pos === 'right' ? rect.left : e.clientX
+
+      const sizeLabel = (s: number) => s <= 36 ? '小' : s <= 52 ? '中' : s <= 68 ? '大' : '超大'
+      const positions: { label: string; val: DockPosition }[] = [
+        { label: '底部', val: 'bottom' },
+        { label: '左侧', val: 'left' },
+        { label: '右侧', val: 'right' }
+      ]
+      const ctxItems: import('@/shell/ContextMenu/store').ContextMenuItems = [
+        {
+          id: 'dock-size', label: `图标大小：${sizeLabel(dockIconSize)}`,
+          submenu: [
+            { id: 'size-sm', label: '小 (32px)', action: () => setDockIconSize(32) },
+            { id: 'size-md', label: '中 (48px)', action: () => setDockIconSize(48) },
+            { id: 'size-lg', label: '大 (64px)', action: () => setDockIconSize(64) },
+            { id: 'size-xl', label: '超大 (80px)', action: () => setDockIconSize(80) }
+          ]
+        },
+        {
+          id: 'dock-pos', label: `位置：${positions.find(p => p.val === pos)?.label ?? '底部'}`,
+          submenu: positions.map(p => ({
+            id: `pos-${p.val}`, label: p.label, action: () => setDockPosition(p.val)
+          }))
+        },
+        { type: 'separator' },
+        {
+          id: 'dock-mag', label: `放大效果：${dockMagnification ? '开启' : '关闭'}`,
+          action: () => setMagnification(!dockMagnification)
+        },
+        {
+          id: 'dock-hide', label: `自动隐藏：${dockAutoHide ? '开启' : '关闭'}`,
+          action: () => setAutoHide(!dockAutoHide)
+        },
+        { type: 'separator' },
+        {
+          id: 'dock-prefs', label: 'Dock 偏好设置…',
+          action: () => openWindow('settings')
+        }
+      ]
+
+      showCtxMenu(menuX, menuY, ctxItems, { compact: true, anchor, showArrow: pos === 'bottom' })
+    },
+    [showCtxMenu, setDockIconSize, setDockPosition, setMagnification, setAutoHide]
+  )
 
   // ─── Context menus ───
   const handleAppContextMenu = useCallback(
@@ -1138,7 +1195,7 @@ export default function Dock() {
         onMouseLeave={() => { mouseX.set(999); schedulHide() }}
         onMouseEnter={showDock}
       >
-        <div style={dockStyle}>
+        <div style={dockStyle} onContextMenu={handleDockContextMenu}>
           {/* Launchpad — always first, not draggable */}
           <DockIcon
             label="启动台"

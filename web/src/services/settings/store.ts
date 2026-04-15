@@ -9,7 +9,7 @@ import { apiClient } from '@/infra/api'
 import { createLogger } from '@/infra/logger'
 
 export type ThemeMode = 'auto' | 'light' | 'dark'
-export type DockPosition = 'bottom' | 'left'
+export type DockPosition = 'bottom' | 'left' | 'right'
 
 const logger = createLogger('services/settings/store')
 
