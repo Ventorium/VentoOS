@@ -101,6 +101,10 @@ export interface TeleportKubeConfigResult {
   success: boolean
   message: string
   kubeconfig?: string
+  /** Actual context name as written by tsh (current-context in kubeconfig). */
+  context_name?: string
+  /** Path to the kubeconfig file (e.g. ~/.kube/config). */
+  kubeconfig_path?: string
 }
 
 // ── API ─────────────────────────────────────────────────────────────────────

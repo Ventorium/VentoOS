@@ -60,8 +60,12 @@ pub struct TeleportKubeCluster {
 pub struct TeleportKubeConfigResult {
     pub success: bool,
     pub message: String,
-    /// The generated kubeconfig YAML content.
+    /// The generated kubeconfig YAML content (kept for backwards compat).
     pub kubeconfig: Option<String>,
+    /// The actual context name as written by tsh into kubeconfig (current-context).
+    pub context_name: Option<String>,
+    /// Path to the kubeconfig file (e.g. ~/.kube/config).
+    pub kubeconfig_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -292,6 +296,8 @@ impl TeleportManager {
                     success: false,
                     message: format!("tsh kube login failed: {}", stderr.trim()),
                     kubeconfig: None,
+                    context_name: None,
+                    kubeconfig_path: None,
                 };
             }
             Err(e) => {
@@ -299,6 +305,8 @@ impl TeleportManager {
                     success: false,
                     message: format!("Failed to run tsh: {e}"),
                     kubeconfig: None,
+                    context_name: None,
+                    kubeconfig_path: None,
                 };
             }
         }
@@ -306,19 +314,53 @@ impl TeleportManager {
         // Now read the kubeconfig that tsh generates
         // tsh updates ~/.kube/config or uses KUBECONFIG env
         let kube_home = dirs_path();
-        let kubeconfig_path = std::env::var("KUBECONFIG")
+        let kubeconfig_file_path = std::env::var("KUBECONFIG")
             .unwrap_or_else(|_| format!("{}/.kube/config", kube_home));
 
-        match tokio::fs::read_to_string(&kubeconfig_path).await {
-            Ok(content) => TeleportKubeConfigResult {
-                success: true,
-                message: "Kubeconfig generated".into(),
-                kubeconfig: Some(content),
+        match tokio::fs::read_to_string(&kubeconfig_file_path).await {
+            Ok(content) => {
+                // Extract current-context from the kubeconfig YAML.
+                // tsh sets current-context to the context it just created, which may differ
+                // from the bare cluster_name (e.g. "teleport.corp.com-k8s-aliyun").
+                let context_name = content
+                    .lines()
+                    .find_map(|line| {
+                        let trimmed = line.trim();
+                        if trimmed.starts_with("current-context:") {
+                            let val = trimmed
+                                .strip_prefix("current-context:")
+                                .unwrap_or("")
+                                .trim()
+                                .trim_matches('"')
+                                .trim_matches('\'')
+                                .to_string();
+                            if val.is_empty() { None } else { Some(val) }
+                        } else {
+                            None
+                        }
+                    });
+                info!(
+                    proxy,
+                    cluster_name,
+                    context = ?context_name,
+                    "tsh kube login: resolved context name"
+                );
+                TeleportKubeConfigResult {
+                    success: true,
+                    message: "Kubeconfig generated".into(),
+                    // Return the kubeconfig path so the client reads from the live file,
+                    // ensuring credentials are always fresh (tsh refreshes ~/.kube/config).
+                    kubeconfig: None,
+                    context_name,
+                    kubeconfig_path: Some(kubeconfig_file_path),
+                }
             },
             Err(e) => TeleportKubeConfigResult {
                 success: false,
                 message: format!("Failed to read kubeconfig: {e}"),
                 kubeconfig: None,
+                context_name: None,
+                kubeconfig_path: None,
             },
         }
     }

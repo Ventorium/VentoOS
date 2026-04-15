@@ -162,8 +162,13 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
       }
       const clusterRes = await k8sApi.createK8sCluster({
         name: tpClusterName || tpSelectedCluster,
-        kubeconfig_inline: result.kubeconfig,
-        context_name: tpSelectedCluster,
+        // Prefer kubeconfig_path (points to live ~/.kube/config) so tsh credential
+        // refreshes are picked up automatically.  Fall back to inline if unavailable.
+        kubeconfig_path: result.kubeconfig_path,
+        kubeconfig_inline: result.kubeconfig_path ? undefined : result.kubeconfig,
+        // Use the actual context name extracted from current-context in kubeconfig,
+        // NOT the bare cluster name – tsh may generate e.g. "proxy.corp.com-k8s-aliyun".
+        context_name: result.context_name || tpSelectedCluster,
         group: 'teleport',
       })
       onCreated(clusterRes.data)
