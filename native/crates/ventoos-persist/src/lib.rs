@@ -1,4 +1,5 @@
 mod migrations;
+pub mod k8s_clusters;
 pub mod notification;
 pub mod settings;
 pub mod storage;
@@ -11,6 +12,7 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 use tracing::info;
 
+pub use k8s_clusters::{K8sClusterStore, PersistedK8sCluster};
 pub use notification::NotificationStore;
 pub use settings::SettingsManager;
 pub use storage::StorageManager;

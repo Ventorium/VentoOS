@@ -5,7 +5,9 @@ edition.workspace = true
 
 [dependencies]
 ventoos-core = { workspace = true }
+ventoos-persist = { path = "../ventoos-persist" }
 ventoos-vfs = { path = "../ventoos-vfs" }
+libc = "0.2"
 tokio = { workspace = true }
 axum = { workspace = true }
 serde = { workspace = true }

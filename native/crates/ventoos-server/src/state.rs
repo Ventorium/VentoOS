@@ -46,7 +46,7 @@ impl AppState {
         let vfs_manager = Arc::new(
             VfsManager::with_db_and_ssh_provider(Arc::clone(&db), Arc::clone(&ssh) as _).await,
         );
-        let k8s_manager = Arc::new(K8sManager::new_with_vfs(Arc::clone(&vfs_manager)));
+        let k8s_manager = Arc::new(K8sManager::new_with_vfs_and_db(Arc::clone(&vfs_manager), Arc::clone(&db)).await);
         let agent_manager = Arc::new(AgentManager::new());
 
         let plugins: Vec<Box<dyn AppPlugin>> = vec![

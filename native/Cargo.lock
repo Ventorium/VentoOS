@@ -4684,6 +4684,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "chrono",
+ "libc",
  "rustls",
  "rustls-pemfile",
  "serde",
@@ -4693,6 +4694,7 @@ dependencies = [
  "tracing",
  "uuid",
  "ventoos-core",
+ "ventoos-persist",
  "ventoos-vfs",
  "webpki-roots 1.0.6",
 ]

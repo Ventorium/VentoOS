@@ -743,7 +743,8 @@ fn parse_http_response(raw: &[u8]) -> Result<String, String> {
         .and_then(|s| s.parse::<u16>().ok())
         .unwrap_or(0);
 
-    // Skip headers until blank line
+    // Read headers until blank line and detect chunked transfer encoding
+    let mut is_chunked = false;
     loop {
         let mut header_line = String::new();
         let n = reader
@@ -752,13 +753,24 @@ fn parse_http_response(raw: &[u8]) -> Result<String, String> {
         if n == 0 || header_line.trim().is_empty() {
             break;
         }
+        if header_line.to_ascii_lowercase().contains("transfer-encoding")
+            && header_line.to_ascii_lowercase().contains("chunked")
+        {
+            is_chunked = true;
+        }
     }
 
     // Read the rest as body
-    let mut body = String::new();
+    let mut raw_body = String::new();
     reader
-        .read_to_string(&mut body)
+        .read_to_string(&mut raw_body)
         .map_err(|e| format!("Read body: {e}"))?;
+
+    let body = if is_chunked {
+        decode_chunked(&raw_body).map_err(|e| format!("Decode chunked: {e}"))?
+    } else {
+        raw_body
+    };
 
     if (200u16..300).contains(&status_code) {
         Ok(body)
@@ -768,6 +780,48 @@ fn parse_http_response(raw: &[u8]) -> Result<String, String> {
             body.chars().take(500).collect::<String>()
         ))
     }
+}
+
+/// Decode an HTTP/1.1 chunked-transfer-encoded body into a plain string.
+fn decode_chunked(input: &str) -> Result<String, String> {
+    let mut result = String::new();
+    let mut remaining = input;
+    loop {
+        // Read chunk size line (hex digits, optional chunk-extensions, terminated by CRLF or LF)
+        let line_end = remaining
+            .find('\n')
+            .ok_or_else(|| "Unexpected end in chunked body".to_string())?;
+        let size_line = remaining[..line_end].trim_end_matches('\r').trim();
+        remaining = &remaining[line_end + 1..];
+
+        // Chunk size is hex, ignore any extensions after ';'
+        let hex_size = size_line.split(';').next().unwrap_or("").trim();
+        let chunk_size =
+            usize::from_str_radix(hex_size, 16).map_err(|e| format!("Bad chunk size '{hex_size}': {e}"))?;
+
+        if chunk_size == 0 {
+            // Terminating chunk; skip optional trailers
+            break;
+        }
+
+        if remaining.len() < chunk_size {
+            return Err(format!(
+                "Truncated chunk: expected {chunk_size} bytes, got {}",
+                remaining.len()
+            ));
+        }
+
+        result.push_str(&remaining[..chunk_size]);
+        remaining = &remaining[chunk_size..];
+
+        // Skip the trailing CRLF (or LF) after chunk data
+        if remaining.starts_with("\r\n") {
+            remaining = &remaining[2..];
+        } else if remaining.starts_with('\n') {
+            remaining = &remaining[1..];
+        }
+    }
+    Ok(result)
 }
 
 // ---------------------------------------------------------------------------

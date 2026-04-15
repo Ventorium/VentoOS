@@ -4,8 +4,12 @@
 //! 1. Login (password + optional OTP)
 //! 2. List available Kubernetes clusters
 //! 3. Generate kubeconfig for a specific cluster
+// PTY operations are inherently low-level; allow unsafe in this module only.
+#![allow(unsafe_code)]
 
 use std::collections::HashMap;
+use std::os::unix::io::{FromRawFd, IntoRawFd};
+use std::os::unix::process::CommandExt;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -79,7 +83,8 @@ impl TeleportManager {
     /// Login to Teleport proxy with password (and optional OTP).
     ///
     /// This runs: `tsh login --proxy=<proxy> --user=<user> --auth=local`
-    /// with password piped via stdin.
+    /// using a PTY so that tsh's terminal check passes, then feeds the
+    /// password (and optional OTP) to the master end.
     pub async fn login(&self, req: &TeleportLoginReq) -> TeleportLoginResult {
         // Check tsh availability first
         if !Self::check_tsh_available().await {
@@ -97,76 +102,36 @@ impl TeleportManager {
             "--auth=local".to_string(),
         ];
 
-        if let Some(ref otp) = req.otp {
-            args.push(format!("--mfa-mode=otp"));
-            // tsh reads OTP from stdin after password
+        if req.otp.is_some() {
+            args.push("--mfa-mode=otp".to_string());
         }
 
         info!(proxy = %req.proxy, user = %req.user, "Teleport login attempt");
 
-        let mut child = match Command::new("tsh")
-            .args(&args)
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-        {
-            Ok(c) => c,
-            Err(e) => {
-                error!("Failed to spawn tsh: {e}");
-                return TeleportLoginResult {
-                    success: false,
-                    message: format!("Failed to start tsh: {e}"),
-                    needs_otp: false,
-                };
-            }
-        };
+        // Run tsh inside a PTY so it thinks it has a terminal.
+        let password = req.password.clone();
+        let otp = req.otp.clone();
 
-        // Feed password (and optional OTP) via stdin
-        if let Some(stdin) = child.stdin.as_mut() {
-            use tokio::io::AsyncWriteExt;
-            let mut input = format!("{}\n", req.password);
-            if let Some(ref otp) = req.otp {
-                input.push_str(&format!("{}\n", otp));
-            }
-            let _ = stdin.write_all(input.as_bytes()).await;
-            let _ = stdin.shutdown().await;
-        }
+        let result = tokio::task::spawn_blocking(move || {
+            login_with_pty("tsh", &args, &password, otp.as_deref())
+        })
+        .await;
 
-        match tokio::time::timeout(std::time::Duration::from_secs(30), child.wait_with_output())
-            .await
-        {
-            Ok(Ok(output)) => {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let stderr = String::from_utf8_lossy(&output.stderr);
-
-                if output.status.success() {
+        match result {
+            Ok(Ok((success, output))) => {
+                if success {
                     info!(proxy = %req.proxy, "Teleport login successful");
-                    self.sessions.write().await.insert(
-                        req.proxy.clone(),
-                        TeleportSession {
-                            proxy: req.proxy.clone(),
-                            user: req.user.clone(),
-                            logged_in: true,
-                        },
-                    );
                     TeleportLoginResult {
                         success: true,
                         message: "Login successful".into(),
                         needs_otp: false,
                     }
                 } else {
-                    let err_msg = if stderr.is_empty() {
-                        stdout.to_string()
-                    } else {
-                        stderr.to_string()
-                    };
-
-                    // Detect if 2FA is required
-                    let needs_otp = err_msg.contains("Enter your OTP")
-                        || err_msg.contains("MFA")
-                        || err_msg.contains("second factor")
-                        || err_msg.contains("multi-factor");
+                    let needs_otp = output.contains("Enter an OTP")
+                        || output.contains("MFA")
+                        || output.contains("second factor")
+                        || output.contains("multi-factor")
+                        || output.contains("one-time password");
 
                     if needs_otp {
                         warn!(proxy = %req.proxy, "Teleport login requires OTP");
@@ -174,24 +139,24 @@ impl TeleportManager {
 
                     TeleportLoginResult {
                         success: false,
-                        message: err_msg.trim().to_string(),
+                        message: output.trim().to_string(),
                         needs_otp,
                     }
                 }
             }
             Ok(Err(e)) => {
-                error!("tsh process error: {e}");
+                error!("PTY login error: {e}");
                 TeleportLoginResult {
                     success: false,
-                    message: format!("tsh process error: {e}"),
+                    message: format!("Login error: {e}"),
                     needs_otp: false,
                 }
             }
-            Err(_) => {
-                error!("tsh login timed out");
+            Err(e) => {
+                error!("spawn_blocking error: {e}");
                 TeleportLoginResult {
                     success: false,
-                    message: "Login timed out (30s)".into(),
+                    message: format!("Internal error: {e}"),
                     needs_otp: false,
                 }
             }
@@ -310,6 +275,180 @@ impl Default for TeleportManager {
 /// Get user home directory.
 fn dirs_path() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/root".into())
+}
+
+// ---------------------------------------------------------------------------
+// PTY-based subprocess helper
+// ---------------------------------------------------------------------------
+
+/// Spawn `program` with `args` inside a pseudo-terminal so that programs that
+/// check `isatty(stdin)` (e.g. `tsh`) believe they are running interactively.
+///
+/// After spawning, the function writes `password\n` to the PTY master, then
+/// (if `otp` is `Some`) waits briefly and writes `otp\n`.
+///
+/// Returns `(exit_success, combined_output_string)`.
+fn login_with_pty(
+    program: &str,
+    args: &[String],
+    password: &str,
+    otp: Option<&str>,
+) -> Result<(bool, String), String> {
+    use std::io::{Read, Write};
+    use std::os::unix::io::RawFd;
+    use std::time::{Duration, Instant};
+
+    // ── 1. Open PTY pair ────────────────────────────────────────────────────
+    let mut master_fd: RawFd = -1;
+    let mut slave_fd: RawFd = -1;
+    let rc = unsafe {
+        libc::openpty(
+            &mut master_fd,
+            &mut slave_fd,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        )
+    };
+    if rc != 0 {
+        return Err(format!(
+            "openpty failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+
+    // ── 2. Build Command, redirect all stdio to slave PTY ──────────────────
+    let slave_file = unsafe { std::fs::File::from_raw_fd(slave_fd) };
+    let slave_stdin = slave_file.try_clone().map_err(|e| e.to_string())?;
+    let slave_stdout = slave_file
+        .try_clone()
+        .map_err(|e| format!("clone stdout: {e}"))?;
+    let slave_stderr = slave_file
+        .try_clone()
+        .map_err(|e| format!("clone stderr: {e}"))?;
+    // slave_file will be dropped here; its fd is dup-ed into the Command below.
+
+    let slave_stdin_raw = slave_stdin.into_raw_fd();
+    let slave_stdout_raw = slave_stdout.into_raw_fd();
+    let slave_stderr_raw = slave_stderr.into_raw_fd();
+
+    // We need to close the slave fd in *this* process after fork so that
+    // reads on master don't block forever. We'll do that via pre_exec.
+    let mut cmd = std::process::Command::new(program);
+    cmd.args(args);
+    // Redirect stdio via unsafe pre_exec + dup2 into the slave PTY.
+    unsafe {
+        cmd.stdin(std::process::Stdio::from_raw_fd(slave_stdin_raw));
+        cmd.stdout(std::process::Stdio::from_raw_fd(slave_stdout_raw));
+        cmd.stderr(std::process::Stdio::from_raw_fd(slave_stderr_raw));
+        // Create a new session so this process owns the PTY as its
+        // controlling terminal.
+        cmd.pre_exec(|| {
+            libc::setsid();
+            // Make slave the controlling terminal of this session.
+            let fd = libc::open(
+                b"/dev/tty\0".as_ptr() as *const libc::c_char,
+                libc::O_RDWR | libc::O_NOCTTY,
+            );
+            if fd < 0 {
+                // Try TIOCSCTTY directly on stdin (fd 0)
+                libc::ioctl(0, libc::TIOCSCTTY as _, 0i32);
+            } else {
+                libc::close(fd);
+            }
+            Ok(())
+        });
+    }
+
+    let mut child = cmd.spawn().map_err(|e| format!("spawn tsh: {e}"))?;
+
+    // ── 3. Write password (and optional OTP) to master ──────────────────────
+    let mut master_file = unsafe { std::fs::File::from_raw_fd(master_fd) };
+
+    // Small delay to let tsh print its prompt before we send the password.
+    std::thread::sleep(Duration::from_millis(300));
+    master_file
+        .write_all(format!("{password}\n").as_bytes())
+        .map_err(|e| format!("write password: {e}"))?;
+
+    if let Some(otp_code) = otp {
+        // Wait a bit for tsh to process password and prompt for OTP.
+        std::thread::sleep(Duration::from_millis(1500));
+        master_file
+            .write_all(format!("{otp_code}\n").as_bytes())
+            .map_err(|e| format!("write otp: {e}"))?;
+    }
+
+    // ── 4. Read all output from master ──────────────────────────────────────
+    // Set the master fd to non-blocking so we can drain remaining output
+    // after the child exits without hanging.
+    unsafe {
+        let flags = libc::fcntl(master_fd, libc::F_GETFL, 0);
+        libc::fcntl(master_fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
+    }
+
+    let deadline = Instant::now() + Duration::from_secs(45);
+    let mut output = Vec::new();
+    let mut buf = [0u8; 4096];
+
+    loop {
+        if Instant::now() > deadline {
+            let _ = child.kill();
+            return Err("Login timed out (45s)".into());
+        }
+        match child.try_wait() {
+            Ok(Some(_status)) => {
+                // Drain remaining output
+                loop {
+                    match master_file.read(&mut buf) {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => output.extend_from_slice(&buf[..n]),
+                    }
+                }
+                let text = String::from_utf8_lossy(&output).to_string();
+                // Strip ANSI escape sequences
+                let clean = strip_ansi(&text);
+                return Ok((_status.success(), clean));
+            }
+            Ok(None) => {
+                // Still running – read available output
+                match master_file.read(&mut buf) {
+                    Ok(0) => {}
+                    Ok(n) => output.extend_from_slice(&buf[..n]),
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(_) => {}
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Err(e) => return Err(format!("wait error: {e}")),
+        }
+    }
+}
+
+/// Strip ANSI terminal escape sequences from a string.
+fn strip_ansi(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            // ESC [ ... <final byte>
+            if chars.peek() == Some(&'[') {
+                chars.next();
+                // consume until a letter
+                for ic in chars.by_ref() {
+                    if ic.is_ascii_alphabetic() {
+                        break;
+                    }
+                }
+            } else {
+                // Other ESC sequence — consume one char
+                chars.next();
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }
 
 /// Fallback parser for `tsh kube ls` text output.

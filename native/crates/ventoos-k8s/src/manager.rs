@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 use tracing::{error, info};
+use ventoos_persist::{Database, K8sClusterStore, PersistedK8sCluster};
 use ventoos_vfs::VfsManager;
 
 use crate::k8s_client::{K8sClient, Kubeconfig, parse_resource_list, parse_single_resource};
@@ -17,6 +18,8 @@ pub struct K8sManager {
     clusters: Arc<RwLock<HashMap<String, K8sCluster>>>,
     /// Optional VFS manager for resolving `vfs://<mount_id>/<path>` kubeconfig paths.
     vfs: Option<Arc<VfsManager>>,
+    /// Optional persistence store for cluster configs.
+    store: Option<K8sClusterStore>,
 }
 
 impl K8sManager {
@@ -24,6 +27,7 @@ impl K8sManager {
         Self {
             clusters: Arc::new(RwLock::new(HashMap::new())),
             vfs: None,
+            store: None,
         }
     }
 
@@ -31,6 +35,41 @@ impl K8sManager {
         Self {
             clusters: Arc::new(RwLock::new(HashMap::new())),
             vfs: Some(vfs),
+            store: None,
+        }
+    }
+
+    /// Create a manager with VFS support and DB persistence, loading existing clusters.
+    pub async fn new_with_vfs_and_db(vfs: Arc<VfsManager>, db: Arc<Database>) -> Self {
+        let store = K8sClusterStore::new(Arc::clone(&db));
+        let mut clusters = HashMap::new();
+
+        match store.load_all() {
+            Ok(rows) => {
+                for row in rows {
+                    let cluster = K8sCluster {
+                        id: row.id.clone(),
+                        name: row.name,
+                        context_name: row.context_name,
+                        kubeconfig_path: row.kubeconfig_path,
+                        kubeconfig_inline: row.kubeconfig_inline,
+                        server_url: row.server_url,
+                        namespace: row.namespace,
+                        group: row.group_name,
+                    };
+                    clusters.insert(row.id, cluster);
+                }
+                info!("Loaded {} K8s clusters from DB", clusters.len());
+            }
+            Err(e) => {
+                error!("Failed to load K8s clusters from DB: {e}");
+            }
+        }
+
+        Self {
+            clusters: Arc::new(RwLock::new(clusters)),
+            vfs: Some(vfs),
+            store: Some(store),
         }
     }
 
@@ -74,6 +113,24 @@ impl K8sManager {
             group: req.group,
         };
         self.clusters.write().await.insert(id, cluster.clone());
+
+        // Persist to DB if store is available.
+        if let Some(ref store) = self.store {
+            let record = PersistedK8sCluster {
+                id: cluster.id.clone(),
+                name: cluster.name.clone(),
+                context_name: cluster.context_name.clone(),
+                kubeconfig_path: cluster.kubeconfig_path.clone(),
+                kubeconfig_inline: cluster.kubeconfig_inline.clone(),
+                server_url: cluster.server_url.clone(),
+                namespace: cluster.namespace.clone(),
+                group_name: cluster.group.clone(),
+            };
+            if let Err(e) = store.insert(&record) {
+                error!("Failed to persist K8s cluster '{}': {e}", cluster.name);
+            }
+        }
+
         cluster
     }
 
@@ -89,7 +146,15 @@ impl K8sManager {
     }
 
     pub async fn delete_cluster(&self, id: &str) -> bool {
-        self.clusters.write().await.remove(id).is_some()
+        let removed = self.clusters.write().await.remove(id).is_some();
+        if removed {
+            if let Some(ref store) = self.store {
+                if let Err(e) = store.delete(id) {
+                    error!("Failed to delete K8s cluster '{id}' from DB: {e}");
+                }
+            }
+        }
+        removed
     }
 
     /// Test connectivity to a cluster. Connects to the API server and fetches `/version`.
