@@ -33,5 +33,6 @@ export const kubernetesManifest: AppManifest = {
   minSize: { width: 800, height: 480 },
   permissions: ['network', 'connections', 'notifications', 'shell'],
   hasBackendPlugin: true,
+  dependencies: ['tsh'],
   component: () => import('./index')
 }

@@ -50,6 +50,8 @@ pub enum Platform {
 pub enum DepCategory {
     /// Required for VFS local mount (FUSE)
     Fuse,
+    /// Required for Teleport Kubernetes integration
+    Teleport,
     /// All categories
     All,
 }
@@ -114,12 +116,37 @@ fn check_winfsp_installed() -> bool {
     false
 }
 
+/// Check if `tsh` (Teleport client) is installed.
+fn check_tsh_installed() -> bool {
+    Command::new("tsh")
+        .arg("version")
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
+/// Detect tsh install command for the current platform.
+fn tsh_install_command() -> String {
+    if cfg!(target_os = "macos") {
+        "brew install teleport".into()
+    } else if cfg!(target_os = "linux") {
+        // Detect package manager
+        if Command::new("apt-get").arg("--version").output().is_ok_and(|o| o.status.success()) {
+            "curl https://goteleport.com/static/install.sh | bash -s latest".into()
+        } else {
+            "curl https://goteleport.com/static/install.sh | bash -s latest".into()
+        }
+    } else {
+        "https://goteleport.com/docs/installation/".into()
+    }
+}
+
 /// Get all dependencies for the current platform, optionally filtered by category.
 fn get_dependencies(category: &DepCategory) -> Vec<Dependency> {
     let platform = current_platform();
     let mut deps = Vec::new();
 
     let want_fuse = matches!(category, DepCategory::Fuse | DepCategory::All);
+    let want_teleport = matches!(category, DepCategory::Teleport | DepCategory::All);
 
     if want_fuse {
         match platform {
@@ -158,6 +185,18 @@ fn get_dependencies(category: &DepCategory) -> Vec<Dependency> {
             }
             Platform::All => {}
         }
+    }
+
+    if want_teleport {
+        deps.push(Dependency {
+            id: "tsh".into(),
+            name: "Teleport Client (tsh)".into(),
+            description: "Teleport 命令行客户端，用于通过 Teleport 代理访问 Kubernetes 集群".into(),
+            installed: check_tsh_installed(),
+            platform: Platform::All,
+            install_command: Some(tsh_install_command()),
+            homepage: Some("https://goteleport.com/docs/installation/".into()),
+        });
     }
 
     deps
@@ -201,6 +240,7 @@ pub struct DepQuery {
 async fn list_dependencies(Query(query): Query<DepQuery>) -> Json<ApiResponse<Vec<Dependency>>> {
     let category = match query.category.as_deref() {
         Some("fuse") => DepCategory::Fuse,
+        Some("teleport") => DepCategory::Teleport,
         _ => DepCategory::All,
     };
     let deps = get_dependencies(&category);
@@ -286,6 +326,25 @@ async fn check_fuse() -> Json<ApiResponse<serde_json::Value>> {
         "available": all_ok,
         "platform": platform,
         "dependencies": deps,
+    })))
+}
+
+/// GET /api/dependencies/check-tsh — quick check if tsh is installed.
+async fn check_tsh() -> Json<ApiResponse<serde_json::Value>> {
+    let installed = check_tsh_installed();
+    let dep = Dependency {
+        id: "tsh".into(),
+        name: "Teleport Client (tsh)".into(),
+        description: "Teleport 命令行客户端".into(),
+        installed,
+        platform: Platform::All,
+        install_command: Some(tsh_install_command()),
+        homepage: Some("https://goteleport.com/docs/installation/".into()),
+    };
+
+    Json(ApiResponse::ok(serde_json::json!({
+        "available": installed,
+        "dependency": dep,
     })))
 }
 
@@ -411,6 +470,7 @@ pub fn dependency_routes() -> Router<crate::state::AppState> {
             axum::routing::post(install_dependency),
         )
         .route("/api/dependencies/check-fuse", get(check_fuse))
+        .route("/api/dependencies/check-tsh", get(check_tsh))
         .route("/api/dependencies/check-fileprovider", get(check_fileprovider))
         .route(
             "/api/system/install-fileprovider",

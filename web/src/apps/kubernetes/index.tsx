@@ -40,6 +40,35 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [tpSelectedCluster, setTpSelectedCluster] = useState('')
   const [tpClusterName, setTpClusterName] = useState('')
   const [tpNeedsOtp, setTpNeedsOtp] = useState<boolean | null>(null) // null = unknown
+  const [tshAvailable, setTshAvailable] = useState<boolean | null>(null) // null = checking
+  const [tshInstalling, setTshInstalling] = useState(false)
+  const [tshInstallLog, setTshInstallLog] = useState('')
+
+  // Check tsh when switching to teleport mode
+  const checkTsh = async () => {
+    setTshAvailable(null)
+    try {
+      const res = await k8sApi.teleportCheck()
+      setTshAvailable(res.data?.available ?? false)
+    } catch {
+      setTshAvailable(false)
+    }
+  }
+
+  const installTsh = async () => {
+    setTshInstalling(true)
+    setTshInstallLog('')
+    try {
+      const res = await import('@/apps/dependency-manager/api').then(m => m.depsApi.install('tsh'))
+      const result = res.data
+      setTshInstallLog(result.output || '')
+      setTshAvailable(result.dependency.installed)
+    } catch (e: any) {
+      setTshInstallLog(e?.message || '安装失败')
+    } finally {
+      setTshInstalling(false)
+    }
+  }
 
   const handleTpProxyBlur = async () => {
     const proxy = tpProxy.trim()
@@ -218,7 +247,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
             background: mode === 'teleport' ? 'var(--vos-accent-primary)' : 'transparent',
             color: mode === 'teleport' ? '#fff' : 'var(--vos-text-secondary)',
           }}
-          onClick={() => setMode('teleport')}
+          onClick={() => { setMode('teleport'); if (tshAvailable === null && mode !== 'teleport') checkTsh() }}
         >
           Teleport
         </button>
@@ -243,6 +272,34 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
         </>
       ) : (
         <>
+          {/* tsh availability gate */}
+          {tshAvailable === null && (
+            <div className="flex items-center gap-2 py-4 text-xs text-[var(--vos-text-secondary)]">
+              <Loader2 size={13} className="animate-spin" />
+              <span>正在检测 tsh 安装状态…</span>
+            </div>
+          )}
+          {tshAvailable === false && (
+            <div className="flex flex-col gap-3 py-2">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-[rgba(255,149,0,0.12)] text-[var(--vos-accent-warning)]">
+                <AlertCircle size={13} className="shrink-0" />
+                <span>未检测到 tsh（Teleport 客户端），需要先安装才能使用 Teleport 集成。</span>
+              </div>
+              {tshInstallLog && (
+                <pre className="text-[10px] bg-[var(--vos-bg-code)] rounded p-2 max-h-24 overflow-auto whitespace-pre-wrap">{tshInstallLog}</pre>
+              )}
+              <div className="flex gap-2">
+                <button type="button" className="vos-btn vos-btn-sm" onClick={checkTsh} disabled={tshInstalling}>
+                  重新检测
+                </button>
+                <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={installTsh} disabled={tshInstalling}>
+                  {tshInstalling ? <><Loader2 size={11} className="animate-spin inline mr-1" />安装中…</> : '自动安装 tsh'}
+                </button>
+              </div>
+            </div>
+          )}
+          {tshAvailable === true && (
+            <>
           {tpError && (
             <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg text-xs bg-[rgba(255,59,48,0.1)] text-[var(--vos-accent-danger)]">
               <AlertCircle size={12} className="shrink-0" />
@@ -350,6 +407,8 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
                   onChange={e => setTpClusterName(e.target.value)}
                 />
               </div>
+            </>
+          )}
             </>
           )}
         </>
