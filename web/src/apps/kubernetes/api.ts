@@ -153,6 +153,8 @@ export const k8sApi = {
   // ── Teleport ──────────────────────────────────────────────────────────────
   teleportCheck: () =>
     request<ApiResponse<{ available: boolean }>>('GET', '/api/k8s/teleport/check'),
+  teleportProbe: (proxy: string) =>
+    request<ApiResponse<{ reachable: boolean; needs_otp: boolean; second_factor: string; message: string }>>('GET', `/api/k8s/teleport/probe?proxy=${encodeURIComponent(proxy)}`),
   teleportLogin: (body: TeleportLoginReq) =>
     request<ApiResponse<TeleportLoginResult>>('POST', '/api/k8s/teleport/login', body),
   teleportListClusters: (proxy: string) =>

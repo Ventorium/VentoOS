@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
+import { useClickAway } from 'ahooks'
 import { AppLayout, AppSidebar } from '@/components'
 import {
   DEFAULT_BOTTOM_HEIGHT,
@@ -28,6 +29,16 @@ export function K8sLayout({ children, overlay, onAddCluster }: Props) {
   const bottomPanelOpen = useKubernetesStore(s => s.bottomPanelOpen)
   const bottomPanelHeight = useKubernetesStore(s => s.bottomPanelHeight)
   const setBottomPanelHeight = useKubernetesStore(s => s.setBottomPanelHeight)
+  const closeDetailDrawer = useKubernetesStore(s => s.closeDetailDrawer)
+
+  const drawerRef = useRef<HTMLDivElement>(null)
+  
+  useClickAway(() => {
+    // Only close if it's open, to avoid unnecessary state updates
+    if (detailOpen) {
+      closeDetailDrawer()
+    }
+  }, drawerRef)
 
   const drawerResizingRef = useRef(false)
   const drawerStartXRef = useRef(0)
@@ -121,6 +132,7 @@ export function K8sLayout({ children, overlay, onAddCluster }: Props) {
             onMouseDown={startDrawerResize}
           />
           <div
+            ref={drawerRef}
             className="absolute top-0 right-0 bottom-0 border-l-[0.5px] border-l-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)] z-40 flex flex-col"
             style={{ width: detailWidth, top: TAB_BAR_HEIGHT }}
           >

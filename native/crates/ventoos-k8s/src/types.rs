@@ -107,6 +107,7 @@ pub struct KubeconfigContext {
 /// Request parameters for Pod log streaming.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PodLogStreamReq {
+    pub namespace: Option<String>,
     pub container: Option<String>,
     pub tail_lines: Option<u64>,
     pub follow: Option<bool>,

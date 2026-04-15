@@ -2,19 +2,17 @@ import {
   Box,
   ChevronDown,
   ChevronRight,
-  Home,
   Layers,
   Plus,
-  Star,
   Trash2,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { SectionHeader, Spinner } from '@/components'
-import { useContextMenu } from '@/shell/ContextMenu/store'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { SIDEBAR_TREE } from '../../constants'
 import { useClusterStore } from '../../stores/cluster-store'
 import { useKubernetesStore } from '../../stores/kubernetes-store'
-import type { K8sCluster, K8sResourceKind, SidebarNode } from '../../types'
+import type { K8sResourceKind, SidebarNode } from '../../types'
 import { getResourceDef } from '../../utils/resource-registry'
 
 interface SidebarProps {
@@ -26,13 +24,15 @@ export function K8sSidebar({ onAddCluster }: SidebarProps) {
   const loading = useClusterStore(s => s.loading)
   const connections = useClusterStore(s => s.connections)
   const removeCluster = useClusterStore(s => s.removeCluster)
+  const connectCluster = useClusterStore(s => s.connectCluster)
+  const disconnectCluster = useClusterStore(s => s.disconnectCluster)
   const fetchNamespaces = useClusterStore(s => s.fetchNamespaces)
   const toggleSidebarCluster = useKubernetesStore(s => s.toggleSidebarCluster)
   const expandSidebarCluster = useKubernetesStore(s => s.expandSidebarCluster)
   const expandedClusters = useKubernetesStore(s => s.sidebarExpandedClusters)
   const openTab = useKubernetesStore(s => s.openTab)
-  const activeTabId = useKubernetesStore(s => s.activeTabId)
   const activeTab = useKubernetesStore(s => s.getActiveTab())
+  const showCtxMenu = useContextMenuStore(s => s.show)
 
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
@@ -40,40 +40,10 @@ export function K8sSidebar({ onAddCluster }: SidebarProps) {
   )
 
   useEffect(() => {
-    // Auto-expand cluster of active tab
     if (activeTab) {
       expandSidebarCluster(activeTab.clusterId)
     }
   }, [activeTab, expandSidebarCluster])
-
-  const onClusterContextMenu = useContextMenu((e, cluster: K8sCluster) => {
-    e.preventDefault()
-    return [
-      {
-        id: 'favorite',
-        label: favorites.has(cluster.id) ? '从 Hotbar 移除' : '添加到 Hotbar',
-        action: () =>
-          setFavorites(s => {
-            const n = new Set(s)
-            if (n.has(cluster.id)) n.delete(cluster.id)
-            else n.add(cluster.id)
-            return n
-          }),
-      },
-      { type: 'separator' },
-      {
-        id: 'refresh',
-        label: '刷新命名空间',
-        action: () => fetchNamespaces(cluster.id),
-      },
-      {
-        id: 'remove',
-        label: '删除',
-        danger: true,
-        action: () => removeCluster(cluster.id),
-      },
-    ]
-  })
 
   const toggleGroup = (id: string) => {
     setExpandedGroups(s => {
@@ -89,7 +59,16 @@ export function K8sSidebar({ onAddCluster }: SidebarProps) {
     const targetNs = kind === 'overview' || kind === 'namespace' || kind === 'node' || kind === 'event'
       ? ''
       : ns
-    openTab(clusterId, targetNs, kind)
+    openTab(clusterId, targetNs, kind, { isPreview: true })
+  }
+
+  const handleLeafDoubleClick = (clusterId: string, kind: K8sResourceKind) => {
+    const conn = connections[clusterId]
+    const ns = conn?.namespaces[0]?.name ?? 'default'
+    const targetNs = kind === 'overview' || kind === 'namespace' || kind === 'node' || kind === 'event'
+      ? ''
+      : ns
+    openTab(clusterId, targetNs, kind, { isPreview: false })
   }
 
   const groupedClusters = {
@@ -99,6 +78,8 @@ export function K8sSidebar({ onAddCluster }: SidebarProps) {
   }
 
   const renderTreeNode = (node: SidebarNode, clusterId: string, depth = 0) => {
+    const conn = connections[clusterId]
+    const isConnected = conn?.connected ?? false
     if (node.type === 'leaf') {
       const isActive =
         activeTab?.clusterId === clusterId && activeTab?.kind === node.kind
@@ -109,10 +90,13 @@ export function K8sSidebar({ onAddCluster }: SidebarProps) {
           className="flex items-center gap-1 cursor-pointer text-xs rounded mx-1 pl-[22px] pr-2 py-[2px]"
           style={{
             background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
-            color: isActive ? '#fff' : 'var(--vos-text-primary)',
+            color: isActive ? '#fff' : isConnected ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
             paddingLeft: `${depth * 8 + 22}px`,
+            pointerEvents: isConnected ? 'auto' : 'none',
+            opacity: isConnected ? 1 : 0.45,
           }}
           onClick={() => handleLeafClick(clusterId, node.kind)}
+          onDoubleClick={() => handleLeafDoubleClick(clusterId, node.kind)}
         >
           <Icon size={11} className="shrink-0" />
           <span className="truncate">{node.label}</span>
@@ -220,12 +204,53 @@ export function K8sSidebar({ onAddCluster }: SidebarProps) {
                         ? '3px solid var(--vos-accent-primary)'
                         : '3px solid transparent',
                     }}
-                    onContextMenu={e => onClusterContextMenu(e as unknown as React.MouseEvent, cluster)}
+                    onContextMenu={e => {
+                      e.preventDefault()
+                      const isFav = favorites.has(cluster.id)
+                      const isConn = conn?.connected
+                      showCtxMenu(e.clientX, e.clientY, [
+                        {
+                          id: 'connect',
+                          label: isConn ? '断开连接' : (conn?.connecting ? '连接中…' : '连接'),
+                          disabled: conn?.connecting,
+                          action: () => isConn ? disconnectCluster(cluster.id) : connectCluster(cluster.id),
+                        },
+                        { type: 'separator' },
+                        {
+                          id: 'favorite',
+                          label: isFav ? '从 Hotbar 移除' : '添加到 Hotbar',
+                          action: () =>
+                            setFavorites(s => {
+                              const n = new Set(s)
+                              if (n.has(cluster.id)) n.delete(cluster.id)
+                              else n.add(cluster.id)
+                              return n
+                            }),
+                        },
+                        ...isConn ? [{
+                          id: 'refresh' as const,
+                          label: '刷新命名空间',
+                          action: () => fetchNamespaces(cluster.id),
+                        }] : [],
+                        { type: 'separator' as const },
+                        {
+                          id: 'remove',
+                          label: '删除',
+                          danger: true,
+                          action: () => removeCluster(cluster.id),
+                        },
+                      ])
+                    }}
                   >
                     <button
                       type="button"
                       className="bg-transparent border-none p-0 cursor-pointer"
-                      onClick={() => toggleSidebarCluster(cluster.id)}
+                      onClick={() => {
+                        toggleSidebarCluster(cluster.id)
+                        if (!isExpanded && !conn?.connected && !conn?.connecting) {
+                          connectCluster(cluster.id)
+                        }
+                      }}
                     >
                       {isExpanded ? (
                         <ChevronDown size={10} className="text-[var(--vos-text-tertiary)]" />
@@ -234,28 +259,38 @@ export function K8sSidebar({ onAddCluster }: SidebarProps) {
                       )}
                     </button>
                     <span
-                      className="w-2 h-2 rounded-full shrink-0"
+                      className="w-2 h-2 rounded-full shrink-0 transition-colors"
                       style={{
                         background:
-                          conn?.connected
-                            ? 'var(--vos-accent-success)'
-                            : conn?.namespaceError
-                              ? 'var(--vos-accent-danger)'
-                              : 'var(--vos-text-tertiary)',
+                          conn?.connecting
+                            ? 'var(--vos-accent-warning, #f59e0b)'
+                            : conn?.connected
+                              ? 'var(--vos-accent-success)'
+                              : conn?.namespaceError
+                                ? 'var(--vos-accent-danger)'
+                                : 'var(--vos-text-tertiary)',
                       }}
                     />
                     <span
-                      className="flex-1 truncate font-medium"
+                      className="flex-1 truncate font-medium select-none"
                       style={{
                         color: isActive
                           ? 'var(--vos-accent-primary)'
                           : 'var(--vos-text-primary)',
                       }}
                       onClick={() => handleLeafClick(cluster.id, 'overview')}
+                      onDoubleClick={() => {
+                        if (!conn?.connected) {
+                          connectCluster(cluster.id)
+                        } else {
+                          handleLeafDoubleClick(cluster.id, 'overview')
+                        }
+                      }}
+                      title={conn?.connected ? cluster.name : '双击以连接'}
                     >
                       {cluster.name}
                     </span>
-                    {nsLoading && <Spinner size={10} />}
+                    {(nsLoading || conn?.connecting) && <Spinner size={10} />}
                     <button
                       type="button"
                       className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer text-[var(--vos-text-tertiary)]"

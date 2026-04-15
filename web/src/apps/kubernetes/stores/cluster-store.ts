@@ -26,6 +26,8 @@ interface ClusterStore {
   loadClusters: () => Promise<void>
   addCluster: (cluster: K8sCluster) => void
   removeCluster: (id: string) => void
+  connectCluster: (id: string) => Promise<void>
+  disconnectCluster: (id: string) => void
   fetchNamespaces: (id: string) => Promise<K8sNamespace[]>
   getClusterNamespaces: (id: string) => K8sNamespace[]
   setClusterStatus: (id: string, status: K8sCluster['status']) => void
@@ -54,10 +56,7 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
       const res = await k8sApi.getK8sClusters()
       const data = res.data ?? []
       set({ clusters: data })
-      // Auto-connect and fetch namespaces for each cluster
-      for (const c of data) {
-        get().fetchNamespaces(c.id)
-      }
+      // Do NOT auto-connect — user must explicitly double-click to connect
     } catch (e) {
       set({ error: e instanceof Error ? e.message : '加载集群失败' })
     } finally {
@@ -67,7 +66,27 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
 
   addCluster(cluster) {
     set(s => ({ clusters: [...s.clusters, cluster] }))
-    get().fetchNamespaces(cluster.id)
+    // Auto-connect newly added cluster
+    get().connectCluster(cluster.id)
+  },
+
+  async connectCluster(id) {
+    set(s => ({
+      connections: {
+        ...s.connections,
+        [id]: { ...(s.connections[id] ?? defaultConnectionState()), connecting: true, namespaceError: null },
+      },
+    }))
+    await get().fetchNamespaces(id)
+  },
+
+  disconnectCluster(id) {
+    set(s => ({
+      connections: {
+        ...s.connections,
+        [id]: defaultConnectionState(),
+      },
+    }))
   },
 
   removeCluster(id) {

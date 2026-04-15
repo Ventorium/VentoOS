@@ -39,6 +39,20 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [tpClusters, setTpClusters] = useState<TeleportKubeCluster[]>([])
   const [tpSelectedCluster, setTpSelectedCluster] = useState('')
   const [tpClusterName, setTpClusterName] = useState('')
+  const [tpNeedsOtp, setTpNeedsOtp] = useState<boolean | null>(null) // null = unknown
+
+  const handleTpProxyBlur = async () => {
+    const proxy = tpProxy.trim()
+    if (!proxy) { setTpNeedsOtp(null); return }
+    try {
+      const res = await k8sApi.teleportProbe(proxy)
+      if (res.data?.reachable !== undefined) {
+        setTpNeedsOtp(res.data.needs_otp)
+      }
+    } catch {
+      setTpNeedsOtp(null)
+    }
+  }
 
   const handleKubeconfigChange = async (path: string, result?: VfsPickerResult) => {
     setKubeconfigPath(path)
@@ -74,11 +88,15 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
     setTpLoading(true)
     setTpError('')
     try {
+      // If OTP is known to be required and we're on credentials step, include it directly
+      const includeOtp = tpStep === 'otp' ? tpOtp || undefined
+        : (tpNeedsOtp === true && tpOtp) ? tpOtp
+        : undefined
       const res = await k8sApi.teleportLogin({
         proxy: tpProxy,
         user: tpUser,
         password: tpPassword,
-        otp: tpStep === 'otp' ? tpOtp || undefined : undefined,
+        otp: includeOtp,
       })
       const result = res.data
       if (result.success) {
@@ -144,7 +162,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
           type="button"
           className="vos-btn vos-btn-primary"
           onClick={teleportLogin}
-          disabled={tpLoading || !tpProxy || !tpUser || !tpPassword}
+          disabled={tpLoading || !tpProxy || !tpUser || !tpPassword || (tpNeedsOtp === true && !tpOtp)}
         >
           {tpLoading ? <Loader2 size={12} className="animate-spin" /> : '登录'}
         </button>
@@ -237,10 +255,17 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
               <div className="vos-form-row">
                 <label>Teleport 服务器地址</label>
                 <FormInput
-                  placeholder="teleport.example.com:443"
+                  placeholder="https://teleport.example.com"
                   value={tpProxy}
                   onChange={e => setTpProxy(e.target.value)}
+                  onBlur={handleTpProxyBlur}
                 />
+                {tpNeedsOtp === true && (
+                  <div className="text-[10px] text-[var(--vos-accent-success)] mt-1">该服务需要双因素验证（OTP）</div>
+                )}
+                {tpNeedsOtp === false && (
+                  <div className="text-[10px] text-[var(--vos-text-tertiary)] mt-1">无需双因素验证</div>
+                )}
               </div>
               <div className="vos-form-row">
                 <label>用户名</label>
@@ -259,6 +284,16 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
                   onChange={e => setTpPassword(e.target.value)}
                 />
               </div>
+              {tpNeedsOtp === true && (
+                <div className="vos-form-row">
+                  <label>验证码 (OTP)</label>
+                  <FormInput
+                    placeholder="6位验证码"
+                    value={tpOtp}
+                    onChange={e => setTpOtp(e.target.value)}
+                  />
+                </div>
+              )}
             </>
           )}
 

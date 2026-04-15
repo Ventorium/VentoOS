@@ -39,6 +39,10 @@ interface Props {
   clusterId: string
 }
 
+// Module-level cache: avoid re-fetching cluster overview on every tab switch
+const statsCache = new Map<string, { stats: ClusterStats; loadedAt: number }>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 const EMPTY_STATS: ClusterStats = {
   version: '—',
   nodeCount: 0,
@@ -134,7 +138,8 @@ function DonutChart({ ready, notReady, total }: { ready: number; notReady: numbe
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function ClusterOverview({ clusterId }: Props) {
-  const [stats, setStats] = useState<ClusterStats>(EMPTY_STATS)
+  const cached = statsCache.get(clusterId)
+  const [stats, setStats] = useState<ClusterStats>(cached?.stats ?? EMPTY_STATS)
   const [loading, setLoading] = useState(false)
   const mountedRef = useRef(true)
 
@@ -145,19 +150,11 @@ export function ClusterOverview({ clusterId }: Props) {
     setLoading(true)
     try {
       // Fire all resource list calls in parallel
-      const [testRes, namespacesRes, nodesRes, podsRes, deploymentsRes, statefulsetsRes, daemonsetsRes, jobsRes, servicesRes, ingressesRes, pvcsRes, pvsRes, eventsRes] = await Promise.allSettled([
+      const [testRes, namespacesRes, nodesRes, podsRes, eventsRes] = await Promise.allSettled([
         k8sApi.testK8sCluster(clusterId),
         k8sApi.getK8sNamespaces(clusterId),
         k8sApi.getK8sResources(clusterId, 'node', undefined),
         k8sApi.getK8sResources(clusterId, 'pod', ''),
-        k8sApi.getK8sResources(clusterId, 'deployment', ''),
-        k8sApi.getK8sResources(clusterId, 'statefulset', ''),
-        k8sApi.getK8sResources(clusterId, 'daemonset', ''),
-        k8sApi.getK8sResources(clusterId, 'job', ''),
-        k8sApi.getK8sResources(clusterId, 'service', ''),
-        k8sApi.getK8sResources(clusterId, 'ingress', ''),
-        k8sApi.getK8sResources(clusterId, 'persistentvolumeclaim', ''),
-        k8sApi.getK8sResources(clusterId, 'persistentvolume', undefined),
         k8sApi.getK8sResources(clusterId, 'event', ''),
       ])
 
@@ -186,7 +183,7 @@ export function ClusterOverview({ clusterId }: Props) {
         }
       }
 
-      setStats({
+      const newStats: ClusterStats = {
         version: testRes.status === 'fulfilled' ? (testRes.value.data?.server_version ?? '—') : '—',
         serverUrl: cluster?.server_url ?? '—',
         nodeCount: nodes.length,
@@ -194,16 +191,20 @@ export function ClusterOverview({ clusterId }: Props) {
         podCount: podsRes.status === 'fulfilled' ? (podsRes.value.data?.length ?? 0) : 0,
         nodesReady,
         nodesNotReady,
-        deploymentCount: deploymentsRes.status === 'fulfilled' ? (deploymentsRes.value.data?.length ?? 0) : 0,
-        statefulSetCount: statefulsetsRes.status === 'fulfilled' ? (statefulsetsRes.value.data?.length ?? 0) : 0,
-        daemonSetCount: daemonsetsRes.status === 'fulfilled' ? (daemonsetsRes.value.data?.length ?? 0) : 0,
-        jobCount: jobsRes.status === 'fulfilled' ? (jobsRes.value.data?.length ?? 0) : 0,
-        serviceCount: servicesRes.status === 'fulfilled' ? (servicesRes.value.data?.length ?? 0) : 0,
-        ingressCount: ingressesRes.status === 'fulfilled' ? (ingressesRes.value.data?.length ?? 0) : 0,
-        pvcCount: pvcsRes.status === 'fulfilled' ? (pvcsRes.value.data?.length ?? 0) : 0,
-        pvCount: pvsRes.status === 'fulfilled' ? (pvsRes.value.data?.length ?? 0) : 0,
+        deploymentCount: 0,
+        statefulSetCount: 0,
+        daemonSetCount: 0,
+        jobCount: 0,
+        serviceCount: 0,
+        ingressCount: 0,
+        pvcCount: 0,
+        pvCount: 0,
         warningEvents,
-      })
+      }
+      if (mountedRef.current) {
+        statsCache.set(clusterId, { stats: newStats, loadedAt: Date.now() })
+        setStats(newStats)
+      }
     } finally {
       if (mountedRef.current) setLoading(false)
     }
@@ -211,11 +212,15 @@ export function ClusterOverview({ clusterId }: Props) {
 
   useEffect(() => {
     mountedRef.current = true
-    loadStats()
+    // Only auto-load if no cached data or cache is stale (>5min)
+    const entry = statsCache.get(clusterId)
+    if (!entry || Date.now() - entry.loadedAt > CACHE_TTL) {
+      loadStats()
+    }
     return () => {
       mountedRef.current = false
     }
-  }, [loadStats])
+  }, [clusterId, loadStats])
 
   return (
     <div className="h-full overflow-y-auto p-4" style={{ background: 'var(--vos-bg-app)' }}>

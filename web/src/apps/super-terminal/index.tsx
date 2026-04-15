@@ -13,7 +13,7 @@ import { ChevronLeft, ChevronRight, Folder, Globe, Network, Plus, Server, Settin
 import { AnimatePresence } from 'framer-motion'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getAuthHeaders } from '@/infra/api/client'
-import { useAppStorage, useAppStateSync } from '@/kernel'
+import { useAppStorage, useAppStateSync, useWindowStore } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 import { superTerminalApi } from './api'
 import { useSuperTerminalStore } from './store'

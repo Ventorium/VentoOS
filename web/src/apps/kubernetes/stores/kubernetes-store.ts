@@ -19,7 +19,8 @@ interface KubernetesStore {
   // Tabs
   tabs: K8sTab[]
   activeTabId: string | null
-  openTab: (clusterId: string, namespace: string, kind: K8sResourceKind, reuse?: boolean) => string
+  openTab: (clusterId: string, namespace: string, kind: K8sResourceKind, options?: { reuse?: boolean; isPreview?: boolean }) => string
+  pinTab: (id: string) => void
   closeTab: (id: string) => void
   closeOtherTabs: (id: string) => void
   closeTabsToTheRight: (id: string) => void
@@ -63,14 +64,39 @@ export const useKubernetesStore = create<KubernetesStore>((set, get) => ({
   tabs: [],
   activeTabId: null,
 
-  openTab(clusterId, namespace, kind, reuse = true) {
+  openTab(clusterId, namespace, kind, options = {}) {
+    const { reuse = true, isPreview = false } = options
     const { tabs } = get()
     const existing = tabs.find(t => t.clusterId === clusterId && t.namespace === namespace && t.kind === kind)
     if (reuse && existing) {
-      set({ activeTabId: existing.id })
+      // If opening permanently and tab is currently preview, pin it
+      if (!isPreview && existing.isPreview) {
+        set({ tabs: tabs.map(t => t.id === existing.id ? { ...t, isPreview: false } : t), activeTabId: existing.id })
+      } else {
+        set({ activeTabId: existing.id })
+      }
       get().expandSidebarCluster(clusterId)
       return existing.id
     }
+
+    if (isPreview) {
+      // Replace existing preview tab in-place, or create a new one
+      const previewTab = tabs.find(t => t.isPreview)
+      if (previewTab) {
+        const updatedTab: K8sTab = {
+          id: previewTab.id,
+          clusterId,
+          namespace,
+          kind,
+          title: makeTabTitle(kind),
+          isPreview: true,
+        }
+        set({ tabs: tabs.map(t => t.id === previewTab.id ? updatedTab : t), activeTabId: previewTab.id })
+        get().expandSidebarCluster(clusterId)
+        return previewTab.id
+      }
+    }
+
     const id = `${makeTabId(clusterId, namespace, kind)}::${Date.now()}`
     const newTab: K8sTab = {
       id,
@@ -78,10 +104,15 @@ export const useKubernetesStore = create<KubernetesStore>((set, get) => ({
       namespace,
       kind,
       title: makeTabTitle(kind),
+      isPreview,
     }
     set({ tabs: [...tabs, newTab], activeTabId: id })
     get().expandSidebarCluster(clusterId)
     return id
+  },
+
+  pinTab(id) {
+    set(s => ({ tabs: s.tabs.map(t => t.id === id ? { ...t, isPreview: false } : t) }))
   },
 
   closeTab(id) {

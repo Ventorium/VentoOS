@@ -12,6 +12,7 @@ export function K8sTabBar() {
   const closeOtherTabs = useKubernetesStore(s => s.closeOtherTabs)
   const closeTabsToTheRight = useKubernetesStore(s => s.closeTabsToTheRight)
   const reorderTabs = useKubernetesStore(s => s.reorderTabs)
+  const pinTab = useKubernetesStore(s => s.pinTab)
   const openTab = useKubernetesStore(s => s.openTab)
   const clusters = useClusterStore(s => s.clusters)
 
@@ -72,6 +73,7 @@ export function K8sTabBar() {
               borderBottom: isActive ? '2px solid var(--vos-accent-primary)' : '2px solid transparent',
             }}
             onClick={() => setActiveTab(tab.id)}
+            onDoubleClick={() => { if (tab.isPreview) pinTab(tab.id) }}
             onAuxClick={e => handleAuxClick(e, tab.id)}
             onDragStart={() => handleDragStart(i)}
             onDragOver={e => {
@@ -81,7 +83,7 @@ export function K8sTabBar() {
             onDragEnd={handleDragEnd}
           >
             <Icon size={11} className="shrink-0" style={{ color: isActive ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)' }} />
-            <span className="truncate flex-1">
+            <span className="truncate flex-1" style={{ fontStyle: tab.isPreview ? 'italic' : 'normal' }}>
               {def.pluralLabel} — {cluster?.name ?? tab.clusterId}
             </span>
             <button

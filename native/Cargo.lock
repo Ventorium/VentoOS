@@ -4685,6 +4685,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "libc",
+ "reqwest",
  "rustls",
  "rustls-pemfile",
  "serde",

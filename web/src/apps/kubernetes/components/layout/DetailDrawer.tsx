@@ -20,6 +20,7 @@ import { EventsTab } from '../detail-tabs/EventsTab'
 import { PodsTab } from '../detail-tabs/PodsTab'
 import { SummaryTab } from '../detail-tabs/SummaryTab'
 import { YamlTab } from '../detail-tabs/YamlTab'
+import { LogsTab } from '../detail-tabs/LogsTab'
 import { getResourceDef } from '../../utils/resource-registry'
 
 const TAB_LABELS: Record<string, string> = {
@@ -130,7 +131,7 @@ export function DetailDrawer() {
 
   return (
     <>
-      <div className="flex flex-col h-full w-full overflow-hidden">
+      <div className="flex flex-col h-full w-full overflow-hidden" style={{ background: 'var(--vos-bg-window)' }}>
         {/* Title bar */}
         <div className="flex items-center gap-2 h-11 px-3 border-b-[0.5px] border-b-[var(--vos-border-subtle)] flex-shrink-0">
           <span className="text-xs font-medium truncate flex-1">
@@ -263,8 +264,9 @@ export function DetailDrawer() {
           {activeTab === 'events' && <EventsTab resource={resource} />}
           {activeTab === 'pods' && <PodsTab resource={resource} />}
           {activeTab === 'data' && <DataTab resource={resource} />}
-          {activeTab === 'endpoints' && <EndpointsTab resource={resource} />}
-          {['logs', 'shell'].includes(activeTab) && (
+            {activeTab === 'logs' && <LogsTab resource={resource} />}
+            {activeTab === 'endpoints' && <EndpointsTab resource={resource} />}
+            {['shell'].includes(activeTab) && (
             <div className="text-xs text-[var(--vos-text-tertiary)] py-8 text-center">
               {activeTab} 视图开发中
             </div>

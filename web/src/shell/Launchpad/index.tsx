@@ -23,7 +23,7 @@ import type { AppManifest } from '@/kernel'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const LONG_PRESS_MS = 500
-const FOLDER_HOVER_MS = 3000
+const FOLDER_HOVER_MS = 2000
 const DRAG_MOVE_THRESHOLD = 6
 const FOLDER_PREVIEW_COLS = 3
 const FOLDER_PREVIEW_ROWS = 3
@@ -509,7 +509,8 @@ export default function Launchpad() {
   const { moveItem, createFolder, addAppToFolder, renameFolder, dissolveFolder, reorderFolderApp } =
     useLaunchpadLayoutStore.getState()
 
-  const allVisibleApps = useMemo(() => Array.from(appsMap.values()).filter(a => !a.hidden), [appsMap])
+  // All apps including hidden ones (hidden = not in Dock, but all appear in Launchpad)
+  const allVisibleApps = useMemo(() => Array.from(appsMap.values()), [appsMap])
 
   // Load layout on open
   useEffect(() => {
@@ -715,6 +716,11 @@ export default function Launchpad() {
       }
     }
     const cleanup = () => {
+      // Cancel long-press timer so a normal click never activates drag
+      if (longPressRef.current?.timerId) {
+        clearTimeout(longPressRef.current.timerId)
+        longPressRef.current = null
+      }
       window.removeEventListener('mousemove', cancel)
       window.removeEventListener('mouseup', cleanup)
     }

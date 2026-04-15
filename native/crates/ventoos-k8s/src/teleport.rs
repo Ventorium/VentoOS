@@ -64,10 +64,74 @@ pub struct TeleportKubeConfigResult {
     pub kubeconfig: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TeleportProbeResult {
+    /// Whether the proxy URL is reachable.
+    pub reachable: bool,
+    /// Whether OTP/2FA is required for login.
+    pub needs_otp: bool,
+    /// The second_factor value from webapi/ping.
+    pub second_factor: String,
+    pub message: String,
+}
+
 impl TeleportManager {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Probe a Teleport proxy to check reachability and whether OTP is required.
+    ///
+    /// Calls `GET {proxy}/webapi/ping` and inspects the `auth.second_factor` field.
+    pub async fn probe_auth_config(proxy: &str) -> TeleportProbeResult {
+        let url = format!("{}/webapi/ping", proxy.trim_end_matches('/'));
+        let client = match reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .danger_accept_invalid_certs(false)
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                return TeleportProbeResult {
+                    reachable: false,
+                    needs_otp: false,
+                    second_factor: String::new(),
+                    message: format!("Failed to build HTTP client: {e}"),
+                }
+            }
+        };
+
+        match client.get(&url).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                let body: serde_json::Value = resp.json().await.unwrap_or_default();
+                let second_factor = body
+                    .pointer("/auth/second_factor")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("off")
+                    .to_string();
+                // "off" → no 2FA; "optional" → either; "otp" / "on" → required
+                let needs_otp = matches!(second_factor.as_str(), "otp" | "on");
+                TeleportProbeResult {
+                    reachable: true,
+                    needs_otp,
+                    second_factor,
+                    message: "OK".into(),
+                }
+            }
+            Ok(resp) => TeleportProbeResult {
+                reachable: true,
+                needs_otp: false,
+                second_factor: String::new(),
+                message: format!("HTTP {}", resp.status()),
+            },
+            Err(e) => TeleportProbeResult {
+                reachable: false,
+                needs_otp: false,
+                second_factor: String::new(),
+                message: format!("Connection failed: {e}"),
+            },
         }
     }
 
@@ -96,9 +160,10 @@ impl TeleportManager {
             };
         }
 
+        let safe_proxy = req.proxy.trim_end_matches('/');
         let mut args = vec![
             "login".to_string(),
-            format!("--proxy={}", req.proxy),
+            format!("--proxy={}", safe_proxy),
             format!("--user={}", req.user),
             "--auth=local".to_string(),
         ];
@@ -167,9 +232,13 @@ impl TeleportManager {
     /// List available Kubernetes clusters from the Teleport proxy.
     ///
     /// Runs: `tsh kube ls --proxy=<proxy> --format=json`
+    ///
+    /// The JSON output from tsh uses `kube_cluster_name` (not `name`), so we
+    /// deserialize into a raw struct first and then map to `TeleportKubeCluster`.
     pub async fn list_kube_clusters(&self, proxy: &str) -> Result<Vec<TeleportKubeCluster>, String> {
+        let safe_proxy = proxy.trim_end_matches('/');
         let output = Command::new("tsh")
-            .args(["kube", "ls", &format!("--proxy={proxy}"), "--format=json"])
+            .args(["kube", "ls", &format!("--proxy={safe_proxy}"), "--format=json"])
             .output()
             .await
             .map_err(|e| format!("Failed to run tsh kube ls: {e}"))?;
@@ -181,10 +250,9 @@ impl TeleportManager {
 
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        // tsh kube ls --format=json outputs an array of objects
-        let clusters: Vec<TeleportKubeCluster> =
-            serde_json::from_str(&stdout).unwrap_or_else(|_| {
-                // Fallback: parse line-by-line if JSON format isn't standard
+        let clusters: Vec<TeleportKubeCluster> = parse_kube_ls_json(&stdout)
+            .unwrap_or_else(|| {
+                // Fallback: parse table-format text output
                 parse_kube_ls_text(&stdout)
             });
 
@@ -199,13 +267,14 @@ impl TeleportManager {
         proxy: &str,
         cluster_name: &str,
     ) -> TeleportKubeConfigResult {
+        let safe_proxy = proxy.trim_end_matches('/');
         // First, login to the kube cluster
         let login_output = Command::new("tsh")
             .args([
                 "kube",
                 "login",
                 cluster_name,
-                &format!("--proxy={proxy}"),
+                &format!("--proxy={safe_proxy}"),
             ])
             .output()
             .await;
@@ -256,8 +325,9 @@ impl TeleportManager {
 
     /// Logout from a Teleport proxy.
     pub async fn logout(&self, proxy: &str) -> Result<(), String> {
-        let _ = Command::new("tsh")
-            .args(["logout", &format!("--proxy={proxy}")])
+        let safe_proxy = proxy.trim_end_matches('/');
+        let output = Command::new("tsh")
+            .args(["logout", &format!("--proxy={safe_proxy}")])
             .output()
             .await
             .map_err(|e| format!("tsh logout failed: {e}"))?;
@@ -285,8 +355,9 @@ fn dirs_path() -> String {
 /// Spawn `program` with `args` inside a pseudo-terminal so that programs that
 /// check `isatty(stdin)` (e.g. `tsh`) believe they are running interactively.
 ///
-/// After spawning, the function writes `password\n` to the PTY master, then
-/// (if `otp` is `Some`) waits briefly and writes `otp\n`.
+/// Reads output continuously; writes password when a password prompt is detected,
+/// writes OTP when an OTP prompt is detected. Falls back to writing after a timeout
+/// if no prompt is detected within 10 seconds (slow server).
 ///
 /// Returns `(exit_success, combined_output_string)`.
 fn login_with_pty(
@@ -363,43 +434,70 @@ fn login_with_pty(
 
     let mut child = cmd.spawn().map_err(|e| format!("spawn tsh: {e}"))?;
 
-    // ── 3. Write password (and optional OTP) to master ──────────────────────
+    // ── 3. Set master to non-blocking and start read/write loop ─────────────
     let mut master_file = unsafe { std::fs::File::from_raw_fd(master_fd) };
-
-    // Small delay to let tsh print its prompt before we send the password.
-    std::thread::sleep(Duration::from_millis(300));
-    master_file
-        .write_all(format!("{password}\n").as_bytes())
-        .map_err(|e| format!("write password: {e}"))?;
-
-    if let Some(otp_code) = otp {
-        // Wait a bit for tsh to process password and prompt for OTP.
-        std::thread::sleep(Duration::from_millis(1500));
-        master_file
-            .write_all(format!("{otp_code}\n").as_bytes())
-            .map_err(|e| format!("write otp: {e}"))?;
-    }
-
-    // ── 4. Read all output from master ──────────────────────────────────────
-    // Set the master fd to non-blocking so we can drain remaining output
-    // after the child exits without hanging.
     unsafe {
         let flags = libc::fcntl(master_fd, libc::F_GETFL, 0);
         libc::fcntl(master_fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
     }
 
-    let deadline = Instant::now() + Duration::from_secs(45);
-    let mut output = Vec::new();
+    let deadline = Instant::now() + Duration::from_secs(90);
+    // Fallback: write password after this many seconds if no prompt detected
+    let password_fallback_at = Instant::now() + Duration::from_secs(10);
+    let mut output: Vec<u8> = Vec::new();
     let mut buf = [0u8; 4096];
+    let mut password_sent = false;
+    let mut otp_sent = false;
 
     loop {
         if Instant::now() > deadline {
             let _ = child.kill();
-            return Err("Login timed out (45s)".into());
+            return Err("Login timed out (90s)".into());
         }
+
+        // Read available output
+        loop {
+            match master_file.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => output.extend_from_slice(&buf[..n]),
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(_) => break,
+            }
+        }
+
+        let current_text = String::from_utf8_lossy(&output).to_lowercase();
+
+        // Write password when prompt detected or fallback timeout reached
+        if !password_sent {
+            let has_prompt = current_text.contains("password")
+                || current_text.contains("enter password")
+                || current_text.contains("passphrase");
+            let fallback = Instant::now() >= password_fallback_at;
+            if has_prompt || fallback {
+                password_sent = true;
+                let _ = master_file.write_all(format!("{password}\n").as_bytes());
+            }
+        }
+
+        // Write OTP when prompted (only if OTP was provided)
+        if password_sent && !otp_sent {
+            if let Some(otp_code) = otp {
+                let needs_otp_now = current_text.contains("otp")
+                    || current_text.contains("mfa")
+                    || current_text.contains("second factor")
+                    || current_text.contains("one-time")
+                    || current_text.contains("authenticator");
+                if needs_otp_now {
+                    otp_sent = true;
+                    let _ = master_file.write_all(format!("{otp_code}\n").as_bytes());
+                }
+            }
+        }
+
         match child.try_wait() {
-            Ok(Some(_status)) => {
+            Ok(Some(status)) => {
                 // Drain remaining output
+                std::thread::sleep(Duration::from_millis(80));
                 loop {
                     match master_file.read(&mut buf) {
                         Ok(0) | Err(_) => break,
@@ -407,19 +505,11 @@ fn login_with_pty(
                     }
                 }
                 let text = String::from_utf8_lossy(&output).to_string();
-                // Strip ANSI escape sequences
                 let clean = strip_ansi(&text);
-                return Ok((_status.success(), clean));
+                return Ok((status.success(), clean));
             }
             Ok(None) => {
-                // Still running – read available output
-                match master_file.read(&mut buf) {
-                    Ok(0) => {}
-                    Ok(n) => output.extend_from_slice(&buf[..n]),
-                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
-                    Err(_) => {}
-                }
-                std::thread::sleep(Duration::from_millis(100));
+                std::thread::sleep(Duration::from_millis(80));
             }
             Err(e) => return Err(format!("wait error: {e}")),
         }
@@ -450,6 +540,31 @@ fn strip_ansi(s: &str) -> String {
         }
     }
     result
+}
+
+/// Parse `tsh kube ls --format=json` output.
+///
+/// Teleport uses `kube_cluster_name` as the cluster-name field.
+fn parse_kube_ls_json(text: &str) -> Option<Vec<TeleportKubeCluster>> {
+    #[derive(Deserialize)]
+    struct RawCluster {
+        #[serde(alias = "name")]
+        kube_cluster_name: String,
+        #[serde(default)]
+        labels: HashMap<String, String>,
+        #[serde(default)]
+        selected: bool,
+    }
+
+    serde_json::from_str::<Vec<RawCluster>>(text).ok().map(|raw| {
+        raw.into_iter()
+            .map(|r| TeleportKubeCluster {
+                name: r.kube_cluster_name,
+                labels: r.labels,
+                selected: r.selected,
+            })
+            .collect()
+    })
 }
 
 /// Fallback parser for `tsh kube ls` text output.
@@ -503,4 +618,34 @@ mod tests {
         let clusters = parse_kube_ls_text(text);
         assert!(clusters.is_empty());
     }
+
+        #[test]
+        fn test_parse_kube_ls_json_teleport_format() {
+                let json = r#"[
+    {
+        "kube_cluster_name": "dev-cluster",
+        "labels": {"provider": "eks"},
+        "selected": true
+    },
+    {
+        "kube_cluster_name": "staging-cluster",
+        "labels": {},
+        "selected": false
+    }
+]"#;
+
+                let clusters = parse_kube_ls_json(json).expect("should parse teleport json");
+                assert_eq!(clusters.len(), 2);
+                assert_eq!(clusters[0].name, "dev-cluster");
+                assert!(clusters[0].selected);
+                assert_eq!(clusters[0].labels.get("provider"), Some(&"eks".to_string()));
+                assert_eq!(clusters[1].name, "staging-cluster");
+                assert!(!clusters[1].selected);
+        }
+
+        #[test]
+        fn test_parse_kube_ls_json_invalid_returns_none() {
+                let invalid = r#"{"oops":true}"#;
+                assert!(parse_kube_ls_json(invalid).is_none());
+        }
 }

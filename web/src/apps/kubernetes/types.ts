@@ -83,6 +83,7 @@ export interface K8sTab {
   namespace: string
   kind: K8sResourceKind
   title: string
+  isPreview?: boolean
 }
 
 export interface BottomPanelTab {

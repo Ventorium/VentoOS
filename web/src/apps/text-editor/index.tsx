@@ -11,7 +11,7 @@
 
 import { AnimatePresence } from 'framer-motion'
 import { Save } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Spinner } from '@/components'
 import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
@@ -134,21 +134,23 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
     [setTitle]
   )
 
-  // Register menus (uses useFileOpenMenu for "打开" + Ctrl+O)
   const isMac = /Mac/.test(navigator.userAgent)
+  const extraFileItems = useMemo(() => [
+    {
+      id: 'save',
+      label: '保存',
+      shortcut: isMac ? '⌘S' : 'Ctrl+S',
+      action: () => handleSave(),
+      disabled: !hasChanges
+    }
+  ], [isMac, handleSave, hasChanges])
+
+  // Register menus (uses useFileOpenMenu for "打开" + Ctrl+O)
   const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
     windowId,
     appId: 'text-editor',
     onOpenFile: handleOpenFile,
-    extraFileItems: [
-      {
-        id: 'save',
-        label: '保存',
-        shortcut: isMac ? '⌘S' : 'Ctrl+S',
-        action: () => handleSave(),
-        disabled: !hasChanges
-      }
-    ]
+    extraFileItems
   })
 
   // Line count

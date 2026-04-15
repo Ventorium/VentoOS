@@ -28,7 +28,7 @@ export const redisManifest: AppManifest = {
   author: { name: 'VentoOS' },
   description: 'Browse and manage Redis key-value stores',
   icon: React.createElement(RedisIcon),
-  multiWindow: true,
+  multiWindow: false,
   defaultSize: { width: 960, height: 640 },
   minSize: { width: 700, height: 440 },
   permissions: ['network', 'connections', 'notifications'],

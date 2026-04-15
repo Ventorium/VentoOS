@@ -118,6 +118,7 @@ impl AppPlugin for K8sPlugin {
             .route("/api/k8s/kubeconfig/parse", post(parse_kubeconfig))
             // Teleport
             .route("/api/k8s/teleport/check", get(teleport_check))
+            .route("/api/k8s/teleport/probe", get(teleport_probe))
             .route("/api/k8s/teleport/login", post(teleport_login))
             .route("/api/k8s/teleport/clusters", get(teleport_list_clusters))
             .route(
@@ -449,9 +450,8 @@ async fn ws_pod_logs(
     };
 
     let namespace = req
-        .label_selector
-        .as_ref()
-        .map(|_| "default".to_string())
+        .namespace
+        .clone()
         .unwrap_or_else(|| "default".to_string());
     let pod_name = name.clone();
 
@@ -613,6 +613,18 @@ async fn teleport_check() -> Json<ApiResponse<serde_json::Value>> {
     Json(ApiResponse::ok(
         serde_json::json!({ "available": available }),
     ))
+}
+
+async fn teleport_probe(
+    Query(q): Query<TeleportProxyQuery>,
+) -> Json<ApiResponse<serde_json::Value>> {
+    let result = TeleportManager::probe_auth_config(&q.proxy).await;
+    Json(ApiResponse::ok(serde_json::json!({
+        "reachable": result.reachable,
+        "needs_otp": result.needs_otp,
+        "second_factor": result.second_factor,
+        "message": result.message,
+    })))
 }
 
 async fn teleport_login(

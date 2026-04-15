@@ -14,6 +14,7 @@
  */
 import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 import { ChevronRight, File, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
+import { createPortal } from "react-dom"
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VfsMount, VfsNode } from '@/apps/explorer/api'
 import { vfsApi } from '@/apps/explorer/api'
@@ -510,8 +511,8 @@ export function VfsFilePickerModal({
     })
   }
 
-  return (
-    <div className="fixed inset-0 z-[200] vos-flex-center bg-black/55">
+  return createPortal(
+    <div className="fixed inset-0 z-[20000] vos-flex-center bg-black/55 pointer-events-auto">
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -687,7 +688,8 @@ export function VfsFilePickerModal({
           </button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

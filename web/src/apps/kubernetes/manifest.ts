@@ -28,7 +28,7 @@ export const kubernetesManifest: AppManifest = {
   author: { name: 'VentoOS' },
   description: 'Manage Kubernetes clusters, workloads, and resources',
   icon: React.createElement(KubernetesIcon),
-  multiWindow: true,
+  multiWindow: false,
   defaultSize: { width: 1100, height: 720 },
   minSize: { width: 800, height: 480 },
   permissions: ['network', 'connections', 'notifications', 'shell'],

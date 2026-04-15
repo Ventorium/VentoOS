@@ -881,6 +881,11 @@ export default function Dock() {
       }
     }
     const cleanup = () => {
+      // Cancel long-press timer on mouseup (normal click should not start drag)
+      if (longPressRef.current?.timerId) {
+        clearTimeout(longPressRef.current.timerId)
+        longPressRef.current = null
+      }
       window.removeEventListener('mousemove', cancelLongPress)
       window.removeEventListener('mouseup', cleanup)
     }
