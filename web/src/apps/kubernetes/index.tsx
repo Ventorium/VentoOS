@@ -113,21 +113,24 @@ export default function KubernetesApp({ initialAppState }: AppComponentProps) {
       if (!active) return
 
       const prefs = await storage.getJSON<{ cluster?: string; ns?: string; kind?: string }>('preferences')
+      // Read clusters from store directly after loading, not from closure
+      const latestClusters = useClusterStore.getState().clusters
       if (prefs?.cluster) {
-        const cluster = clusters.find(c => c.id === prefs.cluster)
+        const cluster = latestClusters.find(c => c.id === prefs.cluster)
         if (cluster) {
           openTab(cluster.id, prefs.ns ?? '', (prefs.kind as any) ?? 'overview')
         }
-      } else if (clusters.length > 0) {
+      } else if (latestClusters.length > 0) {
         // Auto-open overview for first cluster
-        openTab(clusters[0].id, '', 'overview')
+        openTab(latestClusters[0].id, '', 'overview')
       }
     }
     init()
     return () => {
       active = false
     }
-  }, [loadClusters, openTab, storage, clusters])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run on mount
 
   const handleCreated = useCallback(
     (c: K8sCluster) => {
