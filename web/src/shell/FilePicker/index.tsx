@@ -12,7 +12,7 @@
  *     placeholder="选择目录..."
  *   />
  */
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 import { ChevronRight, File, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VfsMount, VfsNode } from '@/apps/explorer/api'
@@ -383,6 +383,7 @@ export function VfsFilePickerModal({
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
   const [fetchingContent, setFetchingContent] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  const dragControls = useDragControls()
 
   // Load mounts on open
   // biome-ignore lint/correctness/useExhaustiveDependencies: selectMount intentionally omitted; should run once
@@ -484,11 +485,17 @@ export function VfsFilePickerModal({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.14 }}
-        className="flex flex-col overflow-hidden rounded-xl w-[680px] h-[480px] bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
+        drag
+        dragControls={dragControls}
+        dragListener={false}
+        dragMomentum={false}
+        dragElastic={0}
+        className="flex flex-col overflow-hidden rounded-xl w-[680px] h-[480px] bg-[var(--vos-bg-overlay)] backdrop-blur-xl border-[0.5px] border-solid border-[var(--vos-border-subtle)] shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
       >
         {/* Header */}
         <div
-          className="flex items-center px-4 py-2.5 gap-3 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
+          className="flex items-center px-4 py-2.5 gap-3 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] cursor-move select-none"
+          onPointerDown={e => dragControls.start(e)}
         >
           <span className="text-xs font-semibold flex-1">{mode === 'directory' ? '选择目录' : '选择文件'}</span>
           <button type="button" className="vos-btn px-1.5 py-[2px]" onClick={onClose}>

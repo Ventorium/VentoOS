@@ -17,7 +17,11 @@ import { useKubernetesStore } from '../../stores/kubernetes-store'
 import type { K8sCluster, K8sResourceKind, SidebarNode } from '../../types'
 import { getResourceDef } from '../../utils/resource-registry'
 
-export function K8sSidebar() {
+interface SidebarProps {
+  onAddCluster?: () => void
+}
+
+export function K8sSidebar({ onAddCluster }: SidebarProps) {
   const clusters = useClusterStore(s => s.clusters)
   const loading = useClusterStore(s => s.loading)
   const connections = useClusterStore(s => s.connections)
@@ -31,9 +35,9 @@ export function K8sSidebar() {
   const activeTab = useKubernetesStore(s => s.getActiveTab())
 
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set>(
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     () => new Set(['workloads', 'config', 'network', 'storage'])
-  ))
+  )
 
   useEffect(() => {
     // Auto-expand cluster of active tab
@@ -175,9 +179,7 @@ export function K8sSidebar() {
           <button
             type="button"
             className="bg-transparent border-none cursor-pointer p-0 text-[var(--vos-accent-primary)]"
-            onClick={() => {
-              /* TODO: open add cluster modal */
-            }}
+            onClick={onAddCluster}
           >
             <Plus size={14} />
           </button>
