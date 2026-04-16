@@ -33,7 +33,7 @@ export function K8sLayout({ children, overlay, onAddCluster, onEditCluster }: Pr
   const closeDetailDrawer = useKubernetesStore(s => s.closeDetailDrawer)
 
   const drawerRef = useRef<HTMLDivElement>(null)
-  
+
   useClickAway(() => {
     // Only close if it's open, to avoid unnecessary state updates
     if (detailOpen) {
