@@ -27,6 +27,14 @@ export interface CreateK8sClusterReq {
   group?: string
 }
 
+export interface UpdateK8sClusterReq {
+  name?: string
+  kubeconfig_path?: string
+  kubeconfig_inline?: string
+  context_name?: string
+  default_namespace?: string
+}
+
 export interface K8sNamespace {
   name: string
   status: string
@@ -113,6 +121,7 @@ export const k8sApi = {
   getK8sClusters: () => request<ApiResponse<K8sCluster[]>>('GET', '/api/k8s/clusters'),
   createK8sCluster: (body: CreateK8sClusterReq) => request<ApiResponse<K8sCluster>>('POST', '/api/k8s/clusters', body),
   getK8sCluster: (id: string) => request<ApiResponse<K8sCluster>>('GET', `/api/k8s/clusters/${id}`),
+  updateK8sCluster: (id: string, body: UpdateK8sClusterReq) => request<ApiResponse<K8sCluster>>('PUT', `/api/k8s/clusters/${id}`, body),
   deleteK8sCluster: (id: string) => request<ApiResponse<null>>('DELETE', `/api/k8s/clusters/${id}`),
   testK8sCluster: (id: string) => request<ApiResponse<K8sTestResult>>('POST', `/api/k8s/clusters/${id}/test`),
   getK8sNamespaces: (id: string) => request<ApiResponse<K8sNamespace[]>>('GET', `/api/k8s/clusters/${id}/namespaces`),

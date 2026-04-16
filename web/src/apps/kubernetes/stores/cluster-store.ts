@@ -6,6 +6,7 @@
 
 import { create } from 'zustand'
 import type { K8sCluster, K8sNamespace } from '../types'
+import type { UpdateK8sClusterReq } from '../api'
 import { k8sApi } from '../api'
 
 interface ClusterConnectionState {
@@ -26,6 +27,7 @@ interface ClusterStore {
   loadClusters: () => Promise<void>
   addCluster: (cluster: K8sCluster) => void
   removeCluster: (id: string) => void
+  updateCluster: (id: string, req: UpdateK8sClusterReq) => Promise<K8sCluster | null>
   connectCluster: (id: string) => Promise<void>
   disconnectCluster: (id: string) => void
   fetchNamespaces: (id: string) => Promise<K8sNamespace[]>
@@ -68,6 +70,17 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
     set(s => ({ clusters: [...s.clusters, cluster] }))
     // Auto-connect newly added cluster
     get().connectCluster(cluster.id)
+  },
+
+  async updateCluster(id, req) {
+    try {
+      const res = await k8sApi.updateK8sCluster(id, req)
+      const updated = res.data
+      set(s => ({ clusters: s.clusters.map(c => c.id === id ? updated : c) }))
+      return updated
+    } catch {
+      return null
+    }
   },
 
   async connectCluster(id) {

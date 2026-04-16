@@ -28,6 +28,15 @@ pub struct CreateK8sClusterReq {
     pub group: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateK8sClusterReq {
+    pub name: Option<String>,
+    pub kubeconfig_path: Option<String>,
+    pub kubeconfig_inline: Option<String>,
+    pub context_name: Option<String>,
+    pub default_namespace: Option<String>,
+}
+
 /// Minimal representation for listing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct K8sNamespace {

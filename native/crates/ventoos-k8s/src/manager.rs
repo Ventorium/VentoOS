@@ -10,6 +10,7 @@ use crate::k8s_client::{K8sClient, Kubeconfig, parse_resource_list, parse_single
 use crate::types::{
     CreateK8sClusterReq, K8sCluster, K8sCondition, K8sEvent, K8sNamespace, K8sResource,
     K8sResourceDetail, K8sResourceKind, K8sResourceListReq, K8sTestResult, KubeconfigContext,
+    UpdateK8sClusterReq,
 };
 
 /// Kubernetes cluster manager.
@@ -155,6 +156,46 @@ impl K8sManager {
             }
         }
         removed
+    }
+
+    /// Update cluster fields in memory and DB.
+    pub async fn update_cluster(&self, id: &str, req: UpdateK8sClusterReq) -> Option<K8sCluster> {
+        let mut clusters = self.clusters.write().await;
+        let cluster = clusters.get_mut(id)?;
+        if let Some(name) = req.name {
+            cluster.name = name;
+        }
+        if let Some(ctx) = req.context_name {
+            cluster.context_name = ctx;
+        }
+        if let Some(path) = req.kubeconfig_path {
+            cluster.kubeconfig_path = Some(path);
+            cluster.kubeconfig_inline = None; // path takes precedence
+        }
+        if let Some(inline) = req.kubeconfig_inline {
+            cluster.kubeconfig_inline = Some(inline);
+            cluster.kubeconfig_path = None;
+        }
+        if let Some(ns) = req.default_namespace {
+            cluster.namespace = Some(ns);
+        }
+        let updated = cluster.clone();
+        if let Some(ref store) = self.store {
+            let record = PersistedK8sCluster {
+                id: updated.id.clone(),
+                name: updated.name.clone(),
+                context_name: updated.context_name.clone(),
+                kubeconfig_path: updated.kubeconfig_path.clone(),
+                kubeconfig_inline: updated.kubeconfig_inline.clone(),
+                server_url: updated.server_url.clone(),
+                namespace: updated.namespace.clone(),
+                group_name: updated.group.clone(),
+            };
+            if let Err(e) = store.update(&record) {
+                error!("Failed to update K8s cluster '{id}' in DB: {e}");
+            }
+        }
+        Some(updated)
     }
 
     /// Test connectivity to a cluster. Connects to the API server and fetches `/version`.

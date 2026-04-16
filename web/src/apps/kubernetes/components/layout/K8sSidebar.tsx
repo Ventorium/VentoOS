@@ -17,9 +17,10 @@ import { getResourceDef } from '../../utils/resource-registry'
 
 interface SidebarProps {
   onAddCluster?: () => void
+  onEditCluster?: (id: string) => void
 }
 
-export function K8sSidebar({ onAddCluster }: SidebarProps) {
+export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
   const clusters = useClusterStore(s => s.clusters)
   const loading = useClusterStore(s => s.loading)
   const connections = useClusterStore(s => s.connections)
@@ -216,6 +217,11 @@ export function K8sSidebar({ onAddCluster }: SidebarProps) {
                           action: () => isConn ? disconnectCluster(cluster.id) : connectCluster(cluster.id),
                         },
                         { type: 'separator' },
+                        {
+                          id: 'edit',
+                          label: '编辑',
+                          action: () => onEditCluster?.(cluster.id),
+                        },
                         {
                           id: 'favorite',
                           label: isFav ? '从 Hotbar 移除' : '添加到 Hotbar',

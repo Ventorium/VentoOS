@@ -1,10 +1,11 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 
 use ventoos_core::plugin::AppPlugin;
@@ -15,7 +16,7 @@ use crate::port_forward::PortForwardManager;
 use crate::teleport::{TeleportLoginReq, TeleportManager};
 use crate::types::{
     CreateK8sClusterReq, CreatePortForwardReq, K8sCluster, K8sResourceKind, K8sResourceListReq,
-    PodExecReq, PodLogStreamReq,
+    PodExecReq, PodLogStreamReq, UpdateK8sClusterReq,
 };
 
 /// Shared state for K8s routes.
@@ -24,6 +25,8 @@ pub struct K8sState {
     pub manager: Arc<K8sManager>,
     pub port_forwards: Arc<PortForwardManager>,
     pub teleport: Arc<TeleportManager>,
+    /// Directory where VentoOS stores kubeconfig files (e.g. `<data_dir>/k8s/`).
+    pub k8s_config_dir: PathBuf,
 }
 
 /// Kubernetes application plugin.
@@ -32,12 +35,13 @@ pub struct K8sPlugin {
 }
 
 impl K8sPlugin {
-    pub fn new(manager: Arc<K8sManager>) -> Self {
+    pub fn new(manager: Arc<K8sManager>, k8s_config_dir: PathBuf) -> Self {
         Self {
             state: K8sState {
                 manager,
                 port_forwards: Arc::new(PortForwardManager::new()),
                 teleport: Arc::new(TeleportManager::new()),
+                k8s_config_dir,
             },
         }
     }
@@ -54,7 +58,7 @@ impl AppPlugin for K8sPlugin {
             .route("/api/k8s/clusters", get(list_clusters).post(create_cluster))
             .route(
                 "/api/k8s/clusters/{id}",
-                get(get_cluster).delete(delete_cluster),
+                get(get_cluster).put(update_cluster).delete(delete_cluster),
             )
             .route("/api/k8s/clusters/{id}/test", post(test_cluster))
             .route("/api/k8s/clusters/{id}/namespaces", get(list_namespaces))
@@ -167,6 +171,21 @@ async fn delete_cluster(State(st): State<K8sState>, Path(id): Path<String>) -> i
             Json(ApiResponse::<()>::err("K8s cluster not found")),
         )
             .into_response()
+    }
+}
+
+async fn update_cluster(
+    State(st): State<K8sState>,
+    Path(id): Path<String>,
+    Json(req): Json<UpdateK8sClusterReq>,
+) -> impl IntoResponse {
+    match st.manager.update_cluster(&id, req).await {
+        Some(cluster) => Json(ApiResponse::ok(cluster)).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("K8s cluster not found")),
+        )
+            .into_response(),
     }
 }
 
@@ -667,7 +686,14 @@ async fn teleport_get_kubeconfig(
     Path(TeleportKubeConfigPath { cluster_name }): Path<TeleportKubeConfigPath>,
     Query(q): Query<TeleportProxyQuery>,
 ) -> impl IntoResponse {
-    let result = st.teleport.get_kube_config(&q.proxy, &cluster_name).await;
+    // Write kubeconfig to our dedicated storage path, not ~/.kube/config, so we
+    // don't interfere with the user's global kubectl configuration.
+    let kubeconfig_file = st.k8s_config_dir.join("teleport.yaml");
+    let kubeconfig_str = kubeconfig_file.to_string_lossy().into_owned();
+    let result = st
+        .teleport
+        .get_kube_config(&q.proxy, &cluster_name, Some(&kubeconfig_str))
+        .await;
     if result.success {
         Json(ApiResponse::ok(result)).into_response()
     } else {

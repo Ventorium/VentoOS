@@ -265,20 +265,45 @@ impl TeleportManager {
 
     /// Generate kubeconfig for a specific Teleport Kubernetes cluster.
     ///
-    /// Runs: `tsh kube login <cluster_name> --proxy=<proxy>` then reads kubeconfig.
+    /// Runs: `tsh kube login <cluster_name> --proxy=<proxy> --kubeconfig=<path>` then reads
+    /// the context name from the generated kubeconfig.
+    ///
+    /// `kubeconfig_path` is the file where credentials should be written, defaults to
+    /// `~/.kube/config` if `None`.
     pub async fn get_kube_config(
         &self,
         proxy: &str,
         cluster_name: &str,
+        kubeconfig_path: Option<&str>,
     ) -> TeleportKubeConfigResult {
         let safe_proxy = proxy.trim_end_matches('/');
-        // First, login to the kube cluster
+
+        // Determine target kubeconfig file path
+        let kube_home = dirs_path();
+        let default_path = format!("{kube_home}/.kube/config");
+        let kubeconfig_file_path = kubeconfig_path.unwrap_or(&default_path).to_string();
+
+        // Ensure parent directory exists
+        if let Some(parent) = std::path::Path::new(&kubeconfig_file_path).parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                return TeleportKubeConfigResult {
+                    success: false,
+                    message: format!("Failed to create kubeconfig dir: {e}"),
+                    kubeconfig: None,
+                    context_name: None,
+                    kubeconfig_path: None,
+                };
+            }
+        }
+
+        // First, login to the kube cluster, directing output to our dedicated path
         let login_output = Command::new("tsh")
             .args([
                 "kube",
                 "login",
                 cluster_name,
                 &format!("--proxy={safe_proxy}"),
+                &format!("--kubeconfig={kubeconfig_file_path}"),
             ])
             .output()
             .await;
@@ -319,7 +344,6 @@ impl TeleportManager {
 
         match tokio::fs::read_to_string(&kubeconfig_file_path).await {
             Ok(content) => {
-                // Extract current-context from the kubeconfig YAML.
                 // tsh sets current-context to the context it just created, which may differ
                 // from the bare cluster_name (e.g. "teleport.corp.com-k8s-aliyun").
                 let context_name = content

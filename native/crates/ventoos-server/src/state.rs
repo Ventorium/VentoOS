@@ -49,8 +49,10 @@ impl AppState {
         let k8s_manager = Arc::new(K8sManager::new_with_vfs_and_db(Arc::clone(&vfs_manager), Arc::clone(&db)).await);
         let agent_manager = Arc::new(AgentManager::new());
 
+        let k8s_config_dir = data_dir.join("k8s");
+
         let plugins: Vec<Box<dyn AppPlugin>> = vec![
-            Box::new(K8sPlugin::new(k8s_manager)),
+            Box::new(K8sPlugin::new(k8s_manager, k8s_config_dir)),
             Box::new(DbPlugin::new(db_manager)),
             Box::new(RedisPlugin::new(redis_manager)),
             Box::new(VfsPlugin::new(Arc::clone(&vfs_manager))),
@@ -86,16 +88,16 @@ impl AppState {
         let k8s_manager = Arc::new(K8sManager::new_with_vfs(Arc::clone(&vfs_manager)));
         let agent_manager = Arc::new(AgentManager::new());
 
+        let tmp_dir = std::env::temp_dir().join("ventoos-test");
+
         let plugins: Vec<Box<dyn AppPlugin>> = vec![
-            Box::new(K8sPlugin::new(k8s_manager)),
+            Box::new(K8sPlugin::new(k8s_manager, tmp_dir.join("k8s"))),
             Box::new(DbPlugin::new(db_manager)),
             Box::new(RedisPlugin::new(redis_manager)),
             Box::new(VfsPlugin::new(Arc::clone(&vfs_manager))),
             Box::new(AgentPlugin::new(agent_manager)),
             Box::new(SshPlugin::new(Arc::clone(&ssh))),
         ];
-
-        let tmp_dir = std::env::temp_dir().join("ventoos-test");
 
         Ok(Self {
             settings_mgr: Arc::new(SettingsManager::new(Arc::clone(&db))),

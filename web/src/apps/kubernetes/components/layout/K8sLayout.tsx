@@ -20,9 +20,10 @@ interface Props {
   children: ReactNode
   overlay?: ReactNode
   onAddCluster?: () => void
+  onEditCluster?: (id: string) => void
 }
 
-export function K8sLayout({ children, overlay, onAddCluster }: Props) {
+export function K8sLayout({ children, overlay, onAddCluster, onEditCluster }: Props) {
   const detailOpen = useKubernetesStore(s => s.detailOpen)
   const detailWidth = useKubernetesStore(s => s.detailWidth)
   const setDetailWidth = useKubernetesStore(s => s.setDetailWidth)
@@ -94,7 +95,7 @@ export function K8sLayout({ children, overlay, onAddCluster }: Props) {
     <AppLayout
       sidebar={
         <AppSidebar width={220}>
-          <K8sSidebar onAddCluster={onAddCluster} />
+          <K8sSidebar onAddCluster={onAddCluster} onEditCluster={onEditCluster} />
         </AppSidebar>
       }
       overlay={overlay}

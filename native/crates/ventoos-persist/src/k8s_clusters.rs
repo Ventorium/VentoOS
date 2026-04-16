@@ -78,4 +78,25 @@ impl K8sClusterStore {
             Ok(())
         })
     }
+
+    /// Update an existing cluster record.
+    pub fn update(&self, cluster: &PersistedK8sCluster) -> Result<(), rusqlite::Error> {
+        self.db.with_conn(|conn| {
+            conn.execute(
+                "UPDATE k8s_clusters SET name=?2, context_name=?3, kubeconfig_path=?4, \
+                 kubeconfig_inline=?5, server_url=?6, namespace=?7, group_name=?8 WHERE id=?1",
+                rusqlite::params![
+                    cluster.id,
+                    cluster.name,
+                    cluster.context_name,
+                    cluster.kubeconfig_path,
+                    cluster.kubeconfig_inline,
+                    cluster.server_url,
+                    cluster.namespace,
+                    cluster.group_name,
+                ],
+            )?;
+            Ok(())
+        })
+    }
 }

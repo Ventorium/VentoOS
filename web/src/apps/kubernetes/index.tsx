@@ -5,7 +5,7 @@ import type { AppComponentProps } from '@/kernel'
 import { useAppStorage } from '@/kernel'
 import type { VfsPickerResult } from '@/shell/FilePicker'
 import { VfsPathPickerInput } from '@/shell/FilePicker'
-import type { CreateK8sClusterReq, K8sCluster, TeleportKubeCluster } from './api'
+import type { CreateK8sClusterReq, K8sCluster, TeleportKubeCluster, UpdateK8sClusterReq } from './api'
 import { k8sApi } from './api'
 import { ClusterOverview } from './components/overview/ClusterOverview'
 import { K8sLayout } from './components/layout/K8sLayout'
@@ -156,7 +156,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
     try {
       const kcRes = await k8sApi.teleportGetKubeconfig(tpProxy, tpSelectedCluster)
       const result = kcRes.data
-      if (!result.success || !result.kubeconfig) {
+      if (!result.success || (!result.kubeconfig && !result.kubeconfig_path)) {
         setTpError(result.message)
         return
       }
@@ -422,16 +422,101 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
   )
 }
 
+// ─── Edit cluster modal ────────────────────────────────────────────────────
+
+function EditClusterModal({ cluster, onClose, onUpdated }: { cluster: K8sCluster; onClose: () => void; onUpdated: (c: K8sCluster) => void }) {
+  const [name, setName] = useState(cluster.name)
+  const [kubeconfigPath, setKubeconfigPath] = useState(cluster.kubeconfig_path ?? '')
+  const [kubeconfigInline, setKubeconfigInline] = useState<string | undefined>(cluster.kubeconfig_inline)
+  const [contextName, setContextName] = useState(cluster.context_name)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleKubeconfigChange = async (path: string, result?: VfsPickerResult) => {
+    setKubeconfigPath(path)
+    if (result?.isRemote && result.content) {
+      const text = await result.content.text()
+      setKubeconfigInline(text)
+    } else {
+      setKubeconfigInline(undefined)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!name.trim()) return
+    setSaving(true)
+    setError('')
+    try {
+      const req: UpdateK8sClusterReq = {
+        name: name.trim(),
+        context_name: contextName || undefined,
+        kubeconfig_path: kubeconfigInline ? undefined : (kubeconfigPath || undefined),
+        kubeconfig_inline: kubeconfigInline || undefined,
+      }
+      const res = await k8sApi.updateK8sCluster(cluster.id, req)
+      onUpdated(res.data)
+    } catch (e: any) {
+      setError(e?.message || '保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      open={true}
+      onClose={onClose}
+      title="编辑集群"
+      width={400}
+      footer={
+        <>
+          <button type="button" className="vos-btn" onClick={onClose}>取消</button>
+          <button type="button" className="vos-btn vos-btn-primary" onClick={handleSave} disabled={saving || !name.trim()}>
+            {saving ? '保存中…' : '保存'}
+          </button>
+        </>
+      }
+    >
+      {error && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg text-xs bg-[rgba(255,59,48,0.1)] text-[var(--vos-accent-danger)]">
+          <AlertCircle size={12} className="shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      <div className="vos-form-row">
+        <label>集群名称</label>
+        <FormInput value={name} onChange={e => setName(e.target.value)} placeholder="集群名称" />
+      </div>
+      <div className="vos-form-row">
+        <label>Kubeconfig 路径</label>
+        <VfsPathPickerInput
+          mode="file"
+          value={kubeconfigPath}
+          onChange={handleKubeconfigChange}
+          placeholder="留空使用默认路径"
+          className="vos-input vos-input-sm"
+        />
+      </div>
+      <div className="vos-form-row">
+        <label>Context 名称</label>
+        <FormInput value={contextName} onChange={e => setContextName(e.target.value)} placeholder="kubeconfig 中的 context 名称" />
+      </div>
+    </Modal>
+  )
+}
+
 // ─── Main app ──────────────────────────────────────────────────────────────
 
 export default function KubernetesApp({ initialAppState }: AppComponentProps) {
   const storage = useAppStorage('kubernetes')
   const [showForm, setShowForm] = useState(false)
+  const [editingCluster, setEditingCluster] = useState<K8sCluster | null>(null)
 
   const loadClusters = useClusterStore(s => s.loadClusters)
   const addCluster = useClusterStore(s => s.addCluster)
-  const clustersLoading = useClusterStore(s => s.loading)
+  const updateClusterInStore = useClusterStore(s => s.updateCluster)
   const clusters = useClusterStore(s => s.clusters)
+  const clustersLoading = useClusterStore(s => s.loading)
 
   const activeTab = useKubernetesStore(s => s.getActiveTab())
   const openTab = useKubernetesStore(s => s.openTab)
@@ -473,12 +558,31 @@ export default function KubernetesApp({ initialAppState }: AppComponentProps) {
     [addCluster, openTab]
   )
 
+  const handleEditCluster = useCallback(
+    (id: string) => {
+      const c = useClusterStore.getState().clusters.find(cl => cl.id === id)
+      if (c) setEditingCluster(c)
+    },
+    []
+  )
+
+  const handleUpdated = useCallback(
+    (c: K8sCluster) => {
+      updateClusterInStore(c.id, { name: c.name, context_name: c.context_name, kubeconfig_path: c.kubeconfig_path, kubeconfig_inline: c.kubeconfig_inline })
+      setEditingCluster(null)
+    },
+    [updateClusterInStore]
+  )
+
   return (
     <K8sLayout
       onAddCluster={() => setShowForm(true)}
+      onEditCluster={handleEditCluster}
       overlay={
         showForm ? (
           <ClusterForm onClose={() => setShowForm(false)} onCreated={handleCreated} />
+        ) : editingCluster ? (
+          <EditClusterModal cluster={editingCluster} onClose={() => setEditingCluster(null)} onUpdated={handleUpdated} />
         ) : undefined
       }
     >
