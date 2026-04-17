@@ -754,6 +754,7 @@ export default function Dock() {
   const longPressRef = useRef<{ index: number; timerId: ReturnType<typeof setTimeout> } | null>(null)
   const displayItemsRef = useRef(displayItems)
   useEffect(() => { displayItemsRef.current = displayItems }, [displayItems])
+  const dragJustEndedRef = useRef(false)
 
   // ─── Folder popup ───
   const [openFolderIndex, setOpenFolderIndex] = useState<number | null>(null)
@@ -825,6 +826,9 @@ export default function Dock() {
     dragFromIndexRef.current = null
     setDropGapIndex(null)
     dropGapIndexRef.current = null
+    // Prevent click from firing after drag
+    dragJustEndedRef.current = true
+    setTimeout(() => { dragJustEndedRef.current = false }, 50)
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -862,9 +866,15 @@ export default function Dock() {
 
     if (longPressRef.current) clearTimeout(longPressRef.current.timerId)
 
+    // Capture the element rect at mousedown time so ghost offset is correct
+    const capturedRect = rect ?? null
+
     const timerId = setTimeout(() => {
       longPressRef.current = null
-      activateDrag(index, startX, startY, offsetX, offsetY)
+      // Use the element's current position (not mousedown position) for ghost
+      const ghostX = capturedRect ? capturedRect.left + offsetX : 0
+      const ghostY = capturedRect ? capturedRect.top + offsetY : 0
+      activateDrag(index, ghostX, ghostY, offsetX, offsetY)
     }, LONG_PRESS_MS)
 
     longPressRef.current = { index, timerId }
@@ -1046,7 +1056,7 @@ export default function Dock() {
   // ─── App click ───
   const handleAppClick = useCallback(
     (app: AppManifest) => {
-      if (dragActive) return
+      if (dragActive || dragJustEndedRef.current) return
       const getWindowsByApp = useWindowStore.getState().getWindowsByApp
       const appWindows = getWindowsByApp(app.id).filter(w => !w.isMinimized)
       const allWins = getWindowsByApp(app.id)

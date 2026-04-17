@@ -69,11 +69,12 @@ function LaunchpadAppIcon({
   index: number
   isDragging?: boolean
   mergeProgress?: number
-  onLaunch: () => void
+  onLaunch: () => boolean
   onMouseDown?: (e: React.MouseEvent) => void
   itemRef?: (el: HTMLDivElement | null) => void
 }) {
   function launch() {
+    if (!onLaunch()) return
     const existing = useWindowStore.getState().getWindowsByApp(app.id)
     if (existing.length > 0 && !app.multiWindow) {
       const top = existing.reduce((a, b) => (a.zIndex > b.zIndex ? a : b))
@@ -81,7 +82,6 @@ function LaunchpadAppIcon({
     } else {
       openWindow(app.id, { width: app.defaultSize?.width ?? 1000, height: app.defaultSize?.height ?? 680 })
     }
-    onLaunch()
   }
 
   return (
@@ -535,6 +535,7 @@ export default function Launchpad() {
   const longPressRef = useRef<{ index: number; timerId: ReturnType<typeof setTimeout> } | null>(null)
   const layoutItemsRef = useRef(layoutItems)
   useEffect(() => { layoutItemsRef.current = layoutItems }, [layoutItems])
+  const dragJustEndedRef = useRef(false)
 
   // --- Folder overlay ---
   const [openFolderIndex, setOpenFolderIndex] = useState<number | null>(null)
@@ -670,6 +671,9 @@ export default function Launchpad() {
     dragFromIndexRef.current = null
     setDropGapIndex(null)
     dropGapIndexRef.current = null
+    // Prevent click from firing after drag
+    dragJustEndedRef.current = true
+    setTimeout(() => { dragJustEndedRef.current = false }, 50)
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -701,11 +705,15 @@ export default function Launchpad() {
     const offY = rect ? e.clientY - rect.top : 0
     const startX = e.clientX
     const startY = e.clientY
+    const capturedRect = rect ?? null
 
     if (longPressRef.current) clearTimeout(longPressRef.current.timerId)
     const timerId = setTimeout(() => {
       longPressRef.current = null
-      activateDrag(index, startX, startY, offX, offY)
+      // Use element position for ghost, not mousedown position
+      const ghostX = capturedRect ? capturedRect.left + offX : 0
+      const ghostY = capturedRect ? capturedRect.top + offY : 0
+      activateDrag(index, ghostX, ghostY, offX, offY)
     }, LONG_PRESS_MS)
     longPressRef.current = { index, timerId }
 
@@ -741,9 +749,10 @@ export default function Launchpad() {
     ], { compact: true })
   }
 
-  const handleLaunch = useCallback(() => {
+  const handleLaunch = useCallback((): boolean => {
+    if (dragJustEndedRef.current) return false
     close()
-    setOpenFolderIndex(null)
+    return true
   }, [close])
 
   const openFolder = useLaunchpadStore(s => s.openFolder)
