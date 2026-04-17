@@ -76,21 +76,21 @@ cmd_build() {
         "${SOURCES}/Extension.swift"
     )
 
+    # Compile as Mach-O executable (not -emit-library which produces a dylib).
+    # codesign cannot embed entitlements into dylibs, and FileProvider
+    # extensions must be signed with com.apple.security.app-sandbox.
+    # -Xlinker -e -Xlinker _NSExtensionMain sets the NSExtension entry point.
     swiftc \
         -target "arm64-apple-macos${MIN_MACOS}" \
         -sdk "$(xcrun --show-sdk-path)" \
         -F "$(xcrun --show-sdk-path)/System/Library/Frameworks" \
         -framework FileProvider \
         -framework UniformTypeIdentifiers \
-        -emit-library \
+        -parse-as-library \
+        -Xlinker -e -Xlinker _NSExtensionMain \
         -module-name VentoFSFileProvider \
         -o "${APPEX_BUNDLE}/Contents/MacOS/VentoFSFileProvider" \
         "${ext_swift_files[@]}"
-
-    # Remove Swift module artifacts that break codesigning
-    rm -f "${APPEX_BUNDLE}/Contents/MacOS/"*.abi.json
-    rm -f "${APPEX_BUNDLE}/Contents/MacOS/"*.swiftmodule
-    rm -f "${APPEX_BUNDLE}/Contents/MacOS/"*.swiftdoc
 
     # ── Compile host app (domain manager CLI) ────────────────────────
     info "Compiling host app (domain manager CLI) …"
@@ -122,13 +122,17 @@ cmd_build() {
     # ── Ad-hoc code signing ───────────────────────────────────────────
     info "Signing with ad-hoc identity …"
 
-    codesign --force --sign - \
-        --entitlements "${RESOURCES}/VentoFS.entitlements" \
-        "${APPEX_BUNDLE}"
-
+    # IMPORTANT: Sign the host app FIRST, then the extension LAST.
+    # codesign on a parent bundle re-signs all nested code, so if we sign
+    # the extension first and the host app second, the host app signing
+    # step strips the extension's entitlements.
     codesign --force --sign - \
         --entitlements "${RESOURCES}/VentoFS.entitlements" \
         "${APP_BUNDLE}"
+
+    codesign --force --sign - \
+        --entitlements "${RESOURCES}/VentoFS.entitlements" \
+        "${APPEX_BUNDLE}"
 
     green "Build complete → ${APP_BUNDLE}"
 }

@@ -49,8 +49,9 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
         let progress = Progress(totalUnitCount: 1)
 
         // Root container → synthesise a virtual root node.
+        // FileProvider requires filename to be non-empty; use the mount ID as root name.
         if identifier == .rootContainer {
-            let rootNode = VfsNode(name: "", path: "/", is_dir: true, size: nil, modified: nil)
+            let rootNode = VfsNode(name: mountId, path: "/", is_dir: true, size: nil, modified: nil)
             completionHandler(FileProviderItem(mountId: mountId, node: rootNode), nil)
             progress.completedUnitCount = 1
             return progress
@@ -62,9 +63,9 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
             return progress
         }
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task {
             do {
-                let node = try self.api.stat(mountId: decoded.mountId, path: decoded.path)
+                let node = try await self.api.stat(mountId: decoded.mountId, path: decoded.path)
                 completionHandler(FileProviderItem(mountId: self.mountId, node: node), nil)
             } catch {
                 completionHandler(nil, Self.wrapError(error))
@@ -91,10 +92,10 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
             return progress
         }
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task {
             do {
-                let data = try self.api.readFile(mountId: decoded.mountId, path: decoded.path)
-                let node = try self.api.stat(mountId: decoded.mountId, path: decoded.path)
+                let data = try await self.api.readFile(mountId: decoded.mountId, path: decoded.path)
+                let node = try await self.api.stat(mountId: decoded.mountId, path: decoded.path)
 
                 // Write to a temporary file that FileProvider will manage.
                 let tempDir = FileManager.default.temporaryDirectory
@@ -140,18 +141,18 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
 
         let newPath = (parentPath as NSString).appendingPathComponent(itemTemplate.filename)
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task {
             do {
                 if itemTemplate.contentType == .folder {
-                    try self.api.mkdir(mountId: self.mountId, path: newPath)
+                    try await self.api.mkdir(mountId: self.mountId, path: newPath)
                 } else if let fileURL = url, let data = try? Data(contentsOf: fileURL) {
-                    try self.api.writeFile(mountId: self.mountId, path: newPath, data: data)
+                    try await self.api.writeFile(mountId: self.mountId, path: newPath, data: data)
                 } else {
                     // Create empty file
-                    try self.api.writeFile(mountId: self.mountId, path: newPath, data: Data())
+                    try await self.api.writeFile(mountId: self.mountId, path: newPath, data: Data())
                 }
 
-                let node = try self.api.stat(mountId: self.mountId, path: newPath)
+                let node = try await self.api.stat(mountId: self.mountId, path: newPath)
                 let item = FileProviderItem(mountId: self.mountId, node: node)
                 completionHandler(item, [], false, nil)
             } catch {
@@ -182,7 +183,7 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
             return progress
         }
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task {
             do {
                 var currentPath = decoded.path
 
@@ -198,7 +199,7 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
                     }
                     let destPath = (newParentPath as NSString).appendingPathComponent(item.filename)
                     if destPath != currentPath {
-                        try self.api.moveFile(mountId: self.mountId, src: currentPath, dest: destPath)
+                        try await self.api.moveFile(mountId: self.mountId, src: currentPath, dest: destPath)
                         currentPath = destPath
                     }
                 }
@@ -206,10 +207,10 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
                 // Handle content update
                 if changedFields.contains(.contents), let fileURL = url {
                     let data = try Data(contentsOf: fileURL)
-                    try self.api.writeFile(mountId: self.mountId, path: currentPath, data: data)
+                    try await self.api.writeFile(mountId: self.mountId, path: currentPath, data: data)
                 }
 
-                let node = try self.api.stat(mountId: self.mountId, path: currentPath)
+                let node = try await self.api.stat(mountId: self.mountId, path: currentPath)
                 let updatedItem = FileProviderItem(mountId: self.mountId, node: node)
                 completionHandler(updatedItem, [], false, nil)
             } catch {
@@ -238,9 +239,9 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
             return progress
         }
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task {
             do {
-                try self.api.delete(mountId: decoded.mountId, path: decoded.path)
+                try await self.api.delete(mountId: decoded.mountId, path: decoded.path)
                 completionHandler(nil)
             } catch {
                 completionHandler(Self.wrapError(error))

@@ -47,15 +47,17 @@ final class FileProviderEnumerator: NSObject, NSFileProviderEnumerator {
 
         let dirPath = resolvedPath()
 
-        do {
-            let nodes = try api.listDir(mountId: mountId, path: dirPath)
-            let items = nodes.map { FileProviderItem(mountId: mountId, node: $0) }
-            observer.didEnumerate(items)
-            observer.finishEnumerating(upTo: nil)
-        } catch {
-            observer.finishEnumeratingWithError(
-                Self.wrapError(error, item: containerIdentifier)
-            )
+        Task {
+            do {
+                let nodes = try await api.listDir(mountId: mountId, path: dirPath)
+                let items = nodes.map { FileProviderItem(mountId: mountId, node: $0) }
+                observer.didEnumerate(items)
+                observer.finishEnumerating(upTo: nil)
+            } catch {
+                observer.finishEnumeratingWithError(
+                    Self.wrapError(error, item: containerIdentifier)
+                )
+            }
         }
     }
 
@@ -73,16 +75,18 @@ final class FileProviderEnumerator: NSObject, NSFileProviderEnumerator {
 
         let dirPath = resolvedPath()
 
-        do {
-            let nodes = try api.listDir(mountId: mountId, path: dirPath)
-            let items = nodes.map { FileProviderItem(mountId: mountId, node: $0) }
-            observer.didUpdate(items)
-            let newAnchor = Self.currentSyncAnchor()
-            observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
-        } catch {
-            observer.finishEnumeratingWithError(
-                Self.wrapError(error, item: containerIdentifier)
-            )
+        Task {
+            do {
+                let nodes = try await api.listDir(mountId: mountId, path: dirPath)
+                let items = nodes.map { FileProviderItem(mountId: mountId, node: $0) }
+                observer.didUpdate(items)
+                let newAnchor = Self.currentSyncAnchor()
+                observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
+            } catch {
+                observer.finishEnumeratingWithError(
+                    Self.wrapError(error, item: containerIdentifier)
+                )
+            }
         }
     }
 

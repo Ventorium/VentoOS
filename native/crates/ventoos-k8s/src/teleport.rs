@@ -265,7 +265,7 @@ impl TeleportManager {
 
     /// Generate kubeconfig for a specific Teleport Kubernetes cluster.
     ///
-    /// Runs: `tsh kube login <cluster_name> --proxy=<proxy> --kubeconfig=<path>` then reads
+    /// Runs: `KUBECONFIG=<path> tsh kube login <cluster_name> --proxy=<proxy>` then reads
     /// the context name from the generated kubeconfig.
     ///
     /// `kubeconfig_path` is the file where credentials should be written, defaults to
@@ -297,13 +297,14 @@ impl TeleportManager {
         }
 
         // First, login to the kube cluster, directing output to our dedicated path
+        // tsh uses KUBECONFIG env var instead of --kubeconfig flag
         let login_output = Command::new("tsh")
+            .env("KUBECONFIG", &kubeconfig_file_path)
             .args([
                 "kube",
                 "login",
                 cluster_name,
                 &format!("--proxy={safe_proxy}"),
-                &format!("--kubeconfig={kubeconfig_file_path}"),
             ])
             .output()
             .await;
@@ -336,11 +337,9 @@ impl TeleportManager {
             }
         }
 
-        // Now read the kubeconfig that tsh generates
-        // tsh updates ~/.kube/config or uses KUBECONFIG env
-        let kube_home = dirs_path();
-        let kubeconfig_file_path = std::env::var("KUBECONFIG")
-            .unwrap_or_else(|_| format!("{}/.kube/config", kube_home));
+        // Now read the kubeconfig that tsh generated at our dedicated path.
+        // NOTE: we use the `kubeconfig_file_path` computed above (line 284), not
+        // std::env::var("KUBECONFIG") — .env() only affects the child process.
 
         match tokio::fs::read_to_string(&kubeconfig_file_path).await {
             Ok(content) => {

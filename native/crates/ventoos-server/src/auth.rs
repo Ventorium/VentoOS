@@ -24,9 +24,98 @@ pub struct AuthManager {
 /// Token validity duration in seconds (24 hours).
 const TOKEN_TTL: u64 = 86400;
 
+/// FileProvider internal token validity: 10 years.
+const FILEPROVIDER_TOKEN_TTL: u64 = 10 * 365 * 86400;
+
 impl AuthManager {
     pub fn new(db: Arc<Database>) -> Self {
         Self { db }
+    }
+
+    /// Ensure a long-lived internal token exists for the FileProvider extension.
+    /// Returns the token string. Creates one if not already present.
+    pub fn ensure_fileprovider_token(&self) -> Result<String, String> {
+        // Check if a FileProvider token already exists and is still valid
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let existing: Option<String> = self
+            .db
+            .with_conn(|conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT token FROM auth_tokens WHERE token LIKE 'fp_%' AND expires_at > ?1 LIMIT 1",
+                        rusqlite::params![now as i64],
+                        |row| row.get(0),
+                    )
+                    .ok())
+            })
+            .ok()
+            .flatten();
+
+        if let Some(token) = existing {
+            return Ok(token);
+        }
+
+        // Generate a new long-lived token with a recognizable prefix
+        let token = format!("fp_{}", generate_token());
+        let expires_at = now + FILEPROVIDER_TOKEN_TTL;
+
+        self.db
+            .with_conn(|conn| {
+                conn.execute(
+                    "INSERT INTO auth_tokens (token, expires_at, created_at) VALUES (?1, ?2, ?3)",
+                    rusqlite::params![&token, expires_at as i64, now as i64],
+                )
+            })
+            .map_err(|e| e.to_string())?;
+
+        Ok(token)
+    }
+
+    /// Ensure the FileProvider token file exists at `~/Library/VentoOS/.fp-token`
+    /// AND inside the extension's sandbox container so the sandboxed extension can read it.
+    /// Called during server startup so the FileProvider extension can authenticate.
+    pub fn ensure_fileprovider_token_file(&self) {
+        let token = match self.ensure_fileprovider_token() {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to generate FileProvider token: {e}");
+                return;
+            }
+        };
+
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+
+        // Write to VentoOS data dir
+        let dir = std::path::Path::new(&home).join("Library/VentoOS");
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            tracing::error!("Failed to create VentoOS dir: {e}");
+        } else if let Err(e) = std::fs::write(dir.join(".fp-token"), &token) {
+            tracing::error!("Failed to write FileProvider token file: {e}");
+        }
+
+        // Also write inside the extension's sandbox container so the sandboxed
+        // extension process can read it (it cannot access ~/Library/VentoOS/).
+        // The FileProvider extension has its OWN container (io.ventoos.VentoFS.FileProvider)
+        // separate from the host app's container (io.ventoos.VentoFS).
+        for container_id in &[
+            "Library/Containers/io.ventoos.VentoFS/Data",
+            "Library/Containers/io.ventoos.VentoFS.FileProvider/Data",
+        ] {
+            let container_dir = std::path::Path::new(&home).join(container_id);
+            if container_dir.exists() {
+                if let Err(e) = std::fs::write(container_dir.join(".fp-token"), &token) {
+                    tracing::error!("Failed to write FileProvider token to {}: {e}", container_id);
+                } else {
+                    tracing::info!("FileProvider token written to {}", container_id);
+                }
+            }
+        }
+
+        tracing::info!("FileProvider token ensured");
     }
 
     /// Check if a password has been set up yet.

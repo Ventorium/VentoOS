@@ -68,6 +68,10 @@ final class FileProviderItem: NSObject, NSFileProviderItem {
     // MARK: - NSFileProviderItem
 
     var itemIdentifier: NSFileProviderItemIdentifier {
+        // The root directory must always return .rootContainer.
+        if node.path == "/" {
+            return .rootContainer
+        }
         return encodeItemIdentifier(mountId: mountId, path: node.path)
     }
 
@@ -88,6 +92,16 @@ final class FileProviderItem: NSObject, NSFileProviderItem {
             return UTType(filenameExtension: String(ext)) ?? .data
         }
         return .data
+    }
+
+    var itemVersion: NSFileProviderItemVersion {
+        // Use path + modification date as a content-based version.
+        // The version changes whenever the file is modified.
+        let versionString = "\(node.path)_\(node.modified ?? "")"
+        return NSFileProviderItemVersion(
+            contentVersion: Data(versionString.utf8),
+            metadataVersion: Data(versionString.utf8)
+        )
     }
 
     var capabilities: NSFileProviderItemCapabilities {
