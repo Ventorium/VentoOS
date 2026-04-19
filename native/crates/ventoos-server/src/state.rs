@@ -60,12 +60,15 @@ impl AppState {
             Box::new(SshPlugin::new(Arc::clone(&ssh))),
         ];
 
+        let auth = AuthManager::new(Arc::clone(&db));
+        auth.ensure_fileprovider_token_file();
+
         Ok(Self {
             settings_mgr: Arc::new(SettingsManager::new(Arc::clone(&db))),
             window_states: Arc::new(WindowStateManager::new(Arc::clone(&db))),
             storage: Arc::new(StorageManager::new(data_dir)),
             notification_mgr: Arc::new(NotificationStore::new(Arc::clone(&db))),
-            auth: AuthManager::new(Arc::clone(&db)),
+            auth,
             db,
             tasks: Arc::new(TaskEngine::new()),
             ssh,

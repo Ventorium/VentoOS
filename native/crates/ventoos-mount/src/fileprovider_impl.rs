@@ -13,6 +13,17 @@ use std::path::PathBuf;
 use crate::types::{FileProviderAvailability, MountError};
 
 // ---------------------------------------------------------------------------
+// Embedded VentoFS.app bundle
+// ---------------------------------------------------------------------------
+
+/// When VentoFS.app is built before this crate, build.rs zips it and sets
+/// `embedded_ventofs`.  The zip bytes are then baked into the Rust binary.
+#[cfg(embedded_ventofs)]
+const VENTOFS_APP_ZIP: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/VentoFS.zip"));
+#[cfg(not(embedded_ventofs))]
+const VENTOFS_APP_ZIP: &[u8] = &[];
+
+// ---------------------------------------------------------------------------
 // Availability
 // ---------------------------------------------------------------------------
 
@@ -50,12 +61,15 @@ fn is_macos_version_supported(version: &str) -> bool {
 // Extension app discovery
 // ---------------------------------------------------------------------------
 
+/// Remote download URL for VentoFS.app.
+const VENTOFS_DOWNLOAD_URL: &str = "https://ventoos.erguotou.me/VentoFS/0.1.0/VentoFS.zip";
+
 /// Locate the `VentoFS.app` bundle that contains the FileProvider extension.
 ///
 /// Search order:
 /// 1. Next to the current executable (`{exe_dir}/VentoFS.app`)
 /// 2. `/Applications/VentoFS.app`
-/// 3. `~/Library/Application Support/VentoOS/VentoFS.app`
+/// 3. `~/Library/VentoOS/VentoFS.app`
 fn extension_app_path() -> PathBuf {
     // 1. Beside the current executable
     if let Ok(exe) = std::env::current_exe()
@@ -73,7 +87,7 @@ fn extension_app_path() -> PathBuf {
         return global;
     }
 
-    // 3. ~/Library/VentoOS/VentoFS.app (install script default)
+    // 3. ~/Library/VentoOS/VentoFS.app (install script default / remote install)
     if let Some(home) = dirs_fallback_home() {
         let install_path = home.join("Library/VentoOS/VentoFS.app");
         if install_path.exists() {
@@ -92,6 +106,11 @@ fn extension_app_path() -> PathBuf {
 
     // Fallback – return the most likely path even if it doesn't exist yet.
     PathBuf::from("/Applications/VentoFS.app")
+}
+
+/// Default install directory for remote-downloaded VentoFS.app.
+fn default_install_dir() -> Option<PathBuf> {
+    dirs_fallback_home().map(|h| h.join("Library/VentoOS"))
 }
 
 /// Resolve the helper binary inside the app bundle.
@@ -115,6 +134,129 @@ fn dirs_fallback_home() -> Option<PathBuf> {
 /// Check if the FileProvider extension app bundle is installed.
 pub fn is_extension_installed() -> bool {
     extension_app_path().exists()
+}
+
+/// Ensure VentoFS.app is installed.
+///
+/// Priority:
+/// 1. If already present in a standard search path → nothing to do.
+/// 2. If a zip was embedded at compile time (via build.rs) → extract it.
+/// 3. Otherwise → download from `VENTOFS_DOWNLOAD_URL`.
+pub async fn ensure_extension_installed() -> Result<(), MountError> {
+    if is_extension_installed() {
+        tracing::debug!("VentoFS.app already installed");
+        return Ok(());
+    }
+
+    let install_dir = default_install_dir().ok_or_else(|| {
+        MountError::FileProvider("Unable to resolve HOME directory".to_string())
+    })?;
+    let zip_path = install_dir.join("VentoFS.zip");
+
+    // Ensure install directory exists.
+    tokio::fs::create_dir_all(&install_dir).await.map_err(|e| {
+        MountError::FileProvider(format!(
+            "Failed to create install directory {}: {e}",
+            install_dir.display()
+        ))
+    })?;
+
+    let use_embedded = !VENTOFS_APP_ZIP.is_empty();
+
+    if use_embedded {
+        tracing::info!(
+            dest = %install_dir.display(),
+            "VentoFS.app not found — extracting embedded bundle"
+        );
+        tokio::fs::write(&zip_path, VENTOFS_APP_ZIP)
+            .await
+            .map_err(|e| {
+                MountError::FileProvider(format!(
+                    "Failed to write embedded zip to {}: {e}",
+                    zip_path.display()
+                ))
+            })?;
+    } else {
+        tracing::info!(
+            url = VENTOFS_DOWNLOAD_URL,
+            dest = %install_dir.display(),
+            "VentoFS.app not found — downloading from remote"
+        );
+
+        // Download using curl (available on every macOS).
+        let output = tokio::process::Command::new("curl")
+            .args([
+                "-L",
+                "-f",
+                "-o",
+                zip_path.to_str().unwrap_or("/tmp/VentoFS.zip"),
+                VENTOFS_DOWNLOAD_URL,
+            ])
+            .output()
+            .await
+            .map_err(|e| {
+                MountError::FileProvider(format!("Failed to run curl: {e}"))
+            })?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(MountError::FileProvider(format!(
+                "Failed to download VentoFS.zip: {}",
+                stderr.trim()
+            )));
+        }
+    }
+
+    tracing::info!("Extracting VentoFS.zip …");
+
+    // Extract using unzip (available on every macOS).
+    let output = tokio::process::Command::new("unzip")
+        .args([
+            "-o",
+            "-q",
+            zip_path.to_str().unwrap_or("/tmp/VentoFS.zip"),
+            "-d",
+            install_dir.to_str().unwrap_or("/tmp"),
+        ])
+        .output()
+        .await
+        .map_err(|e| {
+            MountError::FileProvider(format!("Failed to run unzip: {e}"))
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(MountError::FileProvider(format!(
+            "Failed to extract VentoFS.zip: {}",
+            stderr.trim()
+        )));
+    }
+
+    // Clean up zip file.
+    let _ = tokio::fs::remove_file(&zip_path).await;
+
+    // Verify extraction succeeded.
+    let app_path = install_dir.join("VentoFS.app");
+    if !app_path.exists() {
+        return Err(MountError::FileProvider(
+            "VentoFS.app not found after extraction".to_string(),
+        ));
+    }
+
+    // Open the app once so macOS registers the FileProvider extension.
+    tracing::info!(
+        "Opening VentoFS.app to trigger FileProvider extension registration …"
+    );
+    let _ = tokio::process::Command::new("open")
+        .arg(&app_path)
+        .output()
+        .await;
+
+    // Wait briefly for the system to recognise the new extension.
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    tracing::info!("VentoFS.app installed at {}", app_path.display());
+    Ok(())
 }
 
 fn pluginkit_output_has_bundle(output: &str, bundle_id: &str) -> bool {
@@ -311,12 +453,14 @@ pub async fn probe_domain_access(display_name: &str) -> Result<(), String> {
         Ok(())
     });
 
-    match tokio::time::timeout(std::time::Duration::from_secs(2), read_attempt).await {
+    // FileProvider extension cold-start can take several seconds (sandbox init,
+    // XPC handshake, first HTTP request to localhost).  Use a generous timeout.
+    match tokio::time::timeout(std::time::Duration::from_secs(15), read_attempt).await {
         Ok(Ok(Ok(()))) => Ok(()),
         Ok(Ok(Err(error))) => Err(error),
         Ok(Err(join_error)) => Err(format!("CloudStorage 访问探针任务失败: {join_error}")),
         Err(_) => Err(format!(
-            "CloudStorage 目录可见但访问超时：{}",
+            "CloudStorage 目录可见但访问超时（15s）：{}。请确认 VentoOS server 正在运行且 FileProvider 扩展已正确构建/签名。",
             target.display()
         )),
     }

@@ -106,12 +106,16 @@ impl AuthManager {
             "Library/Containers/io.ventoos.VentoFS.FileProvider/Data",
         ] {
             let container_dir = std::path::Path::new(&home).join(container_id);
-            if container_dir.exists() {
-                if let Err(e) = std::fs::write(container_dir.join(".fp-token"), &token) {
-                    tracing::error!("Failed to write FileProvider token to {}: {e}", container_id);
-                } else {
-                    tracing::info!("FileProvider token written to {}", container_id);
-                }
+            // Ensure the container directory exists — it may not have been created yet
+            // if the FileProvider extension has never been launched.
+            if let Err(e) = std::fs::create_dir_all(&container_dir) {
+                tracing::error!("Failed to create container dir {}: {e}", container_id);
+                continue;
+            }
+            if let Err(e) = std::fs::write(container_dir.join(".fp-token"), &token) {
+                tracing::error!("Failed to write FileProvider token to {}: {e}", container_id);
+            } else {
+                tracing::info!("FileProvider token written to {}", container_id);
             }
         }
 

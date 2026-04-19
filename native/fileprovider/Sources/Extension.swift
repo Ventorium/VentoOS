@@ -47,17 +47,20 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
         completionHandler: @escaping (NSFileProviderItem?, Error?) -> Void
     ) -> Progress {
         let progress = Progress(totalUnitCount: 1)
+        NSLog("[VentoFS] item for identifier: %@", identifier.rawValue)
 
         // Root container → synthesise a virtual root node.
         // FileProvider requires filename to be non-empty; use the mount ID as root name.
         if identifier == .rootContainer {
             let rootNode = VfsNode(name: mountId, path: "/", is_dir: true, size: nil, modified: nil)
+            NSLog("[VentoFS] item rootContainer → immediate")
             completionHandler(FileProviderItem(mountId: mountId, node: rootNode), nil)
             progress.completedUnitCount = 1
             return progress
         }
 
         guard let decoded = decodeItemIdentifier(identifier) else {
+            NSLog("[VentoFS] item decode failed")
             completionHandler(nil, NSFileProviderError(.noSuchItem))
             progress.completedUnitCount = 1
             return progress
@@ -66,8 +69,10 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
         Task {
             do {
                 let node = try await self.api.stat(mountId: decoded.mountId, path: decoded.path)
+                NSLog("[VentoFS] item stat done: %@", decoded.path)
                 completionHandler(FileProviderItem(mountId: self.mountId, node: node), nil)
             } catch {
+                NSLog("[VentoFS] item stat error: %@", error.localizedDescription)
                 completionHandler(nil, Self.wrapError(error))
             }
             progress.completedUnitCount = 1
@@ -258,6 +263,7 @@ final class Extension: NSObject, NSFileProviderReplicatedExtension {
         for containerItemIdentifier: NSFileProviderItemIdentifier,
         request _: NSFileProviderRequest
     ) throws -> NSFileProviderEnumerator {
+        NSLog("[VentoFS] enumerator for: %@", containerItemIdentifier.rawValue)
         return FileProviderEnumerator(
             container: containerItemIdentifier,
             mountId: mountId,

@@ -167,6 +167,7 @@ async fn test_connection_handler(
 struct PathQuery {
     path: Option<String>,
     show_hidden: Option<bool>,
+    token: Option<String>,
 }
 
 async fn list_dir(
@@ -174,14 +175,24 @@ async fn list_dir(
     Path(id): Path<String>,
     Query(query): Query<PathQuery>,
 ) -> impl IntoResponse {
+    // FileProvider probe domains are transient (created by healthcheck then
+    // immediately unregistered).  The extension may still enumerate them for
+    // a short time — silently return an empty listing instead of a noisy error.
+    if id.starts_with("probe-") {
+        return Json(ApiResponse::ok(Vec::<crate::types::VfsNode>::new())).into_response();
+    }
+
     let req = VfsListReq {
-        mount_id: id,
+        mount_id: id.clone(),
         path: query.path.unwrap_or_else(|| "/".into()),
         show_hidden: query.show_hidden.unwrap_or(false),
     };
     match mgr.list_dir(&req).await {
         Ok(nodes) => Json(ApiResponse::ok(nodes)).into_response(),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+        Err(e) => {
+            tracing::error!("list_dir failed mount={} path={}: {}", id, req.path, e);
+            (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response()
+        }
     }
 }
 
@@ -189,6 +200,7 @@ async fn list_dir(
 struct ReadQuery {
     path: String,
     max_bytes: Option<u64>,
+    token: Option<String>,
 }
 
 async fn read_file(
@@ -233,7 +245,10 @@ async fn read_file_raw(
             )
                 .into_response()
         }
-        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+        Err(e) => {
+            tracing::error!("read_file_raw failed mount={} path={}: {}", id, path, e);
+            (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response()
+        }
     }
 }
 
@@ -386,7 +401,10 @@ async fn stat_handler(
     let path = query.path.unwrap_or_else(|| "/".into());
     match mgr.stat(&id, &path).await {
         Ok(node) => Json(ApiResponse::ok(node)).into_response(),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+        Err(e) => {
+            tracing::error!("stat failed mount={} path={}: {}", id, path, e);
+            (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response()
+        }
     }
 }
 

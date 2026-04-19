@@ -134,7 +134,7 @@ impl WebDavClient {
             .await
             .map_err(|e| format!("WebDAV read body: {e}"))?;
 
-        parse_propfind_response(&text, &self.config.base_url, path)
+        parse_propfind_response(&text, &self.config.base_url, path, false)
     }
 
     // ─── stat ─────────────────────────────────────────────────────────────────
@@ -171,7 +171,9 @@ impl WebDavClient {
             .await
             .map_err(|e| format!("WebDAV read body: {e}"))?;
 
-        let nodes = parse_propfind_response(&text, &self.config.base_url, path)?;
+        // Depth:0 means the server returns only the requested item itself;
+        // pass is_stat=true so href_to_vfs_node does NOT skip it.
+        let nodes = parse_propfind_response(&text, &self.config.base_url, path, true)?;
         nodes
             .into_iter()
             .next()
@@ -321,10 +323,15 @@ impl WebDavClient {
 /// Parse a WebDAV PROPFIND response body into `VfsNode` items.
 /// Skips the entry matching `request_path` itself (i.e. only returns children
 /// when called with Depth:1).
+/// Parse a WebDAV PROPFIND response body into `VfsNode` items.
+/// `is_stat` should be `true` when called with Depth:0 (stat) so the
+/// requested item itself is included; `false` for Depth:1 (list_dir)
+/// where the directory itself is skipped.
 fn parse_propfind_response(
     xml: &str,
     base_url: &str,
     request_path: &str,
+    is_stat: bool,
 ) -> Result<Vec<VfsNode>, String> {
     use quick_xml::events::Event;
     use quick_xml::reader::Reader;
@@ -398,6 +405,7 @@ fn parse_propfind_response(
                             last_modified.clone(),
                             base_url,
                             request_path,
+                            is_stat,
                         ) {
                             nodes.push(node);
                         }
@@ -434,7 +442,8 @@ fn local_name(qname: &[u8]) -> &str {
 }
 
 /// Convert an `href` from a PROPFIND response into a `VfsNode` with a VFS-relative path.
-/// Returns `None` for the root entry (i.e. the path matching `request_path`).
+/// Returns `None` for the root entry when `is_stat` is `false` (i.e. the path
+/// matching `request_path` is skipped during list_dir but kept during stat).
 fn href_to_vfs_node(
     href: &str,
     displayname: &str,
@@ -443,6 +452,7 @@ fn href_to_vfs_node(
     modified: Option<String>,
     base_url: &str,
     request_path: &str,
+    is_stat: bool,
 ) -> Option<VfsNode> {
     // href may be absolute (http://host/path) or relative (/path)
     let href_path = if href.starts_with("http://") || href.starts_with("https://") {
@@ -465,14 +475,13 @@ fn href_to_vfs_node(
     let decoded = percent_decode(rel);
     let vfs_path = format!("/{}", decoded.trim_matches('/'));
 
-    // Strip the request_path to see if this IS the root (skip it)
-    let req_clean = format!("/{}", request_path.trim_matches('/'));
-    if vfs_path == req_clean || (vfs_path == "/" && req_clean == "/") {
-        // This entry corresponds to the requested directory itself — skip it
-        // unless Depth:0 was requested (stat).
-        // We skip only if there might be children (list_dir scenario).
-        // For stat we always include it.
-        return None;
+    // When Depth:1 (list_dir), skip the directory itself so only children are returned.
+    // When Depth:0 (stat), always include the requested item.
+    if !is_stat {
+        let req_clean = format!("/{}", request_path.trim_matches('/'));
+        if vfs_path == req_clean || (vfs_path == "/" && req_clean == "/") {
+            return None;
+        }
     }
 
     let name = if !displayname.is_empty() {
@@ -635,8 +644,34 @@ mod tests {
   </D:response>
 </D:multistatus>"#;
 
-        let nodes = parse_propfind_response(xml, "http://host/dav/", "/").unwrap();
+        let nodes = parse_propfind_response(xml, "http://host/dav/", "/", false).unwrap();
         assert_eq!(nodes.len(), 1, "should skip root entry");
+        assert_eq!(nodes[0].name, "hello.txt");
+        assert_eq!(nodes[0].size, Some(13));
+        assert!(!nodes[0].is_dir);
+    }
+
+    #[test]
+    fn test_parse_propfind_response_stat() {
+        let xml = r#"<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/dav/hello.txt</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype/>
+        <D:displayname>hello.txt</D:displayname>
+        <D:getcontentlength>13</D:getcontentlength>
+        <D:getlastmodified>Mon, 01 Jan 2024 00:00:00 GMT</D:getlastmodified>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>"#;
+
+        // Depth:0 (stat) — the requested item itself must be included
+        let nodes = parse_propfind_response(xml, "http://host/dav/", "/hello.txt", true).unwrap();
+        assert_eq!(nodes.len(), 1, "stat should include the requested item");
         assert_eq!(nodes[0].name, "hello.txt");
         assert_eq!(nodes[0].size, Some(13));
         assert!(!nodes[0].is_dir);

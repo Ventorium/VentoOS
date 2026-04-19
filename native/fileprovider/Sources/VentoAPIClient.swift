@@ -105,7 +105,9 @@ final class VentoAPIClient {
         if let token = authToken {
             apiPath += "&token=\(token)"
         }
+        NSLog("[VentoFS] listDir: %@", apiPath)
         let response: VentoResponse<[VfsNode]> = try await requestJSON(.GET, apiPath: apiPath)
+        NSLog("[VentoFS] listDir done: %d items", response.data?.count ?? 0)
         return response.data ?? []
     }
 
@@ -116,7 +118,9 @@ final class VentoAPIClient {
         if let token = authToken {
             apiPath += "&token=\(token)"
         }
+        NSLog("[VentoFS] stat: %@", apiPath)
         let response: VentoResponse<VfsNode> = try await requestJSON(.GET, apiPath: apiPath)
+        NSLog("[VentoFS] stat done: success=%@", response.success ? "true" : "false")
         guard let node = response.data else {
             throw VentoAPIError.apiError(code: response.success ? 0 : -1, message: response.message ?? "No data")
         }
@@ -126,7 +130,7 @@ final class VentoAPIClient {
     /// Download raw file bytes.
     func readFile(mountId: String, path: String) async throws -> Data {
         let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? path
-        var apiPath = "/api/vfs/mounts/\(mountId)/read-raw?path=\(encoded)"
+        var apiPath = "/api/vfs/mounts/\(mountId)/raw?path=\(encoded)"
         if let token = authToken {
             apiPath += "&token=\(token)"
         }
@@ -174,22 +178,28 @@ final class VentoAPIClient {
         // 1. Try the container directory first (sandboxed extension)
         let containerUrl = URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent(".fp-token")
+        NSLog("[VentoFS] loadToken: trying container %@", containerUrl.path)
         if let content = try? String(contentsOf: containerUrl, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines), !content.isEmpty {
+            NSLog("[VentoFS] loadToken: found in container")
             return content
         }
 
         // 2. Try the real home directory (for non-sandboxed or dev use)
         guard let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir else {
+            NSLog("[VentoFS] loadToken: failed to resolve home dir")
             return nil
         }
         let home = String(cString: dir)
         let homeUrl = URL(fileURLWithPath: home)
             .appendingPathComponent("Library/VentoOS/.fp-token")
+        NSLog("[VentoFS] loadToken: trying home %@", homeUrl.path)
         if let content = try? String(contentsOf: homeUrl, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines), !content.isEmpty {
+            NSLog("[VentoFS] loadToken: found in home")
             return content
         }
+        NSLog("[VentoFS] loadToken: not found anywhere")
         return nil
     }
 
@@ -236,6 +246,7 @@ final class VentoAPIClient {
         body: Data?
     ) async throws -> Data {
         let urlString = serverURL + apiPath
+        NSLog("[VentoFS] performRequest: %@ %@", method.rawValue, urlString)
         guard let url = URL(string: urlString) else {
             throw VentoAPIError.invalidURL(urlString)
         }
@@ -259,6 +270,7 @@ final class VentoAPIClient {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw VentoAPIError.serverUnreachable
         }
+        NSLog("[VentoFS] response status: %d", httpResponse.statusCode)
         guard (200..<300).contains(httpResponse.statusCode) else {
             let msg = String(data: data.prefix(512), encoding: .utf8) ?? ""
             throw VentoAPIError.httpError(statusCode: httpResponse.statusCode, message: msg)

@@ -261,6 +261,9 @@ impl LocalMountManager {
     ) -> Result<(), MountError> {
         #[cfg(target_os = "macos")]
         {
+            // Auto-download and install VentoFS.app if it is missing.
+            crate::fileprovider_impl::ensure_extension_installed().await?;
+
             let diagnostics = Self::fileprovider_availability();
             if !diagnostics.available {
                 return Err(MountError::FileProvider(
