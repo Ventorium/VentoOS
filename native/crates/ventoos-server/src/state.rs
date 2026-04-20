@@ -2,6 +2,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use ventoos_agent::{AgentManager, AgentPlugin};
+use ventoos_api_client::ApiClientPlugin;
 use ventoos_core::plugin::AppPlugin;
 use ventoos_db::{DbManager, DbPlugin};
 use ventoos_k8s::{K8sManager, K8sPlugin};
@@ -58,6 +59,7 @@ impl AppState {
             Box::new(VfsPlugin::new(Arc::clone(&vfs_manager))),
             Box::new(AgentPlugin::new(agent_manager)),
             Box::new(SshPlugin::new(Arc::clone(&ssh))),
+            Box::new(ApiClientPlugin::new(data_dir)),
         ];
 
         let auth = AuthManager::new(Arc::clone(&db));
@@ -100,6 +102,7 @@ impl AppState {
             Box::new(VfsPlugin::new(Arc::clone(&vfs_manager))),
             Box::new(AgentPlugin::new(agent_manager)),
             Box::new(SshPlugin::new(Arc::clone(&ssh))),
+            Box::new(ApiClientPlugin::new(&tmp_dir)),
         ];
 
         Ok(Self {

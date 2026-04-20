@@ -11,6 +11,7 @@ members = [
     "crates/ventoos-task",
     "crates/ventoos-agent",
     "crates/ventoos-persist",
+    "crates/ventoos-api-client",
 ]
 resolver = "3"
 
@@ -90,6 +91,7 @@ ventoos-mount = { path = "crates/ventoos-mount" }
 ventoos-task = { path = "crates/ventoos-task" }
 ventoos-agent = { path = "crates/ventoos-agent" }
 ventoos-persist = { path = "crates/ventoos-persist" }
+ventoos-api-client = { path = "crates/ventoos-api-client" }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

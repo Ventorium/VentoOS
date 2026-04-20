@@ -18,6 +18,7 @@ ventoos-redis = { workspace = true }
 ventoos-vfs = { workspace = true }
 ventoos-mount = { workspace = true }
 ventoos-agent = { workspace = true }
+ventoos-api-client = { workspace = true }
 
 axum = { workspace = true }
 axum-extra = { workspace = true }
