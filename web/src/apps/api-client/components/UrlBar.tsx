@@ -1,8 +1,9 @@
-import { ChevronDown, Loader2, Save, Send } from 'lucide-react'
+import { ChevronDown, Clipboard, Loader2, Save, Send, Terminal } from 'lucide-react'
 import { useState } from 'react'
 import { HTTP_METHODS, METHOD_COLORS } from '../constants'
 import { useApiClientStore } from '../store'
 import type { HttpMethod } from '../types'
+import { parseCurl, toCurl } from '../utils/curl'
 
 export default function UrlBar() {
   const tabs = useApiClientStore(s => s.tabs)
@@ -71,14 +72,55 @@ export default function UrlBar() {
           border: '1px solid var(--vos-border-subtle)'
         }}
         value={activeTab.url}
-        placeholder="Enter request URL..."
+        placeholder="Enter request URL or paste a cURL command..."
         onChange={e => updateTabRequest(activeTab.id, { url: e.target.value })}
+        onPaste={e => {
+          const text = e.clipboardData.getData('text')
+          const parsed = parseCurl(text)
+          if (parsed) {
+            e.preventDefault()
+            updateTabRequest(activeTab.id, {
+              url: parsed.url,
+              method: parsed.method,
+              request: {
+                ...(activeTab.request ?? {}),
+                headers: parsed.headers,
+                body: parsed.body,
+                auth: parsed.auth
+              }
+            })
+          }
+        }}
         onKeyDown={e => {
           if (e.key === 'Enter' && !isSending) {
             sendRequest(activeTab.id)
           }
         }}
       />
+
+      {/* Copy as cURL */}
+      <button
+        className="flex items-center gap-1 px-2 py-1.5 rounded text-[11px]"
+        style={{
+          color: 'var(--vos-text-tertiary)',
+          background: 'var(--vos-bg-tertiary)',
+          border: '1px solid var(--vos-border-subtle)'
+        }}
+        title="Copy as cURL"
+        onClick={() => {
+          const curl = toCurl({
+            url: activeTab.url,
+            method: activeTab.method,
+            headers: activeTab.request.headers,
+            body: activeTab.request.body,
+            auth: activeTab.request.auth
+          })
+          navigator.clipboard.writeText(curl)
+        }}
+      >
+        <Terminal size={12} />
+        cURL
+      </button>
 
       {/* Send button */}
       <button
