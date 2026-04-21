@@ -121,9 +121,7 @@ export default function FileTree({ onRefresh }: Props) {
     return (
       <>
         <div className="px-3 py-1.5 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
-          <span
-            className="text-[10px] font-semibold uppercase tracking-widest text-[var(--vos-text-tertiary)]"
-          >
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--vos-text-tertiary)]">
             资源管理器
           </span>
         </div>

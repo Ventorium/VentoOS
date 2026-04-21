@@ -17,9 +17,9 @@
 
 import { create } from 'zustand'
 import { apiClient } from '@/infra/api'
+import type { WindowStateDTO } from '@/infra/api/types'
 import { createLogger } from '@/infra/logger'
 import type { WindowInstance } from './types'
-import type { WindowStateDTO } from '@/infra/api/types'
 
 const logger = createLogger('kernel/window/store')
 

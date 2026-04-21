@@ -6,10 +6,22 @@
  * Modals:       server create/edit form, SSH config import
  */
 
-import { ChevronDown, ChevronRight, CircleDot, Check, Copy, Download, FolderOpen, Link, Monitor, Plus, Server, Trash2 } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CircleDot,
+  Copy,
+  Download,
+  FolderOpen,
+  Link,
+  Monitor,
+  Plus,
+  Server,
+  Trash2
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { superTerminalApi } from '@/apps/super-terminal/api'
-import { PathPickerInput } from '@/shell/FilePicker'
 import { useSuperTerminalStore } from '@/apps/super-terminal/store'
 import type {
   CreateSshServerReq,
@@ -19,10 +31,11 @@ import type {
   SshConfigHost,
   SshServer
 } from '@/apps/super-terminal/types'
+import { Checkbox } from '@/components/ui/Checkbox'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { Checkbox } from '@/components/ui/Checkbox'
+import { PathPickerInput } from '@/shell/FilePicker'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -37,9 +50,7 @@ function osIcon(osType?: string) {
     return (
       <span className="relative inline-flex">
         <Server size={18} className="vos-text-tertiary" />
-        <span
-          className="absolute bottom-[-4px] right-[-6px] text-[9px] vos-text-tertiary bg-[#252525] rounded-[3px] px-[2px] leading-[1.2]"
-        >
+        <span className="absolute bottom-[-4px] right-[-6px] text-[9px] vos-text-tertiary bg-[#252525] rounded-[3px] px-[2px] leading-[1.2]">
           ?
         </span>
       </span>
@@ -354,7 +365,8 @@ function ServerFormModal({
   }
 
   const labelCls = 'block text-xs text-[var(--vos-text-secondary)] mb-1'
-  const inputCls = 'w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border'
+  const inputCls =
+    'w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border'
   const rowCls = 'mb-3'
   const twoColCls = 'grid grid-cols-2 gap-3'
 
@@ -411,9 +423,7 @@ function ServerFormModal({
       }
     >
       {/* Tabs */}
-      <div
-        className="ssh-form-tabs flex border-b border-b-[#333] mb-4 gap-1"
-      >
+      <div className="ssh-form-tabs flex border-b border-b-[#333] mb-4 gap-1">
         {tabs.map(t => (
           <div key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
             {t.label}
@@ -791,34 +801,19 @@ function ImportConfigModal({
       {loading ? (
         <div className="text-center p-8 text-[var(--vos-text-tertiary)]">加载中…</div>
       ) : hosts.length === 0 ? (
-        <div className="text-center p-8 text-[var(--vos-text-tertiary)]">
-          未找到可导入的 SSH 配置
-        </div>
+        <div className="text-center p-8 text-[var(--vos-text-tertiary)]">未找到可导入的 SSH 配置</div>
       ) : (
         <div>
           {/* Select all */}
-          <div
-            className="flex items-center gap-2 mb-2 pb-2 border-b border-b-[#333]"
-          >
+          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-b-[#333]">
             <Checkbox checked={allSelected} onChange={toggleAll} label="全选" />
           </div>
           <div className="max-h-[360px] overflow-y-auto">
             {hosts.map(h => (
-              <label
-                key={h.alias}
-                className="flex items-start gap-2 py-2 border-b border-b-[#222] cursor-pointer"
-              >
-                <Checkbox
-                  checked={selected.has(h.alias)}
-                  onChange={() => toggle(h.alias)}
-                  className="mt-[3px]"
-                />
+              <label key={h.alias} className="flex items-start gap-2 py-2 border-b border-b-[#222] cursor-pointer">
+                <Checkbox checked={selected.has(h.alias)} onChange={() => toggle(h.alias)} className="mt-[3px]" />
                 <div className="flex-1 min-w-0">
-                  <div
-                    className="text-[13px] text-[var(--vos-text-primary)] font-medium"
-                  >
-                    {h.alias}
-                  </div>
+                  <div className="text-[13px] text-[var(--vos-text-primary)] font-medium">{h.alias}</div>
                   <div className="text-[11px] text-[var(--vos-text-tertiary)] mt-0.5">
                     {h.hostname ?? '—'}
                     {h.port ? `:${h.port}` : ''}
@@ -1342,9 +1337,7 @@ export default function SshServers() {
   // ── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div
-      className="flex w-full h-full bg-[#1a1a1a] text-[var(--vos-text-primary)] overflow-hidden"
-    >
+    <div className="flex w-full h-full bg-[#1a1a1a] text-[var(--vos-text-primary)] overflow-hidden">
       <style>{hoverStyles}</style>
 
       {/* ── Left sidebar ────────────────────────────────────────────── */}
@@ -1367,9 +1360,7 @@ export default function SshServers() {
           }
         }}
       >
-        <div
-          className="pt-3 px-3 pb-2 text-[11px] text-[var(--vos-text-tertiary)] font-semibold tracking-[0.5px] uppercase"
-        >
+        <div className="pt-3 px-3 pb-2 text-[11px] text-[var(--vos-text-tertiary)] font-semibold tracking-[0.5px] uppercase">
           分组
         </div>
 
@@ -1407,44 +1398,42 @@ export default function SshServers() {
                     })
                   }}
                 >
-                  <span
-                    className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap flex-1"
-                  >
+                  <span className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap flex-1">
                     <span
                       className="shrink-0 flex items-center"
                       onClick={e => {
                         e.stopPropagation()
                         setExpandedGroups(prev => {
                           const next = new Set(prev)
-                          if (next.has(g)) next.delete(g); else next.add(g)
+                          if (next.has(g)) next.delete(g)
+                          else next.add(g)
                           return next
                         })
                       }}
                     >
-                      {isExpanded
-                        ? <ChevronDown size={12} className="text-[var(--vos-text-tertiary)]" />
-                        : <ChevronRight size={12} className="text-[var(--vos-text-tertiary)]" />}
+                      {isExpanded ? (
+                        <ChevronDown size={12} className="text-[var(--vos-text-tertiary)]" />
+                      ) : (
+                        <ChevronRight size={12} className="text-[var(--vos-text-tertiary)]" />
+                      )}
                     </span>
                     <FolderOpen size={14} className="text-[var(--vos-text-tertiary)]" />
                     {g}
                   </span>
-                  <span className="text-[11px] text-[var(--vos-text-tertiary)] shrink-0">
-                    {groupCounts[g] ?? 0}
-                  </span>
+                  <span className="text-[11px] text-[var(--vos-text-tertiary)] shrink-0">{groupCounts[g] ?? 0}</span>
                 </div>
                 {/* Expanded servers under group */}
-                {isExpanded && groupServers.map(s => (
-                  <div
-                    key={s.id}
-                    className="ssh-group-item py-[5px] pr-3 pl-[34px] text-xs cursor-pointer flex items-center gap-1.5 text-[var(--vos-text-secondary)] rounded mx-1"
-                    onClick={() => connectServer(s)}
-                  >
-                    <Server size={11} className="shrink-0 text-[var(--vos-text-tertiary)]" />
-                    <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-                      {s.name}
-                    </span>
-                  </div>
-                ))}
+                {isExpanded &&
+                  groupServers.map(s => (
+                    <div
+                      key={s.id}
+                      className="ssh-group-item py-[5px] pr-3 pl-[34px] text-xs cursor-pointer flex items-center gap-1.5 text-[var(--vos-text-secondary)] rounded mx-1"
+                      onClick={() => connectServer(s)}
+                    >
+                      <Server size={11} className="shrink-0 text-[var(--vos-text-tertiary)]" />
+                      <span className="overflow-hidden text-ellipsis whitespace-nowrap">{s.name}</span>
+                    </div>
+                  ))}
               </div>
             )
           })}
@@ -1469,9 +1458,7 @@ export default function SshServers() {
       {/* ── Right main area ─────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
-        <div
-          className="flex items-center gap-2 py-2 px-4 border-b border-b-[#333] shrink-0"
-        >
+        <div className="flex items-center gap-2 py-2 px-4 border-b border-b-[#333] shrink-0">
           <button
             type="button"
             className="vos-btn vos-btn-primary vos-btn-sm"
@@ -1542,15 +1529,9 @@ export default function SshServers() {
         ) : (
           <div className="flex-1 overflow-y-auto">
             {/* Header row */}
-            <div
-              className="flex items-center h-9 px-4 border-b border-b-[#333] text-[11px] text-[var(--vos-text-tertiary)] font-semibold shrink-0"
-            >
+            <div className="flex items-center h-9 px-4 border-b border-b-[#333] text-[11px] text-[var(--vos-text-tertiary)] font-semibold shrink-0">
               <div className="w-8">
-                <Checkbox
-                  checked={allChecked}
-                  indeterminate={someChecked && !allChecked}
-                  onChange={handleSelectAll}
-                />
+                <Checkbox checked={allChecked} indeterminate={someChecked && !allChecked} onChange={handleSelectAll} />
               </div>
               <div className="w-8" />
               <div className="flex-[2] min-w-[120px]">名称</div>
@@ -1580,21 +1561,14 @@ export default function SshServers() {
                 >
                   {/* Checkbox */}
                   <div className="w-8 shrink-0" onClick={e => e.stopPropagation()}>
-                    <Checkbox
-                      checked={isSelected}
-                      onChange={checked => handleCheckboxChange(server.id, checked)}
-                    />
+                    <Checkbox checked={isSelected} onChange={checked => handleCheckboxChange(server.id, checked)} />
                   </div>
 
                   {/* OS icon */}
-                  <div className="w-8 shrink-0 flex justify-center">
-                    {osIcon(server.os_type)}
-                  </div>
+                  <div className="w-8 shrink-0 flex justify-center">{osIcon(server.os_type)}</div>
 
                   {/* Name */}
-                  <div
-                    className="flex-[2] min-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
-                  >
+                  <div className="flex-[2] min-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap">
                     <span
                       className="ssh-server-name cursor-pointer text-[var(--vos-accent-primary)] font-medium"
                       onClick={e => {
@@ -1607,12 +1581,8 @@ export default function SshServers() {
                   </div>
 
                   {/* Address */}
-                  <div
-                    className="flex-[2] min-w-[140px] flex items-center gap-1 overflow-hidden"
-                  >
-                    <span
-                      className="text-[var(--vos-text-secondary)] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs"
-                    >
+                  <div className="flex-[2] min-w-[140px] flex items-center gap-1 overflow-hidden">
+                    <span className="text-[var(--vos-text-secondary)] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs">
                       {server.host}:{server.port}
                     </span>
                     <button
@@ -1634,9 +1604,7 @@ export default function SshServers() {
                   </div>
 
                   {/* Remark */}
-                  <div
-                    className="flex-[2] min-w-[100px] text-[var(--vos-text-tertiary)] overflow-hidden text-ellipsis whitespace-nowrap text-xs"
-                  >
+                  <div className="flex-[2] min-w-[100px] text-[var(--vos-text-tertiary)] overflow-hidden text-ellipsis whitespace-nowrap text-xs">
                     {server.remark || '—'}
                   </div>
 

@@ -15,7 +15,7 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
   const [content, setContent] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const loadCollections = useApiClientStore((s) => s.loadCollections)
+  const loadCollections = useApiClientStore(s => s.loadCollections)
 
   if (!open) return null
 
@@ -48,7 +48,7 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = ev => {
       setContent(ev.target?.result as string)
     }
     reader.readAsText(file)
@@ -71,7 +71,11 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
           <span className="text-sm font-medium" style={{ color: 'var(--vos-text-primary)' }}>
             Import Collection
           </span>
-          <button className="p-1 rounded hover:opacity-80" style={{ color: 'var(--vos-text-tertiary)' }} onClick={onClose}>
+          <button
+            className="p-1 rounded hover:opacity-80"
+            style={{ color: 'var(--vos-text-tertiary)' }}
+            onClick={onClose}
+          >
             <X size={16} />
           </button>
         </div>
@@ -83,13 +87,13 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
             <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
               Format:
             </span>
-            {(['openapi', 'postman', 'curl'] as const).map((f) => (
+            {(['openapi', 'postman', 'curl'] as const).map(f => (
               <button
                 key={f}
                 className="px-3 py-1 rounded text-xs capitalize"
                 style={{
                   background: format === f ? 'var(--vos-bg-tertiary)' : 'transparent',
-                  color: format === f ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
+                  color: format === f ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)'
                 }}
                 onClick={() => setFormat(f)}
               >
@@ -103,7 +107,7 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
             className="flex items-center justify-center gap-2 py-3 mb-3 rounded-lg cursor-pointer text-xs border-dashed border-2"
             style={{
               borderColor: 'var(--vos-border-subtle)',
-              color: 'var(--vos-text-tertiary)',
+              color: 'var(--vos-text-tertiary)'
             }}
           >
             <Upload size={14} />
@@ -116,11 +120,11 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
             className="w-full h-40 p-3 rounded-lg bg-transparent outline-none resize-none text-xs font-mono"
             style={{
               color: 'var(--vos-text-primary)',
-              border: '1px solid var(--vos-border-subtle)',
+              border: '1px solid var(--vos-border-subtle)'
             }}
             value={content}
             placeholder={format === 'curl' ? 'curl -X GET https://...' : 'Paste JSON content here...'}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={e => setContent(e.target.value)}
             spellCheck={false}
           />
 
@@ -147,7 +151,7 @@ export default function ImportDialog({ open, onClose }: ImportDialogProps) {
             className="px-4 py-1.5 rounded text-xs font-medium text-white"
             style={{
               background: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
-              opacity: isImporting || !content.trim() ? 0.5 : 1,
+              opacity: isImporting || !content.trim() ? 0.5 : 1
             }}
             disabled={isImporting || !content.trim()}
             onClick={handleImport}

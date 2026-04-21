@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Spinner } from '@/components'
-import { useKubernetesStore } from '../../stores/kubernetes-store'
 import { k8sApi } from '../../api'
+import { useKubernetesStore } from '../../stores/kubernetes-store'
 import type { K8sResource } from '../../types'
 
 interface Props {
@@ -27,7 +27,9 @@ export function PodsTab({ resource }: Props) {
 
     let labelSelector: string | undefined
     if (!isNode && Object.keys(matchLabels).length > 0) {
-      labelSelector = Object.entries(matchLabels).map(([k, v]) => `${k}=${v}`).join(',')
+      labelSelector = Object.entries(matchLabels)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(',')
     }
 
     k8sApi
@@ -55,11 +57,7 @@ export function PodsTab({ resource }: Props) {
   }
 
   if (pods.length === 0) {
-    return (
-      <div className="text-xs text-[var(--vos-text-tertiary)] py-8 text-center">
-        No pods found
-      </div>
-    )
+    return <div className="text-xs text-[var(--vos-text-tertiary)] py-8 text-center">No pods found</div>
   }
 
   return (
@@ -75,7 +73,10 @@ export function PodsTab({ resource }: Props) {
         </thead>
         <tbody>
           {pods.map(p => (
-            <tr key={p.name} className="border-b-[0.5px] border-b-[var(--vos-border-subtle)] hover:bg-[var(--vos-bg-item-hover)]">
+            <tr
+              key={p.name}
+              className="border-b-[0.5px] border-b-[var(--vos-border-subtle)] hover:bg-[var(--vos-bg-item-hover)]"
+            >
               <td className="px-2 py-1.5 font-mono text-[var(--vos-accent-primary)]">{p.name}</td>
               <td className="px-2 py-1.5 text-[var(--vos-text-secondary)]">{p.namespace ?? '—'}</td>
               <td className="px-2 py-1.5">{p.status ?? '—'}</td>

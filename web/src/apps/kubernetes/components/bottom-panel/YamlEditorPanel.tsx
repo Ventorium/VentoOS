@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import type { editor } from 'monaco-editor'
 import Editor from '@monaco-editor/react'
+import type { editor } from 'monaco-editor'
+import { useEffect, useRef, useState } from 'react'
 import { Spinner } from '@/components'
 import { k8sApi } from '../../api'
 import type { K8sResourceKind } from '../../types'
@@ -90,7 +90,7 @@ export function YamlEditorPanel({ clusterId, namespace, kind, name }: Props) {
             automaticLayout: true,
             fontSize: 13,
             fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
-            scrollBeyondLastLine: false,
+            scrollBeyondLastLine: false
           }}
           onMount={editor => {
             editorRef.current = editor

@@ -112,12 +112,10 @@ export const apiClient = {
     request<ApiResponse<{ id: string }>>('POST', '/api/notifications', body),
   markNotificationRead: (id: string) =>
     request<ApiResponse<{ marked: boolean }>>('PUT', `/api/notifications/${encodeURIComponent(id)}`),
-  markAllNotificationsRead: () =>
-    request<ApiResponse<{ count: number }>>('POST', '/api/notifications/mark-all-read'),
+  markAllNotificationsRead: () => request<ApiResponse<{ count: number }>>('POST', '/api/notifications/mark-all-read'),
   deleteNotification: (id: string) =>
     request<ApiResponse<{ deleted: boolean }>>('DELETE', `/api/notifications/${encodeURIComponent(id)}`),
-  clearAllNotifications: () =>
-    request<ApiResponse<{ count: number }>>('POST', '/api/notifications/clear'),
+  clearAllNotifications: () => request<ApiResponse<{ count: number }>>('POST', '/api/notifications/clear'),
 
   // Desktop & Window Settings
   getDesktopSettings: () => request<ApiResponse<DesktopSettings>>('GET', '/api/settings/desktop'),

@@ -14,7 +14,7 @@ import {
   Server,
   Settings,
   Shield,
-  Smartphone,
+  Smartphone
 } from 'lucide-react'
 
 import type { SidebarNode } from './types'
@@ -25,21 +25,21 @@ export const SIDEBAR_TREE: SidebarNode[] = [
     id: 'overview',
     label: 'Overview',
     icon: Home,
-    kind: 'overview',
+    kind: 'overview'
   },
   {
     type: 'leaf',
     id: 'applications',
     label: 'Applications',
     icon: Smartphone,
-    kind: 'application',
+    kind: 'application'
   },
   {
     type: 'leaf',
     id: 'nodes',
     label: 'Nodes',
     icon: Server,
-    kind: 'node',
+    kind: 'node'
   },
   {
     type: 'group',
@@ -54,8 +54,8 @@ export const SIDEBAR_TREE: SidebarNode[] = [
       { type: 'leaf', id: 'statefulsets', label: 'Stateful Sets', kind: 'statefulset' },
       { type: 'leaf', id: 'replicasets', label: 'Replica Sets', kind: 'replicaset' },
       { type: 'leaf', id: 'jobs', label: 'Jobs', kind: 'job' },
-      { type: 'leaf', id: 'cronjobs', label: 'CronJobs', kind: 'cronjob' },
-    ],
+      { type: 'leaf', id: 'cronjobs', label: 'CronJobs', kind: 'cronjob' }
+    ]
   },
   {
     type: 'group',
@@ -72,9 +72,19 @@ export const SIDEBAR_TREE: SidebarNode[] = [
       { type: 'leaf', id: 'priorityclasses', label: 'Priority Classes', kind: 'priorityclass' },
       { type: 'leaf', id: 'runtimeclasses', label: 'Runtime Classes', kind: 'runtimeclass' },
       { type: 'leaf', id: 'leases', label: 'Leases', kind: 'lease' },
-      { type: 'leaf', id: 'mutatingwebhooks', label: 'Mutating Webhook Configurations', kind: 'mutatingwebhookconfiguration' },
-      { type: 'leaf', id: 'validatingwebhooks', label: 'Validating Webhook Configurations', kind: 'validatingwebhookconfiguration' },
-    ],
+      {
+        type: 'leaf',
+        id: 'mutatingwebhooks',
+        label: 'Mutating Webhook Configurations',
+        kind: 'mutatingwebhookconfiguration'
+      },
+      {
+        type: 'leaf',
+        id: 'validatingwebhooks',
+        label: 'Validating Webhook Configurations',
+        kind: 'validatingwebhookconfiguration'
+      }
+    ]
   },
   {
     type: 'group',
@@ -88,8 +98,8 @@ export const SIDEBAR_TREE: SidebarNode[] = [
       { type: 'leaf', id: 'ingresses', label: 'Ingresses', kind: 'ingress' },
       { type: 'leaf', id: 'ingressclasses', label: 'Ingress Classes', kind: 'ingressclass' },
       { type: 'leaf', id: 'networkpolicies', label: 'Network Policies', kind: 'networkpolicy' },
-      { type: 'leaf', id: 'portforwarding', label: 'Port Forwarding', kind: 'portforward' },
-    ],
+      { type: 'leaf', id: 'portforwarding', label: 'Port Forwarding', kind: 'portforward' }
+    ]
   },
   {
     type: 'group',
@@ -99,31 +109,29 @@ export const SIDEBAR_TREE: SidebarNode[] = [
     children: [
       { type: 'leaf', id: 'pvcs', label: 'Persistent Volume Claims', kind: 'persistentvolumeclaim' },
       { type: 'leaf', id: 'pvs', label: 'Persistent Volumes', kind: 'persistentvolume' },
-      { type: 'leaf', id: 'storageclasses', label: 'Storage Classes', kind: 'storageclass' },
-    ],
+      { type: 'leaf', id: 'storageclasses', label: 'Storage Classes', kind: 'storageclass' }
+    ]
   },
   {
     type: 'leaf',
     id: 'namespaces',
     label: 'Namespaces',
     icon: Layers,
-    kind: 'namespace',
+    kind: 'namespace'
   },
   {
     type: 'leaf',
     id: 'events',
     label: 'Events',
     icon: Clock,
-    kind: 'event',
+    kind: 'event'
   },
   {
     type: 'group',
     id: 'helm',
     label: 'Helm',
     icon: Package,
-    children: [
-      { type: 'leaf', id: 'releases', label: 'Releases', kind: 'helmrelease' },
-    ],
+    children: [{ type: 'leaf', id: 'releases', label: 'Releases', kind: 'helmrelease' }]
   },
   {
     type: 'group',
@@ -135,18 +143,16 @@ export const SIDEBAR_TREE: SidebarNode[] = [
       { type: 'leaf', id: 'clusterroles', label: 'Cluster Roles', kind: 'clusterrole' },
       { type: 'leaf', id: 'roles', label: 'Roles', kind: 'role' },
       { type: 'leaf', id: 'clusterrolebindings', label: 'Cluster Role Bindings', kind: 'clusterrolebinding' },
-      { type: 'leaf', id: 'rolebindings', label: 'Role Bindings', kind: 'rolebinding' },
-    ],
+      { type: 'leaf', id: 'rolebindings', label: 'Role Bindings', kind: 'rolebinding' }
+    ]
   },
   {
     type: 'group',
     id: 'custom',
     label: 'Custom Resources',
     icon: FileCode,
-    children: [
-      { type: 'leaf', id: 'crd', label: 'Definitions', kind: 'customresource' },
-    ],
-  },
+    children: [{ type: 'leaf', id: 'crd', label: 'Definitions', kind: 'customresource' }]
+  }
 ]
 
 export const DEFAULT_DRAWER_WIDTH = 0.45 // 45%

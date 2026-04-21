@@ -1,14 +1,14 @@
-import { Box, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { AlertCircle, Box, CheckCircle2, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { EmptyState, Modal, FormInput } from '@/components'
+import { EmptyState, FormInput, Modal } from '@/components'
 import type { AppComponentProps } from '@/kernel'
 import { useAppStorage } from '@/kernel'
 import type { VfsPickerResult } from '@/shell/FilePicker'
 import { VfsPathPickerInput } from '@/shell/FilePicker'
 import type { CreateK8sClusterReq, K8sCluster, TeleportKubeCluster, UpdateK8sClusterReq } from './api'
 import { k8sApi } from './api'
-import { ClusterOverview } from './components/overview/ClusterOverview'
 import { K8sLayout } from './components/layout/K8sLayout'
+import { ClusterOverview } from './components/overview/ClusterOverview'
 import { ResourceList } from './components/resource-list/ResourceList'
 import { useClusterStore } from './stores/cluster-store'
 import { useKubernetesStore } from './stores/kubernetes-store'
@@ -72,7 +72,10 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
   const handleTpProxyBlur = async () => {
     const proxy = tpProxy.trim()
-    if (!proxy) { setTpNeedsOtp(null); return }
+    if (!proxy) {
+      setTpNeedsOtp(null)
+      return
+    }
     try {
       const res = await k8sApi.teleportProbe(proxy)
       if (res.data?.reachable !== undefined) {
@@ -101,7 +104,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
         name,
         kubeconfig_path: kubeconfigInline ? undefined : kubeconfigPath || undefined,
         kubeconfig_inline: kubeconfigInline || undefined,
-        context_name: context || undefined,
+        context_name: context || undefined
       }
       const res = await k8sApi.createK8sCluster(body)
       onCreated(res.data)
@@ -118,14 +121,12 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
     setTpError('')
     try {
       // If OTP is known to be required and we're on credentials step, include it directly
-      const includeOtp = tpStep === 'otp' ? tpOtp || undefined
-        : (tpNeedsOtp === true && tpOtp) ? tpOtp
-        : undefined
+      const includeOtp = tpStep === 'otp' ? tpOtp || undefined : tpNeedsOtp === true && tpOtp ? tpOtp : undefined
       const res = await k8sApi.teleportLogin({
         proxy: tpProxy,
         user: tpUser,
         password: tpPassword,
-        otp: includeOtp,
+        otp: includeOtp
       })
       const result = res.data
       if (result.success) {
@@ -169,7 +170,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
         // Use the actual context name extracted from current-context in kubeconfig,
         // NOT the bare cluster name – tsh may generate e.g. "proxy.corp.com-k8s-aliyun".
         context_name: result.context_name || tpSelectedCluster,
-        group: 'teleport',
+        group: 'teleport'
       })
       onCreated(clusterRes.data)
     } catch (e: any) {
@@ -181,7 +182,9 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
   const kubeconfigFooter = (
     <>
-      <button type="button" className="vos-btn" onClick={onClose}>取消</button>
+      <button type="button" className="vos-btn" onClick={onClose}>
+        取消
+      </button>
       <button type="button" className="vos-btn vos-btn-primary" onClick={submitKubeconfig} disabled={saving}>
         {saving ? '添加中…' : '添加'}
       </button>
@@ -190,7 +193,9 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
   const teleportFooter = (
     <>
-      <button type="button" className="vos-btn" onClick={onClose}>取消</button>
+      <button type="button" className="vos-btn" onClick={onClose}>
+        取消
+      </button>
       {tpStep === 'credentials' && (
         <button
           type="button"
@@ -239,7 +244,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
           className="flex-1 text-xs py-1 rounded-md transition-colors"
           style={{
             background: mode === 'kubeconfig' ? 'var(--vos-accent-primary)' : 'transparent',
-            color: mode === 'kubeconfig' ? '#fff' : 'var(--vos-text-secondary)',
+            color: mode === 'kubeconfig' ? '#fff' : 'var(--vos-text-secondary)'
           }}
           onClick={() => setMode('kubeconfig')}
         >
@@ -250,9 +255,12 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
           className="flex-1 text-xs py-1 rounded-md transition-colors"
           style={{
             background: mode === 'teleport' ? 'var(--vos-accent-primary)' : 'transparent',
-            color: mode === 'teleport' ? '#fff' : 'var(--vos-text-secondary)',
+            color: mode === 'teleport' ? '#fff' : 'var(--vos-text-secondary)'
           }}
-          onClick={() => { setMode('teleport'); if (tshAvailable === null && mode !== 'teleport') checkTsh() }}
+          onClick={() => {
+            setMode('teleport')
+            if (tshAvailable === null && mode !== 'teleport') checkTsh()
+          }}
         >
           Teleport
         </button>
@@ -291,129 +299,137 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
                 <span>未检测到 tsh（Teleport 客户端），需要先安装才能使用 Teleport 集成。</span>
               </div>
               {tshInstallLog && (
-                <pre className="text-[10px] bg-[var(--vos-bg-code)] rounded p-2 max-h-24 overflow-auto whitespace-pre-wrap">{tshInstallLog}</pre>
+                <pre className="text-[10px] bg-[var(--vos-bg-code)] rounded p-2 max-h-24 overflow-auto whitespace-pre-wrap">
+                  {tshInstallLog}
+                </pre>
               )}
               <div className="flex gap-2">
                 <button type="button" className="vos-btn vos-btn-sm" onClick={checkTsh} disabled={tshInstalling}>
                   重新检测
                 </button>
-                <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={installTsh} disabled={tshInstalling}>
-                  {tshInstalling ? <><Loader2 size={11} className="animate-spin inline mr-1" />安装中…</> : '自动安装 tsh'}
+                <button
+                  type="button"
+                  className="vos-btn vos-btn-sm vos-btn-primary"
+                  onClick={installTsh}
+                  disabled={tshInstalling}
+                >
+                  {tshInstalling ? (
+                    <>
+                      <Loader2 size={11} className="animate-spin inline mr-1" />
+                      安装中…
+                    </>
+                  ) : (
+                    '自动安装 tsh'
+                  )}
                 </button>
               </div>
             </div>
           )}
           {tshAvailable === true && (
             <>
-          {tpError && (
-            <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg text-xs bg-[rgba(255,59,48,0.1)] text-[var(--vos-accent-danger)]">
-              <AlertCircle size={12} className="shrink-0" />
-              <span className="flex-1">{tpError}</span>
-            </div>
-          )}
-
-          {tpStep === 'credentials' && (
-            <>
-              <div className="vos-form-row">
-                <label>Teleport 服务器地址</label>
-                <FormInput
-                  placeholder="https://teleport.example.com"
-                  value={tpProxy}
-                  onChange={e => setTpProxy(e.target.value)}
-                  onBlur={handleTpProxyBlur}
-                />
-                {tpNeedsOtp === true && (
-                  <div className="text-[10px] text-[var(--vos-accent-success)] mt-1">该服务需要双因素验证（OTP）</div>
-                )}
-                {tpNeedsOtp === false && (
-                  <div className="text-[10px] text-[var(--vos-text-tertiary)] mt-1">无需双因素验证</div>
-                )}
-              </div>
-              <div className="vos-form-row">
-                <label>用户名</label>
-                <FormInput
-                  placeholder="用户名"
-                  value={tpUser}
-                  onChange={e => setTpUser(e.target.value)}
-                />
-              </div>
-              <div className="vos-form-row">
-                <label>密码</label>
-                <FormInput
-                  type="password"
-                  placeholder="密码"
-                  value={tpPassword}
-                  onChange={e => setTpPassword(e.target.value)}
-                />
-              </div>
-              {tpNeedsOtp === true && (
-                <div className="vos-form-row">
-                  <label>验证码 (OTP)</label>
-                  <FormInput
-                    placeholder="6位验证码"
-                    value={tpOtp}
-                    onChange={e => setTpOtp(e.target.value)}
-                  />
+              {tpError && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg text-xs bg-[rgba(255,59,48,0.1)] text-[var(--vos-accent-danger)]">
+                  <AlertCircle size={12} className="shrink-0" />
+                  <span className="flex-1">{tpError}</span>
                 </div>
               )}
-            </>
-          )}
 
-          {tpStep === 'otp' && (
-            <>
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg text-xs bg-[rgba(52,199,89,0.1)] text-[var(--vos-accent-success)]">
-                <CheckCircle2 size={12} className="shrink-0" />
-                <span>密码验证通过，请输入双因素验证码</span>
-              </div>
-              <div className="vos-form-row">
-                <label>验证码 (OTP)</label>
-                <FormInput
-                  placeholder="6 位验证码"
-                  value={tpOtp}
-                  onChange={e => setTpOtp(e.target.value)}
-                  autoFocus
-                />
-              </div>
-            </>
-          )}
-
-          {tpStep === 'clusters' && (
-            <>
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg text-xs bg-[rgba(52,199,89,0.1)] text-[var(--vos-accent-success)]">
-                <CheckCircle2 size={12} className="shrink-0" />
-                <span>登录成功，选择要添加的 Kubernetes 集群</span>
-              </div>
-              <div className="vos-form-row">
-                <label>K8s 集群</label>
-                {tpClusters.length > 0 ? (
-                  <select
-                    className="vos-input text-xs"
-                    value={tpSelectedCluster}
-                    onChange={e => {
-                      setTpSelectedCluster(e.target.value)
-                      setTpClusterName(e.target.value)
-                    }}
-                  >
-                    {tpClusters.map(c => (
-                      <option key={c.name} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="text-xs text-[var(--vos-text-tertiary)] py-2">
-                    未发现可用的 Kubernetes 集群
+              {tpStep === 'credentials' && (
+                <>
+                  <div className="vos-form-row">
+                    <label>Teleport 服务器地址</label>
+                    <FormInput
+                      placeholder="https://teleport.example.com"
+                      value={tpProxy}
+                      onChange={e => setTpProxy(e.target.value)}
+                      onBlur={handleTpProxyBlur}
+                    />
+                    {tpNeedsOtp === true && (
+                      <div className="text-[10px] text-[var(--vos-accent-success)] mt-1">
+                        该服务需要双因素验证（OTP）
+                      </div>
+                    )}
+                    {tpNeedsOtp === false && (
+                      <div className="text-[10px] text-[var(--vos-text-tertiary)] mt-1">无需双因素验证</div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="vos-form-row">
-                <label>显示名称</label>
-                <FormInput
-                  placeholder="集群显示名称"
-                  value={tpClusterName}
-                  onChange={e => setTpClusterName(e.target.value)}
-                />
-              </div>
-            </>
-          )}
+                  <div className="vos-form-row">
+                    <label>用户名</label>
+                    <FormInput placeholder="用户名" value={tpUser} onChange={e => setTpUser(e.target.value)} />
+                  </div>
+                  <div className="vos-form-row">
+                    <label>密码</label>
+                    <FormInput
+                      type="password"
+                      placeholder="密码"
+                      value={tpPassword}
+                      onChange={e => setTpPassword(e.target.value)}
+                    />
+                  </div>
+                  {tpNeedsOtp === true && (
+                    <div className="vos-form-row">
+                      <label>验证码 (OTP)</label>
+                      <FormInput placeholder="6位验证码" value={tpOtp} onChange={e => setTpOtp(e.target.value)} />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {tpStep === 'otp' && (
+                <>
+                  <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg text-xs bg-[rgba(52,199,89,0.1)] text-[var(--vos-accent-success)]">
+                    <CheckCircle2 size={12} className="shrink-0" />
+                    <span>密码验证通过，请输入双因素验证码</span>
+                  </div>
+                  <div className="vos-form-row">
+                    <label>验证码 (OTP)</label>
+                    <FormInput
+                      placeholder="6 位验证码"
+                      value={tpOtp}
+                      onChange={e => setTpOtp(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                </>
+              )}
+
+              {tpStep === 'clusters' && (
+                <>
+                  <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg text-xs bg-[rgba(52,199,89,0.1)] text-[var(--vos-accent-success)]">
+                    <CheckCircle2 size={12} className="shrink-0" />
+                    <span>登录成功，选择要添加的 Kubernetes 集群</span>
+                  </div>
+                  <div className="vos-form-row">
+                    <label>K8s 集群</label>
+                    {tpClusters.length > 0 ? (
+                      <select
+                        className="vos-input text-xs"
+                        value={tpSelectedCluster}
+                        onChange={e => {
+                          setTpSelectedCluster(e.target.value)
+                          setTpClusterName(e.target.value)
+                        }}
+                      >
+                        {tpClusters.map(c => (
+                          <option key={c.name} value={c.name}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="text-xs text-[var(--vos-text-tertiary)] py-2">未发现可用的 Kubernetes 集群</div>
+                    )}
+                  </div>
+                  <div className="vos-form-row">
+                    <label>显示名称</label>
+                    <FormInput
+                      placeholder="集群显示名称"
+                      value={tpClusterName}
+                      onChange={e => setTpClusterName(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </>
           )}
         </>
@@ -424,7 +440,15 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
 // ─── Edit cluster modal ────────────────────────────────────────────────────
 
-function EditClusterModal({ cluster, onClose, onUpdated }: { cluster: K8sCluster; onClose: () => void; onUpdated: (c: K8sCluster) => void }) {
+function EditClusterModal({
+  cluster,
+  onClose,
+  onUpdated
+}: {
+  cluster: K8sCluster
+  onClose: () => void
+  onUpdated: (c: K8sCluster) => void
+}) {
   const [name, setName] = useState(cluster.name)
   const [kubeconfigPath, setKubeconfigPath] = useState(cluster.kubeconfig_path ?? '')
   const [kubeconfigInline, setKubeconfigInline] = useState<string | undefined>(cluster.kubeconfig_inline)
@@ -450,8 +474,8 @@ function EditClusterModal({ cluster, onClose, onUpdated }: { cluster: K8sCluster
       const req: UpdateK8sClusterReq = {
         name: name.trim(),
         context_name: contextName || undefined,
-        kubeconfig_path: kubeconfigInline ? undefined : (kubeconfigPath || undefined),
-        kubeconfig_inline: kubeconfigInline || undefined,
+        kubeconfig_path: kubeconfigInline ? undefined : kubeconfigPath || undefined,
+        kubeconfig_inline: kubeconfigInline || undefined
       }
       const res = await k8sApi.updateK8sCluster(cluster.id, req)
       onUpdated(res.data)
@@ -470,8 +494,15 @@ function EditClusterModal({ cluster, onClose, onUpdated }: { cluster: K8sCluster
       width={400}
       footer={
         <>
-          <button type="button" className="vos-btn" onClick={onClose}>取消</button>
-          <button type="button" className="vos-btn vos-btn-primary" onClick={handleSave} disabled={saving || !name.trim()}>
+          <button type="button" className="vos-btn" onClick={onClose}>
+            取消
+          </button>
+          <button
+            type="button"
+            className="vos-btn vos-btn-primary"
+            onClick={handleSave}
+            disabled={saving || !name.trim()}
+          >
             {saving ? '保存中…' : '保存'}
           </button>
         </>
@@ -499,7 +530,11 @@ function EditClusterModal({ cluster, onClose, onUpdated }: { cluster: K8sCluster
       </div>
       <div className="vos-form-row">
         <label>Context 名称</label>
-        <FormInput value={contextName} onChange={e => setContextName(e.target.value)} placeholder="kubeconfig 中的 context 名称" />
+        <FormInput
+          value={contextName}
+          onChange={e => setContextName(e.target.value)}
+          placeholder="kubeconfig 中的 context 名称"
+        />
       </div>
     </Modal>
   )
@@ -546,7 +581,7 @@ export default function KubernetesApp({ initialAppState }: AppComponentProps) {
     return () => {
       active = false
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run on mount
 
   const handleCreated = useCallback(
@@ -558,17 +593,19 @@ export default function KubernetesApp({ initialAppState }: AppComponentProps) {
     [addCluster, openTab]
   )
 
-  const handleEditCluster = useCallback(
-    (id: string) => {
-      const c = useClusterStore.getState().clusters.find(cl => cl.id === id)
-      if (c) setEditingCluster(c)
-    },
-    []
-  )
+  const handleEditCluster = useCallback((id: string) => {
+    const c = useClusterStore.getState().clusters.find(cl => cl.id === id)
+    if (c) setEditingCluster(c)
+  }, [])
 
   const handleUpdated = useCallback(
     (c: K8sCluster) => {
-      updateClusterInStore(c.id, { name: c.name, context_name: c.context_name, kubeconfig_path: c.kubeconfig_path, kubeconfig_inline: c.kubeconfig_inline })
+      updateClusterInStore(c.id, {
+        name: c.name,
+        context_name: c.context_name,
+        kubeconfig_path: c.kubeconfig_path,
+        kubeconfig_inline: c.kubeconfig_inline
+      })
       setEditingCluster(null)
     },
     [updateClusterInStore]
@@ -582,23 +619,30 @@ export default function KubernetesApp({ initialAppState }: AppComponentProps) {
         showForm ? (
           <ClusterForm onClose={() => setShowForm(false)} onCreated={handleCreated} />
         ) : editingCluster ? (
-          <EditClusterModal cluster={editingCluster} onClose={() => setEditingCluster(null)} onUpdated={handleUpdated} />
+          <EditClusterModal
+            cluster={editingCluster}
+            onClose={() => setEditingCluster(null)}
+            onUpdated={handleUpdated}
+          />
         ) : undefined
       }
     >
       {activeTab ? (
         activeTab.kind === 'overview' ? (
           <ClusterOverview clusterId={activeTab.clusterId} />
-        ) : activeTab.kind === 'application' || activeTab.kind === 'workloads_overview' || activeTab.kind === 'portforward' ? (
+        ) : activeTab.kind === 'application' ||
+          activeTab.kind === 'workloads_overview' ||
+          activeTab.kind === 'portforward' ? (
           <div className="flex items-center justify-center h-full text-xs text-(--vos-text-tertiary)">
-            {activeTab.kind === 'application' ? 'Applications' : activeTab.kind === 'workloads_overview' ? 'Workloads Overview' : 'Port Forwarding'} — 开发中
+            {activeTab.kind === 'application'
+              ? 'Applications'
+              : activeTab.kind === 'workloads_overview'
+                ? 'Workloads Overview'
+                : 'Port Forwarding'}{' '}
+            — 开发中
           </div>
         ) : (
-          <ResourceList
-            clusterId={activeTab.clusterId}
-            namespace={activeTab.namespace}
-            kind={activeTab.kind}
-          />
+          <ResourceList clusterId={activeTab.clusterId} namespace={activeTab.namespace} kind={activeTab.kind} />
         )
       ) : (
         <EmptyState

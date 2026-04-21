@@ -272,9 +272,9 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
       if (savedActivePath) {
         // Use setTimeout to ensure tabs are fully loaded before setting active
         setTimeout(() => {
-          useEditorStore.getState().setActiveTab(
-            savedTabs.find(t => t.path === savedActivePath)?.mountId + '::' + savedActivePath ?? null
-          )
+          useEditorStore
+            .getState()
+            .setActiveTab(savedTabs.find(t => t.path === savedActivePath)?.mountId + '::' + savedActivePath ?? null)
         }, 100)
       }
     } else if (initNode && initMountId) {

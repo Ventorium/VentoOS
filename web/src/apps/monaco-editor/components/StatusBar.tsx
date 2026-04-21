@@ -16,9 +16,7 @@ export default function StatusBar() {
   const isDirty = activeTab ? activeTab.content !== activeTab.savedContent : false
 
   return (
-    <div
-      className="flex items-center px-2 flex-shrink-0 text-[11px] select-none overflow-hidden h-[22px] bg-[var(--vos-accent-primary)] text-[#ffffffcc]"
-    >
+    <div className="flex items-center px-2 flex-shrink-0 text-[11px] select-none overflow-hidden h-[22px] bg-[var(--vos-accent-primary)] text-[#ffffffcc]">
       {activeTab ? (
         <>
           {/* Left section */}
@@ -35,9 +33,7 @@ export default function StatusBar() {
             {isDirty && (
               <>
                 <Sep />
-                <span className="px-1 text-[#ffd86e]">
-                  ● 已修改
-                </span>
+                <span className="px-1 text-[#ffd86e]">● 已修改</span>
               </>
             )}
           </div>

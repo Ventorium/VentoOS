@@ -17,9 +17,8 @@ export interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, icon, children, footer, width = 420, top, maxHeight }: ModalProps) {
-  const overlayStyle: React.CSSProperties = top !== undefined
-    ? { alignItems: 'flex-start', paddingTop: typeof top === 'number' ? `${top}px` : top }
-    : {}
+  const overlayStyle: React.CSSProperties =
+    top !== undefined ? { alignItems: 'flex-start', paddingTop: typeof top === 'number' ? `${top}px` : top } : {}
 
   return (
     <AnimatePresence>

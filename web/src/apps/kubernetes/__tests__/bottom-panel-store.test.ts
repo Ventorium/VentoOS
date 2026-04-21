@@ -5,7 +5,7 @@ describe('BottomPanelStore', () => {
   beforeEach(() => {
     useBottomPanelStore.setState({
       tabs: [],
-      activeTabId: null,
+      activeTabId: null
     })
   })
 

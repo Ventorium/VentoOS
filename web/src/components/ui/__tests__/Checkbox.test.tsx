@@ -94,17 +94,13 @@ describe('Checkbox', () => {
   })
 
   test('applies custom style', () => {
-    const { container } = render(
-      <Checkbox checked={false} onChange={() => {}} style={{ marginTop: '8px' }} />
-    )
+    const { container } = render(<Checkbox checked={false} onChange={() => {}} style={{ marginTop: '8px' }} />)
     const label = container.querySelector('label')
     expect(label?.style.marginTop).toBe('8px')
   })
 
   test('applies custom className', () => {
-    const { container } = render(
-      <Checkbox checked={false} onChange={() => {}} className="my-checkbox" />
-    )
+    const { container } = render(<Checkbox checked={false} onChange={() => {}} className="my-checkbox" />)
     const label = container.querySelector('label')
     expect(label?.classList.contains('my-checkbox')).toBe(true)
   })

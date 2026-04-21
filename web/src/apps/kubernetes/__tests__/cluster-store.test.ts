@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useClusterStore } from '../stores/cluster-store'
 import { k8sApi } from '../api'
+import { useClusterStore } from '../stores/cluster-store'
 
 vi.mock('../api', () => ({
   k8sApi: {
     getK8sClusters: vi.fn(),
-    getK8sNamespaces: vi.fn(),
-  },
+    getK8sNamespaces: vi.fn()
+  }
 }))
 
 describe('ClusterStore', () => {
@@ -15,7 +15,7 @@ describe('ClusterStore', () => {
       clusters: [],
       connections: {},
       loading: false,
-      error: null,
+      error: null
     })
   })
 

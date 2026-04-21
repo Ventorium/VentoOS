@@ -8,11 +8,12 @@
  * - Folder: rename (click name → edit → Enter/Esc)
  * - Layout persisted to backend
  */
+
+import { clsx } from 'clsx'
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { Grid3X3 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
-import { clsx } from 'clsx'
 import {
   type AppManifest,
   closeWindow,
@@ -88,14 +89,14 @@ function DockIcon({
     useTransform(distance, [0, 40, 80], shouldMagnify ? [HOVER_SCALE, NEIGHBOR_SCALE, 1] : [1, 1, 1]),
     { stiffness: 350, damping: 30, mass: 0.5 }
   )
-  const y = useSpring(
-    useTransform(distance, [0, 40, 80], isHorizontal && shouldMagnify ? [-14, -4, 0] : [0, 0, 0]),
-    { stiffness: 350, damping: 30 }
-  )
-  const x = useSpring(
-    useTransform(distance, [0, 40, 80], !isHorizontal && shouldMagnify ? [14, 4, 0] : [0, 0, 0]),
-    { stiffness: 350, damping: 30 }
-  )
+  const y = useSpring(useTransform(distance, [0, 40, 80], isHorizontal && shouldMagnify ? [-14, -4, 0] : [0, 0, 0]), {
+    stiffness: 350,
+    damping: 30
+  })
+  const x = useSpring(useTransform(distance, [0, 40, 80], !isHorizontal && shouldMagnify ? [14, 4, 0] : [0, 0, 0]), {
+    stiffness: 350,
+    damping: 30
+  })
 
   function handleClick() {
     if (!isRunning) {
@@ -180,14 +181,14 @@ function DockFolderIcon({
     useTransform(distance, [0, 40, 80], shouldMagnify ? [HOVER_SCALE, NEIGHBOR_SCALE, 1] : [1, 1, 1]),
     { stiffness: 350, damping: 30, mass: 0.5 }
   )
-  const y = useSpring(
-    useTransform(distance, [0, 40, 80], isHorizontal && shouldMagnify ? [-14, -4, 0] : [0, 0, 0]),
-    { stiffness: 350, damping: 30 }
-  )
-  const x = useSpring(
-    useTransform(distance, [0, 40, 80], !isHorizontal && shouldMagnify ? [14, 4, 0] : [0, 0, 0]),
-    { stiffness: 350, damping: 30 }
-  )
+  const y = useSpring(useTransform(distance, [0, 40, 80], isHorizontal && shouldMagnify ? [-14, -4, 0] : [0, 0, 0]), {
+    stiffness: 350,
+    damping: 30
+  })
+  const x = useSpring(useTransform(distance, [0, 40, 80], !isHorizontal && shouldMagnify ? [14, 4, 0] : [0, 0, 0]), {
+    stiffness: 350,
+    damping: 30
+  })
 
   const previewAppIds = folder.appIds.slice(0, 9)
   const miniSize = iconSize * 0.28
@@ -592,12 +593,13 @@ export default function Dock() {
     (e: React.MouseEvent) => {
       e.preventDefault()
       const { dockIconSize, dockPosition: pos, dockMagnification, dockAutoHide } = useSettingsStore.getState()
-      const anchor = pos === 'bottom' ? ('bottom-left' as const) : pos === 'left' ? ('top-right' as const) : ('top-left' as const)
+      const anchor =
+        pos === 'bottom' ? ('bottom-left' as const) : pos === 'left' ? ('top-right' as const) : ('top-left' as const)
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const menuY = pos === 'bottom' ? rect.top : e.clientY
       const menuX = pos === 'right' ? rect.left : e.clientX
 
-      const sizeLabel = (s: number) => s <= 36 ? '小' : s <= 52 ? '中' : s <= 68 ? '大' : '超大'
+      const sizeLabel = (s: number) => (s <= 36 ? '小' : s <= 52 ? '中' : s <= 68 ? '大' : '超大')
       const positions: { label: string; val: DockPosition }[] = [
         { label: '底部', val: 'bottom' },
         { label: '左侧', val: 'left' },
@@ -605,7 +607,8 @@ export default function Dock() {
       ]
       const ctxItems: import('@/shell/ContextMenu/store').ContextMenuItems = [
         {
-          id: 'dock-size', label: `图标大小：${sizeLabel(dockIconSize)}`,
+          id: 'dock-size',
+          label: `图标大小：${sizeLabel(dockIconSize)}`,
           submenu: [
             { id: 'size-sm', label: '小 (32px)', action: () => setDockIconSize(32) },
             { id: 'size-md', label: '中 (48px)', action: () => setDockIconSize(48) },
@@ -614,23 +617,29 @@ export default function Dock() {
           ]
         },
         {
-          id: 'dock-pos', label: `位置：${positions.find(p => p.val === pos)?.label ?? '底部'}`,
+          id: 'dock-pos',
+          label: `位置：${positions.find(p => p.val === pos)?.label ?? '底部'}`,
           submenu: positions.map(p => ({
-            id: `pos-${p.val}`, label: p.label, action: () => setDockPosition(p.val)
+            id: `pos-${p.val}`,
+            label: p.label,
+            action: () => setDockPosition(p.val)
           }))
         },
         { type: 'separator' },
         {
-          id: 'dock-mag', label: `放大效果：${dockMagnification ? '开启' : '关闭'}`,
+          id: 'dock-mag',
+          label: `放大效果：${dockMagnification ? '开启' : '关闭'}`,
           action: () => setMagnification(!dockMagnification)
         },
         {
-          id: 'dock-hide', label: `自动隐藏：${dockAutoHide ? '开启' : '关闭'}`,
+          id: 'dock-hide',
+          label: `自动隐藏：${dockAutoHide ? '开启' : '关闭'}`,
           action: () => setAutoHide(!dockAutoHide)
         },
         { type: 'separator' },
         {
-          id: 'dock-prefs', label: 'Dock 偏好设置…',
+          id: 'dock-prefs',
+          label: 'Dock 偏好设置…',
           action: () => openWindow('settings')
         }
       ]
@@ -656,7 +665,10 @@ export default function Dock() {
           ctxItems.push({
             id: `win-${w.id}`,
             label: w.title || app.name,
-            action: () => { if (w.isMinimized) restoreWindow(w.id); else focusWindow(w.id) }
+            action: () => {
+              if (w.isMinimized) restoreWindow(w.id)
+              else focusWindow(w.id)
+            }
           })
         }
         ctxItems.push({ type: 'separator' })
@@ -676,13 +688,30 @@ export default function Dock() {
         ctxItems.push({ type: 'separator' })
         const visibleWins = appWindows.filter(w => !w.isMinimized)
         if (visibleWins.length > 0) {
-          ctxItems.push({ id: 'hide', label: '隐藏', action: () => { for (const w of visibleWins) minimizeWindow(w.id) } })
+          ctxItems.push({
+            id: 'hide',
+            label: '隐藏',
+            action: () => {
+              for (const w of visibleWins) minimizeWindow(w.id)
+            }
+          })
         }
-        ctxItems.push({ id: 'quit', label: `退出 ${app.name}`, action: () => { for (const w of appWindows) closeWindow(w.id) } })
+        ctxItems.push({
+          id: 'quit',
+          label: `退出 ${app.name}`,
+          action: () => {
+            for (const w of appWindows) closeWindow(w.id)
+          }
+        })
       }
 
       const dockPos = useSettingsStore.getState().dockPosition
-      const anchor = dockPos === 'bottom' ? ('bottom-left' as const) : dockPos === 'left' ? ('top-right' as const) : ('top-left' as const)
+      const anchor =
+        dockPos === 'bottom'
+          ? ('bottom-left' as const)
+          : dockPos === 'left'
+            ? ('top-right' as const)
+            : ('top-left' as const)
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const menuY = dockPos === 'bottom' ? rect.top : e.clientY
       const menuX = dockPos === 'right' ? rect.left : e.clientX
@@ -697,14 +726,8 @@ export default function Dock() {
       e.stopPropagation()
       const ctxItems: import('@/shell/ContextMenu/store').ContextMenuItems = [
         {
-          id: 'open', label: '打开文件夹',
-          action: () => {
-            const el = document.querySelector(`[data-dock-folder="${folder.id}"]`)
-            setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
-            setOpenFolderIndex(menuIndex)
-          }
-        },
-        { id: 'rename', label: '重命名文件夹',
+          id: 'open',
+          label: '打开文件夹',
           action: () => {
             const el = document.querySelector(`[data-dock-folder="${folder.id}"]`)
             setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
@@ -712,7 +735,17 @@ export default function Dock() {
           }
         },
         {
-          id: 'dissolve', label: '解散文件夹',
+          id: 'rename',
+          label: '重命名文件夹',
+          action: () => {
+            const el = document.querySelector(`[data-dock-folder="${folder.id}"]`)
+            setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
+            setOpenFolderIndex(menuIndex)
+          }
+        },
+        {
+          id: 'dissolve',
+          label: '解散文件夹',
           action: () => {
             const newItems: DockItem[] = []
             for (const item of dockItems) {
@@ -729,39 +762,61 @@ export default function Dock() {
       const dockPos = useSettingsStore.getState().dockPosition
       const anchor = dockPos === 'bottom' ? ('bottom-left' as const) : ('top-right' as const)
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-      showCtxMenu(e.clientX, dockPos === 'bottom' ? rect.top : e.clientY, ctxItems, { compact: true, anchor, showArrow: dockPos === 'bottom' })
+      showCtxMenu(e.clientX, dockPos === 'bottom' ? rect.top : e.clientY, ctxItems, {
+        compact: true,
+        anchor,
+        showArrow: dockPos === 'bottom'
+      })
     },
     [dockItems, setItems, showCtxMenu]
   )
 
   // ─── App click ───
-  const handleAppClick = useCallback(
-    (app: AppManifest) => {
-      const getWindowsByApp = useWindowStore.getState().getWindowsByApp
-      const appWindows = getWindowsByApp(app.id).filter(w => !w.isMinimized)
-      const allWins = getWindowsByApp(app.id)
-      if (allWins.length === 0) {
-        openWindow(app.id, { width: app.defaultSize?.width, height: app.defaultSize?.height })
-      } else if (appWindows.length === 0) {
-        const latest = allWins.reduce((a, b) => (a.zIndex > b.zIndex ? a : b))
-        restoreWindow(latest.id)
-      } else if (!app.multiWindow) {
-        focusWindow(appWindows[0].id)
-      } else {
-        const top = appWindows.reduce((a, b) => (a.zIndex > b.zIndex ? a : b))
-        focusWindow(top.id)
-      }
-    },
-    []
-  )
+  const handleAppClick = useCallback((app: AppManifest) => {
+    const getWindowsByApp = useWindowStore.getState().getWindowsByApp
+    const appWindows = getWindowsByApp(app.id).filter(w => !w.isMinimized)
+    const allWins = getWindowsByApp(app.id)
+    if (allWins.length === 0) {
+      openWindow(app.id, { width: app.defaultSize?.width, height: app.defaultSize?.height })
+    } else if (appWindows.length === 0) {
+      const latest = allWins.reduce((a, b) => (a.zIndex > b.zIndex ? a : b))
+      restoreWindow(latest.id)
+    } else if (!app.multiWindow) {
+      focusWindow(appWindows[0].id)
+    } else {
+      const top = appWindows.reduce((a, b) => (a.zIndex > b.zIndex ? a : b))
+      focusWindow(top.id)
+    }
+  }, [])
 
   // ─── Layout styles ───
   const wrapperStyle: React.CSSProperties =
     dockPosition === 'bottom'
-      ? { position: 'absolute', bottom: 8, left: '50%', transform: `translateX(-50%) translateY(${!visible && autoHide ? '100%' : '0'})`, transition: 'transform 0.3s ease', zIndex: 2001 }
+      ? {
+          position: 'absolute',
+          bottom: 8,
+          left: '50%',
+          transform: `translateX(-50%) translateY(${!visible && autoHide ? '100%' : '0'})`,
+          transition: 'transform 0.3s ease',
+          zIndex: 2001
+        }
       : dockPosition === 'left'
-        ? { position: 'absolute', left: 8, top: '50%', transform: `translateY(-50%) translateX(${!visible && autoHide ? '-100%' : '0'})`, transition: 'transform 0.3s ease', zIndex: 2001 }
-        : { position: 'absolute', right: 8, top: '50%', transform: `translateY(-50%) translateX(${!visible && autoHide ? '100%' : '0'})`, transition: 'transform 0.3s ease', zIndex: 2001 }
+        ? {
+            position: 'absolute',
+            left: 8,
+            top: '50%',
+            transform: `translateY(-50%) translateX(${!visible && autoHide ? '-100%' : '0'})`,
+            transition: 'transform 0.3s ease',
+            zIndex: 2001
+          }
+        : {
+            position: 'absolute',
+            right: 8,
+            top: '50%',
+            transform: `translateY(-50%) translateX(${!visible && autoHide ? '100%' : '0'})`,
+            transition: 'transform 0.3s ease',
+            zIndex: 2001
+          }
 
   const dockStyle: React.CSSProperties = {
     display: 'flex',
@@ -791,7 +846,10 @@ export default function Dock() {
       <div
         style={{ ...wrapperStyle, pointerEvents: 'none' }}
         onMouseMove={e => mouseX.set(isHorizontal ? e.clientX : e.clientY)}
-        onMouseLeave={() => { mouseX.set(999); schedulHide() }}
+        onMouseLeave={() => {
+          mouseX.set(999)
+          schedulHide()
+        }}
         onMouseEnter={showDock}
       >
         <div style={dockStyle} onContextMenu={handleDockContextMenu}>
@@ -813,7 +871,14 @@ export default function Dock() {
           {displayItems.length > 0 && <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />}
 
           {/* Dock items */}
-          <div style={{ display: 'flex', alignItems: isHorizontal ? 'flex-end' : 'center', flexDirection: isHorizontal ? 'row' : 'column', gap }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: isHorizontal ? 'flex-end' : 'center',
+              flexDirection: isHorizontal ? 'row' : 'column',
+              gap
+            }}
+          >
             {displayItems.map(item => {
               return (
                 <div
@@ -821,46 +886,44 @@ export default function Dock() {
                   data-dock-folder={item.type === 'folder' ? item.id : undefined}
                   style={{ display: 'flex', alignItems: 'center', flexDirection: isHorizontal ? 'row' : 'column' }}
                 >
-                  {item.type === 'app' ? (
-                    (() => {
-                      const app = appsMap.get(item.appId)
-                      if (!app) return null
-                      return (
-                        <DockIcon
-                          label={app.name}
-                          icon={app.icon}
-                          isRunning={windows.some(w => w.appId === app.id)}
-                          appId={app.id}
-                          onClick={() => handleAppClick(app)}
-                          onContextMenu={e => handleAppContextMenu(e, app)}
-                          mouseX={mouseX}
-                          iconSize={iconSize}
-                          magnification={magnification}
-                          isHorizontal={isHorizontal}
-                        />
-                      )
-                    })()
-                  ) : (
-                    (() => {
-                      const idx = displayItems.indexOf(item)
-                      return (
-                        <DockFolderIcon
-                          folder={item}
-                          appsMap={appsMap}
-                          iconSize={iconSize}
-                          isHorizontal={isHorizontal}
-                          mouseX={mouseX}
-                          magnification={magnification}
-                          onClick={() => {
-                            const el = document.querySelector(`[data-dock-folder="${item.id}"]`)
-                            setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
-                            setOpenFolderIndex(openFolderIndex === idx ? null : idx)
-                          }}
-                          onContextMenu={e => handleFolderContextMenu(e, item, idx)}
-                        />
-                      )
-                    })()
-                  )}
+                  {item.type === 'app'
+                    ? (() => {
+                        const app = appsMap.get(item.appId)
+                        if (!app) return null
+                        return (
+                          <DockIcon
+                            label={app.name}
+                            icon={app.icon}
+                            isRunning={windows.some(w => w.appId === app.id)}
+                            appId={app.id}
+                            onClick={() => handleAppClick(app)}
+                            onContextMenu={e => handleAppContextMenu(e, app)}
+                            mouseX={mouseX}
+                            iconSize={iconSize}
+                            magnification={magnification}
+                            isHorizontal={isHorizontal}
+                          />
+                        )
+                      })()
+                    : (() => {
+                        const idx = displayItems.indexOf(item)
+                        return (
+                          <DockFolderIcon
+                            folder={item}
+                            appsMap={appsMap}
+                            iconSize={iconSize}
+                            isHorizontal={isHorizontal}
+                            mouseX={mouseX}
+                            magnification={magnification}
+                            onClick={() => {
+                              const el = document.querySelector(`[data-dock-folder="${item.id}"]`)
+                              setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
+                              setOpenFolderIndex(openFolderIndex === idx ? null : idx)
+                            }}
+                            onContextMenu={e => handleFolderContextMenu(e, item, idx)}
+                          />
+                        )
+                      })()}
                 </div>
               )
             })}
@@ -884,24 +947,29 @@ export default function Dock() {
 
       {/* Folder popup */}
       <AnimatePresence>
-        {openFolderIndex !== null && folderAnchorRect && (() => {
-          const item = displayItems.find(i => i.type === 'folder' && i.id === openFolderIndex)
-          if (!item || item.type !== 'folder') return null
-          return (
-            <FolderPopup
-              key={item.id}
-              folder={item}
-              anchorRect={folderAnchorRect}
-              dockPosition={dockPosition}
-              appsMap={appsMap}
-              windows={windows}
-              iconSize={iconSize}
-              onClose={() => setOpenFolderIndex(null)}
-              onOpenApp={appId => { const app = appsMap.get(appId); if (app) handleAppClick(app) }}
-              onRename={name => renameFolder(item.id, name)}
-            />
-          )
-        })()}
+        {openFolderIndex !== null &&
+          folderAnchorRect &&
+          (() => {
+            const item = displayItems.find(i => i.type === 'folder' && i.id === openFolderIndex)
+            if (!item || item.type !== 'folder') return null
+            return (
+              <FolderPopup
+                key={item.id}
+                folder={item}
+                anchorRect={folderAnchorRect}
+                dockPosition={dockPosition}
+                appsMap={appsMap}
+                windows={windows}
+                iconSize={iconSize}
+                onClose={() => setOpenFolderIndex(null)}
+                onOpenApp={appId => {
+                  const app = appsMap.get(appId)
+                  if (app) handleAppClick(app)
+                }}
+                onRename={name => renameFolder(item.id, name)}
+              />
+            )
+          })()}
       </AnimatePresence>
     </>
   )

@@ -7,7 +7,7 @@ import type {
   HttpMethod,
   KeyValueItem,
   ProxyResponse,
-  RequestTab,
+  RequestTab
 } from './types'
 
 let _tabCounter = 0
@@ -112,10 +112,10 @@ export const useApiClientStore = create<ApiClientState>((set, get) => ({
     }
   },
 
-  setSidebarTab: (tab) => set({ sidebarTab: tab }),
-  setActiveEnvironment: (id) => set({ activeEnvironmentId: id }),
+  setSidebarTab: tab => set({ sidebarTab: tab }),
+  setActiveEnvironment: id => set({ activeEnvironmentId: id }),
 
-  addTab: (partial) => {
+  addTab: partial => {
     const id = nextTabId()
     const tab: RequestTab = {
       id,
@@ -124,41 +124,39 @@ export const useApiClientStore = create<ApiClientState>((set, get) => ({
       url: partial?.url ?? '',
       request: partial?.request ?? {},
       isDirty: false,
-      requestId: partial?.requestId,
+      requestId: partial?.requestId
     }
-    set((s) => ({
+    set(s => ({
       tabs: [...s.tabs, tab],
-      activeTabId: id,
+      activeTabId: id
     }))
     return id
   },
 
-  removeTab: (tabId) => {
-    set((s) => {
-      const tabs = s.tabs.filter((t) => t.id !== tabId)
+  removeTab: tabId => {
+    set(s => {
+      const tabs = s.tabs.filter(t => t.id !== tabId)
       const newResponses = { ...s.responses }
       delete newResponses[tabId]
       let activeTabId = s.activeTabId
       if (activeTabId === tabId) {
-        const idx = s.tabs.findIndex((t) => t.id === tabId)
+        const idx = s.tabs.findIndex(t => t.id === tabId)
         activeTabId = tabs[Math.min(idx, tabs.length - 1)]?.id ?? null
       }
       return { tabs, activeTabId, responses: newResponses }
     })
   },
 
-  setActiveTab: (tabId) => set({ activeTabId: tabId }),
+  setActiveTab: tabId => set({ activeTabId: tabId }),
 
   updateTabRequest: (tabId, updates) => {
-    set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.id === tabId ? { ...t, ...updates, isDirty: true } : t,
-      ),
+    set(s => ({
+      tabs: s.tabs.map(t => (t.id === tabId ? { ...t, ...updates, isDirty: true } : t))
     }))
   },
 
-  sendRequest: async (tabId) => {
-    const tab = get().tabs.find((t) => t.id === tabId)
+  sendRequest: async tabId => {
+    const tab = get().tabs.find(t => t.id === tabId)
     if (!tab || !tab.url) return
 
     set({ isSending: true })
@@ -169,11 +167,11 @@ export const useApiClientStore = create<ApiClientState>((set, get) => ({
         url: tab.url,
         headers: enabledHeaders.length > 0 ? enabledHeaders : undefined,
         body: tab.request.body ? { type: tab.request.body.type, content: tab.request.body.content } : undefined,
-        follow_redirects: true,
+        follow_redirects: true
       })
       if (res.data) {
-        set((s) => ({
-          responses: { ...s.responses, [tabId]: res.data! },
+        set(s => ({
+          responses: { ...s.responses, [tabId]: res.data! }
         }))
       }
     } catch {
@@ -186,7 +184,7 @@ export const useApiClientStore = create<ApiClientState>((set, get) => ({
   },
 
   saveRequest: async (tabId, collectionId, folderId) => {
-    const tab = get().tabs.find((t) => t.id === tabId)
+    const tab = get().tabs.find(t => t.id === tabId)
     if (!tab) return
 
     const data: Record<string, unknown> = {
@@ -198,7 +196,7 @@ export const useApiClientStore = create<ApiClientState>((set, get) => ({
       params: tab.request.params,
       headers: tab.request.headers,
       body: tab.request.body,
-      auth: tab.request.auth,
+      auth: tab.request.auth
     }
 
     try {
@@ -207,17 +205,13 @@ export const useApiClientStore = create<ApiClientState>((set, get) => ({
       } else {
         const res = await apiClientApi.createRequest(data)
         if (res.data) {
-          set((s) => ({
-            tabs: s.tabs.map((t) =>
-              t.id === tabId ? { ...t, requestId: res.data!.id, isDirty: false } : t,
-            ),
+          set(s => ({
+            tabs: s.tabs.map(t => (t.id === tabId ? { ...t, requestId: res.data!.id, isDirty: false } : t))
           }))
         }
       }
-      set((s) => ({
-        tabs: s.tabs.map((t) =>
-          t.id === tabId ? { ...t, isDirty: false } : t,
-        ),
+      set(s => ({
+        tabs: s.tabs.map(t => (t.id === tabId ? { ...t, isDirty: false } : t))
       }))
       get().loadCollections()
     } catch {
@@ -225,9 +219,9 @@ export const useApiClientStore = create<ApiClientState>((set, get) => ({
     }
   },
 
-  openRequest: (req) => {
+  openRequest: req => {
     const { tabs } = get()
-    const existing = tabs.find((t) => t.requestId === req.id)
+    const existing = tabs.find(t => t.requestId === req.id)
     if (existing) {
       set({ activeTabId: existing.id })
       return
@@ -237,7 +231,7 @@ export const useApiClientStore = create<ApiClientState>((set, get) => ({
       name: req.name,
       method: req.method,
       url: req.url,
-      request: req.request as Partial<RequestTab['request']>,
+      request: req.request as Partial<RequestTab['request']>
     })
-  },
+  }
 }))

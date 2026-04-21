@@ -31,6 +31,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import type { PreferenceGroup } from '@/components/PreferencesPanel'
 import PreferencesPanel from '@/components/PreferencesPanel'
+import { Tabs } from '@/components/ui'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow, registerAppMenus, unregisterAppMenus, useAppStorage } from '@/kernel'
 import {
@@ -72,11 +73,7 @@ function DelBtn({ onConfirm }: { onConfirm: () => void }) {
   const [confirm, setConfirm] = useState(false)
   if (confirm)
     return (
-      <button
-        type="button"
-        className="ml-auto vos-btn vos-btn-danger px-[10px] py-[3px] text-xs"
-        onClick={onConfirm}
-      >
+      <button type="button" className="ml-auto vos-btn vos-btn-danger px-[10px] py-[3px] text-xs" onClick={onConfirm}>
         确认删除
       </button>
     )
@@ -348,9 +345,7 @@ function ServersTab({
               )}
               {sshConfigHosts.map(h => (
                 <div key={h.alias} className="ssh-card px-[12px] py-[10px] mb-[6px]">
-                  <div
-                    className="flex items-center justify-between mb-[4px]"
-                  >
+                  <div className="flex items-center justify-between mb-[4px]">
                     <span className="text-[13px] font-semibold">{h.alias}</span>
                     <button
                       type="button"
@@ -360,9 +355,7 @@ function ServersTab({
                       <Plus size={12} /> 导入
                     </button>
                   </div>
-                  <div
-                    className="text-[11px] vos-text-secondary flex gap-[12px] flex-wrap"
-                  >
+                  <div className="text-[11px] vos-text-secondary flex gap-[12px] flex-wrap">
                     {h.hostname && <span>Host: {h.hostname}</span>}
                     {h.user && <span>User: {h.user}</span>}
                     {h.port && <span>Port: {h.port}</span>}
@@ -587,9 +580,7 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           {showKeyPicker && keyFiles && (
             <div className="vos-form-row">
               <label>~/.ssh/ 密钥文件</label>
-              <div
-                className="max-h-[160px] overflow-auto border border-solid border-[var(--vos-border)] rounded-[6px] p-[4px]"
-              >
+              <div className="max-h-[160px] overflow-auto border border-solid border-[var(--vos-border)] rounded-[6px] p-[4px]">
                 {keyFiles.filter(f => !f.is_public).length === 0 && (
                   <p className="vos-text-tertiary text-[11px] px-[8px] py-[4px]">未发现私钥文件</p>
                 )}
@@ -1288,16 +1279,13 @@ export default function SshApp(_props: AppComponentProps) {
           <span>SSH 管理</span>
         </div>
         <nav className="ssh-nav">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              type="button"
-              className={`ssh-nav-item ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.icon} {t.label}
-            </button>
-          ))}
+          <Tabs
+            tabs={TABS}
+            activeTabId={tab}
+            onActivate={id => setTab(id as TabId)}
+            orientation="vertical"
+            renderPrefix={t => t.icon}
+          />
         </nav>
       </div>
 

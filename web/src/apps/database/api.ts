@@ -12,7 +12,7 @@ import type {
   DbTestResult,
   QueryResult,
   SchemaInfo,
-  TableStructure,
+  TableStructure
 } from './types'
 
 // Re-export types for backward compatibility
@@ -22,7 +22,7 @@ export type {
   DbTestResult,
   QueryResult,
   SchemaInfo,
-  TableStructure,
+  TableStructure
 } from './types'
 
 export const dbApi = {
@@ -61,5 +61,5 @@ export const dbApi = {
 
   // ── SQL execution ──
   executeDbSql: (id: string, sql: string) =>
-    request<ApiResponse<QueryResult>>('POST', `/api/db/connections/${id}/query`, { sql }),
+    request<ApiResponse<QueryResult>>('POST', `/api/db/connections/${id}/query`, { sql })
 }

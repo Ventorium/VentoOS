@@ -1,6 +1,6 @@
-import UrlBar from './UrlBar'
 import RequestTabs from './RequestTabs'
 import ResponseViewer from './ResponseViewer'
+import UrlBar from './UrlBar'
 
 export default function RequestEditor() {
   return (

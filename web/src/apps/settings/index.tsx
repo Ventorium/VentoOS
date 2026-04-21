@@ -40,15 +40,25 @@ import type {
   ProviderTemplate
 } from '@/apps/ai-assistant/api'
 import { agentApi } from '@/apps/ai-assistant/api'
+import BrandLogo from '@/components/BrandLogo'
 import { apiClient } from '@/infra/api'
 import { useWindowStore } from '@/kernel'
-import { useNotificationStore, notificationService } from '@/services/notification'
 import { authService, useAuthStore } from '@/services/auth'
+import { notificationService, useNotificationStore } from '@/services/notification'
 import { type ThemeMode, useSettingsStore } from '@/services/settings'
 
-import BrandLogo from '@/components/BrandLogo'
-
-type Category = 'appearance' | 'desktop' | 'notifications' | 'network' | 'sound' | 'lockscreen' | 'location' | 'update' | 'autostart' | 'ai' | 'general'
+type Category =
+  | 'appearance'
+  | 'desktop'
+  | 'notifications'
+  | 'network'
+  | 'sound'
+  | 'lockscreen'
+  | 'location'
+  | 'update'
+  | 'autostart'
+  | 'ai'
+  | 'general'
 
 const CATEGORIES = [
   { id: 'appearance' as Category, label: '外观', icon: Palette },
@@ -164,9 +174,7 @@ function AppearancePanel() {
       <div className="vos-settings-group">
         <label className="vos-settings-label">
           Bing 每日壁纸
-          {bingLoading && (
-            <span className="ml-[8px] text-[11px] vos-text-tertiary">加载中…</span>
-          )}
+          {bingLoading && <span className="ml-[8px] text-[11px] vos-text-tertiary">加载中…</span>}
         </label>
         {!bingLoading && bingWallpapers.length === 0 ? (
           <p className="text-xs vos-text-tertiary">暂无 Bing 壁纸（网络不可用）</p>
@@ -215,9 +223,7 @@ function DesktopPanel() {
             onChange={e => setDockSize(Number(e.target.value))}
             className="vos-settings-slider"
           />
-          <span className="text-[13px] min-w-[30px] vos-text-secondary">
-            {dockSize}px
-          </span>
+          <span className="text-[13px] min-w-[30px] vos-text-secondary">{dockSize}px</span>
         </div>
       </div>
 
@@ -241,9 +247,7 @@ function DesktopPanel() {
         <div className="vos-settings-toggle-row">
           <div>
             <div className="text-sm font-medium">放大效果</div>
-            <div className="text-xs vos-text-secondary">
-              鼠标悬停时放大Dock图标
-            </div>
+            <div className="text-xs vos-text-secondary">鼠标悬停时放大Dock图标</div>
           </div>
           <button
             type="button"
@@ -260,9 +264,7 @@ function DesktopPanel() {
         <div className="vos-settings-toggle-row">
           <div>
             <div className="text-sm font-medium">自动隐藏</div>
-            <div className="text-xs vos-text-secondary">
-              鼠标移到底部时显示Dock
-            </div>
+            <div className="text-xs vos-text-secondary">鼠标移到底部时显示Dock</div>
           </div>
           <button
             type="button"
@@ -304,9 +306,7 @@ function NotificationsPanel() {
         <div className="vos-settings-toggle-row">
           <div>
             <div className="text-sm font-medium">浏览器通知</div>
-            <div className="text-xs vos-text-secondary">
-              页面不在前台时推送浏览器原生通知
-            </div>
+            <div className="text-xs vos-text-secondary">页面不在前台时推送浏览器原生通知</div>
           </div>
           <button
             type="button"
@@ -330,9 +330,7 @@ function NotificationsPanel() {
         <div className="vos-settings-toggle-row">
           <div>
             <div className="text-sm font-medium">勿扰模式</div>
-            <div className="text-xs vos-text-secondary">
-              不弹出通知横幅，仅在通知中心保留未读数量
-            </div>
+            <div className="text-xs vos-text-secondary">不弹出通知横幅，仅在通知中心保留未读数量</div>
           </div>
           <button
             type="button"
@@ -347,23 +345,15 @@ function NotificationsPanel() {
 
       <div className="vos-settings-group">
         <label className="vos-settings-label">测试通知</label>
-        <p className="text-[13px] vos-text-secondary mb-3">
-          发送一条随机级别的测试通知，验证通知中心是否正常工作。
-        </p>
-        <button
-          type="button"
-          className="vos-btn vos-btn-primary text-[13px]"
-          onClick={sendTestNotification}
-        >
+        <p className="text-[13px] vos-text-secondary mb-3">发送一条随机级别的测试通知，验证通知中心是否正常工作。</p>
+        <button type="button" className="vos-btn vos-btn-primary text-[13px]" onClick={sendTestNotification}>
           发送测试通知
         </button>
       </div>
 
       <div className="vos-settings-group opacity-50">
         <label className="vos-settings-label">应用通知（即将推出）</label>
-        <p className="text-[13px] vos-text-secondary">
-          即将支持每个应用的通知权限控制。
-        </p>
+        <p className="text-[13px] vos-text-secondary">即将支持每个应用的通知权限控制。</p>
       </div>
     </div>
   )
@@ -376,12 +366,8 @@ function GeneralPanel() {
       <h2 className="vos-settings-section-title">通用</h2>
 
       <div className="vos-settings-group">
-        <div
-          className="flex items-center gap-4 p-4 rounded-lg bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-default)]"
-        >
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center bg-[linear-gradient(135deg,#1a1a2e,#0f3460)]"
-          >
+        <div className="flex items-center gap-4 p-4 rounded-lg bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-default)]">
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-[linear-gradient(135deg,#1a1a2e,#0f3460)]">
             <svg width="30" height="30" viewBox="0 0 16 16" fill="white">
               <circle cx="8" cy="4.5" r="2.5" />
               <path d="M8 9c-3 0-5.5 1.3-5.5 3S5 15 8 15s5.5-1.3 5.5-3S11 9 8 9z" />
@@ -389,12 +375,8 @@ function GeneralPanel() {
           </div>
           <div>
             <div className="font-semibold text-[15px]">VentoOS</div>
-            <div className="text-[13px] vos-text-secondary">
-              版本 0.1.0
-            </div>
-            <div className="text-xs mt-0.5 vos-text-tertiary">
-              本地优先 · 运维基础设施管理平台
-            </div>
+            <div className="text-[13px] vos-text-secondary">版本 0.1.0</div>
+            <div className="text-xs mt-0.5 vos-text-tertiary">本地优先 · 运维基础设施管理平台</div>
           </div>
         </div>
       </div>
@@ -432,9 +414,13 @@ function NetworkPanel() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    apiClient.getNetworkInfo().then(res => {
-      if (res.data) setInterfaces(res.data)
-    }).catch(() => {}).finally(() => setLoading(false))
+    apiClient
+      .getNetworkInfo()
+      .then(res => {
+        if (res.data) setInterfaces(res.data)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const typeLabel: Record<string, string> = { wifi: 'Wi-Fi', ethernet: '以太网', loopback: '回环' }
@@ -467,7 +453,9 @@ function NetworkPanel() {
         <div key={iface.name} className="vos-settings-group">
           <label className="vos-settings-label">
             {typeLabel[iface.type] ?? iface.type} — {iface.name}
-            <span className={`ml-2 inline-block w-2 h-2 rounded-full align-middle ${iface.status === 'up' ? 'bg-green-500' : 'bg-gray-400'}`} />
+            <span
+              className={`ml-2 inline-block w-2 h-2 rounded-full align-middle ${iface.status === 'up' ? 'bg-green-500' : 'bg-gray-400'}`}
+            />
           </label>
           <div className="rounded-lg border-[0.5px] border-solid border-[var(--vos-border-default)] bg-[var(--vos-bg-surface)] overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
@@ -508,7 +496,8 @@ function NetworkPanel() {
 }
 
 function SpeedTestRow({ target, isLast }: { target: { name: string; url: string; icon: string }; isLast: boolean }) {
-  const IconComponent = target.icon === 'baidu' ? BaiduOutlined : target.icon === 'google' ? GoogleOutlined : GithubOutlined
+  const IconComponent =
+    target.icon === 'baidu' ? BaiduOutlined : target.icon === 'google' ? GoogleOutlined : GithubOutlined
   const [testing, setTesting] = useState(false)
   const [result, setResult] = useState<{ latency: number; status: string } | null>(null)
 
@@ -539,20 +528,16 @@ function SpeedTestRow({ target, isLast }: { target: { name: string; url: string;
         <span className="text-[13px] font-medium">{target.name}</span>
       </div>
       <div className="flex items-center gap-3">
-        {testing && (
-          <div className="vos-loading-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-        )}
+        {testing && <div className="vos-loading-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />}
         {result && !testing && (
-          <span className={`text-[13px] font-mono ${result.status === 'ok' ? 'vos-text-secondary' : ''}`} style={result.status === 'error' ? { color: 'var(--vos-accent-danger)' } : undefined}>
+          <span
+            className={`text-[13px] font-mono ${result.status === 'ok' ? 'vos-text-secondary' : ''}`}
+            style={result.status === 'error' ? { color: 'var(--vos-accent-danger)' } : undefined}
+          >
             {result.status === 'ok' ? `${result.latency} ms` : '超时'}
           </span>
         )}
-        <button
-          type="button"
-          className="vos-btn text-[12px] min-w-[60px]"
-          disabled={testing}
-          onClick={runTest}
-        >
+        <button type="button" className="vos-btn text-[12px] min-w-[60px]" disabled={testing} onClick={runTest}>
           {testing ? '...' : '测速'}
         </button>
       </div>
@@ -601,31 +586,37 @@ function SoundPanel() {
 
   // Load from backend
   useEffect(() => {
-    apiClient.getSystemSettings().then(res => {
-      if (res.data) {
-        const d = res.data
-        setAlertVolume(d.sound_alert_volume)
-        setNotifVolume(d.sound_notif_volume)
-        setMuteAlerts(d.sound_alert_muted)
-        setMuteNotifs(d.sound_notif_muted)
-        setAlertSound(d.sound_alert_type)
-        setNotifSound(d.sound_notif_type)
-      }
-    }).catch(() => {}).finally(() => setLoaded(true))
+    apiClient
+      .getSystemSettings()
+      .then(res => {
+        if (res.data) {
+          const d = res.data
+          setAlertVolume(d.sound_alert_volume)
+          setNotifVolume(d.sound_notif_volume)
+          setMuteAlerts(d.sound_alert_muted)
+          setMuteNotifs(d.sound_notif_muted)
+          setAlertSound(d.sound_alert_type)
+          setNotifSound(d.sound_notif_type)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true))
   }, [])
 
   // Sync to backend on change (debounced)
   useEffect(() => {
     if (!loaded) return
     const timer = setTimeout(() => {
-      apiClient.saveSystemSettings({
-        sound_alert_volume: alertVolume,
-        sound_notif_volume: notifVolume,
-        sound_alert_muted: muteAlerts,
-        sound_notif_muted: muteNotifs,
-        sound_alert_type: alertSound,
-        sound_notif_type: notifSound
-      }).catch(() => {})
+      apiClient
+        .saveSystemSettings({
+          sound_alert_volume: alertVolume,
+          sound_notif_volume: notifVolume,
+          sound_alert_muted: muteAlerts,
+          sound_notif_muted: muteNotifs,
+          sound_alert_type: alertSound,
+          sound_notif_type: notifSound
+        })
+        .catch(() => {})
     }, 500)
     return () => clearTimeout(timer)
   }, [loaded, alertVolume, notifVolume, muteAlerts, muteNotifs, alertSound, notifSound])
@@ -641,7 +632,12 @@ function SoundPanel() {
             <div className="text-sm font-medium">提醒声音</div>
             <div className="text-xs vos-text-secondary">系统提醒和对话框提示音</div>
           </div>
-          <button type="button" className={`vos-toggle ${muteAlerts ? '' : 'on'}`} onClick={() => setMuteAlerts(!muteAlerts)} aria-label="提醒声音">
+          <button
+            type="button"
+            className={`vos-toggle ${muteAlerts ? '' : 'on'}`}
+            onClick={() => setMuteAlerts(!muteAlerts)}
+            aria-label="提醒声音"
+          >
             <div className="vos-toggle-thumb" />
           </button>
         </div>
@@ -649,14 +645,29 @@ function SoundPanel() {
           <div className="mt-3 space-y-3">
             <div className="flex items-center gap-3">
               <span className="text-[13px] min-w-[40px]">音量</span>
-              <input type="range" min={0} max={100} value={alertVolume} onChange={e => setAlertVolume(Number(e.target.value))} className="vos-settings-slider flex-1" />
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={alertVolume}
+                onChange={e => setAlertVolume(Number(e.target.value))}
+                className="vos-settings-slider flex-1"
+              />
               <span className="text-[13px] min-w-[35px] text-right vos-text-secondary">{alertVolume}%</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-[13px] min-w-[40px]">音效</span>
               <div className="flex gap-2 flex-wrap">
                 {SOUND_TYPES.map(s => (
-                  <button key={s.value} type="button" className={`vos-settings-chip text-[12px] ${alertSound === s.value ? 'active' : ''}`} onClick={() => { setAlertSound(s.value); playSound(s.value, alertVolume) }}>
+                  <button
+                    key={s.value}
+                    type="button"
+                    className={`vos-settings-chip text-[12px] ${alertSound === s.value ? 'active' : ''}`}
+                    onClick={() => {
+                      setAlertSound(s.value)
+                      playSound(s.value, alertVolume)
+                    }}
+                  >
                     {s.label}
                   </button>
                 ))}
@@ -673,7 +684,12 @@ function SoundPanel() {
             <div className="text-sm font-medium">通知声音</div>
             <div className="text-xs vos-text-secondary">收到新通知时播放提示音</div>
           </div>
-          <button type="button" className={`vos-toggle ${muteNotifs ? '' : 'on'}`} onClick={() => setMuteNotifs(!muteNotifs)} aria-label="通知声音">
+          <button
+            type="button"
+            className={`vos-toggle ${muteNotifs ? '' : 'on'}`}
+            onClick={() => setMuteNotifs(!muteNotifs)}
+            aria-label="通知声音"
+          >
             <div className="vos-toggle-thumb" />
           </button>
         </div>
@@ -681,14 +697,29 @@ function SoundPanel() {
           <div className="mt-3 space-y-3">
             <div className="flex items-center gap-3">
               <span className="text-[13px] min-w-[40px]">音量</span>
-              <input type="range" min={0} max={100} value={notifVolume} onChange={e => setNotifVolume(Number(e.target.value))} className="vos-settings-slider flex-1" />
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={notifVolume}
+                onChange={e => setNotifVolume(Number(e.target.value))}
+                className="vos-settings-slider flex-1"
+              />
               <span className="text-[13px] min-w-[35px] text-right vos-text-secondary">{notifVolume}%</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-[13px] min-w-[40px]">音效</span>
               <div className="flex gap-2 flex-wrap">
                 {SOUND_TYPES.map(s => (
-                  <button key={s.value} type="button" className={`vos-settings-chip text-[12px] ${notifSound === s.value ? 'active' : ''}`} onClick={() => { setNotifSound(s.value); playSound(s.value, notifVolume) }}>
+                  <button
+                    key={s.value}
+                    type="button"
+                    className={`vos-settings-chip text-[12px] ${notifSound === s.value ? 'active' : ''}`}
+                    onClick={() => {
+                      setNotifSound(s.value)
+                      playSound(s.value, notifVolume)
+                    }}
+                  >
                     {s.label}
                   </button>
                 ))}
@@ -717,22 +748,28 @@ function LockScreenPanel() {
 
   // Load lockscreen settings from backend (enabled + idle minutes only, NOT password)
   useEffect(() => {
-    apiClient.getSystemSettings().then(res => {
-      if (res.data) {
-        setEnabled(res.data.lockscreen_enabled)
-        setIdleMinutes(res.data.lockscreen_idle_minutes)
-      }
-    }).catch(() => {}).finally(() => setLoaded(true))
+    apiClient
+      .getSystemSettings()
+      .then(res => {
+        if (res.data) {
+          setEnabled(res.data.lockscreen_enabled)
+          setIdleMinutes(res.data.lockscreen_idle_minutes)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true))
   }, [])
 
   // Sync enabled/idle to backend (debounced)
   useEffect(() => {
     if (!loaded) return
     const timer = setTimeout(() => {
-      apiClient.saveSystemSettings({
-        lockscreen_enabled: enabled,
-        lockscreen_idle_minutes: idleMinutes
-      }).catch(() => {})
+      apiClient
+        .saveSystemSettings({
+          lockscreen_enabled: enabled,
+          lockscreen_idle_minutes: idleMinutes
+        })
+        .catch(() => {})
     }, 500)
     return () => clearTimeout(timer)
   }, [loaded, enabled, idleMinutes])
@@ -752,7 +789,8 @@ function LockScreenPanel() {
     }
     setPwdSaving(true)
     setPwdError('')
-    authService.changePassword(currentPwd, newPwd)
+    authService
+      .changePassword(currentPwd, newPwd)
       .then(() => {
         setShowChangePassword(false)
         setCurrentPwd('')
@@ -784,7 +822,12 @@ function LockScreenPanel() {
             <div className="text-sm font-medium">空闲锁屏</div>
             <div className="text-xs vos-text-secondary">达到指定空闲时间后自动锁定屏幕</div>
           </div>
-          <button type="button" className={`vos-toggle ${enabled ? 'on' : ''}`} onClick={() => setEnabled(!enabled)} aria-label="空闲锁屏">
+          <button
+            type="button"
+            className={`vos-toggle ${enabled ? 'on' : ''}`}
+            onClick={() => setEnabled(!enabled)}
+            aria-label="空闲锁屏"
+          >
             <div className="vos-toggle-thumb" />
           </button>
         </div>
@@ -795,7 +838,12 @@ function LockScreenPanel() {
           <label className="vos-settings-label">空闲时间</label>
           <div className="flex gap-2 flex-wrap">
             {idleOptions.map(opt => (
-              <button key={opt.value} type="button" className={`vos-settings-chip text-[12px] ${idleMinutes === opt.value ? 'active' : ''}`} onClick={() => setIdleMinutes(opt.value)}>
+              <button
+                key={opt.value}
+                type="button"
+                className={`vos-settings-chip text-[12px] ${idleMinutes === opt.value ? 'active' : ''}`}
+                onClick={() => setIdleMinutes(opt.value)}
+              >
                 {opt.label}
               </button>
             ))}
@@ -812,7 +860,17 @@ function LockScreenPanel() {
               <div className="text-sm font-medium">密码已设置</div>
               <div className="text-xs vos-text-secondary">解锁时需要输入系统密码</div>
             </div>
-            <button type="button" className="vos-btn text-[12px]" onClick={() => { setShowChangePassword(true); setCurrentPwd(''); setNewPwd(''); setConfirmPwd(''); setPwdError('') }}>
+            <button
+              type="button"
+              className="vos-btn text-[12px]"
+              onClick={() => {
+                setShowChangePassword(true)
+                setCurrentPwd('')
+                setNewPwd('')
+                setConfirmPwd('')
+                setPwdError('')
+              }}
+            >
               修改密码
             </button>
           </div>
@@ -838,21 +896,59 @@ function LockScreenPanel() {
               <div className="space-y-3">
                 <div>
                   <label className="text-[11px] vos-text-tertiary block mb-1">当前密码</label>
-                  <input type="password" className="vos-input w-full" value={currentPwd} onChange={e => { setCurrentPwd(e.target.value); setPwdError('') }} placeholder="输入当前密码" />
+                  <input
+                    type="password"
+                    className="vos-input w-full"
+                    value={currentPwd}
+                    onChange={e => {
+                      setCurrentPwd(e.target.value)
+                      setPwdError('')
+                    }}
+                    placeholder="输入当前密码"
+                  />
                 </div>
                 <div>
                   <label className="text-[11px] vos-text-tertiary block mb-1">新密码</label>
-                  <input type="password" className="vos-input w-full" value={newPwd} onChange={e => { setNewPwd(e.target.value); setPwdError('') }} placeholder="至少 6 位" />
+                  <input
+                    type="password"
+                    className="vos-input w-full"
+                    value={newPwd}
+                    onChange={e => {
+                      setNewPwd(e.target.value)
+                      setPwdError('')
+                    }}
+                    placeholder="至少 6 位"
+                  />
                 </div>
                 <div>
                   <label className="text-[11px] vos-text-tertiary block mb-1">确认新密码</label>
-                  <input type="password" className="vos-input w-full" value={confirmPwd} onChange={e => { setConfirmPwd(e.target.value); setPwdError('') }} placeholder="再次输入新密码" />
+                  <input
+                    type="password"
+                    className="vos-input w-full"
+                    value={confirmPwd}
+                    onChange={e => {
+                      setConfirmPwd(e.target.value)
+                      setPwdError('')
+                    }}
+                    placeholder="再次输入新密码"
+                  />
                 </div>
-                {pwdError && <p className="text-[12px]" style={{ color: 'var(--vos-accent-danger)' }}>{pwdError}</p>}
+                {pwdError && (
+                  <p className="text-[12px]" style={{ color: 'var(--vos-accent-danger)' }}>
+                    {pwdError}
+                  </p>
+                )}
               </div>
               <div className="flex justify-end gap-2 mt-5">
-                <button type="button" className="vos-btn text-[13px]" onClick={() => setShowChangePassword(false)}>取消</button>
-                <button type="button" className="vos-btn vos-btn-primary text-[13px]" disabled={pwdSaving} onClick={handleChangePassword}>
+                <button type="button" className="vos-btn text-[13px]" onClick={() => setShowChangePassword(false)}>
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="vos-btn vos-btn-primary text-[13px]"
+                  disabled={pwdSaving}
+                  onClick={handleChangePassword}
+                >
                   {pwdSaving ? '保存中...' : '确定'}
                 </button>
               </div>
@@ -875,9 +971,13 @@ function LocationPanel() {
 
   // Load from backend
   useEffect(() => {
-    apiClient.getSystemSettings().then(res => {
-      if (res.data) setEnabled(res.data.location_enabled)
-    }).catch(() => {}).finally(() => setLoaded(true))
+    apiClient
+      .getSystemSettings()
+      .then(res => {
+        if (res.data) setEnabled(res.data.location_enabled)
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true))
   }, [])
 
   // Sync enabled state to backend
@@ -898,7 +998,7 @@ function LocationPanel() {
     setLocating(true)
     setLocError('')
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
+      async pos => {
         const { latitude, longitude } = pos.coords
         // Reverse geocode using free Nominatim API
         try {
@@ -917,8 +1017,12 @@ function LocationPanel() {
         }
         setLocating(false)
       },
-      (err) => {
-        setLocError(err.message === 'User denied Geolocation' ? '定位权限被拒绝，请在浏览器设置中允许' : `定位失败: ${err.message}`)
+      err => {
+        setLocError(
+          err.message === 'User denied Geolocation'
+            ? '定位权限被拒绝，请在浏览器设置中允许'
+            : `定位失败: ${err.message}`
+        )
         setLocating(false)
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -935,7 +1039,15 @@ function LocationPanel() {
             <div className="text-sm font-medium">定位服务</div>
             <div className="text-xs vos-text-secondary">允许应用获取当前位置信息</div>
           </div>
-          <button type="button" className={`vos-toggle ${enabled ? 'on' : ''}`} onClick={() => { setEnabled(!enabled); if (enabled) setLocation(null) }} aria-label="定位服务">
+          <button
+            type="button"
+            className={`vos-toggle ${enabled ? 'on' : ''}`}
+            onClick={() => {
+              setEnabled(!enabled)
+              if (enabled) setLocation(null)
+            }}
+            aria-label="定位服务"
+          >
             <div className="vos-toggle-thumb" />
           </button>
         </div>
@@ -953,7 +1065,9 @@ function LocationPanel() {
                 </div>
               )}
               {locError && !locating && (
-                <p className="text-[12px] mb-3" style={{ color: 'var(--vos-accent-danger)' }}>{locError}</p>
+                <p className="text-[12px] mb-3" style={{ color: 'var(--vos-accent-danger)' }}>
+                  {locError}
+                </p>
               )}
               {location && !locating && (
                 <div className="space-y-2">
@@ -971,7 +1085,9 @@ function LocationPanel() {
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-[13px]">经纬度</span>
-                    <span className="text-[13px] vos-text-secondary font-mono">{location.lat.toFixed(4)}, {location.lon.toFixed(4)}</span>
+                    <span className="text-[13px] vos-text-secondary font-mono">
+                      {location.lat.toFixed(4)}, {location.lon.toFixed(4)}
+                    </span>
                   </div>
                 </div>
               )}
@@ -987,9 +1103,7 @@ function LocationPanel() {
 
           <div className="vos-settings-group opacity-50">
             <label className="vos-settings-label">应用定位权限（即将推出）</label>
-            <p className="text-[13px] vos-text-secondary">
-              即将支持对每个应用的定位权限进行单独控制。
-            </p>
+            <p className="text-[13px] vos-text-secondary">即将支持对每个应用的定位权限进行单独控制。</p>
           </div>
         </>
       )}
@@ -1062,9 +1176,7 @@ function UpdatePanel() {
           )}
 
           {!updateAvailable && lastChecked && !checking && (
-            <div className="mb-3 text-[12px] vos-text-secondary">
-              已是最新版本 · 上次检查 {lastChecked}
-            </div>
+            <div className="mb-3 text-[12px] vos-text-secondary">已是最新版本 · 上次检查 {lastChecked}</div>
           )}
 
           <div className="flex gap-2">
@@ -1072,7 +1184,12 @@ function UpdatePanel() {
               检查更新
             </button>
             {updateAvailable && (
-              <button type="button" className="vos-btn vos-btn-primary text-[13px]" disabled={updating} onClick={doUpdate}>
+              <button
+                type="button"
+                className="vos-btn vos-btn-primary text-[13px]"
+                disabled={updating}
+                onClick={doUpdate}
+              >
                 {updating ? '更新中...' : '立即更新'}
               </button>
             )}
@@ -1256,9 +1373,7 @@ function AIProviderSettings({
   return (
     <div className="flex gap-3 h-full">
       <div className="w-[38%] overflow-auto flex-shrink-0">
-        <div className="text-xs font-medium mb-2 vos-text-secondary">
-          已配置的 Provider
-        </div>
+        <div className="text-xs font-medium mb-2 vos-text-secondary">已配置的 Provider</div>
         <div className="space-y-2">
           {providers.map(p => (
             <div
@@ -1268,9 +1383,7 @@ function AIProviderSettings({
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-xs font-medium text-[var(--vos-text-primary)]">
-                    {p.name}
-                  </div>
+                  <div className="text-xs font-medium text-[var(--vos-text-primary)]">{p.name}</div>
                   <div className="text-[10px] mt-0.5 vos-text-tertiary">
                     {p.vendor} · {p.default_model}
                   </div>
@@ -1291,20 +1404,14 @@ function AIProviderSettings({
                   </AIBtn>
                 </div>
               </div>
-              <div className="text-[10px] mt-1.5 vos-text-tertiary">
-                {p.base_url}
-              </div>
+              <div className="text-[10px] mt-1.5 vos-text-tertiary">{p.base_url}</div>
             </div>
           ))}
         </div>
       </div>
       <div className="flex-1 overflow-auto">
-        <div className="text-xs font-medium mb-2 vos-text-secondary">
-          编辑 / 新建 Provider
-        </div>
-        <div
-          className="space-y-2.5 rounded-xl p-3 bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
-        >
+        <div className="text-xs font-medium mb-2 vos-text-secondary">编辑 / 新建 Provider</div>
+        <div className="space-y-2.5 rounded-xl p-3 bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]">
           <div className="grid grid-cols-2 gap-2">
             <div>
               <AIFieldLabel>模板</AIFieldLabel>
@@ -1424,9 +1531,7 @@ function AIAgentSettings({
   return (
     <div className="flex gap-3 h-full">
       <div className="w-[38%] overflow-auto flex-shrink-0">
-        <div className="text-xs font-medium mb-2 vos-text-secondary">
-          Agent 列表
-        </div>
+        <div className="text-xs font-medium mb-2 vos-text-secondary">Agent 列表</div>
         <div className="space-y-2">
           <AIBtn tone="primary" onClick={() => setDraft(emptyDraft)}>
             + 新建自定义 Agent
@@ -1438,9 +1543,7 @@ function AIAgentSettings({
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-xs font-medium text-[var(--vos-text-primary)]">
-                    {p.name}
-                  </div>
+                  <div className="text-xs font-medium text-[var(--vos-text-primary)]">{p.name}</div>
                   <div className="text-[10px] mt-0.5 vos-text-tertiary">
                     {p.preset_kind}
                     {p.is_builtin ? ' · 内置' : ' · 自定义'}
@@ -1460,12 +1563,8 @@ function AIAgentSettings({
         </div>
       </div>
       <div className="flex-1 overflow-auto">
-        <div className="text-xs font-medium mb-2 vos-text-secondary">
-          编辑 Agent
-        </div>
-        <div
-          className="rounded-xl p-3 space-y-2.5 bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
-        >
+        <div className="text-xs font-medium mb-2 vos-text-secondary">编辑 Agent</div>
+        <div className="rounded-xl p-3 space-y-2.5 bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]">
           <div className="grid grid-cols-2 gap-2">
             <div>
               <AIFieldLabel>名称</AIFieldLabel>
@@ -1617,20 +1716,11 @@ function AIRuntimeSettings({
     setDraft(config)
   }, [config])
 
-  if (!draft)
-    return (
-      <div className="text-xs vos-text-tertiary">
-        加载中…
-      </div>
-    )
+  if (!draft) return <div className="text-xs vos-text-tertiary">加载中…</div>
 
   return (
-    <div
-      className="max-w-[640px] rounded-xl p-3 space-y-2.5 bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
-    >
-      <div className="text-xs font-medium mb-2 vos-text-secondary">
-        全局运行时配置
-      </div>
+    <div className="max-w-[640px] rounded-xl p-3 space-y-2.5 bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]">
+      <div className="text-xs font-medium mb-2 vos-text-secondary">全局运行时配置</div>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <AIFieldLabel>默认 Provider</AIFieldLabel>
@@ -1721,9 +1811,7 @@ function AIChannelSettings({
   return (
     <div className="flex gap-3 h-full">
       <div className="w-[38%] overflow-auto flex-shrink-0">
-        <div className="text-xs font-medium mb-2 vos-text-secondary">
-          已接入的渠道
-        </div>
+        <div className="text-xs font-medium mb-2 vos-text-secondary">已接入的渠道</div>
         <div className="space-y-2">
           <AIBtn tone="primary" onClick={() => setDraft(emptyDraft)}>
             + 新建渠道
@@ -1758,12 +1846,8 @@ function AIChannelSettings({
           ))}
         </div>
       </div>
-      <div
-        className="flex-1 overflow-auto rounded-xl p-3 space-y-2.5 bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
-      >
-        <div className="text-xs font-medium vos-text-secondary">
-          {draft.id ? '编辑渠道' : '新建渠道'}
-        </div>
+      <div className="flex-1 overflow-auto rounded-xl p-3 space-y-2.5 bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]">
+        <div className="text-xs font-medium vos-text-secondary">{draft.id ? '编辑渠道' : '新建渠道'}</div>
         <div>
           <AIFieldLabel>名称</AIFieldLabel>
           <AITextInput value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
@@ -1912,9 +1996,7 @@ function AIPanel() {
     <div className="flex flex-col h-full px-5 py-4">
       <div className="flex items-center gap-3 mb-4">
         <Sparkles size={16} className="text-[var(--vos-accent-primary)]" />
-        <h2 className="vos-settings-section-title m-0">
-          AI 助手配置
-        </h2>
+        <h2 className="vos-settings-section-title m-0">AI 助手配置</h2>
         <div className="flex items-center gap-1 rounded-xl p-1 ml-auto bg-[var(--vos-bg-input)]">
           {AI_TABS.map(t => {
             const Icon = t.icon
@@ -1974,26 +2056,19 @@ const PANELS: Record<Category, React.ComponentType> = {
 function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
-      <div
-        className="vos-modal w-[340px] p-0 relative z-[7000]"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="vos-modal w-[340px] p-0 relative z-[7000]" onClick={e => e.stopPropagation()}>
         <div className="px-[28px] pt-[28px] pb-[24px] text-center">
           <div className="flex justify-center mb-[14px]">
             <BrandLogo size={72} />
           </div>
-          <div className="text-[20px] font-bold text-[var(--vos-text-primary)] tracking-[-0.01em]">
-            VentoOS
-          </div>
+          <div className="text-[20px] font-bold text-[var(--vos-text-primary)] tracking-[-0.01em]">VentoOS</div>
           <div className="text-xs text-[var(--vos-text-secondary)] mt-1">版本 1.0.0</div>
           <div className="text-xs text-[var(--vos-text-secondary)] mt-3 leading-[1.7]">
             运维与基础设施管理平台
             <br />
             统一管理 Kubernetes、数据库、Redis 与远程文件系统
           </div>
-          <div className="text-[11px] text-[var(--vos-text-secondary)] mt-3 opacity-70">
-            © 2025 VentoOS Project
-          </div>
+          <div className="text-[11px] text-[var(--vos-text-secondary)] mt-3 opacity-70">© 2025 VentoOS Project</div>
           <div className="flex justify-center mt-5">
             <button type="button" className="vos-btn vos-btn-primary min-w-[80px]" onClick={onClose}>
               好

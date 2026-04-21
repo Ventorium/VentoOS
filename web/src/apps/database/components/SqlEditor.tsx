@@ -1,11 +1,4 @@
-import {
-  AlignLeft,
-  Copy,
-  Database,
-  Play,
-  Save,
-  Square,
-} from 'lucide-react'
+import { AlignLeft, Copy, Database, Play, Save, Square } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Spinner } from '@/components/ui'
 import { dbApi } from '../api'
@@ -14,10 +7,34 @@ import type { QueryResult } from '../types'
 
 function formatSql(sql: string): string {
   const keywords = [
-    'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'INSERT', 'INTO', 'VALUES',
-    'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'ALTER', 'DROP',
-    'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'ON', 'GROUP BY',
-    'ORDER BY', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'AS',
+    'SELECT',
+    'FROM',
+    'WHERE',
+    'AND',
+    'OR',
+    'INSERT',
+    'INTO',
+    'VALUES',
+    'UPDATE',
+    'SET',
+    'DELETE',
+    'CREATE',
+    'TABLE',
+    'ALTER',
+    'DROP',
+    'JOIN',
+    'LEFT',
+    'RIGHT',
+    'INNER',
+    'OUTER',
+    'ON',
+    'GROUP BY',
+    'ORDER BY',
+    'HAVING',
+    'LIMIT',
+    'OFFSET',
+    'UNION',
+    'AS'
   ]
   let result = sql.trim()
   for (const kw of keywords) {
@@ -36,7 +53,7 @@ export function SqlEditor() {
     setSqlActiveResultIndex,
     selectedNode,
     loading,
-    setLoading,
+    setLoading
   } = useDatabaseStore()
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -50,26 +67,29 @@ export function SqlEditor() {
   const connName = selectedNode?.name ?? ''
   const dbName = selectedNode?.database ?? ''
 
-  const executeSql = useCallback(async (sql: string) => {
-    if (!connId || !sql.trim()) return
-    setExecuting(true)
-    setError(null)
-    setLoading(true)
-    try {
-      const resp = await dbApi.executeDbSql(connId, sql.trim())
-      if (resp.data) {
-        const results: QueryResult[] = Array.isArray(resp.data) ? resp.data : [resp.data]
-        setSqlResults(results)
-        setSqlActiveResultIndex(0)
+  const executeSql = useCallback(
+    async (sql: string) => {
+      if (!connId || !sql.trim()) return
+      setExecuting(true)
+      setError(null)
+      setLoading(true)
+      try {
+        const resp = await dbApi.executeDbSql(connId, sql.trim())
+        if (resp.data) {
+          const results: QueryResult[] = Array.isArray(resp.data) ? resp.data : [resp.data]
+          setSqlResults(results)
+          setSqlActiveResultIndex(0)
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        setSqlResults([])
+      } finally {
+        setExecuting(false)
+        setLoading(false)
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-      setSqlResults([])
-    } finally {
-      setExecuting(false)
-      setLoading(false)
-    }
-  }, [connId, setLoading, setSqlResults, setSqlActiveResultIndex])
+    },
+    [connId, setLoading, setSqlResults, setSqlActiveResultIndex]
+  )
 
   const handleRunAll = useCallback(() => {
     executeSql(sqlText)
@@ -121,7 +141,7 @@ export function SqlEditor() {
         })
       }
     },
-    [sqlText, executeSql, setSqlText],
+    [sqlText, executeSql, setSqlText]
   )
 
   // Dragging divider
@@ -208,7 +228,10 @@ export function SqlEditor() {
         {connId && (
           <div className="flex items-center gap-1 text-xs text-(--vos-text-secondary)">
             <Database size={12} />
-            <span>{connName}{dbName ? ` / ${dbName}` : ''}</span>
+            <span>
+              {connName}
+              {dbName ? ` / ${dbName}` : ''}
+            </span>
           </div>
         )}
       </div>
@@ -219,13 +242,15 @@ export function SqlEditor() {
         <div className="flex overflow-hidden" style={{ height: dividerY }}>
           <div className="w-10 shrink-0 bg-(--vos-bg-elevated) border-r border-solid border-(--vos-border) pt-2 text-right pr-1.5 select-none overflow-hidden">
             {Array.from({ length: lineCount }, (_, i) => (
-              <div key={i} className="text-[11px] leading-5 text-(--vos-text-secondary)">{i + 1}</div>
+              <div key={i} className="text-[11px] leading-5 text-(--vos-text-secondary)">
+                {i + 1}
+              </div>
             ))}
           </div>
           <textarea
             ref={textareaRef}
             value={sqlText}
-            onChange={(e) => setSqlText(e.target.value)}
+            onChange={e => setSqlText(e.target.value)}
             onKeyDown={handleKeyDown}
             className="flex-1 p-2 text-xs font-mono leading-5 bg-(--vos-bg) text-(--vos-text) border-none outline-none resize-none"
             placeholder="输入 SQL 语句... (Ctrl/Cmd+Enter 执行)"
@@ -270,12 +295,8 @@ export function SqlEditor() {
                 <Spinner size="md" />
               </div>
             )}
-            {!executing && error && (
-              <div className="p-4 text-xs text-(--vos-error)">{error}</div>
-            )}
-            {!executing && !error && activeResult && (
-              <ResultTable result={activeResult} />
-            )}
+            {!executing && error && <div className="p-4 text-xs text-(--vos-error)">{error}</div>}
+            {!executing && !error && activeResult && <ResultTable result={activeResult} />}
             {!executing && !error && sqlResults.length === 0 && (
               <div className="flex items-center justify-center h-full text-xs text-(--vos-text-secondary)">
                 运行查询以查看结果
@@ -288,9 +309,7 @@ export function SqlEditor() {
             <div className="h-6 shrink-0 flex items-center gap-3 px-3 border-t border-solid border-(--vos-border) bg-(--vos-bg-elevated) text-[11px] text-(--vos-text-secondary)">
               <span>{activeResult.rows.length} 行</span>
               <span>{activeResult.execution_time_ms} ms</span>
-              {activeResult.affected_rows > 0 && (
-                <span>影响 {activeResult.affected_rows} 行</span>
-              )}
+              {activeResult.affected_rows > 0 && <span>影响 {activeResult.affected_rows} 行</span>}
             </div>
           )}
         </div>
@@ -311,7 +330,9 @@ function ResultTable({ result }: { result: QueryResult }) {
       <table className="w-full text-xs border-collapse min-w-max">
         <thead>
           <tr className="bg-(--vos-bg-elevated) sticky top-0 z-1">
-            <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-10">#</th>
+            <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-10">
+              #
+            </th>
             {result.columns.map((col, i) => (
               <th
                 key={i}
@@ -330,7 +351,9 @@ function ResultTable({ result }: { result: QueryResult }) {
         <tbody>
           {result.rows.map((row, ri) => (
             <tr key={ri} className="hover:bg-(--vos-bg-elevated)">
-              <td className="text-center px-2 py-1 border-b border-solid border-(--vos-border) text-(--vos-text-secondary)">{ri + 1}</td>
+              <td className="text-center px-2 py-1 border-b border-solid border-(--vos-border) text-(--vos-text-secondary)">
+                {ri + 1}
+              </td>
               {row.map((cell, ci) => (
                 <td
                   key={ci}

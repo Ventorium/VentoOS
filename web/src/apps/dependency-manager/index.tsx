@@ -104,13 +104,8 @@ export default function DependencyManager(_props: AppComponentProps) {
           </div>
         ) : deps.length === 0 ? (
           <div className="text-center py-12">
-            <CheckCircle2
-              size={28}
-              className="text-[var(--vos-accent-success)] opacity-60 mx-auto mb-2"
-            />
-            <p className="text-xs text-[var(--vos-text-tertiary)]">
-              当前平台无需额外依赖
-            </p>
+            <CheckCircle2 size={28} className="text-[var(--vos-accent-success)] opacity-60 mx-auto mb-2" />
+            <p className="text-xs text-[var(--vos-text-tertiary)]">当前平台无需额外依赖</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -148,26 +143,18 @@ function DepCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-medium text-[var(--vos-text-primary)]">
-              {dep.name}
-            </span>
+            <span className="text-sm font-medium text-[var(--vos-text-primary)]">{dep.name}</span>
             {dep.installed ? (
-              <span
-                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--vos-accent-success)_15%,transparent)] text-[var(--vos-accent-success)]"
-              >
+              <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--vos-accent-success)_15%,transparent)] text-[var(--vos-accent-success)]">
                 <CheckCircle2 size={10} /> 已安装
               </span>
             ) : (
-              <span
-                className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--vos-accent-warning)_15%,transparent)] text-[var(--vos-accent-warning)]"
-              >
+              <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--vos-accent-warning)_15%,transparent)] text-[var(--vos-accent-warning)]">
                 <AlertTriangle size={10} /> 未安装
               </span>
             )}
           </div>
-          <p className="text-xs mb-2 text-[var(--vos-text-secondary)]">
-            {dep.description}
-          </p>
+          <p className="text-xs mb-2 text-[var(--vos-text-secondary)]">{dep.description}</p>
           {dep.install_command && (
             <div className="flex items-center gap-1.5 mt-1 group/cmd" style={{ maxWidth: 'fit-content' }}>
               <code
@@ -222,9 +209,7 @@ function DepCard({
             {showOutput ? '隐藏输出' : '查看输出'}
           </button>
           {showOutput && (
-            <pre
-              className="mt-1 p-2 rounded text-[10px] max-h-32 overflow-auto bg-[var(--vos-bg-input)] text-[var(--vos-text-secondary)] font-mono whitespace-pre-wrap break-all"
-            >
+            <pre className="mt-1 p-2 rounded text-[10px] max-h-32 overflow-auto bg-[var(--vos-bg-input)] text-[var(--vos-text-secondary)] font-mono whitespace-pre-wrap break-all">
               {installOutput}
             </pre>
           )}

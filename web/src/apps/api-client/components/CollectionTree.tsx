@@ -1,11 +1,11 @@
 import { ChevronDown, ChevronRight, File, Folder as FolderIcon, MoreHorizontal, Plus } from 'lucide-react'
 import { useCallback, useState } from 'react'
-import { useApiClientStore } from '../store'
 import { METHOD_COLORS } from '../constants'
+import { useApiClientStore } from '../store'
 import type { ApiRequest, CollectionTree, FolderTree } from '../types'
 
 function RequestItem({ req }: { req: ApiRequest }) {
-  const openRequest = useApiClientStore((s) => s.openRequest)
+  const openRequest = useApiClientStore(s => s.openRequest)
 
   return (
     <div
@@ -23,12 +23,15 @@ function RequestItem({ req }: { req: ApiRequest }) {
             body: req.body,
             auth: req.auth,
             preRequestScript: req.preRequestScript,
-            testScript: req.testScript,
-          } as Record<string, unknown>,
+            testScript: req.testScript
+          } as Record<string, unknown>
         })
       }
     >
-      <span className="font-bold text-[9px] uppercase w-8 shrink-0 text-center" style={{ color: METHOD_COLORS[req.method] }}>
+      <span
+        className="font-bold text-[9px] uppercase w-8 shrink-0 text-center"
+        style={{ color: METHOD_COLORS[req.method] }}
+      >
         {req.method}
       </span>
       <span className="truncate">{req.name}</span>
@@ -53,10 +56,10 @@ function FolderNode({ folder, depth }: { folder: FolderTree; depth: number }) {
       </div>
       {expanded && (
         <>
-          {folder.subFolders.map((sf) => (
+          {folder.subFolders.map(sf => (
             <FolderNode key={sf.folder.id} folder={sf} depth={depth + 1} />
           ))}
-          {folder.requests.map((r) => (
+          {folder.requests.map(r => (
             <div key={r.id} style={{ paddingLeft: `${(depth + 1) * 12}px` }}>
               <RequestItem req={r} />
             </div>
@@ -83,17 +86,17 @@ function CollectionNode({ tree }: { tree: CollectionTree }) {
         <button
           className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:opacity-80 shrink-0"
           style={{ color: 'var(--vos-text-tertiary)' }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
         >
           <MoreHorizontal size={12} />
         </button>
       </div>
       {expanded && (
         <div className="ml-1">
-          {tree.folders.map((f) => (
+          {tree.folders.map(f => (
             <FolderNode key={f.folder.id} folder={f} depth={1} />
           ))}
-          {tree.requests.map((r) => (
+          {tree.requests.map(r => (
             <div key={r.id} style={{ paddingLeft: '12px' }}>
               <RequestItem req={r} />
             </div>
@@ -105,8 +108,8 @@ function CollectionNode({ tree }: { tree: CollectionTree }) {
 }
 
 export default function CollectionTreeView() {
-  const collections = useApiClientStore((s) => s.collections)
-  const isLoading = useApiClientStore((s) => s.isLoading)
+  const collections = useApiClientStore(s => s.collections)
+  const isLoading = useApiClientStore(s => s.isLoading)
 
   if (isLoading && collections.length === 0) {
     return (
@@ -129,7 +132,7 @@ export default function CollectionTreeView() {
 
   return (
     <div className="py-1">
-      {collections.map((tree) => (
+      {collections.map(tree => (
         <CollectionNode key={tree.collection.id} tree={tree} />
       ))}
     </div>

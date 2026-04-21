@@ -72,9 +72,7 @@ export const useLaunchpadLayoutStore = create<LaunchpadLayoutState>((set, get) =
       const saved = await storage.getJSON<LaunchpadItem[]>(LAYOUT_KEY)
       if (saved && Array.isArray(saved) && saved.length > 0) {
         // Merge in any newly installed apps not yet in the layout
-        const layoutIds = new Set(
-          saved.flatMap(i => (i.type === 'app' ? [i.appId] : i.appIds))
-        )
+        const layoutIds = new Set(saved.flatMap(i => (i.type === 'app' ? [i.appId] : i.appIds)))
         const newApps: LaunchpadItem[] = defaultAppIds
           .filter(id => !layoutIds.has(id))
           .map(id => ({ type: 'app', appId: id }))
@@ -138,9 +136,7 @@ export const useLaunchpadLayoutStore = create<LaunchpadLayoutState>((set, get) =
     const appItem = items[appIndex]
     if (!appItem || appItem.type !== 'app') return
 
-    const folderIndex = items.findIndex(
-      i => i.type === 'folder' && (i as LaunchpadFolderItem).id === folderId
-    )
+    const folderIndex = items.findIndex(i => i.type === 'folder' && (i as LaunchpadFolderItem).id === folderId)
     if (folderIndex < 0) return
 
     const folder = items[folderIndex] as LaunchpadFolderItem
@@ -158,9 +154,7 @@ export const useLaunchpadLayoutStore = create<LaunchpadLayoutState>((set, get) =
   },
 
   renameFolder(folderId, name) {
-    const items = get().items.map(i =>
-      i.type === 'folder' && i.id === folderId ? { ...i, name } : i
-    )
+    const items = get().items.map(i => (i.type === 'folder' && i.id === folderId ? { ...i, name } : i))
     set({ items })
     persist(items)
   },

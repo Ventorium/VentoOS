@@ -190,9 +190,7 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-[6px] border-b border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] shrink-0">
         <Archive size={16} className="text-[var(--vos-accent-warning)]" />
-        <span className="text-[13px] font-medium flex-1 text-[var(--vos-text-primary)]">
-          {node?.name ?? 'Archive'}
-        </span>
+        <span className="text-[13px] font-medium flex-1 text-[var(--vos-text-primary)]">{node?.name ?? 'Archive'}</span>
         <span className="text-[11px] text-[var(--vos-text-tertiary)]">{entries.length} 项</span>
         <button
           type="button"
@@ -254,9 +252,7 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
       {/* File list */}
       <div className="flex-1 overflow-auto">
         {filteredEntries.length === 0 ? (
-          <div className="p-10 text-center text-[var(--vos-text-tertiary)] text-[13px]">
-            压缩文件为空
-          </div>
+          <div className="p-10 text-center text-[var(--vos-text-tertiary)] text-[13px]">压缩文件为空</div>
         ) : (
           filteredEntries.map(entry => {
             const name = entry.path.split('/').filter(Boolean).pop() ?? entry.path

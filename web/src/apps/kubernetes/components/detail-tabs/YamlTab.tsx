@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Spinner } from '@/components'
+import { k8sApi } from '../../api'
 import { useKubernetesStore } from '../../stores/kubernetes-store'
 import type { K8sResource } from '../../types'
-import { k8sApi } from '../../api'
 
 interface Props {
   resource: K8sResource
@@ -32,8 +32,6 @@ export function YamlTab({ resource }: Props) {
   }
 
   return (
-    <pre className="text-[11px] font-mono whitespace-pre-wrap break-all text-[var(--vos-text-primary)]">
-      {yaml}
-    </pre>
+    <pre className="text-[11px] font-mono whitespace-pre-wrap break-all text-[var(--vos-text-primary)]">{yaml}</pre>
   )
 }

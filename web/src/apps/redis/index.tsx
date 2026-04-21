@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VList } from 'virtua'
 import { AppLayout, AppSidebar, EmptyState, FormInput, Modal, SectionHeader, Spinner } from '@/components'
 import type { AppComponentProps } from '@/kernel'
-import { useAppStorage, useAppStateSync } from '@/kernel'
+import { useAppStateSync, useAppStorage } from '@/kernel'
 import type { CreateRedisConnectionReq, RedisConnectionConfig, RedisKeyInfo, RedisKeyValue } from './api'
 import { redisApi } from './api'
 
@@ -147,15 +147,17 @@ function TrieTreeView({
               ) : (
                 <>
                   <span className="w-[11px] shrink-0" />
-                  <Key size={12} className="shrink-0" style={{ color: isSelected ? '#fff' : 'var(--vos-text-tertiary)' }} />
+                  <Key
+                    size={12}
+                    className="shrink-0"
+                    style={{ color: isSelected ? '#fff' : 'var(--vos-text-tertiary)' }}
+                  />
                 </>
               )}
               <span className="flex-1 truncate font-mono">{child.name}</span>
               {(isFolder || isFolderWithLeaf) && <span className="text-[9px] opacity-60">{child.leafCount}</span>}
               {child.keyInfo && (
-                <span className="font-mono text-[9px] opacity-50 shrink-0">
-                  {child.keyInfo.key_type}
-                </span>
+                <span className="font-mono text-[9px] opacity-50 shrink-0">{child.keyInfo.key_type}</span>
               )}
             </div>
             {isExpanded && (isFolder || isFolderWithLeaf) && (
@@ -225,7 +227,7 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
       <FormInput placeholder="连接名称" value={name} onChange={e => setName(e.target.value)} />
       <div className="flex gap-2">
         <FormInput className="flex-1" placeholder="Host" value={host} onChange={e => setHost(e.target.value)} />
-      <FormInput className="w-[70px]" placeholder="Port" value={port} onChange={e => setPort(e.target.value)} />
+        <FormInput className="w-[70px]" placeholder="Port" value={port} onChange={e => setPort(e.target.value)} />
       </div>
       <FormInput
         placeholder="密码（可选）"
@@ -277,9 +279,7 @@ function StringViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: st
   }
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div
-        className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap text-[var(--vos-text-primary)]"
-      >
+      <div className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap text-[var(--vos-text-primary)]">
         {typeof kv.value === 'string' ? kv.value : JSON.stringify(kv.value, null, 2)}
       </div>
       <div className="flex-shrink-0 flex justify-end px-3 pb-3">
@@ -343,12 +343,8 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       <VList className="text-xs flex-1">
         {entries.map(([f, v]) => (
           <div key={f} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
-            <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-[30%]">
-              {f}
-            </div>
-            <div className="px-3 py-1.5 font-mono flex-1 break-all">
-              {v}
-            </div>
+            <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-[30%]">{f}</div>
+            <div className="px-3 py-1.5 font-mono flex-1 break-all">{v}</div>
             <div className="px-2 py-1 w-6 text-right">
               <button
                 type="button"
@@ -361,9 +357,7 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
           </div>
         ))}
       </VList>
-      <div
-        className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]"
-      >
+      <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]">
         <FormInput
           className="font-mono text-[11px] flex-[0_0_120px]"
           placeholder="Field"
@@ -417,9 +411,7 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       {/* Header */}
       <div className="flex-shrink-0 text-xs bg-[var(--vos-bg-surface)]">
         <div className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
-          <div className="px-3 py-1.5 text-left font-medium w-12">
-            #
-          </div>
+          <div className="px-3 py-1.5 text-left font-medium w-12">#</div>
           <div className="px-3 py-1.5 text-left font-medium flex-1">Value</div>
           <div className="w-6" />
         </div>
@@ -428,12 +420,8 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       <VList className="text-xs flex-1">
         {items.map((v, i) => (
           <div key={`${i}-${v}`} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
-            <div className="px-3 py-1.5 font-mono text-[var(--vos-text-tertiary)] w-12">
-              {i}
-            </div>
-            <div className="px-3 py-1.5 font-mono flex-1 break-all">
-              {v}
-            </div>
+            <div className="px-3 py-1.5 font-mono text-[var(--vos-text-tertiary)] w-12">{i}</div>
+            <div className="px-3 py-1.5 font-mono flex-1 break-all">{v}</div>
             <div className="px-2 py-1 w-6 text-right">
               <button
                 type="button"
@@ -446,9 +434,7 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
           </div>
         ))}
       </VList>
-      <div
-        className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]"
-      >
+      <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]">
         <FormInput
           className="font-mono flex-1 text-[11px]"
           placeholder="新元素 (追加到末尾)"
@@ -510,15 +496,9 @@ function SetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: strin
             </button>
           </div>
         ))}
-        {members.length === 0 && (
-          <span className="text-xs text-[var(--vos-text-tertiary)]">
-            空 Set
-          </span>
-        )}
+        {members.length === 0 && <span className="text-xs text-[var(--vos-text-tertiary)]">空 Set</span>}
       </div>
-      <div
-        className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]"
-      >
+      <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]">
         <FormInput
           className="font-mono flex-1 text-[11px]"
           placeholder="新成员"
@@ -583,9 +563,7 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       {/* Header */}
       <div className="flex-shrink-0 text-xs bg-[var(--vos-bg-surface)]">
         <div className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
-          <div className="px-3 py-1.5 text-left font-medium w-20">
-            Score
-          </div>
+          <div className="px-3 py-1.5 text-left font-medium w-20">Score</div>
           <div className="px-3 py-1.5 text-left font-medium flex-1">Member</div>
           <div className="w-6" />
         </div>
@@ -594,12 +572,8 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       <VList className="text-xs flex-1">
         {entries.map(e => (
           <div key={e.member} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
-            <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-20">
-              {e.score}
-            </div>
-            <div className="px-3 py-1.5 font-mono flex-1 break-all">
-              {e.member}
-            </div>
+            <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-20">{e.score}</div>
+            <div className="px-3 py-1.5 font-mono flex-1 break-all">{e.member}</div>
             <div className="px-2 py-1 w-6 text-right">
               <button
                 type="button"
@@ -612,9 +586,7 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
           </div>
         ))}
       </VList>
-      <div
-        className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]"
-      >
+      <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]">
         <FormInput
           className="font-mono w-[70px] text-[11px]"
           placeholder="Score"
@@ -668,9 +640,7 @@ function ValueViewer({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div
-        className="flex items-center gap-2 px-3 py-2 flex-shrink-0 bg-[var(--vos-bg-surface)] [border-bottom:0.5px_solid_var(--vos-border-subtle)]"
-      >
+      <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0 bg-[var(--vos-bg-surface)] [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
         <span className="text-xs font-mono font-medium flex-1 truncate">{kv.key}</span>
         <span
           className="text-[9px] px-1.5 py-0.5 rounded font-mono font-semibold"
@@ -681,23 +651,13 @@ function ValueViewer({
         >
           {kv.key_type.toUpperCase()}
         </span>
-        {kv.encoding && (
-          <span className="text-[9px] text-[var(--vos-text-tertiary)]">
-            {kv.encoding}
-          </span>
-        )}
+        {kv.encoding && <span className="text-[9px] text-[var(--vos-text-tertiary)]">{kv.encoding}</span>}
         {kv.ttl >= 0 && (
-          <span
-            className="text-[10px] px-1 py-0.5 rounded bg-[var(--vos-bg-item-hover)] text-[var(--vos-accent-warning)]"
-          >
+          <span className="text-[10px] px-1 py-0.5 rounded bg-[var(--vos-bg-item-hover)] text-[var(--vos-accent-warning)]">
             TTL: {kv.ttl}s
           </span>
         )}
-        {kv.ttl === -1 && (
-          <span className="text-[10px] text-[var(--vos-text-tertiary)]">
-            永久
-          </span>
-        )}
+        {kv.ttl === -1 && <span className="text-[10px] text-[var(--vos-text-tertiary)]">永久</span>}
         <button
           type="button"
           className="vos-btn-reset text-[var(--vos-text-tertiary)]"
@@ -714,9 +674,7 @@ function ValueViewer({
       {kv.key_type === 'set' && <SetViewer kv={kv} connId={connId} onRefresh={onRefresh} />}
       {kv.key_type === 'zset' && <ZSetViewer kv={kv} connId={connId} onRefresh={onRefresh} />}
       {!['string', 'hash', 'list', 'set', 'zset'].includes(kv.key_type) && (
-        <div
-          className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap text-[var(--vos-text-primary)]"
-        >
+        <div className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap text-[var(--vos-text-primary)]">
           {typeof kv.value === 'string' ? kv.value : JSON.stringify(kv.value, null, 2)}
         </div>
       )}
@@ -732,20 +690,20 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
   const [showForm, setShowForm] = useState(false)
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set())
   const [expandedConns, setExpandedConns] = useState<Set<string>>(
-    () => new Set(initialAppState?.expandedConns as string[] ?? [])
+    () => new Set((initialAppState?.expandedConns as string[]) ?? [])
   )
   const [selectedConn, setSelectedConn] = useState<string | null>(
     () => (initialAppState?.selectedConnId as string) ?? null
   )
-  const [pattern, setPattern] = useState(initialAppState?.pattern as string ?? '*')
+  const [pattern, setPattern] = useState((initialAppState?.pattern as string) ?? '*')
   const [keys, setKeys] = useState<RedisKeyInfo[]>([])
   const [selectedKey, setSelectedKey] = useState<RedisKeyValue | null>(null)
   const [loading, setLoading] = useState(false)
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
-    () => new Set(initialAppState?.expandedPaths as string[] ?? [])
+    () => new Set((initialAppState?.expandedPaths as string[]) ?? [])
   )
   // CLI state
-  const [cliMode, setCliMode] = useState(initialAppState?.cliMode as boolean ?? false)
+  const [cliMode, setCliMode] = useState((initialAppState?.cliMode as boolean) ?? false)
   const [cliInput, setCliInput] = useState('')
   const [cliHistory, setCliHistory] = useState<{ cmd: string; result: string }[]>([])
   const cliRef = useRef<HTMLDivElement>(null)
@@ -758,13 +716,17 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
   }, [storage])
 
   // Sync app state to window manager
-  useAppStateSync(windowId, {
-    selectedConnId: selectedConn,
-    pattern,
-    expandedPaths: [...expandedPaths],
-    expandedConns: [...expandedConns],
-    cliMode
-  }, [selectedConn, pattern, expandedPaths, expandedConns, cliMode])
+  useAppStateSync(
+    windowId,
+    {
+      selectedConnId: selectedConn,
+      pattern,
+      expandedPaths: [...expandedPaths],
+      expandedConns: [...expandedConns],
+      cliMode
+    },
+    [selectedConn, pattern, expandedPaths, expandedConns, cliMode]
+  )
 
   // Build trie from flat key list
   const trie = useMemo(() => buildTrie(keys, ':'), [keys])
@@ -887,11 +849,7 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
             title="连接"
             actions={
               <>
-                <button
-                  type="button"
-                  className="vos-btn-reset text-[var(--vos-text-tertiary)]"
-                  onClick={reload}
-                >
+                <button type="button" className="vos-btn-reset text-[var(--vos-text-tertiary)]" onClick={reload}>
                   <RefreshCw size={11} />
                 </button>
                 <button
@@ -924,7 +882,9 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
                   <Database
                     size={12}
                     className="shrink-0"
-                    style={{ color: isActive ? '#fff' : connected ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)' }}
+                    style={{
+                      color: isActive ? '#fff' : connected ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)'
+                    }}
                   />
                   <span
                     className="flex-1 truncate"
@@ -966,9 +926,7 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
           })}
 
           {connections.length === 0 && (
-            <div
-              className="flex-1 flex items-center justify-center text-xs text-[var(--vos-text-tertiary)]"
-            >
+            <div className="flex-1 flex items-center justify-center text-xs text-[var(--vos-text-tertiary)]">
               无连接
             </div>
           )}
@@ -991,9 +949,7 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
         {selectedConn && connectedIds.has(selectedConn) ? (
           <>
             {/* Key filter + mode toggle */}
-            <div
-              className="flex items-center gap-2 h-8 px-3 flex-shrink-0 bg-[var(--vos-bg-surface)] [border-bottom:0.5px_solid_var(--vos-border-subtle)]"
-            >
+            <div className="flex items-center gap-2 h-8 px-3 flex-shrink-0 bg-[var(--vos-bg-surface)] [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
               <Search size={12} className="text-[var(--vos-text-tertiary)]" />
               <input
                 className="flex-1 bg-transparent border-none outline-none text-xs text-[var(--vos-text-primary)]"
@@ -1004,9 +960,7 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
                   if (e.key === 'Enter' && selectedConn) scanKeys(selectedConn, pattern)
                 }}
               />
-              <span className="text-[10px] text-[var(--vos-text-tertiary)]">
-                {keys.length} keys
-              </span>
+              <span className="text-[10px] text-[var(--vos-text-tertiary)]">{keys.length} keys</span>
               <button
                 type="button"
                 className="vos-btn-reset text-[var(--vos-text-tertiary)]"
@@ -1034,9 +988,7 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
                   {cliHistory.map((h, i) => (
                     <div key={i} className="mb-2">
                       <div className="text-[#6ee7b7]">&gt; {h.cmd}</div>
-                      <div className="whitespace-pre-wrap text-[#d1d5db]">
-                        {h.result}
-                      </div>
+                      <div className="whitespace-pre-wrap text-[#d1d5db]">{h.result}</div>
                     </div>
                   ))}
                 </div>
@@ -1060,9 +1012,7 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
               /* Key browser with trie tree */
               <div className="flex-1 flex overflow-hidden">
                 {/* Key tree */}
-                <div
-                  className="flex flex-col overflow-auto w-[260px] [border-right:0.5px_solid_var(--vos-border-subtle)]"
-                >
+                <div className="flex flex-col overflow-auto w-[260px] [border-right:0.5px_solid_var(--vos-border-subtle)]">
                   {loading && keys.length === 0 && (
                     <div className="flex items-center justify-center py-4">
                       <Spinner size={16} />
@@ -1079,9 +1029,7 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
                     />
                   </div>
                   {!loading && keys.length === 0 && (
-                    <div
-                      className="flex items-center justify-center py-8 text-xs text-[var(--vos-text-tertiary)]"
-                    >
+                    <div className="flex items-center justify-center py-8 text-xs text-[var(--vos-text-tertiary)]">
                       无 Key
                     </div>
                   )}
@@ -1099,9 +1047,7 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
                     onRefresh={() => selectKey(selectedConn, selectedKey.key)}
                   />
                 ) : (
-                  <div
-                    className="flex-1 flex items-center justify-center text-xs text-[var(--vos-text-tertiary)]"
-                  >
+                  <div className="flex-1 flex items-center justify-center text-xs text-[var(--vos-text-tertiary)]">
                     选择一个 Key 查看值
                   </div>
                 )}

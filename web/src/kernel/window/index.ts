@@ -9,5 +9,5 @@ export {
   toggleMaximize
 } from './manager'
 export { useWindowStore } from './store'
-export { useAppStateSync } from './useAppStateSync'
 export type { WindowInstance, WindowOpenOptions } from './types'
+export { useAppStateSync } from './useAppStateSync'

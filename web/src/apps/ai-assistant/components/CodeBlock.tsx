@@ -20,16 +20,10 @@ export default function CodeBlock({ children, language, showLineNumbers = true }
   const lines = children.replace(/\n$/, '').split('\n')
 
   return (
-    <div
-      className="relative rounded-lg overflow-hidden my-2 text-xs bg-[var(--vos-bg-input)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
-    >
+    <div className="relative rounded-lg overflow-hidden my-2 text-xs bg-[var(--vos-bg-input)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]">
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-3 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
-      >
-          <span className="text-[10px] text-[var(--vos-text-tertiary)]">
-          {language || 'code'}
-        </span>
+      <div className="flex items-center justify-between px-3 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]">
+        <span className="text-[10px] text-[var(--vos-text-tertiary)]">{language || 'code'}</span>
         <button
           type="button"
           onClick={handleCopy}
@@ -46,9 +40,7 @@ export default function CodeBlock({ children, language, showLineNumbers = true }
           {lines.map((line, i) => (
             <div key={i} className="flex">
               {showLineNumbers && (
-                <span
-                  className="select-none text-right pr-3 mr-3 min-w-[28px] text-[var(--vos-text-tertiary)] border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] opacity-50"
-                >
+                <span className="select-none text-right pr-3 mr-3 min-w-[28px] text-[var(--vos-text-tertiary)] border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] opacity-50">
                   {i + 1}
                 </span>
               )}

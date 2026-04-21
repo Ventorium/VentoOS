@@ -10,12 +10,8 @@ interface Props {
 export default function FileTreeToolbar({ workspaceName, onNewFile, onNewFolder, onRefresh }: Props) {
   return (
     <>
-      <div
-        className="px-3 py-1.5 flex items-center justify-between flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
-      >
-        <span
-          className="text-[10px] font-semibold uppercase tracking-widest truncate text-[var(--vos-text-tertiary)]"
-        >
+      <div className="px-3 py-1.5 flex items-center justify-between flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
+        <span className="text-[10px] font-semibold uppercase tracking-widest truncate text-[var(--vos-text-tertiary)]">
           资源管理器
         </span>
         <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -42,9 +38,7 @@ export default function FileTreeToolbar({ workspaceName, onNewFile, onNewFolder,
           ))}
         </div>
       </div>
-      <div
-        className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider truncate flex-shrink-0 text-[var(--vos-text-tertiary)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
-      >
+      <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider truncate flex-shrink-0 text-[var(--vos-text-tertiary)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
         {workspaceName}
       </div>
     </>

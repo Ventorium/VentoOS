@@ -23,7 +23,7 @@ const ageCol: ResourceColumn = {
   key: 'age',
   header: 'Age',
   width: 80,
-  render: r => <span className="text-[var(--vos-text-tertiary)]">{r.age ?? '—'}</span>,
+  render: r => <span className="text-[var(--vos-text-tertiary)]">{r.age ?? '—'}</span>
 }
 
 const statusBadge = (status?: string) => {
@@ -39,11 +39,7 @@ const statusBadge = (status?: string) => {
           : isWarn
             ? 'rgba(var(--vos-accent-warning-rgb, 204 169 0), 0.15)'
             : 'rgba(var(--vos-accent-danger-rgb, 239 68 68), 0.15)',
-        color: isGood
-          ? 'var(--vos-accent-success)'
-          : isWarn
-            ? 'var(--vos-accent-warning)'
-            : 'var(--vos-accent-danger)',
+        color: isGood ? 'var(--vos-accent-success)' : isWarn ? 'var(--vos-accent-warning)' : 'var(--vos-accent-danger)'
       }}
     >
       {s}
@@ -59,21 +55,25 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
       <span className="font-mono text-[var(--vos-accent-primary)] truncate" title={r.name}>
         {r.name}
       </span>
-    ),
+    )
   }
 
   const nsCol: ResourceColumn = {
     key: 'namespace',
     header: 'Namespace',
     width: 100,
-    render: r => <span className="text-[var(--vos-text-secondary)] truncate" title={r.namespace}>{r.namespace ?? '—'}</span>,
+    render: r => (
+      <span className="text-[var(--vos-text-secondary)] truncate" title={r.namespace}>
+        {r.namespace ?? '—'}
+      </span>
+    )
   }
 
   const statusCol: ResourceColumn = {
     key: 'status',
     header: 'Status',
     width: 90,
-    render: r => statusBadge(r.status),
+    render: r => statusBadge(r.status)
   }
 
   switch (kind) {
@@ -92,19 +92,22 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
               return sum + ((c as Record<string, number>)?.restartCount ?? 0)
             }, 0)
             return <span className="text-[var(--vos-text-secondary)]">{restarts}</span>
-          },
+          }
         },
         {
           key: 'node',
           header: 'Node',
           width: 120,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)] truncate" title={String(getPointer(r, '/spec/nodeName') ?? '')}>
+            <span
+              className="text-[var(--vos-text-secondary)] truncate"
+              title={String(getPointer(r, '/spec/nodeName') ?? '')}
+            >
               {String(getPointer(r, '/spec/nodeName') ?? '—')}
             </span>
-          ),
+          )
         },
-        ageCol,
+        ageCol
       ]
 
     case 'deployment':
@@ -119,25 +122,29 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
             const ready = Number(getPointer(r, '/status/readyReplicas') ?? 0)
             const total = Number(getPointer(r, '/spec/replicas') ?? 0)
             return <span className="text-[var(--vos-text-secondary)]">{`${ready}/${total}`}</span>
-          },
+          }
         },
         {
           key: 'up-to-date',
           header: 'Up-to-date',
           width: 80,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)]">{Number(getPointer(r, '/status/updatedReplicas') ?? 0)}</span>
-          ),
+            <span className="text-[var(--vos-text-secondary)]">
+              {Number(getPointer(r, '/status/updatedReplicas') ?? 0)}
+            </span>
+          )
         },
         {
           key: 'available',
           header: 'Available',
           width: 80,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)]">{Number(getPointer(r, '/status/availableReplicas') ?? 0)}</span>
-          ),
+            <span className="text-[var(--vos-text-secondary)]">
+              {Number(getPointer(r, '/status/availableReplicas') ?? 0)}
+            </span>
+          )
         },
-        ageCol,
+        ageCol
       ]
 
     case 'statefulset':
@@ -152,9 +159,9 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
             const ready = Number(getPointer(r, '/status/readyReplicas') ?? 0)
             const total = Number(getPointer(r, '/spec/replicas') ?? 0)
             return <span className="text-[var(--vos-text-secondary)]">{`${ready}/${total}`}</span>
-          },
+          }
         },
-        ageCol,
+        ageCol
       ]
 
     case 'daemonset':
@@ -165,21 +172,33 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           key: 'desired',
           header: 'Desired',
           width: 70,
-          render: r => <span className="text-[var(--vos-text-secondary)]">{Number(getPointer(r, '/status/desiredNumberScheduled') ?? 0)}</span>,
+          render: r => (
+            <span className="text-[var(--vos-text-secondary)]">
+              {Number(getPointer(r, '/status/desiredNumberScheduled') ?? 0)}
+            </span>
+          )
         },
         {
           key: 'current',
           header: 'Current',
           width: 70,
-          render: r => <span className="text-[var(--vos-text-secondary)]">{Number(getPointer(r, '/status/currentNumberScheduled') ?? 0)}</span>,
+          render: r => (
+            <span className="text-[var(--vos-text-secondary)]">
+              {Number(getPointer(r, '/status/currentNumberScheduled') ?? 0)}
+            </span>
+          )
         },
         {
           key: 'ready',
           header: 'Ready',
           width: 70,
-          render: r => <span className="text-[var(--vos-text-secondary)]">{Number(getPointer(r, '/status/numberReady') ?? 0)}</span>,
+          render: r => (
+            <span className="text-[var(--vos-text-secondary)]">
+              {Number(getPointer(r, '/status/numberReady') ?? 0)}
+            </span>
+          )
         },
-        ageCol,
+        ageCol
       ]
 
     case 'job':
@@ -194,7 +213,7 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
             const succeeded = Number(getPointer(r, '/status/succeeded') ?? 0)
             const total = Number(getPointer(r, '/spec/completions') ?? 1)
             return <span className="text-[var(--vos-text-secondary)]">{`${succeeded}/${total}`}</span>
-          },
+          }
         },
         {
           key: 'duration',
@@ -203,9 +222,9 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           render: r => {
             const duration = String(getPointer(r, '/status/completionTime') ?? '')
             return <span className="text-[var(--vos-text-tertiary)]">{duration ? 'Completed' : 'Running'}</span>
-          },
+          }
         },
-        ageCol,
+        ageCol
       ]
 
     case 'cronjob':
@@ -217,20 +236,25 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           header: 'Schedule',
           width: 120,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)] truncate" title={String(getPointer(r, '/spec/schedule') ?? '')}>
+            <span
+              className="text-[var(--vos-text-secondary)] truncate"
+              title={String(getPointer(r, '/spec/schedule') ?? '')}
+            >
               {String(getPointer(r, '/spec/schedule') ?? '—')}
             </span>
-          ),
+          )
         },
         {
           key: 'suspend',
           header: 'Suspend',
           width: 70,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)]">{getPointer(r, '/spec/suspend') === true ? 'True' : 'False'}</span>
-          ),
+            <span className="text-[var(--vos-text-secondary)]">
+              {getPointer(r, '/spec/suspend') === true ? 'True' : 'False'}
+            </span>
+          )
         },
-        ageCol,
+        ageCol
       ]
 
     case 'service':
@@ -242,16 +266,20 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           header: 'Type',
           width: 100,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)]">{String(getPointer(r, '/spec/type') ?? 'ClusterIP')}</span>
-          ),
+            <span className="text-[var(--vos-text-secondary)]">
+              {String(getPointer(r, '/spec/type') ?? 'ClusterIP')}
+            </span>
+          )
         },
         {
           key: 'cluster-ip',
           header: 'Cluster IP',
           width: 110,
           render: r => (
-            <span className="font-mono text-[var(--vos-text-secondary)]">{String(getPointer(r, '/spec/clusterIP') ?? '—')}</span>
-          ),
+            <span className="font-mono text-[var(--vos-text-secondary)]">
+              {String(getPointer(r, '/spec/clusterIP') ?? '—')}
+            </span>
+          )
         },
         {
           key: 'ports',
@@ -260,12 +288,19 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           render: r => {
             const ports = (getPointer(r, '/spec/ports') as unknown[] | undefined) ?? []
             const text = ports
-              .map((p: unknown) => `${(p as Record<string, number>)?.port ?? ''}/${String((p as Record<string, string>)?.protocol ?? 'TCP')}`)
+              .map(
+                (p: unknown) =>
+                  `${(p as Record<string, number>)?.port ?? ''}/${String((p as Record<string, string>)?.protocol ?? 'TCP')}`
+              )
               .join(', ')
-            return <span className="text-[var(--vos-text-secondary)] truncate" title={text}>{text || '—'}</span>
-          },
+            return (
+              <span className="text-[var(--vos-text-secondary)] truncate" title={text}>
+                {text || '—'}
+              </span>
+            )
+          }
         },
-        ageCol,
+        ageCol
       ]
 
     case 'ingress':
@@ -279,10 +314,14 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           render: r => {
             const rules = (getPointer(r, '/spec/rules') as unknown[] | undefined) ?? []
             const hosts = rules.map((rule: unknown) => (rule as Record<string, string>)?.host ?? '').join(', ')
-            return <span className="text-[var(--vos-text-secondary)] truncate" title={hosts}>{hosts || '—'}</span>
-          },
+            return (
+              <span className="text-[var(--vos-text-secondary)] truncate" title={hosts}>
+                {hosts || '—'}
+              </span>
+            )
+          }
         },
-        ageCol,
+        ageCol
       ]
 
     case 'configmap':
@@ -296,9 +335,9 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           render: r => {
             const data = Object.keys((getPointer(r, '/data') as Record<string, unknown> | undefined) ?? {})
             return <span className="text-[var(--vos-text-secondary)]">{data.length}</span>
-          },
+          }
         },
-        ageCol,
+        ageCol
       ]
 
     case 'secret':
@@ -309,7 +348,9 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           key: 'type',
           header: 'Type',
           width: 120,
-          render: r => <span className="text-[var(--vos-text-secondary)]">{String(getPointer(r, '/type') ?? 'Opaque')}</span>,
+          render: r => (
+            <span className="text-[var(--vos-text-secondary)]">{String(getPointer(r, '/type') ?? 'Opaque')}</span>
+          )
         },
         {
           key: 'keys',
@@ -318,9 +359,9 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           render: r => {
             const data = Object.keys((getPointer(r, '/data') as Record<string, unknown> | undefined) ?? {})
             return <span className="text-[var(--vos-text-secondary)]">{data.length}</span>
-          },
+          }
         },
-        ageCol,
+        ageCol
       ]
 
     case 'persistentvolumeclaim':
@@ -333,10 +374,13 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           header: 'Volume',
           width: 120,
           render: r => (
-            <span className="font-mono text-[var(--vos-text-secondary)] truncate" title={String(getPointer(r, '/spec/volumeName') ?? '')}>
+            <span
+              className="font-mono text-[var(--vos-text-secondary)] truncate"
+              title={String(getPointer(r, '/spec/volumeName') ?? '')}
+            >
               {String(getPointer(r, '/spec/volumeName') ?? '—')}
             </span>
-          ),
+          )
         },
         {
           key: 'capacity',
@@ -345,19 +389,22 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           render: r => {
             const cap = (getPointer(r, '/status/capacity/storage') as string | undefined) ?? '—'
             return <span className="text-[var(--vos-text-secondary)]">{cap}</span>
-          },
+          }
         },
         {
           key: 'storage-class',
           header: 'StorageClass',
           width: 110,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)] truncate" title={String(getPointer(r, '/spec/storageClassName') ?? '')}>
+            <span
+              className="text-[var(--vos-text-secondary)] truncate"
+              title={String(getPointer(r, '/spec/storageClassName') ?? '')}
+            >
               {String(getPointer(r, '/spec/storageClassName') ?? '—')}
             </span>
-          ),
+          )
         },
-        ageCol,
+        ageCol
       ]
 
     case 'persistentvolume':
@@ -370,7 +417,7 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           render: r => {
             const cap = (getPointer(r, '/spec/capacity/storage') as string | undefined) ?? '—'
             return <span className="text-[var(--vos-text-secondary)]">{cap}</span>
-          },
+          }
         },
         {
           key: 'access-modes',
@@ -378,8 +425,12 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           width: 110,
           render: r => {
             const modes = (getPointer(r, '/spec/accessModes') as string[] | undefined) ?? []
-            return <span className="text-[var(--vos-text-secondary)] truncate" title={modes.join(', ')}>{modes.join(', ') || '—'}</span>
-          },
+            return (
+              <span className="text-[var(--vos-text-secondary)] truncate" title={modes.join(', ')}>
+                {modes.join(', ') || '—'}
+              </span>
+            )
+          }
         },
         statusCol,
         {
@@ -387,12 +438,15 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           header: 'StorageClass',
           width: 110,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)] truncate" title={String(getPointer(r, '/spec/storageClassName') ?? '')}>
+            <span
+              className="text-[var(--vos-text-secondary)] truncate"
+              title={String(getPointer(r, '/spec/storageClassName') ?? '')}
+            >
               {String(getPointer(r, '/spec/storageClassName') ?? '—')}
             </span>
-          ),
+          )
         },
-        ageCol,
+        ageCol
       ]
 
     case 'storageclass':
@@ -403,18 +457,23 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
           header: 'Provisioner',
           width: 160,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)] truncate" title={String(getPointer(r, '/provisioner') ?? '')}>
+            <span
+              className="text-[var(--vos-text-secondary)] truncate"
+              title={String(getPointer(r, '/provisioner') ?? '')}
+            >
               {String(getPointer(r, '/provisioner') ?? '—')}
             </span>
-          ),
+          )
         },
         {
           key: 'reclaim-policy',
           header: 'Reclaim Policy',
           width: 110,
-          render: r => <span className="text-[var(--vos-text-secondary)]">{String(getPointer(r, '/reclaimPolicy') ?? '—')}</span>,
+          render: r => (
+            <span className="text-[var(--vos-text-secondary)]">{String(getPointer(r, '/reclaimPolicy') ?? '—')}</span>
+          )
         },
-        ageCol,
+        ageCol
       ]
 
     case 'node':
@@ -429,29 +488,32 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
             const roles = Object.keys(labels)
               .filter(k => k.startsWith('node-role.kubernetes.io/'))
               .map(k => k.replace('node-role.kubernetes.io/', ''))
-            return <span className="text-[var(--vos-text-secondary)] truncate" title={roles.join(', ')}>{roles.join(', ') || '<none>'}</span>
-          },
+            return (
+              <span className="text-[var(--vos-text-secondary)] truncate" title={roles.join(', ')}>
+                {roles.join(', ') || '<none>'}
+              </span>
+            )
+          }
         },
         {
           key: 'version',
           header: 'Version',
           width: 120,
           render: r => (
-            <span className="text-[var(--vos-text-secondary)] truncate" title={String(getPointer(r, '/status/nodeInfo/kubeletVersion') ?? '')}>
+            <span
+              className="text-[var(--vos-text-secondary)] truncate"
+              title={String(getPointer(r, '/status/nodeInfo/kubeletVersion') ?? '')}
+            >
               {String(getPointer(r, '/status/nodeInfo/kubeletVersion') ?? '—')}
             </span>
-          ),
+          )
         },
         statusCol,
-        ageCol,
+        ageCol
       ]
 
     case 'namespace':
-      return [
-        nameCol,
-        statusCol,
-        ageCol,
-      ]
+      return [nameCol, statusCol, ageCol]
 
     case 'replicaset':
       return [
@@ -465,9 +527,9 @@ export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
             const ready = Number(getPointer(r, '/status/readyReplicas') ?? 0)
             const total = Number(getPointer(r, '/spec/replicas') ?? 0)
             return <span className="text-[var(--vos-text-secondary)]">{`${ready}/${total}`}</span>
-          },
+          }
         },
-        ageCol,
+        ageCol
       ]
 
     default:

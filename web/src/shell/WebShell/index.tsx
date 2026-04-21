@@ -11,9 +11,9 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { useEffect, useRef } from 'react'
-import { useAuthStore } from '@/services/auth'
-import { terminalRegistry } from '@/apps/super-terminal/terminalRegistry'
 import { useSuperTerminalStore } from '@/apps/super-terminal/store'
+import { terminalRegistry } from '@/apps/super-terminal/terminalRegistry'
+import { useAuthStore } from '@/services/auth'
 
 interface WebShellProps {
   target?: string
@@ -214,5 +214,3 @@ export default function WebShell({ target = 'local', paneId, cwd, shell, onClose
     </div>
   )
 }
-
-

@@ -130,21 +130,21 @@ export const OBJECT_CATEGORIES: Record<DbEngine, { key: ObjectCategory; label: s
     { key: 'views', label: '视图' },
     { key: 'materialized_views', label: '实体化视图' },
     { key: 'functions', label: '函数' },
-    { key: 'queries', label: '查询' },
+    { key: 'queries', label: '查询' }
   ],
   mysql: [
     { key: 'tables', label: '表' },
     { key: 'views', label: '视图' },
     { key: 'functions', label: '函数' },
     { key: 'events', label: '事件' },
-    { key: 'queries', label: '查询' },
+    { key: 'queries', label: '查询' }
   ],
   sqlite: [
     { key: 'tables', label: '表' },
     { key: 'views', label: '视图' },
     { key: 'triggers', label: '触发器' },
-    { key: 'queries', label: '查询' },
-  ],
+    { key: 'queries', label: '查询' }
+  ]
 }
 
 // ── Table structure ────────────────────────────────────────────────────────

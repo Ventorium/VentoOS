@@ -5,9 +5,9 @@
  */
 
 import { create } from 'zustand'
-import type { K8sCluster, K8sNamespace } from '../types'
 import type { UpdateK8sClusterReq } from '../api'
 import { k8sApi } from '../api'
+import type { K8sCluster, K8sNamespace } from '../types'
 
 interface ClusterConnectionState {
   connected: boolean
@@ -42,7 +42,7 @@ function defaultConnectionState(): ClusterConnectionState {
     error: null,
     namespaces: [],
     namespaceLoading: false,
-    namespaceError: null,
+    namespaceError: null
   }
 }
 
@@ -76,7 +76,7 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
     try {
       const res = await k8sApi.updateK8sCluster(id, req)
       const updated = res.data
-      set(s => ({ clusters: s.clusters.map(c => c.id === id ? updated : c) }))
+      set(s => ({ clusters: s.clusters.map(c => (c.id === id ? updated : c)) }))
       return updated
     } catch {
       return null
@@ -87,8 +87,8 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
     set(s => ({
       connections: {
         ...s.connections,
-        [id]: { ...(s.connections[id] ?? defaultConnectionState()), connecting: true, namespaceError: null },
-      },
+        [id]: { ...(s.connections[id] ?? defaultConnectionState()), connecting: true, namespaceError: null }
+      }
     }))
     await get().fetchNamespaces(id)
   },
@@ -97,8 +97,8 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
     set(s => ({
       connections: {
         ...s.connections,
-        [id]: defaultConnectionState(),
-      },
+        [id]: defaultConnectionState()
+      }
     }))
   },
 
@@ -115,8 +115,8 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
     set(s => ({
       connections: {
         ...s.connections,
-        [id]: { ...(s.connections[id] ?? defaultConnectionState()), namespaceLoading: true, namespaceError: null },
-      },
+        [id]: { ...(s.connections[id] ?? defaultConnectionState()), namespaceLoading: true, namespaceError: null }
+      }
     }))
     try {
       const res = await k8sApi.getK8sNamespaces(id)
@@ -129,9 +129,9 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
             connected: true,
             connecting: false,
             namespaces,
-            namespaceLoading: false,
-          },
-        },
+            namespaceLoading: false
+          }
+        }
       }))
       return namespaces
     } catch (e) {
@@ -143,9 +143,9 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
             ...(s.connections[id] ?? defaultConnectionState()),
             connected: false,
             namespaceLoading: false,
-            namespaceError: err,
-          },
-        },
+            namespaceError: err
+          }
+        }
       }))
       return []
     }
@@ -157,7 +157,7 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
 
   setClusterStatus(id, status) {
     set(s => ({
-      clusters: s.clusters.map(c => (c.id === id ? { ...c, status } : c)),
+      clusters: s.clusters.map(c => (c.id === id ? { ...c, status } : c))
     }))
-  },
+  }
 }))

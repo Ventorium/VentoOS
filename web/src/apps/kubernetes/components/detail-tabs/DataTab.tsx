@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { Copy, Eye, EyeOff } from 'lucide-react'
+import { useState } from 'react'
 import type { K8sResource } from '../../types'
 
 interface Props {
@@ -31,22 +31,14 @@ export function DataTab({ resource }: Props) {
   }
 
   if (dataKeys.length === 0) {
-    return (
-      <div className="text-xs text-[var(--vos-text-tertiary)] py-8 text-center">
-        No data entries
-      </div>
-    )
+    return <div className="text-xs text-[var(--vos-text-tertiary)] py-8 text-center">No data entries</div>
   }
 
   return (
     <div className="space-y-2">
       {dataKeys.map(key => {
         const rawValue = data[key]
-        const displayValue = isSecret
-          ? revealed[key]
-            ? decode(rawValue)
-            : '••••••••'
-          : rawValue
+        const displayValue = isSecret ? (revealed[key] ? decode(rawValue) : '••••••••') : rawValue
         return (
           <div
             key={key}

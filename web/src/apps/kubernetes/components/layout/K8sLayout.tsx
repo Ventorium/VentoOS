@@ -1,6 +1,6 @@
+import { useClickAway } from 'ahooks'
 import type { ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
-import { useClickAway } from 'ahooks'
 import { AppLayout, AppSidebar } from '@/components'
 import {
   DEFAULT_BOTTOM_HEIGHT,
@@ -8,7 +8,7 @@ import {
   MAX_DRAWER_WIDTH_PCT,
   MIN_BOTTOM_HEIGHT,
   MIN_DRAWER_WIDTH,
-  TAB_BAR_HEIGHT,
+  TAB_BAR_HEIGHT
 } from '../../constants'
 import { useKubernetesStore } from '../../stores/kubernetes-store'
 import { BottomPanel } from './BottomPanel'
@@ -103,9 +103,7 @@ export function K8sLayout({ children, overlay, onAddCluster, onEditCluster }: Pr
       <div className="flex flex-col w-full h-full overflow-hidden">
         <K8sTabBar />
         <div className="flex-1 flex flex-row overflow-hidden">
-          <div className="flex-1 flex flex-col min-w-0 relative">
-            {children}
-          </div>
+          <div className="flex-1 flex flex-col min-w-0 relative">{children}</div>
         </div>
         {bottomPanelOpen && (
           <>

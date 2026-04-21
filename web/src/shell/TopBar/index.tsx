@@ -56,9 +56,7 @@ function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void 
           <div className="text-[17px] font-semibold text-[var(--vos-text-primary)]">{app.name}</div>
           <div className="text-xs text-[var(--vos-text-secondary)] mt-1">版本 {app.version}</div>
           {app.description && (
-            <div className="text-xs text-[var(--vos-text-secondary)] mt-2.5 leading-[1.6] px-2">
-              {app.description}
-            </div>
+            <div className="text-xs text-[var(--vos-text-secondary)] mt-2.5 leading-[1.6] px-2">{app.description}</div>
           )}
           <div className="text-[11px] text-[var(--vos-text-secondary)] mt-3">
             作者: {app.author.name}
@@ -93,18 +91,14 @@ function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
           <div className="flex justify-center mb-3.5">
             <BrandLogo size={72} />
           </div>
-          <div className="text-xl font-bold text-[var(--vos-text-primary)] tracking-[-0.01em]">
-            VentoOS
-          </div>
+          <div className="text-xl font-bold text-[var(--vos-text-primary)] tracking-[-0.01em]">VentoOS</div>
           <div className="text-xs text-[var(--vos-text-secondary)] mt-1">版本 1.0.0</div>
           <div className="text-xs text-[var(--vos-text-secondary)] mt-3 leading-[1.7]">
             运维与基础设施管理平台
             <br />
             统一管理 Kubernetes、数据库、Redis 与远程文件系统
           </div>
-          <div className="text-[11px] text-[var(--vos-text-secondary)] mt-3 opacity-70">
-            © 2025 VentoOS Project
-          </div>
+          <div className="text-[11px] text-[var(--vos-text-secondary)] mt-3 opacity-70">© 2025 VentoOS Project</div>
           <div className="flex justify-center mt-5">
             <button type="button" className="vos-btn vos-btn-primary min-w-[80px]" onClick={onClose}>
               好
@@ -342,12 +336,7 @@ function MenuBarRight() {
         </button>
       )}
 
-      <button
-        type="button"
-        className="vos-topbar-btn relative"
-        onClick={toggleNotifPanel}
-        title="通知中心"
-      >
+      <button type="button" className="vos-topbar-btn relative" onClick={toggleNotifPanel} title="通知中心">
         {doNotDisturb ? (
           <BellOff size={13} />
         ) : (

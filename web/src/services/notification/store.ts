@@ -7,8 +7,8 @@
  */
 
 import { create } from 'zustand'
-import { apiClient } from '@/infra/api'
 import type { NotificationDTO } from '@/infra/api'
+import { apiClient } from '@/infra/api'
 import { createLogger } from '@/infra/logger'
 
 const logger = createLogger('services/notification/store')

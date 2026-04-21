@@ -12,7 +12,6 @@
  */
 
 import { AnimatePresence } from 'framer-motion'
-import { cn } from '@/lib/utils'
 import {
   Crop,
   Download,
@@ -36,6 +35,7 @@ import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
+import { cn } from '@/lib/utils'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 type Tool = 'move' | 'brush' | 'eraser' | 'crop'
@@ -373,19 +373,11 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
     )
 
   if (error) {
-    return (
-      <div className="w-full h-full vos-flex-center text-[var(--vos-text-tertiary)] text-[13px]">
-        {error}
-      </div>
-    )
+    return <div className="w-full h-full vos-flex-center text-[var(--vos-text-tertiary)] text-[13px]">{error}</div>
   }
 
   if (!loaded) {
-    return (
-      <div className="w-full h-full vos-flex-center text-[var(--vos-text-tertiary)] text-[13px]">
-        加载中…
-      </div>
-    )
+    return <div className="w-full h-full vos-flex-center text-[var(--vos-text-tertiary)] text-[13px]">加载中…</div>
   }
 
   return (
@@ -475,13 +467,23 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
         <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
 
         {/* Zoom */}
-        <button type="button" title="缩小" className={toolBtn(false)} onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}>
+        <button
+          type="button"
+          title="缩小"
+          className={toolBtn(false)}
+          onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}
+        >
           <Minus size={14} />
         </button>
         <span className="text-[11px] text-[var(--vos-text-secondary)] min-w-[40px] text-center">
           {Math.round(zoom * 100)}%
         </span>
-        <button type="button" title="放大" className={toolBtn(false)} onClick={() => setZoom(z => Math.min(10, z + 0.1))}>
+        <button
+          type="button"
+          title="放大"
+          className={toolBtn(false)}
+          onClick={() => setZoom(z => Math.min(10, z + 0.1))}
+        >
           <ZoomIn size={14} />
         </button>
 

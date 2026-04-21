@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
-import { openWindow, useAppStorage, useAppStateSync } from '@/kernel'
+import { openWindow, useAppStateSync, useAppStorage } from '@/kernel'
 import type { AgentConfig, AgentProfile, ChatSession, ProviderConfig, StreamEvent } from './api'
 import { agentApi } from './api'
 
@@ -53,14 +53,10 @@ function MessageBubble({ msg }: { msg: ChatSession['messages'][number] }) {
   if (msg.role === 'tool') {
     return (
       <div className="flex gap-3 mb-3">
-        <div
-          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]"
-        >
+        <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]">
           <Terminal size={14} />
         </div>
-        <div
-          className="max-w-[80%] px-3 py-2 rounded-lg text-xs leading-relaxed text-[var(--vos-text-secondary)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] font-mono whitespace-pre-wrap break-all"
-        >
+        <div className="max-w-[80%] px-3 py-2 rounded-lg text-xs leading-relaxed text-[var(--vos-text-secondary)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] font-mono whitespace-pre-wrap break-all">
           <div className="text-xs mb-1 text-[var(--vos-text-tertiary)]">
             <Wrench size={10} className="inline mr-1" />
             {msg.name ?? 'tool'}
@@ -103,9 +99,7 @@ function ToolCallEvent({ event }: { event: StreamEvent }) {
   if (event.type === 'tool_call_start') {
     return (
       <div className="flex gap-3 mb-2">
-        <div
-          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]"
-        >
+        <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]">
           <Wrench size={14} />
         </div>
         <div className="text-xs py-2 text-[var(--vos-text-tertiary)]">
@@ -127,9 +121,7 @@ function ToolCallEvent({ event }: { event: StreamEvent }) {
         >
           <Terminal size={14} />
         </div>
-        <div
-          className="max-w-[80%] px-3 py-2 rounded-lg text-xs bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] font-mono whitespace-pre-wrap break-all"
-        >
+        <div className="max-w-[80%] px-3 py-2 rounded-lg text-xs bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] font-mono whitespace-pre-wrap break-all">
           <div className="mb-1 text-[var(--vos-text-tertiary)]">
             {event.name} → {event.success ? '✓' : '✗'}
           </div>
@@ -300,9 +292,7 @@ export default function AIAssistantApp({ windowId, initialAppState }: AppCompone
     <div className="flex h-full">
       <div className="flex flex-col flex-shrink-0 overflow-auto w-[220px] border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)]">
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
-          <span className="text-xs font-medium text-[var(--vos-text-tertiary)]">
-            会话
-          </span>
+          <span className="text-xs font-medium text-[var(--vos-text-tertiary)]">会话</span>
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -372,15 +362,11 @@ export default function AIAssistantApp({ windowId, initialAppState }: AppCompone
                 placeholder="选择 Agent"
               />
             </div>
-            <div
-              className="flex items-center gap-1.5 text-[11px] px-2 py-1.5 rounded-lg bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]"
-            >
+            <div className="flex items-center gap-1.5 text-[11px] px-2 py-1.5 rounded-lg bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]">
               <Cpu size={12} />
               {activeProvider ? activeProvider.name : '未配置 Provider'}
             </div>
-            <div
-              className="flex items-center gap-1.5 text-[11px] px-2 py-1.5 rounded-lg bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]"
-            >
+            <div className="flex items-center gap-1.5 text-[11px] px-2 py-1.5 rounded-lg bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)]">
               <Bot size={12} />
               {activeProfile ? activeProfile.name : '未选择 Agent'}
             </div>
@@ -392,9 +378,7 @@ export default function AIAssistantApp({ windowId, initialAppState }: AppCompone
             <div className="flex-1 flex items-center justify-center h-full">
               <div className="text-center max-w-[520px]">
                 <Sparkles size={36} className="text-[var(--vos-text-tertiary)] mx-auto mb-3" />
-                <div className="text-sm text-[var(--vos-text-secondary)]">
-                  VentoOS AI Control Center
-                </div>
+                <div className="text-sm text-[var(--vos-text-secondary)]">VentoOS AI Control Center</div>
                 <div className="text-xs mt-2 text-[var(--vos-text-tertiary)]">
                   配置 provider、执行 1+1 最小探针、切换预设 / 自定义 agent，然后开始对话。
                 </div>
@@ -412,14 +396,10 @@ export default function AIAssistantApp({ windowId, initialAppState }: AppCompone
 
           {streamingContent && (
             <div className="flex gap-3 mb-4">
-              <div
-                className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-accent-primary)] text-white"
-              >
+              <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-accent-primary)] text-white">
                 <Sparkles size={14} />
               </div>
-              <div
-                className="max-w-[72%] px-3 py-2 text-sm leading-relaxed bg-[var(--vos-bg-surface)] text-[var(--vos-text-primary)] rounded-[12px_12px_12px_4px] whitespace-pre-wrap"
-              >
+              <div className="max-w-[72%] px-3 py-2 text-sm leading-relaxed bg-[var(--vos-bg-surface)] text-[var(--vos-text-primary)] rounded-[12px_12px_12px_4px] whitespace-pre-wrap">
                 {streamingContent}
                 <span className="animate-pulse">▊</span>
               </div>
@@ -428,9 +408,7 @@ export default function AIAssistantApp({ windowId, initialAppState }: AppCompone
 
           {sending && !streamingContent && toolEvents.length === 0 && (
             <div className="flex gap-3 mb-4">
-              <div
-                className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-accent-primary)] text-white"
-              >
+              <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[var(--vos-accent-primary)] text-white">
                 <Sparkles size={14} />
               </div>
               <div className="px-3 py-2 rounded-lg bg-[var(--vos-bg-surface)]">
@@ -442,7 +420,7 @@ export default function AIAssistantApp({ windowId, initialAppState }: AppCompone
           <div ref={bottomRef} />
         </div>
 
-          <div className="px-4 py-3 flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)]">
+        <div className="px-4 py-3 flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)]">
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <div>
               <input

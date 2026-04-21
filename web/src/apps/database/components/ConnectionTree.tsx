@@ -12,20 +12,20 @@ import {
   Search,
   Table2,
   Trash2,
-  Zap,
+  Zap
 } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { Spinner } from '@/components/ui'
-import {
-  OBJECT_CATEGORIES,
-  type ConnectionStatus,
-  type DbConnectionConfig,
-  type SchemaInfo,
-  type TreeNode,
-  type TreeNodeType,
-} from '../types'
 import { dbApi } from '../api'
 import { useDatabaseStore } from '../stores'
+import {
+  type ConnectionStatus,
+  type DbConnectionConfig,
+  OBJECT_CATEGORIES,
+  type SchemaInfo,
+  type TreeNode,
+  type TreeNodeType
+} from '../types'
 
 const CATEGORY_ICONS: Record<string, typeof Table2> = {
   tables: Table2,
@@ -34,7 +34,7 @@ const CATEGORY_ICONS: Record<string, typeof Table2> = {
   functions: FunctionSquare,
   events: Zap,
   triggers: Zap,
-  queries: FunctionSquare,
+  queries: FunctionSquare
 }
 
 function statusColor(status: ConnectionStatus | undefined): string {
@@ -64,7 +64,7 @@ export function ConnectionTree() {
     setSchemas,
     addTab,
     setActiveTab,
-    setInfoPanelData,
+    setInfoPanelData
   } = useDatabaseStore()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -73,32 +73,36 @@ export function ConnectionTree() {
   const filteredConnections = useMemo(() => {
     if (!searchQuery) return connections
     const q = searchQuery.toLowerCase()
-    return connections.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.engine.toLowerCase().includes(q),
-    )
+    return connections.filter(c => c.name.toLowerCase().includes(q) || c.engine.toLowerCase().includes(q))
   }, [connections, searchQuery])
 
-  const handleConnect = useCallback(async (conn: DbConnectionConfig) => {
-    setConnectionStatus(conn.id, 'connecting')
-    try {
-      await dbApi.connectDb(conn.id)
-      setConnectionStatus(conn.id, 'connected')
-      const res = await dbApi.getDbSchemas(conn.id)
-      if (res.data) {
-        setSchemas(conn.id, res.data)
+  const handleConnect = useCallback(
+    async (conn: DbConnectionConfig) => {
+      setConnectionStatus(conn.id, 'connecting')
+      try {
+        await dbApi.connectDb(conn.id)
+        setConnectionStatus(conn.id, 'connected')
+        const res = await dbApi.getDbSchemas(conn.id)
+        if (res.data) {
+          setSchemas(conn.id, res.data)
+        }
+      } catch {
+        setConnectionStatus(conn.id, 'error')
       }
-    } catch {
-      setConnectionStatus(conn.id, 'error')
-    }
-  }, [setConnectionStatus, setSchemas])
+    },
+    [setConnectionStatus, setSchemas]
+  )
 
-  const handleDisconnect = useCallback(async (conn: DbConnectionConfig) => {
-    try {
-      await dbApi.disconnectDb(conn.id)
-    } finally {
-      setConnectionStatus(conn.id, 'disconnected')
-    }
-  }, [setConnectionStatus])
+  const handleDisconnect = useCallback(
+    async (conn: DbConnectionConfig) => {
+      try {
+        await dbApi.disconnectDb(conn.id)
+      } finally {
+        setConnectionStatus(conn.id, 'disconnected')
+      }
+    },
+    [setConnectionStatus]
+  )
 
   const handleDelete = useCallback(async (conn: DbConnectionConfig) => {
     try {
@@ -109,51 +113,65 @@ export function ConnectionTree() {
     }
   }, [])
 
-  const handleExpandConnection = useCallback(async (conn: DbConnectionConfig) => {
-    const nodeId = `conn-${conn.id}`
-    const status = connectionStatuses[conn.id]
-    if (status !== 'connected') {
-      setLoadingNodes((prev) => new Set(prev).add(nodeId))
-      await handleConnect(conn)
-      setLoadingNodes((prev) => {
-        const next = new Set(prev)
-        next.delete(nodeId)
-        return next
+  const handleExpandConnection = useCallback(
+    async (conn: DbConnectionConfig) => {
+      const nodeId = `conn-${conn.id}`
+      const status = connectionStatuses[conn.id]
+      if (status !== 'connected') {
+        setLoadingNodes(prev => new Set(prev).add(nodeId))
+        await handleConnect(conn)
+        setLoadingNodes(prev => {
+          const next = new Set(prev)
+          next.delete(nodeId)
+          return next
+        })
+      }
+      toggleNode(nodeId)
+    },
+    [connectionStatuses, handleConnect, toggleNode]
+  )
+
+  const handleNodeClick = useCallback(
+    (nodeId: string, node: TreeNode) => {
+      setSelectedNode(nodeId, node)
+      setInfoPanelData({
+        type: node.type,
+        name: node.name,
+        engine: node.engine,
+        meta: {}
       })
-    }
-    toggleNode(nodeId)
-  }, [connectionStatuses, handleConnect, toggleNode])
+    },
+    [setSelectedNode, setInfoPanelData]
+  )
 
-  const handleNodeClick = useCallback((nodeId: string, node: TreeNode) => {
-    setSelectedNode(nodeId, node)
-    setInfoPanelData({
-      type: node.type,
-      name: node.name,
-      engine: node.engine,
-      meta: {},
-    })
-  }, [setSelectedNode, setInfoPanelData])
-
-  const handleTableDoubleClick = useCallback((conn: DbConnectionConfig, schema: string, table: string) => {
-    const tabId = `data-${conn.id}-${schema}-${table}`
-    addTab({
-      id: tabId,
-      type: 'data',
-      label: table,
-      connId: conn.id,
-      database: conn.database,
-      schema,
-      table,
-      closable: true,
-    })
-    setActiveTab(tabId)
-  }, [addTab, setActiveTab])
+  const handleTableDoubleClick = useCallback(
+    (conn: DbConnectionConfig, schema: string, table: string) => {
+      const tabId = `data-${conn.id}-${schema}-${table}`
+      addTab({
+        id: tabId,
+        type: 'data',
+        label: table,
+        connId: conn.id,
+        database: conn.database,
+        schema,
+        table,
+        closable: true
+      })
+      setActiveTab(tabId)
+    },
+    [addTab, setActiveTab]
+  )
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--vos-bg-surface)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: 'var(--vos-border-subtle)' }}>
-        <span className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>连接</span>
+      <div
+        className="flex items-center justify-between px-3 py-2 border-b"
+        style={{ borderColor: 'var(--vos-border-subtle)' }}
+      >
+        <span className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+          连接
+        </span>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -178,7 +196,7 @@ export function ConnectionTree() {
 
       {/* Tree */}
       <div className="flex-1 overflow-auto py-1">
-        {filteredConnections.map((conn) => (
+        {filteredConnections.map(conn => (
           <ConnectionNode
             key={conn.id}
             conn={conn}
@@ -201,12 +219,16 @@ export function ConnectionTree() {
       {/* Search */}
       <div className="px-2 py-1.5 border-t" style={{ borderColor: 'var(--vos-border-subtle)' }}>
         <div className="relative">
-          <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--vos-text-tertiary)' }} />
+          <Search
+            size={12}
+            className="absolute left-2 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--vos-text-tertiary)' }}
+          />
           <input
             className="vos-input vos-input-sm w-full pl-6 text-xs"
             placeholder="搜索连接..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
       </div>
@@ -229,7 +251,7 @@ function ConnectionNode({
   onDelete,
   onNodeClick,
   onTableDoubleClick,
-  onToggleNode,
+  onToggleNode
 }: {
   conn: DbConnectionConfig
   status: ConnectionStatus | undefined
@@ -263,22 +285,43 @@ function ConnectionNode({
         label={conn.name}
         suffix={
           <div className="flex items-center gap-0.5">
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full mr-1"
-              style={{ background: statusColor(status) }}
-            />
+            <span className="inline-block w-1.5 h-1.5 rounded-full mr-1" style={{ background: statusColor(status) }} />
             {hovered && (
               <>
                 {isConnected ? (
-                  <button type="button" className="vos-icon-btn" title="断开" onClick={(e) => { e.stopPropagation(); onDisconnect() }}>
+                  <button
+                    type="button"
+                    className="vos-icon-btn"
+                    title="断开"
+                    onClick={e => {
+                      e.stopPropagation()
+                      onDisconnect()
+                    }}
+                  >
                     <Link2Off size={12} />
                   </button>
                 ) : (
-                  <button type="button" className="vos-icon-btn" title="连接" onClick={(e) => { e.stopPropagation(); onConnect() }}>
+                  <button
+                    type="button"
+                    className="vos-icon-btn"
+                    title="连接"
+                    onClick={e => {
+                      e.stopPropagation()
+                      onConnect()
+                    }}
+                  >
                     <Link size={12} />
                   </button>
                 )}
-                <button type="button" className="vos-icon-btn" title="删除" onClick={(e) => { e.stopPropagation(); onDelete() }}>
+                <button
+                  type="button"
+                  className="vos-icon-btn"
+                  title="删除"
+                  onClick={e => {
+                    e.stopPropagation()
+                    onDelete()
+                  }}
+                >
                   <Trash2 size={12} />
                 </button>
               </>
@@ -317,7 +360,7 @@ function SchemaNodes({
   selectedNodeId,
   onNodeClick,
   onTableDoubleClick,
-  onToggleNode,
+  onToggleNode
 }: {
   conn: DbConnectionConfig
   schemas: SchemaInfo[]
@@ -347,7 +390,7 @@ function SchemaNodes({
 
   return (
     <>
-      {schemaList.map((schema) => {
+      {schemaList.map(schema => {
         const schemaNodeId = `schema-${conn.id}-${schema.name}`
         const isExpanded = expandedNodes.has(schemaNodeId)
         return (
@@ -364,7 +407,7 @@ function SchemaNodes({
                   type: 'schema',
                   name: schema.name,
                   engine: conn.engine,
-                  connId: conn.id,
+                  connId: conn.id
                 })
                 onToggleNode(schemaNodeId)
               }}
@@ -398,7 +441,7 @@ function CategoryNodes({
   selectedNodeId,
   onNodeClick,
   onTableDoubleClick,
-  onToggleNode,
+  onToggleNode
 }: {
   conn: DbConnectionConfig
   schema: SchemaInfo
@@ -415,16 +458,17 @@ function CategoryNodes({
 
   return (
     <>
-      {categories.map((cat) => {
+      {categories.map(cat => {
         const catNodeId = `cat-${conn.id}-${schema.name}-${cat.key}`
         const isExpanded = expandedNodes.has(catNodeId)
         const Icon = CATEGORY_ICONS[cat.key] ?? FolderClosed
 
-        const items = cat.key === 'tables'
-          ? schema.tables.filter((t) => t.table_type === 'BASE TABLE' || t.table_type === 'table')
-          : cat.key === 'views'
-            ? schema.tables.filter((t) => t.table_type === 'VIEW' || t.table_type === 'view')
-            : []
+        const items =
+          cat.key === 'tables'
+            ? schema.tables.filter(t => t.table_type === 'BASE TABLE' || t.table_type === 'table')
+            : cat.key === 'views'
+              ? schema.tables.filter(t => t.table_type === 'VIEW' || t.table_type === 'view')
+              : []
 
         return (
           <div key={cat.key}>
@@ -442,36 +486,38 @@ function CategoryNodes({
                   engine: conn.engine,
                   connId: conn.id,
                   database: conn.database,
-                  schema: schema.name,
+                  schema: schema.name
                 })
                 onToggleNode(catNodeId)
               }}
             />
-            {isExpanded && items.map((item) => {
-              const itemNodeId = `obj-${conn.id}-${schema.name}-${item.name}`
-              const nodeType: TreeNodeType = item.table_type === 'VIEW' || item.table_type === 'view' ? 'view' : 'table'
-              return (
-                <TreeItem
-                  key={item.name}
-                  depth={depth + 1}
-                  isSelected={selectedNodeId === itemNodeId}
-                  icon={<Table2 size={13} style={{ color: 'var(--vos-text-tertiary)' }} />}
-                  label={item.name}
-                  onClick={() => {
-                    onNodeClick(itemNodeId, {
-                      id: itemNodeId,
-                      type: nodeType,
-                      name: item.name,
-                      engine: conn.engine,
-                      connId: conn.id,
-                      database: conn.database,
-                      schema: schema.name,
-                    })
-                  }}
-                  onDoubleClick={() => onTableDoubleClick(schema.name, item.name)}
-                />
-              )
-            })}
+            {isExpanded &&
+              items.map(item => {
+                const itemNodeId = `obj-${conn.id}-${schema.name}-${item.name}`
+                const nodeType: TreeNodeType =
+                  item.table_type === 'VIEW' || item.table_type === 'view' ? 'view' : 'table'
+                return (
+                  <TreeItem
+                    key={item.name}
+                    depth={depth + 1}
+                    isSelected={selectedNodeId === itemNodeId}
+                    icon={<Table2 size={13} style={{ color: 'var(--vos-text-tertiary)' }} />}
+                    label={item.name}
+                    onClick={() => {
+                      onNodeClick(itemNodeId, {
+                        id: itemNodeId,
+                        type: nodeType,
+                        name: item.name,
+                        engine: conn.engine,
+                        connId: conn.id,
+                        database: conn.database,
+                        schema: schema.name
+                      })
+                    }}
+                    onDoubleClick={() => onTableDoubleClick(schema.name, item.name)}
+                  />
+                )
+              })}
           </div>
         )
       })}
@@ -492,7 +538,7 @@ function TreeItem({
   onClick,
   onDoubleClick,
   onMouseEnter,
-  onMouseLeave,
+  onMouseLeave
 }: {
   depth: number
   isExpanded?: boolean
@@ -514,7 +560,7 @@ function TreeItem({
       style={{
         paddingLeft: `${depth * 16 + 8}px`,
         background: isSelected ? 'var(--vos-bg-active)' : 'transparent',
-        color: 'var(--vos-text-primary)',
+        color: 'var(--vos-text-primary)'
       }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
@@ -523,13 +569,7 @@ function TreeItem({
     >
       {hasChevron && (
         <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
-          {isLoading ? (
-            <Spinner size={12} />
-          ) : isExpanded ? (
-            <ChevronDown size={12} />
-          ) : (
-            <ChevronRight size={12} />
-          )}
+          {isLoading ? <Spinner size={12} /> : isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </span>
       )}
       {!hasChevron && <span className="w-3.5 shrink-0" />}

@@ -75,7 +75,6 @@ function ActivityButton({ item, isActive, onClick }: { item: ActivityItem; isAct
         onClick={onClick}
         onContextMenu={handleContextMenu}
       >
-
         {/* Active indicator — left border */}
         {isActive && (
           <motion.div
@@ -86,9 +85,7 @@ function ActivityButton({ item, isActive, onClick }: { item: ActivityItem; isAct
 
         {/* Badge */}
         {item.badge != null && item.badge > 0 && (
-          <div
-            className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-[var(--vos-accent-primary)] text-white text-[9px] font-bold flex items-center justify-center px-[3px] leading-[1]"
-          >
+          <div className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-[var(--vos-accent-primary)] text-white text-[9px] font-bold flex items-center justify-center px-[3px] leading-[1]">
             {item.badge > 99 ? '99+' : item.badge}
           </div>
         )}
@@ -113,9 +110,7 @@ export function AppSidebar({
   const showPanel = !panelCollapsed && activeId != null && panelContent != null
 
   return (
-    <div
-      className="flex flex-row h-full shrink-0"
-    >
+    <div className="flex flex-row h-full shrink-0">
       {/* Activity Bar */}
       <div className="vos-activity-bar w-[40px]">
         {activityBarHeader && <div className="mb-1">{activityBarHeader}</div>}
@@ -145,10 +140,7 @@ export function AppSidebar({
             transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
             className="overflow-hidden shrink-0 border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] flex flex-col h-full"
           >
-            <div
-              className="h-full flex flex-col overflow-hidden"
-              style={{ width: panelWidth }}
-            >
+            <div className="h-full flex flex-col overflow-hidden" style={{ width: panelWidth }}>
               {panelHeader && <div className="vos-panel-header">{panelHeader}</div>}
               <div className="flex-1 overflow-y-auto min-h-0">{panelContent}</div>
             </div>

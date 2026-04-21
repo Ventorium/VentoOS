@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Spinner } from '@/components'
+import { k8sApi } from '../../api'
 import { useKubernetesStore } from '../../stores/kubernetes-store'
 import type { K8sResource } from '../../types'
-import { k8sApi } from '../../api'
 
 interface K8sEvent {
   type: string
@@ -40,11 +40,7 @@ export function EventsTab({ resource }: Props) {
   }
 
   if (events.length === 0) {
-    return (
-      <div className="text-xs text-[var(--vos-text-tertiary)] py-8 text-center">
-        No events found
-      </div>
-    )
+    return <div className="text-xs text-[var(--vos-text-tertiary)] py-8 text-center">No events found</div>
   }
 
   return (
@@ -62,18 +58,13 @@ export function EventsTab({ resource }: Props) {
                   ev.type === 'Warning'
                     ? 'rgba(var(--vos-accent-warning-rgb, 204 169 0), 0.15)'
                     : 'rgba(var(--vos-accent-success-rgb, 34 197 94), 0.15)',
-                color:
-                  ev.type === 'Warning'
-                    ? 'var(--vos-accent-warning)'
-                    : 'var(--vos-accent-success)',
+                color: ev.type === 'Warning' ? 'var(--vos-accent-warning)' : 'var(--vos-accent-success)'
               }}
             >
               {ev.type}
             </span>
             <span className="text-xs font-medium">{ev.reason}</span>
-            <span className="text-[10px] text-[var(--vos-text-tertiary)] ml-auto">
-              {ev.count}×
-            </span>
+            <span className="text-[10px] text-[var(--vos-text-tertiary)] ml-auto">{ev.count}×</span>
           </div>
           <div className="text-[11px] text-[var(--vos-text-secondary)] mt-1">{ev.message}</div>
         </div>

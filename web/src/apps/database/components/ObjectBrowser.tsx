@@ -1,4 +1,8 @@
 import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  FunctionSquare,
   Grid3x3,
   List,
   Pencil,
@@ -7,21 +11,11 @@ import {
   Search,
   Table2,
   Trash2,
-  Eye,
-  FunctionSquare,
-  Zap,
-  ArrowUp,
-  ArrowDown,
+  Zap
 } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useDatabaseStore } from '../stores'
-import {
-  OBJECT_CATEGORIES,
-  type DbEngine,
-  type DbObject,
-  type ObjectCategory,
-  type SchemaInfo,
-} from '../types'
+import { type DbEngine, type DbObject, OBJECT_CATEGORIES, type ObjectCategory, type SchemaInfo } from '../types'
 
 type ViewMode = 'list' | 'grid'
 type SortField = string
@@ -34,13 +28,10 @@ const CATEGORY_ICONS: Record<string, typeof Table2> = {
   functions: FunctionSquare,
   events: Zap,
   triggers: Zap,
-  queries: FunctionSquare,
+  queries: FunctionSquare
 }
 
-function getObjectsFromSchemas(
-  schemas: SchemaInfo[],
-  category: ObjectCategory,
-): DbObject[] {
+function getObjectsFromSchemas(schemas: SchemaInfo[], category: ObjectCategory): DbObject[] {
   if (category !== 'tables') return []
   const objects: DbObject[] = []
   for (const schema of schemas) {
@@ -50,7 +41,7 @@ function getObjectsFromSchemas(
         type: 'table',
         schema: schema.name,
         rowCount: t.row_count ?? undefined,
-        tableType: t.table_type,
+        tableType: t.table_type
       })
     }
   }
@@ -67,7 +58,7 @@ function getColumnsForEngine(engine: DbEngine): { key: string; label: string; wi
         { key: 'acl', label: 'ACL', width: '12%' },
         { key: 'tableType', label: '表类型', width: '10%' },
         { key: 'rowCount', label: '行', width: '10%' },
-        { key: 'primaryKeyCount', label: '主键', width: '8%' },
+        { key: 'primaryKeyCount', label: '主键', width: '8%' }
       ]
     case 'mysql':
       return [
@@ -77,13 +68,13 @@ function getColumnsForEngine(engine: DbEngine): { key: string; label: string; wi
         { key: 'dataSize', label: '数据大小', width: '12%' },
         { key: 'indexSize', label: '索引大小', width: '12%' },
         { key: 'charset', label: '字符集', width: '12%' },
-        { key: 'comment', label: '注释', width: '20%' },
+        { key: 'comment', label: '注释', width: '20%' }
       ]
     case 'sqlite':
       return [
         { key: 'name', label: '名称', width: '50%' },
         { key: 'rowCount', label: '行', width: '25%' },
-        { key: 'tableType', label: '类型', width: '25%' },
+        { key: 'tableType', label: '类型', width: '25%' }
       ]
   }
 }
@@ -97,7 +88,7 @@ export function ObjectBrowser() {
     selectedNode,
     schemas,
     addTab,
-    setActiveTab,
+    setActiveTab
   } = useDatabaseStore()
 
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -113,15 +104,12 @@ export function ObjectBrowser() {
   const columns = useMemo(() => getColumnsForEngine(engine), [engine])
 
   const connSchemas = useMemo(() => schemas[connId] ?? [], [schemas, connId])
-  const objects = useMemo(
-    () => getObjectsFromSchemas(connSchemas, activeCategory),
-    [connSchemas, activeCategory],
-  )
+  const objects = useMemo(() => getObjectsFromSchemas(connSchemas, activeCategory), [connSchemas, activeCategory])
 
   const filtered = useMemo(() => {
     const q = objectSearchQuery.toLowerCase().trim()
     if (!q) return objects
-    return objects.filter((o) => o.name.toLowerCase().includes(q))
+    return objects.filter(o => o.name.toLowerCase().includes(q))
   }, [objects, objectSearchQuery])
 
   const sorted = useMemo(() => {
@@ -132,17 +120,15 @@ export function ObjectBrowser() {
       if (av == null && bv == null) return 0
       if (av == null) return 1
       if (bv == null) return -1
-      const cmp = typeof av === 'number' && typeof bv === 'number'
-        ? av - bv
-        : String(av).localeCompare(String(bv))
+      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
       return sortDir === 'asc' ? cmp : -cmp
     })
   }, [filtered, sortField, sortDir])
 
   const handleSort = useCallback((field: string) => {
-    setSortField((prev) => {
+    setSortField(prev => {
       if (prev === field) {
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+        setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
         return field
       }
       setSortDir('asc')
@@ -150,20 +136,23 @@ export function ObjectBrowser() {
     })
   }, [])
 
-  const handleDoubleClick = useCallback((obj: DbObject) => {
-    if (!connId) return
-    const tabId = `data-${connId}-${obj.schema ?? ''}-${obj.name}`
-    addTab({
-      id: tabId,
-      type: 'data',
-      label: obj.name,
-      connId,
-      schema: obj.schema,
-      table: obj.name,
-      closable: true,
-    })
-    setActiveTab(tabId)
-  }, [connId, addTab, setActiveTab])
+  const handleDoubleClick = useCallback(
+    (obj: DbObject) => {
+      if (!connId) return
+      const tabId = `data-${connId}-${obj.schema ?? ''}-${obj.name}`
+      addTab({
+        id: tabId,
+        type: 'data',
+        label: obj.name,
+        connId,
+        schema: obj.schema,
+        table: obj.name,
+        closable: true
+      })
+      setActiveTab(tabId)
+    },
+    [connId, addTab, setActiveTab]
+  )
 
   const CatIcon = CATEGORY_ICONS[activeCategory] ?? Table2
 
@@ -205,7 +194,7 @@ export function ObjectBrowser() {
         <button
           className="p-1.5 rounded hover:bg-(--vos-bg-hover)"
           title="搜索"
-          onClick={() => setSearchVisible((v) => !v)}
+          onClick={() => setSearchVisible(v => !v)}
           style={{ color: searchVisible ? 'var(--vos-accent-primary)' : 'var(--vos-text-secondary)' }}
         >
           <Search size={15} />
@@ -219,11 +208,11 @@ export function ObjectBrowser() {
             style={{
               background: 'var(--vos-bg-input)',
               color: 'var(--vos-text-primary)',
-              border: '1px solid var(--vos-border-subtle)',
+              border: '1px solid var(--vos-border-subtle)'
             }}
             placeholder="搜索对象..."
             value={objectSearchQuery}
-            onChange={(e) => setObjectSearchQuery(e.target.value)}
+            onChange={e => setObjectSearchQuery(e.target.value)}
             autoFocus
           />
         </div>
@@ -233,13 +222,13 @@ export function ObjectBrowser() {
         className="flex gap-0 shrink-0 overflow-x-auto px-2"
         style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
       >
-        {categories.map((cat) => (
+        {categories.map(cat => (
           <button
             key={cat.key}
             className="px-3 py-2 text-xs whitespace-nowrap relative"
             style={{
               color: activeCategory === cat.key ? 'var(--vos-accent-primary)' : 'var(--vos-text-secondary)',
-              fontWeight: activeCategory === cat.key ? 600 : 400,
+              fontWeight: activeCategory === cat.key ? 600 : 400
             }}
             onClick={() => setActiveCategory(cat.key)}
           >
@@ -262,24 +251,22 @@ export function ObjectBrowser() {
                 className="sticky top-0 z-10"
                 style={{
                   background: 'var(--vos-bg-elevated)',
-                  borderBottom: '1px solid var(--vos-border-subtle)',
+                  borderBottom: '1px solid var(--vos-border-subtle)'
                 }}
               >
-                {columns.map((col) => (
+                {columns.map(col => (
                   <th
                     key={col.key}
                     className="px-2 py-1.5 text-left font-medium cursor-pointer select-none"
                     style={{
                       color: 'var(--vos-text-secondary)',
-                      width: col.width,
+                      width: col.width
                     }}
                     onClick={() => handleSort(col.key)}
                   >
                     <span className="inline-flex items-center gap-1">
                       {col.label}
-                      {sortField === col.key && (
-                        sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
-                      )}
+                      {sortField === col.key && (sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
                     </span>
                   </th>
                 ))}
@@ -293,12 +280,12 @@ export function ObjectBrowser() {
                   style={{
                     background: selectedIndex === idx ? 'var(--vos-bg-selected)' : 'transparent',
                     color: 'var(--vos-text-primary)',
-                    borderBottom: '1px solid var(--vos-border-subtle)',
+                    borderBottom: '1px solid var(--vos-border-subtle)'
                   }}
                   onClick={() => setSelectedIndex(idx)}
                   onDoubleClick={() => handleDoubleClick(obj)}
                 >
-                  {columns.map((col) => (
+                  {columns.map(col => (
                     <td key={col.key} className="px-2 py-1.5">
                       {col.key === 'name' ? (
                         <span className="inline-flex items-center gap-1.5">
@@ -339,7 +326,7 @@ export function ObjectBrowser() {
                 className="flex flex-col items-center gap-1 p-3 rounded cursor-pointer"
                 style={{
                   background: selectedIndex === idx ? 'var(--vos-bg-selected)' : 'var(--vos-bg-elevated)',
-                  border: '1px solid var(--vos-border-subtle)',
+                  border: '1px solid var(--vos-border-subtle)'
                 }}
                 onClick={() => setSelectedIndex(idx)}
                 onDoubleClick={() => handleDoubleClick(obj)}

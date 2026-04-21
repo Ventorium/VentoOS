@@ -69,9 +69,7 @@ export function Checkbox({ checked, onChange, indeterminate, label, disabled, st
           </svg>
         ) : null}
       </div>
-      {label && (
-        <span className="text-[13px] text-[var(--vos-text-primary)] leading-[1]">{label}</span>
-      )}
+      {label && <span className="text-[13px] text-[var(--vos-text-primary)] leading-[1]">{label}</span>}
     </label>
   )
 }

@@ -8,9 +8,7 @@ export interface SectionHeaderProps {
 export function SectionHeader({ title, actions }: SectionHeaderProps) {
   return (
     <div className="px-3 pt-3 pb-2 flex items-center justify-between">
-      <span className="text-[10px] font-semibold tracking-wider text-[var(--vos-text-tertiary)]">
-        {title}
-      </span>
+      <span className="text-[10px] font-semibold tracking-wider text-[var(--vos-text-tertiary)]">{title}</span>
       {actions && <div className="flex gap-1">{actions}</div>}
     </div>
   )

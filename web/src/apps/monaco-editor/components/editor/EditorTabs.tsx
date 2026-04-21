@@ -1,6 +1,6 @@
-import { Plus } from 'lucide-react'
+import { Tabs } from '@/components/ui'
+import { getFileIconByName } from '@/kernel/apps/file-icons'
 import { useEditorStore } from '../../stores/editor-store'
-import EditorTab from './EditorTab'
 
 export default function EditorTabs() {
   const tabs = useEditorStore(s => s.tabs)
@@ -12,32 +12,42 @@ export default function EditorTabs() {
   const isMac = /Mac/.test(navigator.userAgent)
 
   return (
-    <div
-      className="flex items-center flex-shrink-0 overflow-x-auto h-[35px] min-h-[35px] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
-    >
-      {tabs.map((tab, i) => (
-        <EditorTab
-          key={tab.id}
-          tab={tab}
-          index={i}
-          isActive={tab.id === activeTabId}
-          isDirty={tab.content !== tab.savedContent}
-          onActivate={() => setActiveTab(tab.id)}
-          onClose={e => {
-            e.stopPropagation()
-            closeTab(tab.id)
-          }}
-          onDoubleClick={() => pinTab(tab.id)}
-        />
-      ))}
-      <button
-        type="button"
-        className="flex-shrink-0 px-2 h-full flex items-center text-[var(--vos-text-tertiary)] bg-transparent border-none cursor-pointer"
-        title={`新建文件 (${isMac ? '⌘N' : 'Ctrl+Alt+N'})`}
-        onClick={openNewUntitled}
-      >
-        <Plus size={14} />
-      </button>
-    </div>
+    <Tabs
+      tabs={tabs}
+      activeTabId={activeTabId}
+      onActivate={setActiveTab}
+      onClose={closeTab}
+      onDoubleClick={pinTab}
+      onAuxClick={(e, tabId) => {
+        if (e.button === 1) {
+          e.stopPropagation()
+          closeTab(tabId)
+        }
+      }}
+      closeButtonAlwaysVisible={tab => tab.content !== tab.savedContent}
+      renderPrefix={(tab, isActive) => {
+        const iconInfo = getFileIconByName(tab.node.name)
+        const IconComp = iconInfo.icon
+        return (
+          <IconComp
+            size={11}
+            className="shrink-0"
+            style={{ color: isActive ? iconInfo.color : 'var(--vos-text-tertiary)' }}
+          />
+        )
+      }}
+      renderContent={tab => {
+        const isDirty = tab.content !== tab.savedContent
+        return (
+          <span className="truncate flex-1" style={{ fontStyle: tab.isPreview ? 'italic' : 'normal' }}>
+            {isDirty && <span className="text-[var(--vos-accent-warning)] mr-[2px]">●</span>}
+            {tab.node.name}
+          </span>
+        )
+      }}
+      showAddButton
+      onAdd={openNewUntitled}
+      addButtonTitle={`新建文件 (${isMac ? '⌘N' : 'Ctrl+Alt+N'})`}
+    />
   )
 }

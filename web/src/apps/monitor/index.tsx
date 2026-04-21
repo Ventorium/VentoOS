@@ -183,9 +183,7 @@ function SystemTab({
               label="使用率"
               formatValue={formatPercent}
             />
-            <div
-              className="text-[11px] text-[var(--vos-text-secondary)] mt-1.5 text-center"
-            >
+            <div className="text-[11px] text-[var(--vos-text-secondary)] mt-1.5 text-center">
               {formatBytes(metrics.memory.used_bytes)} / {formatBytes(metrics.memory.total_bytes)}
             </div>
           </div>
@@ -198,17 +196,13 @@ function SystemTab({
             const swapPct = (metrics.memory.swap_used_bytes / metrics.memory.swap_total_bytes) * 100
             return (
               <div className={`${monCard} mt-3`}>
-                <div
-                  className="flex justify-between text-xs text-[var(--vos-text-secondary)] mb-1.5"
-                >
+                <div className="flex justify-between text-xs text-[var(--vos-text-secondary)] mb-1.5">
                   <span>Swap</span>
                   <span>
                     {formatBytes(metrics.memory.swap_used_bytes)} / {formatBytes(metrics.memory.swap_total_bytes)}
                   </span>
                 </div>
-                <div
-                  className="h-1.5 rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden"
-                >
+                <div className="h-1.5 rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden">
                   <div
                     className="h-full rounded-[3px]"
                     style={{
@@ -233,9 +227,7 @@ function SystemTab({
             const pct = d.total_bytes > 0 ? (d.used_bytes / d.total_bytes) * 100 : 0
             return (
               <div key={d.device + d.mount_point} className={`${monCard} mb-2`}>
-                <div
-                  className="flex justify-between text-xs text-[var(--vos-text-secondary)] mb-1.5"
-                >
+                <div className="flex justify-between text-xs text-[var(--vos-text-secondary)] mb-1.5">
                   <span>
                     {d.mount_point} ({d.device})
                   </span>
@@ -243,9 +235,7 @@ function SystemTab({
                     {formatBytes(d.used_bytes)} / {formatBytes(d.total_bytes)}
                   </span>
                 </div>
-                <div
-                  className="h-1.5 rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden"
-                >
+                <div className="h-1.5 rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden">
                   <div
                     className="h-full rounded-[3px]"
                     style={{
@@ -463,9 +453,7 @@ function WebTab() {
 
         {/* CPU Pressure */}
         <div className={`${monCard} mb-3`}>
-          <div className="text-xs text-[var(--vos-text-secondary)] mb-1.5">
-            CPU 压力 (Compute Pressure API)
-          </div>
+          <div className="text-xs text-[var(--vos-text-secondary)] mb-1.5">CPU 压力 (Compute Pressure API)</div>
           {hasPressure ? (
             <div className="text-sm font-medium">
               {cpuPressure ? (pressureLabel[cpuPressure] ?? cpuPressure) : '等待采样…'}
@@ -478,9 +466,7 @@ function WebTab() {
         {/* Device Memory */}
         {deviceMemory != null && (
           <div className={`${monCard} mb-3`}>
-            <div className="text-xs text-[var(--vos-text-secondary)] mb-1.5">
-              设备内存 (navigator.deviceMemory)
-            </div>
+            <div className="text-xs text-[var(--vos-text-secondary)] mb-1.5">设备内存 (navigator.deviceMemory)</div>
             <div className="text-sm font-medium">约 {deviceMemory} GB</div>
           </div>
         )}
@@ -516,9 +502,7 @@ function WebTab() {
                 {/* Usage bar */}
                 {memInfo.limit > 0 && (
                   <div className={memInfo.breakdown?.length ? 'mb-3' : ''}>
-                    <div
-                      className="h-2 rounded-[4px] bg-[var(--vos-border-secondary)] overflow-hidden"
-                    >
+                    <div className="h-2 rounded-[4px] bg-[var(--vos-border-secondary)] overflow-hidden">
                       <div
                         className="h-full rounded-[4px]"
                         style={{
@@ -681,9 +665,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
         priority: 5,
         onClick: () => openWindow('monitor'),
         render: () => (
-          <div
-            className="vos-flex-col items-center justify-center leading-[1.2] text-[9px] font-[var(--vos-font-mono,ui-monospace,monospace)] font-semibold text-[var(--vos-text-primary)] min-w-[42px] px-0.5"
-          >
+          <div className="vos-flex-col items-center justify-center leading-[1.2] text-[9px] font-[var(--vos-font-mono,ui-monospace,monospace)] font-semibold text-[var(--vos-text-primary)] min-w-[42px] px-0.5">
             <span style={{ color: usageColor(cpu) }}>{cpu.toFixed(1)}%</span>
             <span className="text-[8px] text-[var(--vos-text-secondary)]">
               {memUsedGB}/{memTotalGB}GB
@@ -854,7 +836,12 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
         {/* Sidebar */}
         <div className="w-[120px] shrink-0 border-r border-[var(--vos-border-primary)] vos-flex-col py-2 gap-[2px]">
           {tabs.map(t => (
-            <button key={t.id} type="button" className={`vos-flex-row gap-2 px-4 py-2 border-none cursor-pointer text-[13px] rounded-[6px] mx-2 transition-[background] duration-150 ${tab === t.id ? 'bg-[var(--vos-accent-primary)] text-white' : 'bg-transparent text-[var(--vos-text-primary)]'}`} onClick={() => setTab(t.id)}>
+            <button
+              key={t.id}
+              type="button"
+              className={`vos-flex-row gap-2 px-4 py-2 border-none cursor-pointer text-[13px] rounded-[6px] mx-2 transition-[background] duration-150 ${tab === t.id ? 'bg-[var(--vos-accent-primary)] text-white' : 'bg-transparent text-[var(--vos-text-primary)]'}`}
+              onClick={() => setTab(t.id)}
+            >
               <t.icon size={14} />
               {t.label}
             </button>

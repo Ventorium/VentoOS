@@ -26,7 +26,7 @@ export function K8sLogStream({
   container,
   follow = true,
   tailLines = 200,
-  filter,
+  filter
 }: Props) {
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [connected, setConnected] = useState(false)
@@ -60,18 +60,18 @@ export function K8sLogStream({
       setConnected(true)
     }
 
-    ws.onmessage = (ev) => {
+    ws.onmessage = ev => {
       try {
         const data = JSON.parse(ev.data) as LogEntry | { type: string; message: string }
         if (data.type === 'error') {
           setError((data as { message: string }).message)
           return
         }
-        setEntries((prev) => [...prev, data as LogEntry])
+        setEntries(prev => [...prev, data as LogEntry])
       } catch {
-        setEntries((prev) => [
+        setEntries(prev => [
           ...prev,
-          { type: 'log', pod: podName, container: container || 'default', message: String(ev.data) },
+          { type: 'log', pod: podName, container: container || 'default', message: String(ev.data) }
         ])
       }
     }
@@ -105,15 +105,10 @@ export function K8sLogStream({
         </span>
         <span className="text-[var(--vos-text-muted)]">{entries.length} lines</span>
       </div>
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-auto font-mono text-[11px] p-2 bg-[var(--vos-bg-panel)]"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-auto font-mono text-[11px] p-2 bg-[var(--vos-bg-panel)]">
         {entries.map((entry, i) => (
           <div key={i} className="whitespace-pre-wrap break-all">
-            {entry.timestamp && (
-              <span className="text-[var(--vos-text-tertiary)] mr-1">[{entry.timestamp}]</span>
-            )}
+            {entry.timestamp && <span className="text-[var(--vos-text-tertiary)] mr-1">[{entry.timestamp}]</span>}
             {entry.container && entry.container !== 'default' && (
               <span className="text-[var(--vos-accent-primary)] mr-1">[{entry.container}]</span>
             )}
@@ -122,19 +117,15 @@ export function K8sLogStream({
               style={{
                 color: /error|fail|exception/i.test(entry.message)
                   ? 'var(--vos-accent-danger)'
-                  : 'var(--vos-text-primary)',
+                  : 'var(--vos-text-primary)'
               }}
             >
               {entry.message}
             </span>
           </div>
         ))}
-        {entries.length === 0 && !error && (
-          <div className="text-[var(--vos-text-tertiary)]">Waiting for logs...</div>
-        )}
-        {error && entries.length === 0 && (
-          <div className="text-[var(--vos-accent-danger)]">{error}</div>
-        )}
+        {entries.length === 0 && !error && <div className="text-[var(--vos-text-tertiary)]">Waiting for logs...</div>}
+        {error && entries.length === 0 && <div className="text-[var(--vos-accent-danger)]">{error}</div>}
       </div>
     </div>
   )

@@ -45,9 +45,7 @@ function SwitchControl({ checked, onChange }: { checked: boolean; onChange: (v: 
 
 function PrefItemRow({ item }: { item: PreferenceItem }) {
   return (
-    <div
-      className="flex justify-between items-center py-2 gap-4"
-    >
+    <div className="flex justify-between items-center py-2 gap-4">
       <div className="flex-1 min-w-0">
         <div className="text-[13px] text-[var(--vos-text-primary)]">{item.label}</div>
         {item.description && (
@@ -116,9 +114,7 @@ export default function PreferencesPanel({ title, groups, onClose }: Preferences
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-4 pt-[14px] pb-3 border-b border-b-[var(--vos-border-secondary)]"
-        >
+        <div className="flex items-center justify-between px-4 pt-[14px] pb-3 border-b border-b-[var(--vos-border-secondary)]">
           <span className="text-[15px] font-semibold text-[var(--vos-text-primary)]">{title}</span>
           <button
             type="button"
@@ -133,9 +129,7 @@ export default function PreferencesPanel({ title, groups, onClose }: Preferences
         <div className="px-4 pt-2 pb-4 overflow-y-auto max-h-[calc(70vh-50px)]">
           {groups.map(group => (
             <div key={group.id} className="mt-3">
-              <div
-                className="text-[11px] font-semibold text-[var(--vos-text-tertiary)] uppercase tracking-[0.04em] mb-1"
-              >
+              <div className="text-[11px] font-semibold text-[var(--vos-text-tertiary)] uppercase tracking-[0.04em] mb-1">
                 {group.title}
               </div>
               {group.items.map(item => (

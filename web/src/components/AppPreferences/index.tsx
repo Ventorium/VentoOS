@@ -49,11 +49,7 @@ function PrefNavItem({
 }) {
   return (
     <button type="button" className={`vos-settings-nav-item ${isActive ? 'active' : ''}`} onClick={onClick}>
-      {category.icon && (
-        <span className="w-4 flex items-center justify-center shrink-0">
-          {category.icon}
-        </span>
-      )}
+      {category.icon && <span className="w-4 flex items-center justify-center shrink-0">{category.icon}</span>}
       <span>{category.label}</span>
     </button>
   )
@@ -66,16 +62,10 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
   const activeCategory = categories.find(c => c.id === activeId)
 
   return (
-    <div
-      className="flex h-full bg-[var(--vos-bg-window)] overflow-hidden"
-    >
+    <div className="flex h-full bg-[var(--vos-bg-window)] overflow-hidden">
       {/* Sidebar */}
-      <div
-        className="w-[180px] shrink-0 border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] flex flex-col p-2 overflow-y-auto"
-      >
-        <div
-          className="text-[11px] font-bold text-[var(--vos-text-tertiary)] uppercase tracking-[0.06em] px-2 pt-1 pb-2"
-        >
+      <div className="w-[180px] shrink-0 border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] flex flex-col p-2 overflow-y-auto">
+        <div className="text-[11px] font-bold text-[var(--vos-text-tertiary)] uppercase tracking-[0.06em] px-2 pt-1 pb-2">
           {appName} 偏好设置
         </div>
 
@@ -144,10 +134,8 @@ export function PreferenceRow({
   return (
     <div className="vos-settings-toggle-row">
       <div>
-          <div className="text-[14px] font-medium text-[var(--vos-text-primary)]">{label}</div>
-        {description && (
-          <div className="text-xs text-[var(--vos-text-secondary)] mt-[2px]">{description}</div>
-        )}
+        <div className="text-[14px] font-medium text-[var(--vos-text-primary)]">{label}</div>
+        {description && <div className="text-xs text-[var(--vos-text-secondary)] mt-[2px]">{description}</div>}
       </div>
       {children}
     </div>
@@ -278,9 +266,7 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
               }}
             >
               {/* Mini title bar */}
-              <div
-                className="h-[38px] flex items-center justify-between px-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] shrink-0"
-              >
+              <div className="h-[38px] flex items-center justify-between px-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] shrink-0">
                 <span className="text-[13px] font-semibold text-[var(--vos-text-primary)]">
                   {prefsProps.appName} 偏好设置
                 </span>

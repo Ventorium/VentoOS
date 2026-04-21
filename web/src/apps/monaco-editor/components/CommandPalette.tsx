@@ -58,10 +58,7 @@ export default function CommandPalette({ items, isIndexing, onSelect, onClose }:
   )
 
   return (
-    <div
-      className="absolute inset-0 flex flex-col items-center pt-10 z-50 bg-[rgba(0,0,0,0.45)]"
-      onMouseDown={onClose}
-    >
+    <div className="absolute inset-0 flex flex-col items-center pt-10 z-50 bg-[rgba(0,0,0,0.45)]" onMouseDown={onClose}>
       <div
         className="w-full max-w-xl flex flex-col rounded-lg overflow-hidden shadow-2xl max-h-[65%] bg-[var(--vos-bg-overlay)] border border-[var(--vos-border-subtle)]"
         onMouseDown={e => e.stopPropagation()}
@@ -104,9 +101,7 @@ export default function CommandPalette({ items, isIndexing, onSelect, onClose }:
                   <div className="flex flex-col min-w-0 flex-1">
                     <span className="truncate font-medium">{item.name}</span>
                     {item.relativePath !== item.name && (
-                      <span className="text-xs truncate opacity-[0.6]">
-                        {item.relativePath}
-                      </span>
+                      <span className="text-xs truncate opacity-[0.6]">{item.relativePath}</span>
                     )}
                   </div>
                 </button>

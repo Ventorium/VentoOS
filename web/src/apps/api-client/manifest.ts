@@ -14,10 +14,10 @@ function ApiClientIcon() {
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
         borderRadius: '22%',
-        color: '#fff',
-      },
+        color: '#fff'
+      }
     },
-    React.createElement(Send, { size: 22 }),
+    React.createElement(Send, { size: 22 })
   )
 }
 
@@ -33,5 +33,5 @@ export const apiClientManifest: AppManifest = {
   minSize: { width: 900, height: 600 },
   permissions: ['network', 'storage'],
   hasBackendPlugin: true,
-  component: () => import('./index'),
+  component: () => import('./index')
 }

@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
+import { useEffect, useRef } from 'react'
 import '@xterm/xterm/css/xterm.css'
 import { useAuthStore } from '@/services/auth'
 
@@ -29,10 +29,10 @@ export function K8sExecTerminal({ clusterId, namespace, podName, container, shel
       theme: {
         background: '#0d0d0d',
         foreground: '#d4d4d4',
-        cursor: '#d4d4d4',
+        cursor: '#d4d4d4'
       },
       scrollback: 5000,
-      convertEol: true,
+      convertEol: true
     })
 
     const fitAddon = new FitAddon()
@@ -63,7 +63,7 @@ export function K8sExecTerminal({ clusterId, namespace, podName, container, shel
       ws.send(JSON.stringify({ type: 'resize', data: { cols, rows } }))
     }
 
-    ws.onmessage = (ev) => {
+    ws.onmessage = ev => {
       try {
         const msg = JSON.parse(ev.data)
         if (msg.type === 'stdout') {
@@ -86,7 +86,7 @@ export function K8sExecTerminal({ clusterId, namespace, podName, container, shel
       term.writeln('\r\n\x1b[31m[Connection error]\x1b[0m')
     }
 
-    term.onData((data) => {
+    term.onData(data => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'stdin', data }))
       }

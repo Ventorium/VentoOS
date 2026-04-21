@@ -15,9 +15,7 @@ function TaskRow({ task }: { task: TaskItem }) {
   const removeTask = useTaskStore(s => s._removeTask)
 
   return (
-    <div
-      className="flex items-center gap-3 px-4 py-2.5 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
-    >
+    <div className="flex items-center gap-3 px-4 py-2.5 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
       {statusIcon[task.status]}
       <div className="flex-1 min-w-0">
         <div className="text-xs font-medium truncate">{task.name}</div>
@@ -64,9 +62,7 @@ export default function TaskCenter() {
               boxShadow: tokens.shadow.overlay
             }}
           >
-            <div
-              className="flex items-center justify-between px-4 py-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
-            >
+            <div className="flex items-center justify-between px-4 py-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
               <div className="flex items-center gap-2">
                 <Activity size={14} />
                 <span className="text-sm font-medium">Tasks</span>

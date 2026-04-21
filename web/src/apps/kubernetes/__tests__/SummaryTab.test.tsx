@@ -10,7 +10,7 @@ describe('SummaryTab', () => {
       kind: 'pod' as const,
       status: 'Running',
       age: '2d',
-      labels: { app: 'nginx', env: 'prod' },
+      labels: { app: 'nginx', env: 'prod' }
     }
     render(<SummaryTab resource={resource} />)
     expect(screen.getByText('nginx-pod')).toBeTruthy()
@@ -24,7 +24,7 @@ describe('SummaryTab', () => {
   it('renders dash for missing fields', () => {
     const resource = {
       name: 'minimal',
-      kind: 'configmap' as const,
+      kind: 'configmap' as const
     }
     render(<SummaryTab resource={resource} />)
     const dashes = screen.getAllTextBy ? [] : screen.getAllByText('—')

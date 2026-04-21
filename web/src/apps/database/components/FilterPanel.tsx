@@ -13,7 +13,7 @@ const FILTER_OPERATORS: { value: FilterOperator; label: string }[] = [
   { value: 'is_not_null', label: '不是 NULL' },
   { value: 'starts_with', label: '以...开头' },
   { value: 'ends_with', label: '以...结尾' },
-  { value: 'in_list', label: '在列表中' },
+  { value: 'in_list', label: '在列表中' }
 ]
 
 const NO_VALUE_OPS = new Set<FilterOperator>(['is_null', 'is_not_null'])
@@ -23,12 +23,7 @@ function genId(): string {
 }
 
 export function FilterPanel({ columns }: { columns: string[] }) {
-  const {
-    filterConditions,
-    sortRules,
-    setFilterConditions,
-    setSortRules,
-  } = useDatabaseStore()
+  const { filterConditions, sortRules, setFilterConditions, setSortRules } = useDatabaseStore()
 
   const addCondition = useCallback(() => {
     const cond: FilterCondition = {
@@ -37,48 +32,46 @@ export function FilterPanel({ columns }: { columns: string[] }) {
       field: columns[0] ?? '',
       operator: 'contains',
       value: '',
-      logic: 'and',
+      logic: 'and'
     }
     setFilterConditions([...filterConditions, cond])
   }, [columns, filterConditions, setFilterConditions])
 
   const updateCondition = useCallback(
     (id: string, patch: Partial<FilterCondition>) => {
-      setFilterConditions(
-        filterConditions.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-      )
+      setFilterConditions(filterConditions.map(c => (c.id === id ? { ...c, ...patch } : c)))
     },
-    [filterConditions, setFilterConditions],
+    [filterConditions, setFilterConditions]
   )
 
   const removeCondition = useCallback(
     (id: string) => {
-      setFilterConditions(filterConditions.filter((c) => c.id !== id))
+      setFilterConditions(filterConditions.filter(c => c.id !== id))
     },
-    [filterConditions, setFilterConditions],
+    [filterConditions, setFilterConditions]
   )
 
   const addSortRule = useCallback(() => {
     const rule: SortRule = {
       id: genId(),
       field: columns[0] ?? '',
-      direction: 'asc',
+      direction: 'asc'
     }
     setSortRules([...sortRules, rule])
   }, [columns, sortRules, setSortRules])
 
   const updateSortRule = useCallback(
     (id: string, patch: Partial<SortRule>) => {
-      setSortRules(sortRules.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+      setSortRules(sortRules.map(r => (r.id === id ? { ...r, ...patch } : r)))
     },
-    [sortRules, setSortRules],
+    [sortRules, setSortRules]
   )
 
   const removeSortRule = useCallback(
     (id: string) => {
-      setSortRules(sortRules.filter((r) => r.id !== id))
+      setSortRules(sortRules.filter(r => r.id !== id))
     },
-    [sortRules, setSortRules],
+    [sortRules, setSortRules]
   )
 
   const selectStyle: React.CSSProperties = {
@@ -88,13 +81,13 @@ export function FilterPanel({ columns }: { columns: string[] }) {
     borderRadius: 4,
     padding: '2px 4px',
     fontSize: 12,
-    outline: 'none',
+    outline: 'none'
   }
 
   const inputStyle: React.CSSProperties = {
     ...selectStyle,
     flex: 1,
-    minWidth: 0,
+    minWidth: 0
   }
 
   return (
@@ -102,7 +95,7 @@ export function FilterPanel({ columns }: { columns: string[] }) {
       className="flex flex-col gap-3 p-3"
       style={{
         background: 'var(--vos-bg-elevated)',
-        borderBottom: '1px solid var(--vos-border-subtle)',
+        borderBottom: '1px solid var(--vos-border-subtle)'
       }}
     >
       <div className="flex flex-col gap-1.5">
@@ -118,52 +111,53 @@ export function FilterPanel({ columns }: { columns: string[] }) {
             <Plus size={12} /> 添加
           </button>
         </div>
-        {filterConditions.map((cond) => (
+        {filterConditions.map(cond => (
           <div key={cond.id} className="flex items-center gap-1.5">
             <input
               type="checkbox"
               checked={cond.enabled}
-              onChange={(e) => updateCondition(cond.id, { enabled: e.target.checked })}
+              onChange={e => updateCondition(cond.id, { enabled: e.target.checked })}
               className="shrink-0"
             />
             <select
               value={cond.field}
-              onChange={(e) => updateCondition(cond.id, { field: e.target.value })}
+              onChange={e => updateCondition(cond.id, { field: e.target.value })}
               style={selectStyle}
             >
-              {columns.map((col) => (
-                <option key={col} value={col}>{col}</option>
+              {columns.map(col => (
+                <option key={col} value={col}>
+                  {col}
+                </option>
               ))}
             </select>
             <select
               value={cond.operator}
-              onChange={(e) => updateCondition(cond.id, { operator: e.target.value as FilterOperator })}
+              onChange={e => updateCondition(cond.id, { operator: e.target.value as FilterOperator })}
               style={selectStyle}
             >
-              {FILTER_OPERATORS.map((op) => (
-                <option key={op.value} value={op.value}>{op.label}</option>
+              {FILTER_OPERATORS.map(op => (
+                <option key={op.value} value={op.value}>
+                  {op.label}
+                </option>
               ))}
             </select>
             {!NO_VALUE_OPS.has(cond.operator) && (
               <input
                 value={cond.value}
-                onChange={(e) => updateCondition(cond.id, { value: e.target.value })}
+                onChange={e => updateCondition(cond.id, { value: e.target.value })}
                 placeholder="值"
                 style={inputStyle}
               />
             )}
             <select
               value={cond.logic}
-              onChange={(e) => updateCondition(cond.id, { logic: e.target.value as 'and' | 'or' })}
+              onChange={e => updateCondition(cond.id, { logic: e.target.value as 'and' | 'or' })}
               style={{ ...selectStyle, width: 56 }}
             >
               <option value="and">AND</option>
               <option value="or">OR</option>
             </select>
-            <button
-              className="shrink-0 p-1 rounded hover:bg-(--vos-bg-hover)"
-              onClick={() => removeCondition(cond.id)}
-            >
+            <button className="shrink-0 p-1 rounded hover:bg-(--vos-bg-hover)" onClick={() => removeCondition(cond.id)}>
               <Trash2 size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
             </button>
           </div>
@@ -183,29 +177,28 @@ export function FilterPanel({ columns }: { columns: string[] }) {
             <Plus size={12} /> 添加
           </button>
         </div>
-        {sortRules.map((rule) => (
+        {sortRules.map(rule => (
           <div key={rule.id} className="flex items-center gap-1.5">
             <select
               value={rule.field}
-              onChange={(e) => updateSortRule(rule.id, { field: e.target.value })}
+              onChange={e => updateSortRule(rule.id, { field: e.target.value })}
               style={{ ...selectStyle, flex: 1 }}
             >
-              {columns.map((col) => (
-                <option key={col} value={col}>{col}</option>
+              {columns.map(col => (
+                <option key={col} value={col}>
+                  {col}
+                </option>
               ))}
             </select>
             <select
               value={rule.direction}
-              onChange={(e) => updateSortRule(rule.id, { direction: e.target.value as 'asc' | 'desc' })}
+              onChange={e => updateSortRule(rule.id, { direction: e.target.value as 'asc' | 'desc' })}
               style={selectStyle}
             >
               <option value="asc">ASC ↑</option>
               <option value="desc">DESC ↓</option>
             </select>
-            <button
-              className="shrink-0 p-1 rounded hover:bg-(--vos-bg-hover)"
-              onClick={() => removeSortRule(rule.id)}
-            >
+            <button className="shrink-0 p-1 rounded hover:bg-(--vos-bg-hover)" onClick={() => removeSortRule(rule.id)}>
               <Trash2 size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
             </button>
           </div>

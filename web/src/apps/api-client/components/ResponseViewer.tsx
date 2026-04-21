@@ -34,9 +34,9 @@ function tryFormatJson(body: string): { formatted: string; isJson: boolean } {
 
 export default function ResponseViewer() {
   const [activeTab, setActiveTab] = useState<ResponseTab>('body')
-  const activeTabId = useApiClientStore((s) => s.activeTabId)
-  const responses = useApiClientStore((s) => s.responses)
-  const isSending = useApiClientStore((s) => s.isSending)
+  const activeTabId = useApiClientStore(s => s.activeTabId)
+  const responses = useApiClientStore(s => s.responses)
+  const isSending = useApiClientStore(s => s.isSending)
 
   const response = activeTabId ? responses[activeTabId] : null
 
@@ -72,24 +72,14 @@ export default function ResponseViewer() {
   const { formatted, isJson } = tryFormatJson(response.body)
 
   return (
-    <div
-      className="flex-1 flex flex-col overflow-hidden"
-      style={{ borderTop: '1px solid var(--vos-border-subtle)' }}
-    >
+    <div className="flex-1 flex flex-col overflow-hidden" style={{ borderTop: '1px solid var(--vos-border-subtle)' }}>
       {/* Status bar */}
       <div
         className="flex items-center gap-3 px-3 py-1.5 shrink-0"
         style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
       >
-        <span
-          className="flex items-center gap-1 text-xs font-bold"
-          style={{ color: statusColor(response.status) }}
-        >
-          {response.status >= 200 && response.status < 400 ? (
-            <CheckCircle size={12} />
-          ) : (
-            <XCircle size={12} />
-          )}
+        <span className="flex items-center gap-1 text-xs font-bold" style={{ color: statusColor(response.status) }}>
+          {response.status >= 200 && response.status < 400 ? <CheckCircle size={12} /> : <XCircle size={12} />}
           {response.status} {response.statusText}
         </span>
         <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--vos-text-tertiary)' }}>
@@ -109,7 +99,7 @@ export default function ResponseViewer() {
             className="px-2.5 py-1 rounded text-xs"
             style={{
               background: activeTab === 'body' ? 'var(--vos-bg-tertiary)' : 'transparent',
-              color: activeTab === 'body' ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
+              color: activeTab === 'body' ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)'
             }}
             onClick={() => setActiveTab('body')}
           >
@@ -119,7 +109,7 @@ export default function ResponseViewer() {
             className="px-2.5 py-1 rounded text-xs"
             style={{
               background: activeTab === 'headers' ? 'var(--vos-bg-tertiary)' : 'transparent',
-              color: activeTab === 'headers' ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
+              color: activeTab === 'headers' ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)'
             }}
             onClick={() => setActiveTab('headers')}
           >

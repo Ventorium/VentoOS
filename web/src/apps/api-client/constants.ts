@@ -7,7 +7,7 @@ export const METHOD_COLORS: Record<HttpMethod, string> = {
   PATCH: '#a855f7',
   DELETE: '#ef4444',
   HEAD: '#6b7280',
-  OPTIONS: '#6b7280',
+  OPTIONS: '#6b7280'
 }
 
 export const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']

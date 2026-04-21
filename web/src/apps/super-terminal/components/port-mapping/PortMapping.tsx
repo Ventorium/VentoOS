@@ -137,9 +137,11 @@ function CtxMenu({
       {items.map((item, i) => (
         <div
           key={i}
-          className={item.danger
-            ? 'pm-ctx-item py-1.5 px-4 cursor-pointer text-[13px] whitespace-nowrap text-[#ff453a]'
-            : 'pm-ctx-item py-1.5 px-4 cursor-pointer text-[13px] whitespace-nowrap text-[#d4d4d4]'}
+          className={
+            item.danger
+              ? 'pm-ctx-item py-1.5 px-4 cursor-pointer text-[13px] whitespace-nowrap text-[#ff453a]'
+              : 'pm-ctx-item py-1.5 px-4 cursor-pointer text-[13px] whitespace-nowrap text-[#d4d4d4]'
+          }
           onClick={e => {
             e.stopPropagation()
             item.onClick()
@@ -290,9 +292,7 @@ function MappingFormModal({
         <div className="mb-3">
           <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">开机自启</label>
           <div className="pt-1">
-            <label
-              className="inline-flex items-center gap-1.5 cursor-pointer text-[13px] text-[var(--vos-text-primary)]"
-            >
+            <label className="inline-flex items-center gap-1.5 cursor-pointer text-[13px] text-[var(--vos-text-primary)]">
               <input
                 type="checkbox"
                 checked={form.auto_start}
@@ -602,9 +602,7 @@ export default function PortMapping() {
       <style>{hoverStyles}</style>
 
       {/* Toolbar */}
-      <div
-        className="flex items-center gap-2 px-4 py-2 border-b border-b-[#333] shrink-0"
-      >
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-b-[#333] shrink-0">
         <button
           type="button"
           className="vos-btn vos-btn-primary vos-btn-sm"
@@ -677,9 +675,7 @@ export default function PortMapping() {
       ) : (
         <div className="flex-1 overflow-y-auto">
           {/* Header row */}
-          <div
-            className="flex items-center h-9 px-4 border-b border-b-[#333] text-[11px] text-[var(--vos-text-tertiary)] font-semibold shrink-0"
-          >
+          <div className="flex items-center h-9 px-4 border-b border-b-[#333] text-[11px] text-[var(--vos-text-tertiary)] font-semibold shrink-0">
             <div className="w-8">
               <input
                 type="checkbox"
@@ -724,30 +720,22 @@ export default function PortMapping() {
                 </div>
 
                 {/* Name */}
-                <div
-                  className="flex-[2] min-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap text-[var(--vos-text-primary)] font-medium"
-                >
+                <div className="flex-[2] min-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap text-[var(--vos-text-primary)] font-medium">
                   {mapping.name}
                 </div>
 
                 {/* SSH Server */}
-                <div
-                  className="flex-[2] min-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap text-[var(--vos-text-secondary)] text-xs"
-                >
+                <div className="flex-[2] min-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap text-[var(--vos-text-secondary)] text-xs">
                   {serverMap.get(mapping.ssh_server_id) || mapping.ssh_server_id}
                 </div>
 
                 {/* Remote address */}
-                <div
-                  className="flex-[2] min-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-[var(--vos-text-secondary)]"
-                >
+                <div className="flex-[2] min-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-[var(--vos-text-secondary)]">
                   {mapping.remote_host}:{mapping.remote_port}
                 </div>
 
                 {/* Local port */}
-                <div
-                  className="w-20 shrink-0 font-mono text-xs text-[var(--vos-accent-primary)]"
-                >
+                <div className="w-20 shrink-0 font-mono text-xs text-[var(--vos-accent-primary)]">
                   {mapping.local_port}
                 </div>
 
@@ -780,7 +768,8 @@ export default function PortMapping() {
                   {isRunning ? (
                     <button
                       type="button"
-                      className="pm-action-btn bg-transparent border-none cursor-pointer p-1 text-[var(--vos-accent-warning)] flex items-center"                      title="停止映射"
+                      className="pm-action-btn bg-transparent border-none cursor-pointer p-1 text-[var(--vos-accent-warning)] flex items-center"
+                      title="停止映射"
                       onClick={() => handleStopMapping(mapping.id)}
                     >
                       <Square size={14} />

@@ -14,8 +14,8 @@
  */
 import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 import { ChevronRight, File, Folder, FolderOpen, Globe, HardDrive, Home, Loader2, X } from 'lucide-react'
-import { createPortal } from "react-dom"
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { VfsMount, VfsNode } from '@/apps/explorer/api'
 import { vfsApi } from '@/apps/explorer/api'
 import type { LocalFsNode } from '@/infra/api'
@@ -176,15 +176,10 @@ function FilePickerModal({
         <div ref={listRef} className="flex-1 overflow-y-auto min-h-0 py-1 px-0">
           {loading && (
             <div className="flex justify-center p-6">
-              <Loader2
-                size={18}
-                className="text-[var(--vos-text-secondary)] animate-[vos-spin_0.7s_linear_infinite]"
-              />
+              <Loader2 size={18} className="text-[var(--vos-text-secondary)] animate-[vos-spin_0.7s_linear_infinite]" />
             </div>
           )}
-          {error && (
-            <div className="px-4 py-3 text-[var(--vos-accent-danger)] text-xs">{error}</div>
-          )}
+          {error && <div className="px-4 py-3 text-[var(--vos-accent-danger)] text-xs">{error}</div>}
           {!loading && !error && nodes.length === 0 && (
             <div className="px-4 py-3 text-[var(--vos-text-tertiary)] text-xs">目录为空</div>
           )}
@@ -218,7 +213,11 @@ function FilePickerModal({
                   {node.is_dir ? (
                     <FolderOpen
                       size={14}
-                      className={isSelected ? 'shrink-0 opacity-90 text-white' : 'shrink-0 opacity-90 text-[var(--vos-accent-primary)]'}
+                      className={
+                        isSelected
+                          ? 'shrink-0 opacity-90 text-white'
+                          : 'shrink-0 opacity-90 text-[var(--vos-accent-primary)]'
+                      }
                     />
                   ) : (
                     (() => {
@@ -233,9 +232,7 @@ function FilePickerModal({
                       )
                     })()
                   )}
-                  <span className="flex-1 truncate">
-                    {node.name}
-                  </span>
+                  <span className="flex-1 truncate">{node.name}</span>
                   {node.is_dir && <ChevronRight size={10} className="shrink-0 opacity-40" />}
                 </div>
               )
@@ -299,12 +296,7 @@ export function PathPickerInput({
           disabled={disabled}
           readOnly={false}
         />
-        <button
-          type="button"
-          className="vos-btn shrink-0 text-xs"
-          disabled={disabled}
-          onClick={() => setOpen(true)}
-        >
+        <button type="button" className="vos-btn shrink-0 text-xs" disabled={disabled} onClick={() => setOpen(true)}>
           <Folder size={12} />
           浏览
         </button>
@@ -470,37 +462,40 @@ export function VfsFilePickerModal({
   }
 
   // doConfirm: used by double-click to confirm with an explicit node without waiting for state update
-  const doConfirm = useCallback(async (targetNode: VfsNode) => {
-    if (!selectedMount) return
-    const finalPath = targetNode.path
-    if (!finalPath) return
+  const doConfirm = useCallback(
+    async (targetNode: VfsNode) => {
+      if (!selectedMount) return
+      const finalPath = targetNode.path
+      if (!finalPath) return
 
-    const isRemote = selectedMount.kind !== 'local'
-    if (isRemote && !targetNode.is_dir) {
-      setFetchingContent(true)
-      try {
-        const blob = await vfsApi.readVfsFileRaw(selectedMount.id, finalPath)
+      const isRemote = selectedMount.kind !== 'local'
+      if (isRemote && !targetNode.is_dir) {
+        setFetchingContent(true)
+        try {
+          const blob = await vfsApi.readVfsFileRaw(selectedMount.id, finalPath)
+          onConfirm({
+            path: `vfs://${selectedMount.id}${finalPath}`,
+            mountId: selectedMount.id,
+            mountKind: selectedMount.kind,
+            isRemote: true,
+            content: blob
+          })
+        } catch (e) {
+          console.error('VFS fetch content error:', e)
+        } finally {
+          setFetchingContent(false)
+        }
+      } else {
         onConfirm({
           path: `vfs://${selectedMount.id}${finalPath}`,
           mountId: selectedMount.id,
           mountKind: selectedMount.kind,
-          isRemote: true,
-          content: blob
+          isRemote: false
         })
-      } catch (e) {
-        console.error('VFS fetch content error:', e)
-      } finally {
-        setFetchingContent(false)
       }
-    } else {
-      onConfirm({
-        path: `vfs://${selectedMount.id}${finalPath}`,
-        mountId: selectedMount.id,
-        mountKind: selectedMount.kind,
-        isRemote: false
-      })
-    }
-  }, [selectedMount, onConfirm])
+    },
+    [selectedMount, onConfirm]
+  )
 
   // Breadcrumb
   const segments: Array<{ label: string; path: string }> = [{ label: '/', path: '/' }]
@@ -538,14 +533,8 @@ export function VfsFilePickerModal({
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar: VFS mounts */}
-          <div
-            className="w-40 flex-shrink-0 flex flex-col py-2 overflow-y-auto border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] bg-[var(--vos-bg-base)]"
-          >
-            <div
-              className="px-3 pb-1 text-[10px] font-semibold uppercase text-[var(--vos-text-tertiary)]"
-            >
-              存储源
-            </div>
+          <div className="w-40 flex-shrink-0 flex flex-col py-2 overflow-y-auto border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] bg-[var(--vos-bg-base)]">
+            <div className="px-3 pb-1 text-[10px] font-semibold uppercase text-[var(--vos-text-tertiary)]">存储源</div>
             {mounts.map(m => {
               const Icon = KIND_ICON[m.kind] ?? HardDrive
               const active = selectedMount?.id === m.id
@@ -566,18 +555,14 @@ export function VfsFilePickerModal({
               )
             })}
             {mounts.length === 0 && (
-              <div className="px-3 py-2 text-[11px] text-[var(--vos-text-tertiary)]">
-                暂无存储源
-              </div>
+              <div className="px-3 py-2 text-[11px] text-[var(--vos-text-tertiary)]">暂无存储源</div>
             )}
           </div>
 
           {/* Main browser area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Breadcrumb */}
-            <div
-              className="flex items-center gap-1 px-3 h-8 flex-shrink-0 overflow-x-auto border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
-            >
+            <div className="flex items-center gap-1 px-3 h-8 flex-shrink-0 overflow-x-auto border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
               {segments.map((seg, i) => (
                 <span key={seg.path} className="flex items-center gap-1">
                   {i > 0 && <ChevronRight size={10} className="text-[var(--vos-text-tertiary)] shrink-0" />}
@@ -616,10 +601,10 @@ export function VfsFilePickerModal({
                     <button
                       key={node.path}
                       type="button"
-                    className="flex items-center gap-2 px-2 py-1 w-full text-left border-none cursor-pointer text-xs rounded"
-                    style={{
-                      background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
-                      color: isSelected ? '#fff' : 'var(--vos-text-primary)'
+                      className="flex items-center gap-2 px-2 py-1 w-full text-left border-none cursor-pointer text-xs rounded"
+                      style={{
+                        background: isSelected ? 'var(--vos-accent-primary)' : 'transparent',
+                        color: isSelected ? '#fff' : 'var(--vos-text-primary)'
                       }}
                       onClick={() => {
                         if (node.is_dir) {
@@ -639,7 +624,9 @@ export function VfsFilePickerModal({
                       {node.is_dir ? (
                         <FolderOpen
                           size={13}
-                          className={isSelected ? 'shrink-0 text-white' : 'shrink-0 text-[var(--vos-accent-warning,_#f59e0b)]'}
+                          className={
+                            isSelected ? 'shrink-0 text-white' : 'shrink-0 text-[var(--vos-accent-warning,_#f59e0b)]'
+                          }
                         />
                       ) : (
                         <File
@@ -652,21 +639,15 @@ export function VfsFilePickerModal({
                   )
                 })}
               {!loading && nodes.length === 0 && (
-                <div className="py-8 text-center text-[11px] text-[var(--vos-text-tertiary)]">
-                  空目录
-                </div>
+                <div className="py-8 text-center text-[11px] text-[var(--vos-text-tertiary)]">空目录</div>
               )}
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div
-          className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)]"
-        >
-          <div
-            className="flex-1 text-xs font-mono truncate px-2 py-1 rounded bg-[var(--vos-bg-input)] text-[var(--vos-text-secondary)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
-          >
+        <div className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)]">
+          <div className="flex-1 text-xs font-mono truncate px-2 py-1 rounded bg-[var(--vos-bg-input)] text-[var(--vos-text-secondary)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]">
             {selectedNode?.path ?? (mode === 'directory' ? currentPath : '未选择文件')}
           </div>
           <button type="button" className="vos-btn text-xs shrink-0" onClick={onClose}>
@@ -725,12 +706,7 @@ export function VfsPathPickerInput({
           onChange={e => onChange(e.target.value)}
           disabled={disabled}
         />
-        <button
-          type="button"
-          className="vos-btn shrink-0 text-xs"
-          disabled={disabled}
-          onClick={() => setOpen(true)}
-        >
+        <button type="button" className="vos-btn shrink-0 text-xs" disabled={disabled} onClick={() => setOpen(true)}>
           <Folder size={12} />
           浏览
         </button>

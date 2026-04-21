@@ -41,12 +41,7 @@ export function ResourceList({ clusterId, namespace, kind }: Props) {
           <Spinner />
         </div>
       ) : (
-        <ResourceTable
-          resources={filtered}
-          kind={kind}
-          selected={selected}
-          onSelectChange={setSelected}
-        />
+        <ResourceTable resources={filtered} kind={kind} selected={selected} onSelectChange={setSelected} />
       )}
     </div>
   )

@@ -16,7 +16,7 @@ import type {
   SortRule,
   TabItem,
   TableStructure,
-  TreeNode,
+  TreeNode
 } from '../types'
 
 // ── Store interface ────────────────────────────────────────────────────────
@@ -111,57 +111,65 @@ export const useDatabaseStore = create<DatabaseStore>((set, get) => ({
   connections: [],
   connectionStatuses: {},
   schemas: {},
-  setConnections: (conns) => set({ connections: conns }),
-  addConnection: (conn) => set((s) => ({ connections: [...s.connections, conn] })),
-  removeConnection: (id) => set((s) => ({
-    connections: s.connections.filter((c) => c.id !== id),
-  })),
-  setConnectionStatus: (id, status) => set((s) => ({
-    connectionStatuses: { ...s.connectionStatuses, [id]: status },
-  })),
-  setSchemas: (connId, schemas) => set((s) => ({
-    schemas: { ...s.schemas, [connId]: schemas },
-  })),
+  setConnections: conns => set({ connections: conns }),
+  addConnection: conn => set(s => ({ connections: [...s.connections, conn] })),
+  removeConnection: id =>
+    set(s => ({
+      connections: s.connections.filter(c => c.id !== id)
+    })),
+  setConnectionStatus: (id, status) =>
+    set(s => ({
+      connectionStatuses: { ...s.connectionStatuses, [id]: status }
+    })),
+  setSchemas: (connId, schemas) =>
+    set(s => ({
+      schemas: { ...s.schemas, [connId]: schemas }
+    })),
 
   // Tree
   expandedNodes: new Set<string>(),
   selectedNodeId: null,
   selectedNode: null,
-  toggleNode: (nodeId) => set((s) => {
-    const next = new Set(s.expandedNodes)
-    next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId)
-    return { expandedNodes: next }
-  }),
-  expandNode: (nodeId) => set((s) => {
-    const next = new Set(s.expandedNodes)
-    next.add(nodeId)
-    return { expandedNodes: next }
-  }),
-  setSelectedNode: (nodeId, node) => set({
-    selectedNodeId: nodeId,
-    selectedNode: node ?? null,
-  }),
+  toggleNode: nodeId =>
+    set(s => {
+      const next = new Set(s.expandedNodes)
+      next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId)
+      return { expandedNodes: next }
+    }),
+  expandNode: nodeId =>
+    set(s => {
+      const next = new Set(s.expandedNodes)
+      next.add(nodeId)
+      return { expandedNodes: next }
+    }),
+  setSelectedNode: (nodeId, node) =>
+    set({
+      selectedNodeId: nodeId,
+      selectedNode: node ?? null
+    }),
 
   // Tabs
   tabs: [{ id: 'objects', type: 'objects' as const, label: '对象', connId: '', closable: false }],
   activeTabId: 'objects',
-  addTab: (tab) => set((s) => {
-    const exists = s.tabs.find((t) => t.id === tab.id)
-    if (exists) return { activeTabId: tab.id }
-    return { tabs: [...s.tabs, tab], activeTabId: tab.id }
-  }),
-  removeTab: (tabId) => set((s) => {
-    const tabs = s.tabs.filter((t) => t.id !== tabId)
-    const activeTabId = s.activeTabId === tabId ? (tabs[tabs.length - 1]?.id ?? 'objects') : s.activeTabId
-    return { tabs, activeTabId }
-  }),
-  setActiveTab: (tabId) => set({ activeTabId: tabId }),
+  addTab: tab =>
+    set(s => {
+      const exists = s.tabs.find(t => t.id === tab.id)
+      if (exists) return { activeTabId: tab.id }
+      return { tabs: [...s.tabs, tab], activeTabId: tab.id }
+    }),
+  removeTab: tabId =>
+    set(s => {
+      const tabs = s.tabs.filter(t => t.id !== tabId)
+      const activeTabId = s.activeTabId === tabId ? (tabs[tabs.length - 1]?.id ?? 'objects') : s.activeTabId
+      return { tabs, activeTabId }
+    }),
+  setActiveTab: tabId => set({ activeTabId: tabId }),
 
   // Object browser
   activeCategory: 'tables',
   objectSearchQuery: '',
-  setActiveCategory: (cat) => set({ activeCategory: cat }),
-  setObjectSearchQuery: (q) => set({ objectSearchQuery: q }),
+  setActiveCategory: cat => set({ activeCategory: cat }),
+  setObjectSearchQuery: q => set({ objectSearchQuery: q }),
 
   // Data view
   tableData: null,
@@ -172,57 +180,60 @@ export const useDatabaseStore = create<DatabaseStore>((set, get) => ({
   filterConditions: [],
   sortRules: [],
   editingRows: new Map(),
-  setTableData: (data) => set({ tableData: data }),
-  setTableStructure: (structure) => set({ tableStructure: structure }),
-  setCurrentPage: (page) => set({ currentPage: page }),
-  setPageSize: (size) => set({ pageSize: size }),
-  setTotalRows: (total) => set({ totalRows: total }),
-  setFilterConditions: (conditions) => set({ filterConditions: conditions }),
-  setSortRules: (rules) => set({ sortRules: rules }),
-  setEditingRow: (rowIndex, data) => set((s) => {
-    const next = new Map(s.editingRows)
-    next.set(rowIndex, data)
-    return { editingRows: next }
-  }),
+  setTableData: data => set({ tableData: data }),
+  setTableStructure: structure => set({ tableStructure: structure }),
+  setCurrentPage: page => set({ currentPage: page }),
+  setPageSize: size => set({ pageSize: size }),
+  setTotalRows: total => set({ totalRows: total }),
+  setFilterConditions: conditions => set({ filterConditions: conditions }),
+  setSortRules: rules => set({ sortRules: rules }),
+  setEditingRow: (rowIndex, data) =>
+    set(s => {
+      const next = new Map(s.editingRows)
+      next.set(rowIndex, data)
+      return { editingRows: next }
+    }),
   clearEditingRows: () => set({ editingRows: new Map() }),
 
   // SQL editor
   sqlText: '',
   sqlResults: [],
   sqlActiveResultIndex: 0,
-  setSqlText: (text) => set({ sqlText: text }),
-  setSqlResults: (results) => set({ sqlResults: results }),
-  setSqlActiveResultIndex: (index) => set({ sqlActiveResultIndex: index }),
+  setSqlText: text => set({ sqlText: text }),
+  setSqlResults: results => set({ sqlResults: results }),
+  setSqlActiveResultIndex: index => set({ sqlActiveResultIndex: index }),
 
   // Info panel
   infoPanelVisible: false,
   infoPanelData: null,
-  toggleInfoPanel: () => set((s) => ({ infoPanelVisible: !s.infoPanelVisible })),
-  setInfoPanelData: (data) => set({ infoPanelData: data }),
+  toggleInfoPanel: () => set(s => ({ infoPanelVisible: !s.infoPanelVisible })),
+  setInfoPanelData: data => set({ infoPanelData: data }),
 
   // Filter panel
   filterPanelVisible: false,
-  toggleFilterPanel: () => set((s) => ({ filterPanelVisible: !s.filterPanelVisible })),
+  toggleFilterPanel: () => set(s => ({ filterPanelVisible: !s.filterPanelVisible })),
 
   // Dialogs
   showNewConnectionTypeDialog: false,
   showConnectionConfigDialog: false,
   editingConnectionId: null,
   editingConnectionEngine: null,
-  setShowNewConnectionTypeDialog: (show) => set({ showNewConnectionTypeDialog: show }),
-  openConnectionConfig: (engine, connectionId) => set({
-    showConnectionConfigDialog: true,
-    editingConnectionEngine: engine,
-    editingConnectionId: connectionId ?? null,
-    showNewConnectionTypeDialog: false,
-  }),
-  closeConnectionConfig: () => set({
-    showConnectionConfigDialog: false,
-    editingConnectionEngine: null,
-    editingConnectionId: null,
-  }),
+  setShowNewConnectionTypeDialog: show => set({ showNewConnectionTypeDialog: show }),
+  openConnectionConfig: (engine, connectionId) =>
+    set({
+      showConnectionConfigDialog: true,
+      editingConnectionEngine: engine,
+      editingConnectionId: connectionId ?? null,
+      showNewConnectionTypeDialog: false
+    }),
+  closeConnectionConfig: () =>
+    set({
+      showConnectionConfigDialog: false,
+      editingConnectionEngine: null,
+      editingConnectionId: null
+    }),
 
   // Loading
   loading: false,
-  setLoading: (loading) => set({ loading }),
+  setLoading: loading => set({ loading })
 }))

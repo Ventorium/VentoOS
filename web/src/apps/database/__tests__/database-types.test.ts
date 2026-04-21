@@ -7,7 +7,7 @@ import { OBJECT_CATEGORIES } from '../types'
 
 describe('OBJECT_CATEGORIES', () => {
   it('postgresql has tables, views, materialized_views, functions, queries', () => {
-    const keys = OBJECT_CATEGORIES['postgresql'].map((c) => c.key)
+    const keys = OBJECT_CATEGORIES['postgresql'].map(c => c.key)
     expect(keys).toContain('tables')
     expect(keys).toContain('views')
     expect(keys).toContain('materialized_views')
@@ -16,7 +16,7 @@ describe('OBJECT_CATEGORIES', () => {
   })
 
   it('mysql has tables, views, functions, events, queries', () => {
-    const keys = OBJECT_CATEGORIES['mysql'].map((c) => c.key)
+    const keys = OBJECT_CATEGORIES['mysql'].map(c => c.key)
     expect(keys).toContain('tables')
     expect(keys).toContain('views')
     expect(keys).toContain('functions')
@@ -25,12 +25,12 @@ describe('OBJECT_CATEGORIES', () => {
   })
 
   it('mysql does not have materialized_views', () => {
-    const keys = OBJECT_CATEGORIES['mysql'].map((c) => c.key)
+    const keys = OBJECT_CATEGORIES['mysql'].map(c => c.key)
     expect(keys).not.toContain('materialized_views')
   })
 
   it('sqlite has tables, views, triggers, queries', () => {
-    const keys = OBJECT_CATEGORIES['sqlite'].map((c) => c.key)
+    const keys = OBJECT_CATEGORIES['sqlite'].map(c => c.key)
     expect(keys).toContain('tables')
     expect(keys).toContain('views')
     expect(keys).toContain('triggers')
@@ -38,7 +38,7 @@ describe('OBJECT_CATEGORIES', () => {
   })
 
   it('sqlite does not have materialized_views or events', () => {
-    const keys = OBJECT_CATEGORIES['sqlite'].map((c) => c.key)
+    const keys = OBJECT_CATEGORIES['sqlite'].map(c => c.key)
     expect(keys).not.toContain('materialized_views')
     expect(keys).not.toContain('events')
   })

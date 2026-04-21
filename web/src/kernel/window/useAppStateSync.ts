@@ -14,11 +14,7 @@
 import { useEffect } from 'react'
 import { useWindowStore } from './store'
 
-export function useAppStateSync(
-  windowId: string,
-  state: Record<string, unknown>,
-  deps: unknown[]
-) {
+export function useAppStateSync(windowId: string, state: Record<string, unknown>, deps: unknown[]) {
   useEffect(() => {
     const timer = setTimeout(() => {
       useWindowStore.getState().updateAppState(windowId, state)

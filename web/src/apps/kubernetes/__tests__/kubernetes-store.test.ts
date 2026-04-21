@@ -12,7 +12,7 @@ describe('KubernetesStore', () => {
       detailResource: null,
       detailActiveTab: 'summary',
       bottomPanelOpen: false,
-      bottomPanelHeight: window.innerHeight * 0.5,
+      bottomPanelHeight: window.innerHeight * 0.5
     })
   })
 

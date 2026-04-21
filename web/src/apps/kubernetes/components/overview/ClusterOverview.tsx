@@ -59,13 +59,13 @@ const EMPTY_STATS: ClusterStats = {
   ingressCount: 0,
   pvcCount: 0,
   pvCount: 0,
-  warningEvents: [],
+  warningEvents: []
 }
 
 function getNodeStatus(raw: unknown): 'Ready' | 'NotReady' {
   const conditions = (raw as Record<string, unknown>)?.status?.conditions as unknown[] | undefined
   if (!Array.isArray(conditions)) return 'NotReady'
-  const ready = conditions.find((c) => (c as Record<string, unknown>).type === 'Ready')
+  const ready = conditions.find(c => (c as Record<string, unknown>).type === 'Ready')
   return (ready as Record<string, unknown>)?.status === 'True' ? 'Ready' : 'NotReady'
 }
 
@@ -86,7 +86,15 @@ function StatValue({ value, label }: { value: string | number; label?: string })
   )
 }
 
-function OverviewCard({ title, icon: Icon, children }: { title: string; icon: typeof Server; children: React.ReactNode }) {
+function OverviewCard({
+  title,
+  icon: Icon,
+  children
+}: {
+  title: string
+  icon: typeof Server
+  children: React.ReactNode
+}) {
   return (
     <div
       className="rounded-lg p-4 flex flex-col gap-3"
@@ -108,8 +116,13 @@ function OverviewCard({ title, icon: Icon, children }: { title: string; icon: ty
 function DonutChart({ ready, notReady, total }: { ready: number; notReady: number; total: number }) {
   if (total === 0) {
     return (
-      <div className="flex items-center justify-center w-20 h-20 rounded-full" style={{ border: '4px solid var(--vos-border-subtle)' }}>
-        <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>—</span>
+      <div
+        className="flex items-center justify-center w-20 h-20 rounded-full"
+        style={{ border: '4px solid var(--vos-border-subtle)' }}
+      >
+        <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+          —
+        </span>
       </div>
     )
   }
@@ -129,7 +142,9 @@ function DonutChart({ ready, notReady, total }: { ready: number; notReady: numbe
         className="absolute w-14 h-14 rounded-full flex items-center justify-center"
         style={{ background: 'var(--vos-bg-surface)' }}
       >
-        <span className="text-sm font-bold" style={{ color: 'var(--vos-text-primary)' }}>{total}</span>
+        <span className="text-sm font-bold" style={{ color: 'var(--vos-text-primary)' }}>
+          {total}
+        </span>
       </div>
     </div>
   )
@@ -155,7 +170,7 @@ export function ClusterOverview({ clusterId }: Props) {
         k8sApi.getK8sNamespaces(clusterId),
         k8sApi.getK8sResources(clusterId, 'node', undefined),
         k8sApi.getK8sResources(clusterId, 'pod', ''),
-        k8sApi.getK8sResources(clusterId, 'event', ''),
+        k8sApi.getK8sResources(clusterId, 'event', '')
       ])
 
       if (!mountedRef.current) return
@@ -176,7 +191,7 @@ export function ClusterOverview({ clusterId }: Props) {
               reason: (r?.reason as string) ?? '',
               message: ((r?.message as string) ?? '').slice(0, 120),
               type,
-              count: (r?.count as number) ?? 1,
+              count: (r?.count as number) ?? 1
             })
             if (warningEvents.length >= 10) break
           }
@@ -199,7 +214,7 @@ export function ClusterOverview({ clusterId }: Props) {
         ingressCount: 0,
         pvcCount: 0,
         pvCount: 0,
-        warningEvents,
+        warningEvents
       }
       if (mountedRef.current) {
         statsCache.set(clusterId, { stats: newStats, loadedAt: Date.now() })
@@ -236,7 +251,11 @@ export function ClusterOverview({ clusterId }: Props) {
           disabled={loading}
           title="刷新"
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} style={{ color: 'var(--vos-text-secondary)' }} />
+          <RefreshCw
+            size={14}
+            className={loading ? 'animate-spin' : ''}
+            style={{ color: 'var(--vos-text-secondary)' }}
+          />
         </button>
       </div>
 
@@ -262,14 +281,24 @@ export function ClusterOverview({ clusterId }: Props) {
             <DonutChart ready={stats.nodesReady} notReady={stats.nodesNotReady} total={stats.nodeCount} />
             <div className="flex flex-col gap-1.5 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'var(--vos-accent-success, #22c55e)' }} />
+                <span
+                  className="w-2.5 h-2.5 rounded-full inline-block"
+                  style={{ background: 'var(--vos-accent-success, #22c55e)' }}
+                />
                 <span style={{ color: 'var(--vos-text-secondary)' }}>Ready</span>
-                <span className="ml-auto font-medium" style={{ color: 'var(--vos-text-primary)' }}>{stats.nodesReady}</span>
+                <span className="ml-auto font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+                  {stats.nodesReady}
+                </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'var(--vos-accent-danger, #ef4444)' }} />
+                <span
+                  className="w-2.5 h-2.5 rounded-full inline-block"
+                  style={{ background: 'var(--vos-accent-danger, #ef4444)' }}
+                />
                 <span style={{ color: 'var(--vos-text-secondary)' }}>Not Ready</span>
-                <span className="ml-auto font-medium" style={{ color: 'var(--vos-text-primary)' }}>{stats.nodesNotReady}</span>
+                <span className="ml-auto font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+                  {stats.nodesNotReady}
+                </span>
               </div>
             </div>
           </div>
@@ -325,13 +354,23 @@ export function ClusterOverview({ clusterId }: Props) {
         ) : (
           <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
             {stats.warningEvents.map((ev, i) => (
-              <div key={`${ev.name}-${i}`} className="py-1.5 text-xs" style={{ borderColor: 'var(--vos-border-subtle)' }}>
+              <div
+                key={`${ev.name}-${i}`}
+                className="py-1.5 text-xs"
+                style={{ borderColor: 'var(--vos-border-subtle)' }}
+              >
                 <div className="flex items-center gap-2 mb-0.5">
                   <AlertTriangle size={11} style={{ color: 'var(--vos-accent-warning, #ca8a04)', flexShrink: 0 }} />
-                  <span className="font-medium truncate" style={{ color: 'var(--vos-text-primary)' }}>{ev.reason}</span>
-                  <span className="ml-auto shrink-0" style={{ color: 'var(--vos-text-tertiary)' }}>×{ev.count}</span>
+                  <span className="font-medium truncate" style={{ color: 'var(--vos-text-primary)' }}>
+                    {ev.reason}
+                  </span>
+                  <span className="ml-auto shrink-0" style={{ color: 'var(--vos-text-tertiary)' }}>
+                    ×{ev.count}
+                  </span>
                 </div>
-                <div className="truncate pl-4" style={{ color: 'var(--vos-text-secondary)' }}>{ev.message}</div>
+                <div className="truncate pl-4" style={{ color: 'var(--vos-text-secondary)' }}>
+                  {ev.message}
+                </div>
               </div>
             ))}
           </div>

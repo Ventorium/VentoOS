@@ -10,7 +10,7 @@ export function SummaryTab({ resource }: Props) {
     { key: 'Namespace', value: resource.namespace ?? '—' },
     { key: 'Kind', value: resource.kind },
     { key: 'Status', value: resource.status ?? '—' },
-    { key: 'Age', value: resource.age ?? '—' },
+    { key: 'Age', value: resource.age ?? '—' }
   ]
 
   return (

@@ -5,9 +5,10 @@
  * Supports: add/close tabs, rename tabs, font size adjustment.
  * When opened via SSH app, accepts sshTarget in appState.
  */
-import { Minus, Plus, X } from 'lucide-react'
+import { Minus, Plus } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { useAppStorage, useAppStateSync, useWindowStore } from '@/kernel'
+import { Tabs } from '@/components/ui'
+import { useAppStateSync, useAppStorage, useWindowStore } from '@/kernel'
 
 const WebShell = lazy(() => import('@/shell/WebShell'))
 
@@ -115,23 +116,17 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar */}
-      <div className="flex items-center h-8 flex-shrink-0 overflow-x-auto border-b border-b-[#333]">
-        {tabs.map(tab => {
-          const isActive = tab.id === activeTab
-          const isEditing = editingRef.current === tab.id
-          return (
-            <div
-              key={tab.id}
-              className="group flex items-center gap-1 px-3 h-full cursor-pointer text-xs select-none flex-shrink-0 border-r border-r-[#333] max-w-[160px]"
-              style={{
-                background: isActive ? '#0d0d0d' : 'transparent',
-                color: isActive ? '#d4d4d4' : '#888'
-              }}
-              onClick={() => setActiveTab(tab.id)}
-              onDoubleClick={() => startRename(tab.id)}
-              onKeyDown={() => {}}
-            >
-              {isEditing ? (
+      <div className="flex items-center flex-shrink-0">
+        <Tabs
+          tabs={tabs.map(t => ({ ...t, closable: tabs.length > 1 }))}
+          activeTabId={activeTab}
+          onActivate={setActiveTab}
+          onClose={closeTab}
+          variant="dark"
+          onDoubleClick={startRename}
+          renderContent={tab => {
+            if (editingRef.current === tab.id) {
+              return (
                 <input
                   ref={inputRef}
                   className="bg-transparent border-none outline-none text-xs text-[#d4d4d4] w-[80px]"
@@ -146,33 +141,15 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
                   }}
                   onClick={e => e.stopPropagation()}
                 />
-              ) : (
-                <span className="truncate">{tab.title}</span>
-              )}
-              {tabs.length > 1 && (
-                <button
-                  type="button"
-                  className="bg-transparent border-none cursor-pointer p-0 opacity-0 group-hover:opacity-100 text-[#888] leading-[0]"
-                  onClick={e => {
-                    e.stopPropagation()
-                    closeTab(tab.id)
-                  }}
-                >
-                  <X size={10} />
-                </button>
-              )}
-            </div>
-          )
-        })}
-        <button
-          type="button"
-          className="bg-transparent border-none cursor-pointer px-2 h-full flex items-center text-[#888]"
-          onClick={addTab}
-          title="新建标签"
-        >
-          <Plus size={12} />
-        </button>
-        <span className="flex-1" />
+              )
+            }
+            return <span className="truncate">{tab.title}</span>
+          }}
+          showAddButton
+          onAdd={addTab}
+          addButtonTitle="新建标签"
+          className="flex-1"
+        />
         {/* Font size controls */}
         <div className="flex items-center gap-1 px-2">
           <button
@@ -183,9 +160,7 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
           >
             <Minus size={10} />
           </button>
-          <span className="text-[10px] text-[#666]">
-            {fontSize}px
-          </span>
+          <span className="text-[10px] text-[#666]">{fontSize}px</span>
           <button
             type="button"
             className="bg-transparent border-none cursor-pointer p-0 text-[#888]"
@@ -207,13 +182,7 @@ export default function TerminalApp(_props: { windowId: string; processId: numbe
               visibility: tab.id === activeTab ? 'visible' : 'hidden'
             }}
           >
-            <Suspense
-              fallback={
-                <div className="flex items-center justify-center h-full text-[#666]">
-                  加载中…
-                </div>
-              }
-            >
+            <Suspense fallback={<div className="flex items-center justify-center h-full text-[#666]">加载中…</div>}>
               <WebShell target={tab.target} cwd={tab.cwd} />
             </Suspense>
           </div>

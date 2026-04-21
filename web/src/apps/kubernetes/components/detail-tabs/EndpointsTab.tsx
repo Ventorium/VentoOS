@@ -20,9 +20,9 @@ export function EndpointsTab({ resource }: Props) {
     { key: 'Type', value: (spec.type as string) ?? 'ClusterIP' },
     {
       key: 'External IPs',
-      value: externalIPs.length > 0 ? externalIPs.join(', ') : ingress.map(i => i.ip || i.hostname).join(', ') || '—',
+      value: externalIPs.length > 0 ? externalIPs.join(', ') : ingress.map(i => i.ip || i.hostname).join(', ') || '—'
     },
-    { key: 'Session Affinity', value: (spec.sessionAffinity as string) ?? 'None' },
+    { key: 'Session Affinity', value: (spec.sessionAffinity as string) ?? 'None' }
   ]
 
   return (
@@ -48,7 +48,9 @@ export function EndpointsTab({ resource }: Props) {
                 <span className="w-20 text-[var(--vos-text-secondary)]">{String(p.name || '—')}</span>
                 <span className="w-16 font-mono text-[var(--vos-text-primary)]">{String(p.port)}</span>
                 <span className="w-16 text-[var(--vos-text-secondary)]">{String(p.protocol || 'TCP')}</span>
-                <span className="flex-1 font-mono text-[var(--vos-text-secondary)]">target: {String(p.targetPort || p.port)}</span>
+                <span className="flex-1 font-mono text-[var(--vos-text-secondary)]">
+                  target: {String(p.targetPort || p.port)}
+                </span>
               </div>
             ))}
           </div>

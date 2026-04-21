@@ -89,9 +89,7 @@ export default function ConfirmDialog({
       <div className="px-3 py-2">
         <div className="text-xs mb-2">
           <span className="text-[var(--vos-text-tertiary)]">Tool: </span>
-          <span className="font-mono font-medium text-[var(--vos-text-primary)]">
-            {toolName}
-          </span>
+          <span className="font-mono font-medium text-[var(--vos-text-primary)]">{toolName}</span>
         </div>
 
         {/* Arguments toggle */}
@@ -105,17 +103,13 @@ export default function ConfirmDialog({
         </button>
 
         {expanded && (
-          <pre
-            className="text-[11px] p-2 rounded overflow-x-auto mb-2 bg-[var(--vos-bg-input)] text-[var(--vos-text-secondary)] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto"
-          >
+          <pre className="text-[11px] p-2 rounded overflow-x-auto mb-2 bg-[var(--vos-bg-input)] text-[var(--vos-text-secondary)] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
             {parsedArgs}
           </pre>
         )}
 
         {/* Countdown */}
-        <div className="text-[10px] mb-2 text-[var(--vos-text-tertiary)]">
-          将在 {countdown} 秒后自动拒绝
-        </div>
+        <div className="text-[10px] mb-2 text-[var(--vos-text-tertiary)]">将在 {countdown} 秒后自动拒绝</div>
 
         {/* Buttons */}
         <div className="flex items-center gap-2">

@@ -16,7 +16,7 @@ function resetStore() {
     sidebarTab: 'collections',
     responses: {},
     isLoading: false,
-    isSending: false,
+    isSending: false
   })
 }
 
@@ -101,7 +101,7 @@ describe('ApiClient Store', () => {
 
       useApiClientStore.getState().updateTabRequest(tabId, {
         url: 'https://example.com/api',
-        method: 'POST',
+        method: 'POST'
       })
 
       const tab = useApiClientStore.getState().tabs[0]
@@ -138,7 +138,7 @@ describe('ApiClient Store', () => {
         name: 'Get Users',
         method: 'GET',
         url: 'https://api.example.com/users',
-        request: {},
+        request: {}
       })
 
       const state = useApiClientStore.getState()
@@ -153,7 +153,7 @@ describe('ApiClient Store', () => {
         name: 'Get Users',
         method: 'GET',
         url: 'https://api.example.com/users',
-        request: {},
+        request: {}
       })
 
       // Open same request again
@@ -162,7 +162,7 @@ describe('ApiClient Store', () => {
         name: 'Get Users',
         method: 'GET',
         url: 'https://api.example.com/users',
-        request: {},
+        request: {}
       })
 
       expect(useApiClientStore.getState().tabs).toHaveLength(1)

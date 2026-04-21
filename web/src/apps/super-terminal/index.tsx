@@ -9,11 +9,25 @@
  * │      │                                              │
  * └──────┴──────────────────────────────────────────────┘
  */
-import { ChevronLeft, ChevronRight, Folder, Globe, Network, Plus, Server, Settings, TerminalSquare, X, Zap } from 'lucide-react'
+
 import { AnimatePresence } from 'framer-motion'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Folder,
+  Globe,
+  Network,
+  Plus,
+  Server,
+  Settings,
+  TerminalSquare,
+  X,
+  Zap
+} from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Tabs } from '@/components/ui'
 import { getAuthHeaders } from '@/infra/api/client'
-import { useAppStorage, useAppStateSync, useWindowStore } from '@/kernel'
+import { useAppStateSync, useAppStorage, useWindowStore } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 import { superTerminalApi } from './api'
 import { useSuperTerminalStore } from './store'
@@ -35,11 +49,7 @@ const NAV_ITEMS: { key: NavTab; label: string; icon: typeof TerminalSquare }[] =
 const MAX_VISIBLE_TABS = 6
 
 function LoadingFallback() {
-  return (
-    <div className="flex items-center justify-center h-full text-[#666]">
-      加载中…
-    </div>
-  )
+  return <div className="flex items-center justify-center h-full text-[#666]">加载中…</div>
 }
 
 export default function SuperTerminalApp(_props: { windowId: string; processId: number }) {
@@ -123,7 +133,10 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
   const activeSession = sessionTabs.find(t => t.id === activeSessionTabId)
 
   return (
-    <div className="flex h-full text-[#d4d4d4] relative" style={{ background: terminalSettings.backgroundColor ?? '#0e0e0e' }}>
+    <div
+      className="flex h-full text-[#d4d4d4] relative"
+      style={{ background: terminalSettings.backgroundColor ?? '#0e0e0e' }}
+    >
       {terminalSettings.backgroundImage && (
         <div
           className="absolute inset-0 bg-cover bg-center pointer-events-none z-0"
@@ -134,10 +147,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
         />
       )}
       {/* Left narrow panel */}
-      <div
-        className="flex flex-col flex-shrink-0 border-r border-r-[#333]"
-        style={{ width: leftPanelWidth }}
-      >
+      <div className="flex flex-col flex-shrink-0 border-r border-r-[#333]" style={{ width: leftPanelWidth }}>
         <div className="flex-1 flex flex-col items-center pt-2 gap-1">
           <button
             type="button"
@@ -164,55 +174,37 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
       {/* Main area */}
       <div className="flex flex-col flex-1 min-w-0">
         {/* Top bar: Nav tabs + Session tabs */}
-        <div
-          className="flex items-center h-9 flex-shrink-0 border-b border-b-[#333]"
-        >
+        <div className="flex items-center h-9 flex-shrink-0 border-b border-b-[#333]">
           {/* Nav tabs */}
-          {NAV_ITEMS.map(item => {
-            const isActive = activeNavTab === item.key && !isShowingSession
-            const Icon = item.icon
-            return (
-              <button
-                key={item.key}
-                type="button"
-                className={`flex items-center gap-1.5 px-3 h-full border-none cursor-pointer text-xs select-none whitespace-nowrap border-r border-r-[#333] ${isActive ? 'bg-[rgba(14,14,14,0.5)] text-[#d4d4d4]' : 'bg-transparent text-[#888]'}`}
-                onClick={() => {
-                  setActiveNavTab(item.key)
-                  setActiveSessionTab(null)
-                }}
-              >
-                <Icon size={13} />
-                {item.label}
-              </button>
-            )
-          })}
+          <Tabs
+            tabs={NAV_ITEMS.map(item => ({ id: item.key, label: item.label, icon: item.icon }))}
+            activeTabId={isShowingSession ? null : activeNavTab}
+            onActivate={id => {
+              setActiveNavTab(id as NavTab)
+              setActiveSessionTab(null)
+            }}
+            variant="dark"
+            renderPrefix={tab => {
+              const Icon = tab.icon
+              return <Icon size={13} />
+            }}
+            className="border-b-0"
+          />
 
           {/* Separator — adds space between public-access nav tab and SSH session tabs */}
           <div className="w-10 shrink-0 border-r border-r-[#333] h-full" />
 
           {/* Session tabs */}
           <div className="flex items-center flex-1 min-w-0 overflow-hidden">
-            {visibleSessionTabs.map(tab => {
-              const isActive = tab.id === activeSessionTabId
-              return (
-                <div
-                  key={tab.id}
-                  className={`group flex items-center gap-1 px-2.5 h-full cursor-pointer text-xs select-none flex-shrink-0 border-r border-r-[#333] max-w-[150px] ${isActive ? 'bg-[#0e0e0e] text-[#d4d4d4]' : 'bg-transparent text-[#888]'}`}
-                  onClick={() => setActiveSessionTab(tab.id)}
-                  onKeyDown={() => {}}
-                >
-                  <Server size={11} className="shrink-0" />
-                  <span className="truncate">{tab.title}</span>
-                  <button
-                    type="button"
-                    className="bg-transparent border-none cursor-pointer p-0 opacity-0 group-hover:opacity-100 text-[#888] leading-[0] shrink-0"
-                    onClick={e => handleCloseTab(e, tab.id)}
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              )
-            })}
+            <Tabs
+              tabs={visibleSessionTabs.map(t => ({ ...t, label: t.title }))}
+              activeTabId={activeSessionTabId}
+              onActivate={setActiveSessionTab}
+              onClose={removeSessionTab}
+              variant="dark"
+              renderPrefix={() => <Server size={11} className="shrink-0" />}
+              className="flex-1 border-b-0 overflow-hidden"
+            />
             {hiddenSessionTabs.length > 0 && (
               <div ref={moreRef} className="relative">
                 <button
@@ -224,9 +216,7 @@ export default function SuperTerminalApp(_props: { windowId: string; processId: 
                   {showMoreTabs ? <ChevronLeft size={10} /> : <ChevronRight size={10} />}
                 </button>
                 {showMoreTabs && (
-                  <div
-                    className="absolute top-full right-0 z-50 bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[160px] shadow-[0_4px_12px_rgba(0,0,0,.4)]"
-                  >
+                  <div className="absolute top-full right-0 z-50 bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[160px] shadow-[0_4px_12px_rgba(0,0,0,.4)]">
                     {hiddenSessionTabs.map(tab => (
                       <div
                         key={tab.id}
@@ -316,22 +306,20 @@ function LeftPanelContent({ tab, onClose, storage }: LeftPanelContentProps) {
   const [showAdd, setShowAdd] = useState(false)
 
   return (
-    <div
-      className="flex flex-col flex-shrink-0 w-[240px] border-r border-r-[#333]"
-    >
-      <div
-        className="flex items-center justify-between px-3 h-9 flex-shrink-0 border-b border-b-[#333]"
-      >
-        <span className="text-xs font-medium text-[#ccc]">
-          {tab === 'commands' ? '常用命令' : '终端设置'}
-        </span>
+    <div className="flex flex-col flex-shrink-0 w-[240px] border-r border-r-[#333]">
+      <div className="flex items-center justify-between px-3 h-9 flex-shrink-0 border-b border-b-[#333]">
+        <span className="text-xs font-medium text-[#ccc]">{tab === 'commands' ? '常用命令' : '终端设置'}</span>
         <div className="flex items-center gap-2">
           {tab === 'commands' && (
             <button
               type="button"
               className="bg-transparent border-none cursor-pointer p-0 text-[#888] leading-[0] transition-colors"
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#1668dc' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#888' }}
+              onMouseEnter={e => {
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#1668dc'
+              }}
+              onMouseLeave={e => {
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#888'
+              }}
               onClick={() => setShowAdd(true)}
               title="添加命令"
             >
@@ -470,12 +458,8 @@ function CommandsPanel({
           >
             <Zap size={11} className="text-[#666] shrink-0 mt-0.5" />
             <div className="flex flex-col min-w-0">
-              <span className="truncate text-[#ccc]">
-                {cmd.name}
-              </span>
-              <span
-                className="text-[10px] text-[#666] overflow-hidden text-ellipsis whitespace-nowrap max-w-[180px]"
-              >
+              <span className="truncate text-[#ccc]">{cmd.name}</span>
+              <span className="text-[10px] text-[#666] overflow-hidden text-ellipsis whitespace-nowrap max-w-[180px]">
                 {cmd.command}
               </span>
             </div>
@@ -587,7 +571,7 @@ function CmdContextMenu({
     return () => document.removeEventListener('mousedown', handler, true)
   }, [onDismiss])
 
-  const itemClassName = "py-[5px] px-[14px] cursor-pointer text-xs text-[#d4d4d4] whitespace-nowrap"
+  const itemClassName = 'py-[5px] px-[14px] cursor-pointer text-xs text-[#d4d4d4] whitespace-nowrap'
 
   return (
     <div
@@ -598,10 +582,16 @@ function CmdContextMenu({
         top: pos.y
       }}
     >
-      <div className={`${itemClassName} cmd-ctx-item`} onClick={onEdit}>编辑</div>
-      <div className={`${itemClassName} cmd-ctx-item`} onClick={onCopyCommand}>复制命令</div>
+      <div className={`${itemClassName} cmd-ctx-item`} onClick={onEdit}>
+        编辑
+      </div>
+      <div className={`${itemClassName} cmd-ctx-item`} onClick={onCopyCommand}>
+        复制命令
+      </div>
       <div className="h-px bg-[#3a3a3a] my-1" />
-      <div className={`${itemClassName} cmd-ctx-item text-[#f14c4c]`} onClick={onDelete}>删除</div>
+      <div className={`${itemClassName} cmd-ctx-item text-[#f14c4c]`} onClick={onDelete}>
+        删除
+      </div>
       <style>{`.cmd-ctx-item:hover { background: #333 !important; }`}</style>
     </div>
   )
@@ -611,9 +601,7 @@ function CmdContextMenu({
 
 function SettingGroup({ title }: { title: string }) {
   return (
-    <div
-      className="text-[10px] font-bold tracking-[0.8px] text-[#555] uppercase pt-2.5 pb-1 border-b border-b-[#2a2a2a] mb-1"
-    >
+    <div className="text-[10px] font-bold tracking-[0.8px] text-[#555] uppercase pt-2.5 pb-1 border-b border-b-[#2a2a2a] mb-1">
       {title}
     </div>
   )
@@ -657,7 +645,8 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
     storage.setJSON('terminal-settings', newSettings)
   }
 
-  const inputStyle = "w-full bg-[#252525] text-[#d4d4d4] rounded border-none outline-none text-[11px] py-1 px-2 box-border"
+  const inputStyle =
+    'w-full bg-[#252525] text-[#d4d4d4] rounded border-none outline-none text-[11px] py-1 px-2 box-border'
 
   const [showVfsBgPicker, setShowVfsBgPicker] = useState(false)
 
@@ -668,24 +657,22 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Background color — always shown, image overlays on top */}
       <div>
-          <label className="text-[11px] mb-1 block text-[#888]">
-            背景颜色（全局）
-          </label>
-          <div className="flex gap-1.5 items-center">
-            <input
-              type="color"
-              value={terminalSettings.backgroundColor ?? '#0d0d0d'}
-              onChange={e => handleChange('backgroundColor', e.target.value)}
-              className="w-7 h-6 border-none rounded-[3px] cursor-pointer p-0"
-            />
-            <input
-              className={`${inputStyle} flex-1`}
-              value={terminalSettings.backgroundColor ?? '#0d0d0d'}
-              onChange={e => handleChange('backgroundColor', e.target.value)}
-              placeholder="#0d0d0d"
-            />
-          </div>
+        <label className="text-[11px] mb-1 block text-[#888]">背景颜色（全局）</label>
+        <div className="flex gap-1.5 items-center">
+          <input
+            type="color"
+            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
+            onChange={e => handleChange('backgroundColor', e.target.value)}
+            className="w-7 h-6 border-none rounded-[3px] cursor-pointer p-0"
+          />
+          <input
+            className={`${inputStyle} flex-1`}
+            value={terminalSettings.backgroundColor ?? '#0d0d0d'}
+            onChange={e => handleChange('backgroundColor', e.target.value)}
+            placeholder="#0d0d0d"
+          />
         </div>
+      </div>
 
       {/* Background opacity */}
       <div>
@@ -704,9 +691,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Background image */}
       <div>
-        <label className="text-[11px] mb-1 block text-[#888]">
-          背景图片（全局）
-        </label>
+        <label className="text-[11px] mb-1 block text-[#888]">背景图片（全局）</label>
         <div className="flex gap-1.5 items-center">
           <input
             className={`${inputStyle} flex-1`}
@@ -748,9 +733,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
             key="vfs-bg-picker"
             mode="file"
             onConfirm={async result => {
-              const filePath = result.isRemote
-                ? result.path.replace(`vfs://${result.mountId}`, '')
-                : result.path
+              const filePath = result.isRemote ? result.path.replace(`vfs://${result.mountId}`, '') : result.path
               const bgUrl = `/api/vfs/mounts/${result.mountId}/raw?path=${encodeURIComponent(filePath)}`
               // Fetch with auth and convert to base64 data URL so it can be loaded without auth headers
               try {
@@ -778,9 +761,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Shell program — supports free text input + datalist suggestions */}
       <div>
-        <label className="text-[11px] mb-1 block text-[#888]">
-          默认 Shell
-        </label>
+        <label className="text-[11px] mb-1 block text-[#888]">默认 Shell</label>
         <input
           list="super-terminal-shells-list"
           className={inputStyle}
@@ -791,7 +772,8 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
         <datalist id="super-terminal-shells-list">
           {shells.map(s => (
             <option key={s.path} value={s.path}>
-              {s.name}{s.is_default ? ' ★' : ''} — {s.path}
+              {s.name}
+              {s.is_default ? ' ★' : ''} — {s.path}
             </option>
           ))}
         </datalist>
@@ -799,9 +781,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Font size */}
       <div>
-        <label className="text-[11px] mb-1 block text-[#888]">
-          字体大小 ({terminalSettings.fontSize}px)
-        </label>
+        <label className="text-[11px] mb-1 block text-[#888]">字体大小 ({terminalSettings.fontSize}px)</label>
         <input
           type="range"
           min={8}
@@ -814,9 +794,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Font family */}
       <div>
-        <label className="text-[11px] mb-1 block text-[#888]">
-          字体
-        </label>
+        <label className="text-[11px] mb-1 block text-[#888]">字体</label>
         <input
           className={inputStyle}
           value={terminalSettings.fontFamily}
@@ -827,9 +805,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* Scrollback */}
       <div>
-        <label className="text-[11px] mb-1 block text-[#888]">
-          回滚行数
-        </label>
+        <label className="text-[11px] mb-1 block text-[#888]">回滚行数</label>
         <input
           type="number"
           className={inputStyle}
@@ -849,9 +825,7 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 
       {/* ── 端口映射设置 ── */}
       <SettingGroup title="端口映射" />
-      <div className="text-[11px] text-[#666] leading-[1.5]">
-        端口映射规则在「端口映射」标签页内管理。
-      </div>
+      <div className="text-[11px] text-[#666] leading-[1.5]">端口映射规则在「端口映射」标签页内管理。</div>
 
       {/* ── 外网访问设置 ── */}
       <SettingGroup title="外网访问" />
@@ -865,14 +839,14 @@ function SettingsPanel({ storage }: { storage: ReturnType<typeof useAppStorage> 
 function SettingToggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[11px] text-[#888]">
-        {label}
-      </span>
+      <span className="text-[11px] text-[#888]">{label}</span>
       <button
         type="button"
-        className={value
-          ? 'border-none cursor-pointer w-8 h-[18px] rounded-[9px] relative transition-colors bg-[#1668dc]'
-          : 'border-none cursor-pointer w-8 h-[18px] rounded-[9px] relative transition-colors bg-[#444]'}
+        className={
+          value
+            ? 'border-none cursor-pointer w-8 h-[18px] rounded-[9px] relative transition-colors bg-[#1668dc]'
+            : 'border-none cursor-pointer w-8 h-[18px] rounded-[9px] relative transition-colors bg-[#444]'
+        }
         onClick={() => onChange(!value)}
       >
         <div

@@ -2,14 +2,7 @@ import { motion, useAnimationControls } from 'framer-motion'
 import type React from 'react'
 import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import ErrorBoundary from '@/components/ErrorBoundary'
-import {
-  closeWindow,
-  focusWindow,
-  minimizeWindow,
-  toggleMaximize,
-  useWindowStore,
-  type WindowInstance
-} from '@/kernel'
+import { closeWindow, focusWindow, minimizeWindow, toggleMaximize, useWindowStore, type WindowInstance } from '@/kernel'
 import { useSettingsStore } from '@/services/settings'
 import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
 import { tokens } from '@/theme'
@@ -413,9 +406,11 @@ export default function Window({ win, children }: { win: WindowInstance; childre
             }}
           />
           <div
-            className={win.isFocused
-              ? 'absolute inset-0 z-[1] bg-[rgba(28,28,30,0.70)]'
-              : 'absolute inset-0 z-[1] bg-[rgba(20,20,22,0.8)]'}
+            className={
+              win.isFocused
+                ? 'absolute inset-0 z-[1] bg-[rgba(28,28,30,0.70)]'
+                : 'absolute inset-0 z-[1] bg-[rgba(20,20,22,0.8)]'
+            }
           />
         </>
       )}
@@ -426,9 +421,11 @@ export default function Window({ win, children }: { win: WindowInstance; childre
         {/* biome-ignore lint/a11y/noStaticElementInteractions: title bar is a drag handle for window movement */}
         <div
           role="presentation"
-          className={isMax
-            ? 'vos-flex-row px-3 shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] select-none cursor-default'
-            : 'vos-flex-row px-3 shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] select-none cursor-grab'}
+          className={
+            isMax
+              ? 'vos-flex-row px-3 shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] select-none cursor-default'
+              : 'vos-flex-row px-3 shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] select-none cursor-grab'
+          }
           style={{ height: TITLE_H }}
           onMouseDown={onDragStart}
           onDoubleClick={() => toggleMaximize(win.id)}
@@ -460,9 +457,7 @@ export default function Window({ win, children }: { win: WindowInstance; childre
               <ErrorBoundary appId={win.appId}>{children}</ErrorBoundary>
             </Suspense>
           ) : (
-            <div className="vos-flex-center flex-1 text-[var(--vos-text-tertiary)] text-[13px]">
-              进程已暂停
-            </div>
+            <div className="vos-flex-center flex-1 text-[var(--vos-text-tertiary)] text-[13px]">进程已暂停</div>
           )}
         </div>
       </div>

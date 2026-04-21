@@ -11,9 +11,7 @@ export default function ActivityBar() {
   const { sidebarOpen, sidebarView, toggleSidebar } = useLayoutStore()
 
   return (
-    <div
-      className="flex flex-col items-center gap-1 py-2 flex-shrink-0 w-[48px] border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
-    >
+    <div className="flex flex-col items-center gap-1 py-2 flex-shrink-0 w-[48px] border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]">
       {ITEMS.map(item => {
         const active = sidebarOpen && sidebarView === item.id
         return (

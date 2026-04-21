@@ -18,6 +18,7 @@ import {
   HardDrive,
   Home,
   Layers,
+  type LucideIcon,
   Network,
   Package,
   ScrollText,
@@ -27,12 +28,10 @@ import {
   ShieldCheck,
   Shuffle,
   Smartphone,
-  Users,
-  type LucideIcon,
+  Users
 } from 'lucide-react'
-
-import type { ResourceTypeDef, K8sResourceKind } from '../types'
 import { getColumnsForKind } from '../components/resource-list/table-columns'
+import type { K8sResourceKind, ResourceTypeDef } from '../types'
 
 const kindToIcon: Record<string, LucideIcon> = {
   overview: Home,
@@ -75,7 +74,7 @@ const kindToIcon: Record<string, LucideIcon> = {
   ingressclass: Globe,
   event: Clock,
   helmrelease: Package,
-  customresource: FileCode,
+  customresource: FileCode
 }
 
 function getIcon(kind: K8sResourceKind): LucideIcon {
@@ -124,7 +123,7 @@ function getLabel(kind: K8sResourceKind): string {
     ingressclass: 'IngressClass',
     event: 'Event',
     helmrelease: 'Release',
-    customresource: 'Custom Resource',
+    customresource: 'Custom Resource'
   }
   return map[kind] ?? kind
 }
@@ -141,7 +140,7 @@ function getPluralLabel(kind: K8sResourceKind): string {
     poddisruptionbudget: 'PDBs',
     event: 'Events',
     helmrelease: 'Releases',
-    customresource: 'Custom Resources',
+    customresource: 'Custom Resources'
   }
   if (special[kind]) return special[kind]
   const label = getLabel(kind)
@@ -191,7 +190,7 @@ function isNamespaced(kind: K8sResourceKind): boolean {
     'clusterrolebinding',
     'event',
     'customresource',
-    'helmrelease',
+    'helmrelease'
   ]
   return !clusterScoped.includes(kind)
 }
@@ -293,7 +292,7 @@ function buildRegistry(): Record<K8sResourceKind, ResourceTypeDef> {
     'ingressclass',
     'event',
     'helmrelease',
-    'customresource',
+    'customresource'
   ]
 
   const registry = {} as Record<K8sResourceKind, ResourceTypeDef>
@@ -306,7 +305,7 @@ function buildRegistry(): Record<K8sResourceKind, ResourceTypeDef> {
       category: getCategory(kind),
       namespaced: isNamespaced(kind),
       detailTabs: getDetailTabs(kind),
-      columns: getColumnsForKind(kind),
+      columns: getColumnsForKind(kind)
     }
   }
   return registry

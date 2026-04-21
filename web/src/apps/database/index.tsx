@@ -1,10 +1,12 @@
-import { Database, Info, X } from 'lucide-react'
+import { Database, Info } from 'lucide-react'
 import { useCallback, useEffect } from 'react'
 import { AppLayout, AppSidebar, EmptyState } from '@/components'
+import { Tabs } from '@/components/ui'
 import type { AppComponentProps } from '@/kernel'
 import { useAppStateSync } from '@/kernel'
-import { ConnectionTree } from './components/ConnectionTree'
+import { dbApi } from './api'
 import { ConnectionConfigDialog } from './components/ConnectionConfigDialog'
+import { ConnectionTree } from './components/ConnectionTree'
 import { DataView } from './components/DataView'
 import { InfoPanel } from './components/InfoPanel'
 import { NewConnectionDialog } from './components/NewConnectionDialog'
@@ -12,22 +14,32 @@ import { ObjectBrowser } from './components/ObjectBrowser'
 import { SqlEditor } from './components/SqlEditor'
 import { TableDesigner } from './components/TableDesigner'
 import { useDatabaseStore } from './stores'
-import { dbApi } from './api'
 
 export default function DatabaseApp({ windowId, initialAppState }: AppComponentProps) {
   const {
-    connections, setConnections,
-    tabs, activeTabId, addTab, removeTab, setActiveTab,
-    showNewConnectionTypeDialog, showConnectionConfigDialog,
-    infoPanelVisible, toggleInfoPanel,
-    selectedNode,
+    connections,
+    setConnections,
+    tabs,
+    activeTabId,
+    addTab,
+    removeTab,
+    setActiveTab,
+    showNewConnectionTypeDialog,
+    showConnectionConfigDialog,
+    infoPanelVisible,
+    toggleInfoPanel,
+    selectedNode
   } = useDatabaseStore()
 
   // Sync app state
-  useAppStateSync(windowId, {
-    activeTabId,
-    selectedNodeId: useDatabaseStore.getState().selectedNodeId,
-  }, [activeTabId])
+  useAppStateSync(
+    windowId,
+    {
+      activeTabId,
+      selectedNodeId: useDatabaseStore.getState().selectedNodeId
+    },
+    [activeTabId]
+  )
 
   // Load connections on mount
   const loadConnections = useCallback(async () => {
@@ -84,36 +96,8 @@ export default function DatabaseApp({ windowId, initialAppState }: AppComponentP
       }
     >
       {/* Tab bar */}
-      <div className="flex items-center h-9 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]">
-        <div className="flex-1 flex items-center overflow-x-auto px-1 gap-0.5">
-          {tabs.map(tab => (
-            <button
-              type="button"
-              key={tab.id}
-              className="flex items-center gap-1.5 text-xs px-3 py-1 rounded cursor-pointer border-none whitespace-nowrap group"
-              style={{
-                background: activeTabId === tab.id ? 'var(--vos-accent-primary)' : 'transparent',
-                color: activeTabId === tab.id ? '#fff' : 'var(--vos-text-secondary)',
-              }}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <span className="truncate max-w-[120px]">{tab.label}</span>
-              {tab.closable && (
-                <span
-                  className="opacity-0 group-hover:opacity-100 hover:bg-white/20 rounded-sm p-0.5"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removeTab(tab.id)
-                  }}
-                  onKeyDown={() => {}}
-                >
-                  <X size={10} />
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
+      <div className="flex items-center flex-shrink-0">
+        <Tabs tabs={tabs} activeTabId={activeTabId} onActivate={setActiveTab} onClose={removeTab} className="flex-1" />
         {/* Info panel toggle */}
         <button
           type="button"

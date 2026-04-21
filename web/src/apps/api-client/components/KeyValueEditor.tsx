@@ -24,14 +24,14 @@ export default function KeyValueEditor({ items, onChange, showDescription = fals
       }
       onChange(newItems)
     },
-    [items, onChange],
+    [items, onChange]
   )
 
   const removeItem = useCallback(
     (index: number) => {
       onChange(items.filter((_, i) => i !== index))
     },
-    [items, onChange],
+    [items, onChange]
   )
 
   return (
@@ -60,7 +60,7 @@ export default function KeyValueEditor({ items, onChange, showDescription = fals
               <input
                 type="checkbox"
                 checked={item.enabled}
-                onChange={(e) => updateItem(idx, 'enabled', e.target.checked)}
+                onChange={e => updateItem(idx, 'enabled', e.target.checked)}
                 className="accent-orange-500"
               />
             </div>
@@ -69,14 +69,14 @@ export default function KeyValueEditor({ items, onChange, showDescription = fals
               style={{ color: 'var(--vos-text-primary)' }}
               value={item.key}
               placeholder={placeholder?.key ?? 'Key'}
-              onChange={(e) => updateItem(idx, 'key', e.target.value)}
+              onChange={e => updateItem(idx, 'key', e.target.value)}
             />
             <input
               className="flex-1 bg-transparent outline-none py-1 placeholder:opacity-40"
               style={{ color: 'var(--vos-text-primary)' }}
               value={item.value}
               placeholder={placeholder?.value ?? 'Value'}
-              onChange={(e) => updateItem(idx, 'value', e.target.value)}
+              onChange={e => updateItem(idx, 'value', e.target.value)}
             />
             {showDescription && (
               <input
@@ -84,7 +84,7 @@ export default function KeyValueEditor({ items, onChange, showDescription = fals
                 style={{ color: 'var(--vos-text-primary)' }}
                 value={item.description ?? ''}
                 placeholder="Description"
-                onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                onChange={e => updateItem(idx, 'description', e.target.value)}
               />
             )}
             <div className="w-6 flex items-center justify-center">

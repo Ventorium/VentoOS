@@ -1,11 +1,4 @@
-import {
-  Box,
-  ChevronDown,
-  ChevronRight,
-  Layers,
-  Plus,
-  Trash2,
-} from 'lucide-react'
+import { Box, ChevronDown, ChevronRight, Layers, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { SectionHeader, Spinner } from '@/components'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -57,33 +50,28 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
   const handleLeafClick = (clusterId: string, kind: K8sResourceKind) => {
     const conn = connections[clusterId]
     const ns = conn?.namespaces[0]?.name ?? 'default'
-    const targetNs = kind === 'overview' || kind === 'namespace' || kind === 'node' || kind === 'event'
-      ? ''
-      : ns
+    const targetNs = kind === 'overview' || kind === 'namespace' || kind === 'node' || kind === 'event' ? '' : ns
     openTab(clusterId, targetNs, kind, { isPreview: true })
   }
 
   const handleLeafDoubleClick = (clusterId: string, kind: K8sResourceKind) => {
     const conn = connections[clusterId]
     const ns = conn?.namespaces[0]?.name ?? 'default'
-    const targetNs = kind === 'overview' || kind === 'namespace' || kind === 'node' || kind === 'event'
-      ? ''
-      : ns
+    const targetNs = kind === 'overview' || kind === 'namespace' || kind === 'node' || kind === 'event' ? '' : ns
     openTab(clusterId, targetNs, kind, { isPreview: false })
   }
 
   const groupedClusters = {
     local: clusters.filter(c => !c.source || c.source === 'local'),
     teleport: clusters.filter(c => c.source === 'teleport'),
-    custom: clusters.filter(c => c.source === 'custom'),
+    custom: clusters.filter(c => c.source === 'custom')
   }
 
   const renderTreeNode = (node: SidebarNode, clusterId: string, depth = 0) => {
     const conn = connections[clusterId]
     const isConnected = conn?.connected ?? false
     if (node.type === 'leaf') {
-      const isActive =
-        activeTab?.clusterId === clusterId && activeTab?.kind === node.kind
+      const isActive = activeTab?.clusterId === clusterId && activeTab?.kind === node.kind
       const Icon = node.icon ?? Box
       return (
         <div
@@ -94,7 +82,7 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
             color: isActive ? '#fff' : isConnected ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
             paddingLeft: `${depth * 8 + 22}px`,
             pointerEvents: isConnected ? 'auto' : 'none',
-            opacity: isConnected ? 1 : 0.45,
+            opacity: isConnected ? 1 : 0.45
           }}
           onClick={() => handleLeafClick(clusterId, node.kind)}
           onDoubleClick={() => handleLeafDoubleClick(clusterId, node.kind)}
@@ -117,8 +105,7 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
           <Icon size={11} />
           <span>{node.label}</span>
         </div>
-        {isExpanded &&
-          node.children.map(child => renderTreeNode(child, clusterId, depth + 1))}
+        {isExpanded && node.children.map(child => renderTreeNode(child, clusterId, depth + 1))}
       </div>
     )
   }
@@ -128,9 +115,7 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
       {/* Hotbar */}
       {favorites.size > 0 && (
         <div className="px-2 pt-2 pb-1">
-          <div className="text-[10px] font-semibold tracking-wider text-[var(--vos-text-tertiary)] mb-1">
-            HOTBAR
-          </div>
+          <div className="text-[10px] font-semibold tracking-wider text-[var(--vos-text-tertiary)] mb-1">HOTBAR</div>
           <div className="flex gap-1 flex-wrap">
             {clusters
               .filter(c => favorites.has(c.id))
@@ -144,7 +129,7 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
                     style={{
                       background: isActive
                         ? 'color-mix(in srgb, var(--vos-accent-primary) 15%, transparent)'
-                        : 'var(--vos-bg-item-hover)',
+                        : 'var(--vos-bg-item-hover)'
                     }}
                     onClick={() => handleLeafClick(c.id, 'overview')}
                     title={c.name}
@@ -201,9 +186,7 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
                       background: isActive
                         ? 'color-mix(in srgb, var(--vos-accent-primary) 10%, transparent)'
                         : 'transparent',
-                      borderLeft: isActive
-                        ? '3px solid var(--vos-accent-primary)'
-                        : '3px solid transparent',
+                      borderLeft: isActive ? '3px solid var(--vos-accent-primary)' : '3px solid transparent'
                     }}
                     onContextMenu={e => {
                       e.preventDefault()
@@ -212,15 +195,15 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
                       showCtxMenu(e.clientX, e.clientY, [
                         {
                           id: 'connect',
-                          label: isConn ? '断开连接' : (conn?.connecting ? '连接中…' : '连接'),
+                          label: isConn ? '断开连接' : conn?.connecting ? '连接中…' : '连接',
                           disabled: conn?.connecting,
-                          action: () => isConn ? disconnectCluster(cluster.id) : connectCluster(cluster.id),
+                          action: () => (isConn ? disconnectCluster(cluster.id) : connectCluster(cluster.id))
                         },
                         { type: 'separator' },
                         {
                           id: 'edit',
                           label: '编辑',
-                          action: () => onEditCluster?.(cluster.id),
+                          action: () => onEditCluster?.(cluster.id)
                         },
                         {
                           id: 'favorite',
@@ -231,20 +214,24 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
                               if (n.has(cluster.id)) n.delete(cluster.id)
                               else n.add(cluster.id)
                               return n
-                            }),
+                            })
                         },
-                        ...isConn ? [{
-                          id: 'refresh' as const,
-                          label: '刷新命名空间',
-                          action: () => fetchNamespaces(cluster.id),
-                        }] : [],
+                        ...(isConn
+                          ? [
+                              {
+                                id: 'refresh' as const,
+                                label: '刷新命名空间',
+                                action: () => fetchNamespaces(cluster.id)
+                              }
+                            ]
+                          : []),
                         { type: 'separator' as const },
                         {
                           id: 'remove',
                           label: '删除',
                           danger: true,
-                          action: () => removeCluster(cluster.id),
-                        },
+                          action: () => removeCluster(cluster.id)
+                        }
                       ])
                     }}
                   >
@@ -267,22 +254,19 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
                     <span
                       className="w-2 h-2 rounded-full shrink-0 transition-colors"
                       style={{
-                        background:
-                          conn?.connecting
-                            ? 'var(--vos-accent-warning, #f59e0b)'
-                            : conn?.connected
-                              ? 'var(--vos-accent-success)'
-                              : conn?.namespaceError
-                                ? 'var(--vos-accent-danger)'
-                                : 'var(--vos-text-tertiary)',
+                        background: conn?.connecting
+                          ? 'var(--vos-accent-warning, #f59e0b)'
+                          : conn?.connected
+                            ? 'var(--vos-accent-success)'
+                            : conn?.namespaceError
+                              ? 'var(--vos-accent-danger)'
+                              : 'var(--vos-text-tertiary)'
                       }}
                     />
                     <span
                       className="flex-1 truncate font-medium select-none"
                       style={{
-                        color: isActive
-                          ? 'var(--vos-accent-primary)'
-                          : 'var(--vos-text-primary)',
+                        color: isActive ? 'var(--vos-accent-primary)' : 'var(--vos-text-primary)'
                       }}
                       onClick={() => handleLeafClick(cluster.id, 'overview')}
                       onDoubleClick={() => {
@@ -311,9 +295,7 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
                     <div className="pb-1">
                       {conn?.namespaceError && (
                         <div className="pl-6 pr-2 py-1">
-                          <div className="text-[10px] text-[var(--vos-accent-danger)]">
-                            {conn.namespaceError}
-                          </div>
+                          <div className="text-[10px] text-[var(--vos-accent-danger)]">{conn.namespaceError}</div>
                           <button
                             type="button"
                             className="text-[10px] bg-transparent border-none cursor-pointer p-0 text-[var(--vos-accent-primary)]"
@@ -334,9 +316,7 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
       )}
 
       {clusters.length === 0 && !loading && (
-        <div className="px-3 py-2 text-[var(--vos-text-tertiary)]">
-          无集群，点击 + 添加
-        </div>
+        <div className="px-3 py-2 text-[var(--vos-text-tertiary)]">无集群，点击 + 添加</div>
       )}
     </div>
   )

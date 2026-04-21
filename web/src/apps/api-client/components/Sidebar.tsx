@@ -1,14 +1,15 @@
 import { BookOpen, Clock, FolderPlus, Globe, Import, Plus, Star, Trash2 } from 'lucide-react'
 import { useEffect } from 'react'
-import { useApiClientStore } from '../store'
+import { Tabs } from '@/components/ui'
 import { METHOD_COLORS } from '../constants'
+import { useApiClientStore } from '../store'
+import type { HistoryEntry } from '../types'
 import CollectionTreeView from './CollectionTree'
 import EnvironmentSelector from './EnvironmentSelector'
-import type { HistoryEntry } from '../types'
 
 function HistoryList() {
-  const history = useApiClientStore((s) => s.history)
-  const openRequest = useApiClientStore((s) => s.openRequest)
+  const history = useApiClientStore(s => s.history)
+  const openRequest = useApiClientStore(s => s.openRequest)
 
   if (history.length === 0) {
     return (
@@ -23,7 +24,7 @@ function HistoryList() {
 
   return (
     <div className="py-1">
-      {history.map((entry) => {
+      {history.map(entry => {
         const req = entry.request as { method?: string; url?: string; name?: string }
         const method = (req.method ?? 'GET') as keyof typeof METHOD_COLORS
         return (
@@ -37,11 +38,14 @@ function HistoryList() {
                 name: req.name ?? req.url ?? 'Untitled',
                 method: method as any,
                 url: req.url ?? '',
-                request: entry.request,
+                request: entry.request
               })
             }
           >
-            <span className="font-bold text-[9px] uppercase w-8 shrink-0 text-center" style={{ color: METHOD_COLORS[method] }}>
+            <span
+              className="font-bold text-[9px] uppercase w-8 shrink-0 text-center"
+              style={{ color: METHOD_COLORS[method] }}
+            >
               {method}
             </span>
             <span className="truncate flex-1">{req.url ?? 'Untitled'}</span>
@@ -54,7 +58,7 @@ function HistoryList() {
 }
 
 function EnvironmentsList() {
-  const environments = useApiClientStore((s) => s.environments)
+  const environments = useApiClientStore(s => s.environments)
 
   if (environments.length === 0) {
     return (
@@ -69,7 +73,7 @@ function EnvironmentsList() {
 
   return (
     <div className="py-1">
-      {environments.map((env) => (
+      {environments.map(env => (
         <div
           key={env.id}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs cursor-pointer hover:opacity-80 rounded mx-1"
@@ -96,15 +100,15 @@ type SidebarTabKey = 'collections' | 'environments' | 'history'
 const SIDEBAR_TABS: { key: SidebarTabKey; label: string; icon: typeof BookOpen }[] = [
   { key: 'collections', label: 'Collections', icon: BookOpen },
   { key: 'environments', label: 'Env', icon: Globe },
-  { key: 'history', label: 'History', icon: Clock },
+  { key: 'history', label: 'History', icon: Clock }
 ]
 
 export default function Sidebar() {
-  const sidebarTab = useApiClientStore((s) => s.sidebarTab)
-  const setSidebarTab = useApiClientStore((s) => s.setSidebarTab)
-  const loadCollections = useApiClientStore((s) => s.loadCollections)
-  const loadEnvironments = useApiClientStore((s) => s.loadEnvironments)
-  const loadHistory = useApiClientStore((s) => s.loadHistory)
+  const sidebarTab = useApiClientStore(s => s.sidebarTab)
+  const setSidebarTab = useApiClientStore(s => s.setSidebarTab)
+  const loadCollections = useApiClientStore(s => s.loadCollections)
+  const loadEnvironments = useApiClientStore(s => s.loadEnvironments)
+  const loadHistory = useApiClientStore(s => s.loadHistory)
 
   useEffect(() => {
     loadCollections()
@@ -118,37 +122,21 @@ export default function Sidebar() {
       style={{
         width: 260,
         borderRight: '1px solid var(--vos-border-subtle)',
-        background: 'var(--vos-bg-secondary)',
+        background: 'var(--vos-bg-secondary)'
       }}
     >
       {/* Sidebar tabs */}
-      <div
-        className="flex items-center shrink-0"
-        style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
-      >
-        {SIDEBAR_TABS.map((tab) => {
-          const Icon = tab.icon
-          return (
-            <button
-              key={tab.key}
-              className="flex-1 flex items-center justify-center gap-1 py-2 text-[11px] relative"
-              style={{
-                color: sidebarTab === tab.key ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
-              }}
-              onClick={() => setSidebarTab(tab.key)}
-            >
-              <Icon size={12} />
-              {tab.label}
-              {sidebarTab === tab.key && (
-                <div
-                  className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full"
-                  style={{ background: 'var(--vos-accent-primary)' }}
-                />
-              )}
-            </button>
-          )
-        })}
-      </div>
+      <Tabs
+        tabs={SIDEBAR_TABS.map(t => ({ id: t.key, label: t.label, icon: t.icon }))}
+        activeTabId={sidebarTab}
+        onActivate={id => setSidebarTab(id as SidebarTabKey)}
+        variant="underline"
+        block
+        renderPrefix={(tab) => {
+          const Icon = tab.icon as typeof BookOpen
+          return <Icon size={12} />
+        }}
+      />
 
       {/* Actions bar */}
       <div

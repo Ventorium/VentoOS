@@ -122,7 +122,12 @@ export default function LogCenterApp(_props: AppComponentProps) {
         >
           <ChevronDown size={14} />
         </button>
-        <button type="button" title="清空日志" className="inline-flex items-center justify-center w-[26px] h-[26px] border border-[var(--vos-border-primary)] rounded bg-transparent text-[var(--vos-text-secondary)] cursor-pointer" onClick={clearEntries}>
+        <button
+          type="button"
+          title="清空日志"
+          className="inline-flex items-center justify-center w-[26px] h-[26px] border border-[var(--vos-border-primary)] rounded bg-transparent text-[var(--vos-text-secondary)] cursor-pointer"
+          onClick={clearEntries}
+        >
           <Trash2 size={14} />
         </button>
       </div>
@@ -140,7 +145,12 @@ export default function LogCenterApp(_props: AppComponentProps) {
               key={entry.id}
               className="flex gap-2 px-3 [border-bottom:0.5px_solid_var(--vos-border-subtle)]"
               style={{
-                background: entry.level === 'error' ? 'rgba(239,68,68,0.06)' : entry.level === 'warn' ? 'rgba(245,158,11,0.04)' : undefined
+                background:
+                  entry.level === 'error'
+                    ? 'rgba(239,68,68,0.06)'
+                    : entry.level === 'warn'
+                      ? 'rgba(245,158,11,0.04)'
+                      : undefined
               }}
             >
               <span className="shrink-0 overflow-hidden text-ellipsis whitespace-nowrap w-[90px] text-[var(--vos-text-tertiary)]">
@@ -158,9 +168,7 @@ export default function LogCenterApp(_props: AppComponentProps) {
               >
                 {entry.module}
               </span>
-              <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-                {entry.message}
-              </span>
+              <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{entry.message}</span>
             </div>
           ))}
         </div>

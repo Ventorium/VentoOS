@@ -20,7 +20,7 @@ export function ShellPanel({ clusterId, namespace, podName, container }: Props) 
           type="text"
           className="bg-transparent border-[0.5px] border-[var(--vos-border-subtle)] rounded px-1 py-0.5 text-[var(--vos-text-primary)] w-[120px]"
           value={activeContainer}
-          onChange={(e) => setActiveContainer(e.target.value)}
+          onChange={e => setActiveContainer(e.target.value)}
           placeholder="default"
         />
         <span className="text-[var(--vos-text-tertiary)]">Shell:</span>
@@ -28,7 +28,7 @@ export function ShellPanel({ clusterId, namespace, podName, container }: Props) 
           type="text"
           className="bg-transparent border-[0.5px] border-[var(--vos-border-subtle)] rounded px-1 py-0.5 text-[var(--vos-text-primary)] w-[120px]"
           value={shell}
-          onChange={(e) => setShell(e.target.value)}
+          onChange={e => setShell(e.target.value)}
           list="shell-options"
         />
         <datalist id="shell-options">

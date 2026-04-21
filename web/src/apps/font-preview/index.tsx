@@ -161,32 +161,25 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
         {activeTab === 'preview' ? (
           <div className="flex flex-col gap-6">
             {/* Large hero preview */}
-            <div
-              className="text-[48px] leading-[1.3] text-[var(--vos-text-primary)] break-words"
-              style={fontStyle}
-            >
+            <div className="text-[48px] leading-[1.3] text-[var(--vos-text-primary)] break-words" style={fontStyle}>
               {customText || SAMPLE_TEXT_EN}
             </div>
 
             {/* Chinese sample */}
-            <div
-              className="text-[32px] leading-[1.5] text-[var(--vos-text-primary)] break-words"
-              style={fontStyle}
-            >
+            <div className="text-[32px] leading-[1.5] text-[var(--vos-text-primary)] break-words" style={fontStyle}>
               {customText || SAMPLE_TEXT_CN}
             </div>
 
             {/* All sizes */}
             <div className="flex flex-col gap-3">
-              <div className="text-[11px] text-[var(--vos-text-tertiary)] uppercase tracking-[1px]">
-                各尺寸预览
-              </div>
+              <div className="text-[11px] text-[var(--vos-text-tertiary)] uppercase tracking-[1px]">各尺寸预览</div>
               {PREVIEW_SIZES.map(size => (
                 <div key={size} className="flex items-baseline gap-3">
-                  <span className="text-[11px] text-[var(--vos-text-tertiary)] min-w-[32px] text-right">
-                    {size}px
-                  </span>
-                  <span className="leading-[1.4] text-[var(--vos-text-primary)]" style={{ ...fontStyle, fontSize: size }}>
+                  <span className="text-[11px] text-[var(--vos-text-tertiary)] min-w-[32px] text-right">{size}px</span>
+                  <span
+                    className="leading-[1.4] text-[var(--vos-text-primary)]"
+                    style={{ ...fontStyle, fontSize: size }}
+                  >
                     {customText || SAMPLE_TEXT_NUM}
                   </span>
                 </div>

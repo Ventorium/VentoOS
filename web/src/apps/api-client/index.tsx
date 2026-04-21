@@ -1,13 +1,13 @@
 import { useEffect } from 'react'
 import type { AppComponentProps } from '@/kernel'
-import { useApiClientStore } from './store'
-import TabBar from './components/TabBar'
-import Sidebar from './components/Sidebar'
 import RequestEditor from './components/RequestEditor'
+import Sidebar from './components/Sidebar'
+import TabBar from './components/TabBar'
+import { useApiClientStore } from './store'
 
 export default function ApiClientApp({ windowId }: AppComponentProps) {
-  const tabs = useApiClientStore((s) => s.tabs)
-  const addTab = useApiClientStore((s) => s.addTab)
+  const tabs = useApiClientStore(s => s.tabs)
+  const addTab = useApiClientStore(s => s.addTab)
 
   // Add a default tab if none exist
   useEffect(() => {

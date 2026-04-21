@@ -121,7 +121,8 @@ export const k8sApi = {
   getK8sClusters: () => request<ApiResponse<K8sCluster[]>>('GET', '/api/k8s/clusters'),
   createK8sCluster: (body: CreateK8sClusterReq) => request<ApiResponse<K8sCluster>>('POST', '/api/k8s/clusters', body),
   getK8sCluster: (id: string) => request<ApiResponse<K8sCluster>>('GET', `/api/k8s/clusters/${id}`),
-  updateK8sCluster: (id: string, body: UpdateK8sClusterReq) => request<ApiResponse<K8sCluster>>('PUT', `/api/k8s/clusters/${id}`, body),
+  updateK8sCluster: (id: string, body: UpdateK8sClusterReq) =>
+    request<ApiResponse<K8sCluster>>('PUT', `/api/k8s/clusters/${id}`, body),
   deleteK8sCluster: (id: string) => request<ApiResponse<null>>('DELETE', `/api/k8s/clusters/${id}`),
   testK8sCluster: (id: string) => request<ApiResponse<K8sTestResult>>('POST', `/api/k8s/clusters/${id}/test`),
   getK8sNamespaces: (id: string) => request<ApiResponse<K8sNamespace[]>>('GET', `/api/k8s/clusters/${id}/namespaces`),
@@ -149,7 +150,9 @@ export const k8sApi = {
   scaleDeployment: (id: string, kind: K8sResourceKind, name: string, namespace: string, replicas: number) => {
     const params = new URLSearchParams()
     if (namespace) params.set('ns', namespace)
-    return request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/resources/${kind}/${name}/scale?${params}`, { replicas })
+    return request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/resources/${kind}/${name}/scale?${params}`, {
+      replicas
+    })
   },
   restartDeployment: (id: string, kind: K8sResourceKind, name: string, namespace: string) => {
     const params = new URLSearchParams()
@@ -159,21 +162,29 @@ export const k8sApi = {
   cordonNode: (id: string, name: string, cordon: boolean) =>
     request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/nodes/${name}/cordon`, { cordon }),
   drainNode: (id: string, name: string, force?: boolean, ignoreDaemonSets?: boolean) =>
-    request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/nodes/${name}/drain`, { force: force ?? false, ignore_daemonsets: ignoreDaemonSets ?? false }),
+    request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/nodes/${name}/drain`, {
+      force: force ?? false,
+      ignore_daemonsets: ignoreDaemonSets ?? false
+    }),
   parseKubeconfig: (body: { path?: string; content?: string }) =>
     request<ApiResponse<KubeconfigContext[]>>('POST', '/api/k8s/kubeconfig/parse', body),
 
   // ── Teleport ──────────────────────────────────────────────────────────────
-  teleportCheck: () =>
-    request<ApiResponse<{ available: boolean }>>('GET', '/api/k8s/teleport/check'),
+  teleportCheck: () => request<ApiResponse<{ available: boolean }>>('GET', '/api/k8s/teleport/check'),
   teleportProbe: (proxy: string) =>
-    request<ApiResponse<{ reachable: boolean; needs_otp: boolean; second_factor: string; message: string }>>('GET', `/api/k8s/teleport/probe?proxy=${encodeURIComponent(proxy)}`),
+    request<ApiResponse<{ reachable: boolean; needs_otp: boolean; second_factor: string; message: string }>>(
+      'GET',
+      `/api/k8s/teleport/probe?proxy=${encodeURIComponent(proxy)}`
+    ),
   teleportLogin: (body: TeleportLoginReq) =>
     request<ApiResponse<TeleportLoginResult>>('POST', '/api/k8s/teleport/login', body),
   teleportListClusters: (proxy: string) =>
     request<ApiResponse<TeleportKubeCluster[]>>('GET', `/api/k8s/teleport/clusters?proxy=${encodeURIComponent(proxy)}`),
   teleportGetKubeconfig: (proxy: string, clusterName: string) =>
-    request<ApiResponse<TeleportKubeConfigResult>>('POST', `/api/k8s/teleport/clusters/${encodeURIComponent(clusterName)}/kubeconfig?proxy=${encodeURIComponent(proxy)}`),
+    request<ApiResponse<TeleportKubeConfigResult>>(
+      'POST',
+      `/api/k8s/teleport/clusters/${encodeURIComponent(clusterName)}/kubeconfig?proxy=${encodeURIComponent(proxy)}`
+    ),
   teleportLogout: (proxy: string) =>
-    request<ApiResponse<{ success: boolean }>>('POST', `/api/k8s/teleport/logout?proxy=${encodeURIComponent(proxy)}`),
+    request<ApiResponse<{ success: boolean }>>('POST', `/api/k8s/teleport/logout?proxy=${encodeURIComponent(proxy)}`)
 }

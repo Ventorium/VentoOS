@@ -1,5 +1,4 @@
 import Editor from '@monaco-editor/react'
-import type * as Monaco from 'monaco-editor'
 import {
   ChevronRight,
   Download,
@@ -21,6 +20,7 @@ import {
   Upload,
   X
 } from 'lucide-react'
+import type * as Monaco from 'monaco-editor'
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { superTerminalApi } from '@/apps/super-terminal/api'
 
@@ -133,9 +133,11 @@ const RIGHT_PANELS: RightPanelDef[] = [
 const S = {
   root: 'flex w-full h-full bg-[#1a1a1a] text-[#ccc] font-inherit overflow-hidden text-[13px]',
   leftPanel: 'shrink-0 flex flex-col border-r border-r-[#2a2a2a] bg-[#181818] overflow-hidden',
-  leftHeader: 'h-[34px] flex items-center gap-1.5 px-2.5 border-b border-b-[#2a2a2a] text-[11px] font-semibold text-[#999] uppercase tracking-[0.04em] shrink-0',
+  leftHeader:
+    'h-[34px] flex items-center gap-1.5 px-2.5 border-b border-b-[#2a2a2a] text-[11px] font-semibold text-[#999] uppercase tracking-[0.04em] shrink-0',
   treeWrap: 'flex-1 overflow-y-auto py-1',
-  treeRow: 'flex items-center h-6 gap-1 pr-2 cursor-pointer select-none whitespace-nowrap overflow-hidden text-ellipsis',
+  treeRow:
+    'flex items-center h-6 gap-1 pr-2 cursor-pointer select-none whitespace-nowrap overflow-hidden text-ellipsis',
   treeLabel: 'text-xs overflow-hidden text-ellipsis whitespace-nowrap',
   resizeH: 'w-1 cursor-col-resize shrink-0 bg-transparent z-2',
   resizeV: 'h-1 cursor-row-resize shrink-0 bg-transparent z-2',
@@ -145,23 +147,29 @@ const S = {
   tab: 'flex items-center gap-[5px] h-full pl-2.5 pr-1.5 cursor-pointer text-xs shrink-0 border-r border-r-[#2a2a2a] select-none max-w-[160px]',
   tabClose: 'flex items-center justify-center w-[18px] h-[18px] rounded shrink-0 opacity-50 cursor-pointer',
   toolbar: 'flex items-center gap-0.5 h-7 px-2 bg-[#1e1e1e] border-b border-b-[#2a2a2a] shrink-0',
-  toolBtn: 'flex items-center justify-center w-[26px] h-[22px] rounded border-none bg-transparent text-[#aaa] cursor-pointer',
+  toolBtn:
+    'flex items-center justify-center w-[26px] h-[22px] rounded border-none bg-transparent text-[#aaa] cursor-pointer',
   editorEmpty: 'flex-1 flex flex-col items-center justify-center gap-2.5 text-[#555] text-[13px]',
   termArea: 'flex-1 flex flex-col overflow-hidden min-h-[80px]',
-  termTabBar: 'flex items-center h-[30px] bg-[#181818] border-t border-t-[#2a2a2a] border-b border-b-[#2a2a2a] shrink-0',
-  termTab: 'flex items-center gap-1 h-full pl-2.5 pr-1.5 cursor-pointer text-xs border-r border-r-[#2a2a2a] shrink-0 select-none',
+  termTabBar:
+    'flex items-center h-[30px] bg-[#181818] border-t border-t-[#2a2a2a] border-b border-b-[#2a2a2a] shrink-0',
+  termTab:
+    'flex items-center gap-1 h-full pl-2.5 pr-1.5 cursor-pointer text-xs border-r border-r-[#2a2a2a] shrink-0 select-none',
   termAdd: 'flex items-center justify-center w-7 h-full cursor-pointer text-[#777]',
   termBody: 'flex-1 relative overflow-hidden',
   termShell: 'absolute inset-0',
   rightBar: 'w-12 shrink-0 flex flex-col items-center gap-1 py-2 border-l border-l-[#2a2a2a] bg-[#181818]',
-  rightBtn: 'flex flex-col items-center justify-center gap-0.5 w-10 h-11 rounded-[6px] cursor-pointer border-none text-[9px]',
+  rightBtn:
+    'flex flex-col items-center justify-center gap-0.5 w-10 h-11 rounded-[6px] cursor-pointer border-none text-[9px]',
   rightSlide: 'overflow-hidden shrink-0 bg-[#1c1c1c] transition-[width] duration-200 ease flex flex-col',
-  rightHeader: 'flex items-center justify-between h-[34px] px-3 border-b border-b-[#2a2a2a] text-xs font-semibold text-[#bbb] shrink-0',
+  rightHeader:
+    'flex items-center justify-between h-[34px] px-3 border-b border-b-[#2a2a2a] text-xs font-semibold text-[#bbb] shrink-0',
   rightContent: 'flex-1 p-3 overflow-auto text-[#888] text-xs',
   placeholder: 'flex flex-col items-center justify-center gap-2 h-full text-[#555] text-xs text-center',
   metricRow: 'flex justify-between py-1.5 border-b border-b-[#2a2a2a]',
-  contextMenu: 'fixed z-[9999] bg-[#252526] border border-[#3a3a3a] rounded-[6px] py-1 min-w-[160px] shadow-[0_8px_24px_rgba(0,0,0,.4)]',
-  ctxItem: 'flex items-center gap-2 py-[5px] px-[14px] cursor-pointer text-xs text-[#ccc]',
+  contextMenu:
+    'fixed z-[9999] bg-[#252526] border border-[#3a3a3a] rounded-[6px] py-1 min-w-[160px] shadow-[0_8px_24px_rgba(0,0,0,.4)]',
+  ctxItem: 'flex items-center gap-2 py-[5px] px-[14px] cursor-pointer text-xs text-[#ccc]'
 } as const
 
 // ─── Context Menu ───────────────────────────────────────────────────────────
@@ -203,9 +211,12 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
   useEffect(() => {
     if (rightPanel !== 'monitor') return
     const fetchMetrics = () => {
-      superTerminalApi.getServerMetrics(serverId).then(res => {
-        if (res.success && res.data) setServerMetrics(res.data as Record<string, unknown>)
-      }).catch(() => {})
+      superTerminalApi
+        .getServerMetrics(serverId)
+        .then(res => {
+          if (res.success && res.data) setServerMetrics(res.data as Record<string, unknown>)
+        })
+        .catch(() => {})
     }
     fetchMetrics()
     const timer = setInterval(fetchMetrics, 5000)
@@ -415,7 +426,12 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
           {metrics.map(m => (
             <div key={m.label} className={S.metricRow}>
               <span className="text-[#aaa]">{m.label}</span>
-              <span className={m.value === '—' ? 'text-[#555]' : undefined} style={m.value !== '—' ? { color: m.color } : undefined}>{m.value}</span>
+              <span
+                className={m.value === '—' ? 'text-[#555]' : undefined}
+                style={m.value !== '—' ? { color: m.color } : undefined}
+              >
+                {m.value}
+              </span>
             </div>
           ))}
         </div>
@@ -479,7 +495,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
     a.click()
     URL.revokeObjectURL(url)
     // Mark as saved
-    setOpenFiles(prev => prev.map(f => f.path === activeFilePath ? { ...f, originalContent: f.content } : f))
+    setOpenFiles(prev => prev.map(f => (f.path === activeFilePath ? { ...f, originalContent: f.content } : f)))
   }, [openFiles, activeFilePath])
 
   const handleEditorUndo = useCallback(() => {
@@ -539,7 +555,16 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
               setSelectedPath(null)
             }}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <polyline points="23 4 23 10 17 10" />
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
@@ -550,7 +575,8 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
           {openFiles.length === 0 && (
             <div className="py-4 px-2.5 text-center">
               <div className="text-[11px] text-[#555] leading-[1.6]">
-                文件树暂不支持<br />
+                文件树暂不支持
+                <br />
                 <span className="text-[#444]">SFTP 功能开发中</span>
               </div>
             </div>
@@ -575,11 +601,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
         {/* ── Editor Area ── */}
         <div
           className={S.editorArea}
-          style={
-            resolvedEditorHeight
-              ? { height: resolvedEditorHeight }
-              : { flex: '0 0 55%' }
-          }
+          style={resolvedEditorHeight ? { height: resolvedEditorHeight } : { flex: '0 0 55%' }}
         >
           {/* Tab bar */}
           <div className={S.tabBar}>
@@ -595,12 +617,8 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
                 title={f.path}
               >
                 {getFileIcon(f.name)}
-                <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-[100px]">
-                  {f.name}
-                </span>
-                {isModified(f) && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#e8a838] shrink-0" />
-                )}
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap max-w-[100px]">{f.name}</span>
+                {isModified(f) && <span className="w-1.5 h-1.5 rounded-full bg-[#e8a838] shrink-0" />}
                 <div
                   className={S.tabClose}
                   onClick={e => closeFile(f.path, e)}
@@ -650,7 +668,9 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
                 value={activeFile.content}
                 theme="vs-dark"
                 onChange={handleEditorChange}
-                onMount={editor => { editorRef.current = editor }}
+                onMount={editor => {
+                  editorRef.current = editor
+                }}
                 options={{
                   fontSize: 13,
                   fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Monaco, monospace',
@@ -761,10 +781,7 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
           <>
             <div className={S.rightHeader}>
               <span>{rightPanelTitle}</span>
-              <div
-                className="cursor-pointer flex items-center"
-                onClick={() => setRightPanel(null)}
-              >
+              <div className="cursor-pointer flex items-center" onClick={() => setRightPanel(null)}>
                 <X size={14} color="#888" />
               </div>
             </div>
@@ -831,7 +848,11 @@ export default function SshSession({ serverId, serverName }: { serverId: string;
 
       {/* ════ Context Menu ════ */}
       {contextMenu && (
-        <div className={S.contextMenu} style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
+        <div
+          className={S.contextMenu}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={e => e.stopPropagation()}
+        >
           {contextMenu.node.isDir && (
             <>
               <CtxMenuItem label="新建文件" onClick={() => setContextMenu(null)} />

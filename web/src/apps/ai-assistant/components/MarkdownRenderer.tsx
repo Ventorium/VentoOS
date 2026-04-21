@@ -58,15 +58,9 @@ const markdownComponents: Components = {
 
     // Block code with syntax highlighting
     return (
-      <div
-        className="relative rounded-lg overflow-hidden my-2 text-xs bg-[var(--vos-bg-input)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]"
-      >
-        <div
-          className="flex items-center justify-between px-3 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
-        >
-          <span className="text-[10px] text-[var(--vos-text-tertiary)]">
-            {language || 'code'}
-          </span>
+      <div className="relative rounded-lg overflow-hidden my-2 text-xs bg-[var(--vos-bg-input)] border-[0.5px] border-solid border-[var(--vos-border-subtle)]">
+        <div className="flex items-center justify-between px-3 py-1 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]">
+          <span className="text-[10px] text-[var(--vos-text-tertiary)]">{language || 'code'}</span>
           <CopyButton text={codeString} />
         </div>
         <pre className="m-0 p-3 overflow-x-auto font-mono">
@@ -88,9 +82,7 @@ const markdownComponents: Components = {
   },
   th({ children }) {
     return (
-      <th
-        className="text-left px-2 py-1 text-xs font-medium bg-[var(--vos-bg-surface)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
-      >
+      <th className="text-left px-2 py-1 text-xs font-medium bg-[var(--vos-bg-surface)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
         {children}
       </th>
     )

@@ -1,4 +1,5 @@
 import {
+  Check,
   ChevronFirst,
   ChevronLast,
   ChevronLeft,
@@ -10,8 +11,7 @@ import {
   RotateCcw,
   Save,
   Square,
-  Check,
-  X,
+  X
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Spinner } from '@/components/ui'
@@ -37,7 +37,7 @@ export function DataView() {
     toggleFilterPanel,
     setEditingRow,
     clearEditingRows,
-    setLoading,
+    setLoading
   } = useDatabaseStore()
 
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
@@ -48,10 +48,7 @@ export function DataView() {
   const tableName = selectedNode?.name ?? ''
   const schema = selectedNode?.schema
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(totalRows / pageSize)),
-    [totalRows, pageSize],
-  )
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(totalRows / pageSize)), [totalRows, pageSize])
 
   const loadData = useCallback(async () => {
     if (!connId || !tableName) return
@@ -60,7 +57,7 @@ export function DataView() {
       const result = await dbApi.getDbTableData(connId, tableName, currentPage, pageSize)
       if (result.data) {
         setTableData(result.data)
-        setTotalRows((result.data as Record<string, unknown>).row_count as number ?? result.data.rows.length)
+        setTotalRows(((result.data as Record<string, unknown>).row_count as number) ?? result.data.rows.length)
       }
       const sql = `SELECT * FROM ${schema ? `${schema}.` : ''}${tableName} LIMIT ${pageSize} OFFSET ${(currentPage - 1) * pageSize}`
       setCurrentSql(sql)
@@ -82,23 +79,20 @@ export function DataView() {
       const existing = editingRows.get(rowIndex) ?? {}
       setEditingRow(rowIndex, { ...existing, [col]: value })
     },
-    [tableData, editingRows, setEditingRow],
+    [tableData, editingRows, setEditingRow]
   )
 
-  const handleSelectRow = useCallback(
-    (rowIndex: number, multi?: boolean) => {
-      setSelectedRows((prev) => {
-        const next = new Set(multi ? prev : [])
-        if (next.has(rowIndex)) {
-          next.delete(rowIndex)
-        } else {
-          next.add(rowIndex)
-        }
-        return next
-      })
-    },
-    [],
-  )
+  const handleSelectRow = useCallback((rowIndex: number, multi?: boolean) => {
+    setSelectedRows(prev => {
+      const next = new Set(multi ? prev : [])
+      if (next.has(rowIndex)) {
+        next.delete(rowIndex)
+      } else {
+        next.add(rowIndex)
+      }
+      return next
+    })
+  }, [])
 
   const handleSave = useCallback(() => {
     clearEditingRows()
@@ -114,13 +108,10 @@ export function DataView() {
       const p = Math.max(1, Math.min(page, totalPages))
       setCurrentPage(p)
     },
-    [totalPages, setCurrentPage],
+    [totalPages, setCurrentPage]
   )
 
-  const editedRowSet = useMemo(
-    () => new Set(editingRows.keys()),
-    [editingRows],
-  )
+  const editedRowSet = useMemo(() => new Set(editingRows.keys()), [editingRows])
 
   const columns = tableData?.columns ?? []
   const columnTypes = tableData?.column_types
@@ -164,11 +155,7 @@ export function DataView() {
           <Filter size={15} />
         </button>
         <div className="flex-1" />
-        <button
-          className="p-1.5 rounded hover:bg-(--vos-bg-hover)"
-          title="刷新"
-          onClick={loadData}
-        >
+        <button className="p-1.5 rounded hover:bg-(--vos-bg-hover)" title="刷新" onClick={loadData}>
           <RefreshCw size={15} style={{ color: 'var(--vos-text-secondary)' }} />
         </button>
         <button className="p-1.5 rounded hover:bg-(--vos-bg-hover)" title="停止">
@@ -180,7 +167,10 @@ export function DataView() {
 
       <div className="flex-1 min-h-0 relative">
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center z-20" style={{ background: 'var(--vos-bg-overlay)' }}>
+          <div
+            className="absolute inset-0 flex items-center justify-center z-20"
+            style={{ background: 'var(--vos-bg-overlay)' }}
+          >
             <Spinner />
           </div>
         )}
@@ -200,7 +190,7 @@ export function DataView() {
         style={{
           borderTop: '1px solid var(--vos-border-subtle)',
           background: 'var(--vos-bg-elevated)',
-          color: 'var(--vos-text-secondary)',
+          color: 'var(--vos-text-secondary)'
         }}
       >
         <div className="flex items-center gap-0.5 shrink-0">
@@ -271,26 +261,24 @@ export function DataView() {
               background: 'var(--vos-bg-input)',
               color: 'var(--vos-text-primary)',
               border: '1px solid var(--vos-border-subtle)',
-              padding: '1px 2px',
+              padding: '1px 2px'
             }}
             value={pageSize}
-            onChange={(e) => {
+            onChange={e => {
               setPageSize(Number(e.target.value))
               setCurrentPage(1)
             }}
           >
-            {[50, 100, 500, 1000, 5000].map((s) => (
-              <option key={s} value={s}>{s} 条/页</option>
+            {[50, 100, 500, 1000, 5000].map(s => (
+              <option key={s} value={s}>
+                {s} 条/页
+              </option>
             ))}
           </select>
           <span className="px-1" style={{ color: 'var(--vos-text-tertiary)' }}>
             共 {totalRows} 条
           </span>
-          {lastRefreshTime && (
-            <span style={{ color: 'var(--vos-text-tertiary)' }}>
-              {lastRefreshTime}
-            </span>
-          )}
+          {lastRefreshTime && <span style={{ color: 'var(--vos-text-tertiary)' }}>{lastRefreshTime}</span>}
         </div>
       </div>
     </div>

@@ -10,12 +10,12 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { focusWindow, openWindow, useAppStore, useWindowStore } from '@/kernel'
-import { useLaunchpadStore } from '@/shell/Launchpad/store'
-import { useLaunchpadLayoutStore } from '@/shell/Launchpad/launchpadLayoutStore'
-import { useContextMenuStore } from '@/shell/ContextMenu/store'
-import { tokens } from '@/theme'
 import type { AppManifest } from '@/kernel'
+import { focusWindow, openWindow, useAppStore, useWindowStore } from '@/kernel'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
+import { useLaunchpadLayoutStore } from '@/shell/Launchpad/launchpadLayoutStore'
+import { useLaunchpadStore } from '@/shell/Launchpad/store'
+import { tokens } from '@/theme'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const FOLDER_PREVIEW_COLS = 3
@@ -23,15 +23,7 @@ const FOLDER_PREVIEW_ROWS = 3
 const FOLDER_PREVIEW_MAX = FOLDER_PREVIEW_COLS * FOLDER_PREVIEW_ROWS
 
 // ─── Single app icon (in grid) ───────────────────────────────────────────────
-function LaunchpadAppIcon({
-  app,
-  index,
-  onLaunch
-}: {
-  app: AppManifest
-  index: number
-  onLaunch: () => boolean
-}) {
+function LaunchpadAppIcon({ app, index, onLaunch }: { app: AppManifest; index: number; onLaunch: () => boolean }) {
   function launch() {
     if (!onLaunch()) return
     const existing = useWindowStore.getState().getWindowsByApp(app.id)
@@ -114,11 +106,7 @@ function LaunchpadFolderIcon({
           {previewApps.map(appId => {
             const app = appsMap.get(appId)
             return (
-              <div
-                key={appId}
-                className="rounded-[22%] overflow-hidden"
-                style={{ width: miniSize, height: miniSize }}
-              >
+              <div key={appId} className="rounded-[22%] overflow-hidden" style={{ width: miniSize, height: miniSize }}>
                 {app?.icon ?? null}
               </div>
             )
@@ -173,11 +161,16 @@ function FolderOverlay({
   const showContextMenu = useContextMenuStore(s => s.show)
   function handleFolderContextMenu(e: React.MouseEvent) {
     e.preventDefault()
-    showContextMenu(e.clientX, e.clientY, [
-      { id: 'rename', label: '重命名文件夹', action: () => setIsRenaming(true) },
-      { type: 'separator' },
-      { id: 'dissolve', label: '解散文件夹', action: onDissolve }
-    ], { compact: true })
+    showContextMenu(
+      e.clientX,
+      e.clientY,
+      [
+        { id: 'rename', label: '重命名文件夹', action: () => setIsRenaming(true) },
+        { type: 'separator' },
+        { id: 'dissolve', label: '解散文件夹', action: onDissolve }
+      ],
+      { compact: true }
+    )
   }
 
   function launchApp(appId: string) {
@@ -195,12 +188,21 @@ function FolderOverlay({
 
   return (
     <motion.div
-      style={{ position: 'fixed', inset: 0, zIndex: 5001, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 5001,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      onClick={e => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
       <motion.div
         ref={overlayRef}
@@ -220,10 +222,18 @@ function FolderOverlay({
               value={nameInput}
               onChange={e => setNameInput(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter') { onRename(nameInput.trim() || folder.name); setIsRenaming(false) }
-                else if (e.key === 'Escape') { setNameInput(folder.name); setIsRenaming(false) }
+                if (e.key === 'Enter') {
+                  onRename(nameInput.trim() || folder.name)
+                  setIsRenaming(false)
+                } else if (e.key === 'Escape') {
+                  setNameInput(folder.name)
+                  setIsRenaming(false)
+                }
               }}
-              onBlur={() => { onRename(nameInput.trim() || folder.name); setIsRenaming(false) }}
+              onBlur={() => {
+                onRename(nameInput.trim() || folder.name)
+                setIsRenaming(false)
+              }}
               className="bg-white/15 border border-white/30 rounded-[6px] text-[var(--vos-text-primary)] text-[14px] font-semibold px-3 py-1 text-center outline-none w-[70%]"
             />
           ) : (
@@ -239,16 +249,20 @@ function FolderOverlay({
         </div>
 
         {/* App grid — 3 cols max */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${FOLDER_PREVIEW_COLS}, 1fr)`, gap: 12, justifyItems: 'center' }}>
-          {folder.appIds.map((appId) => {
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${FOLDER_PREVIEW_COLS}, 1fr)`,
+            gap: 12,
+            justifyItems: 'center'
+          }}
+        >
+          {folder.appIds.map(appId => {
             const app = appsMap.get(appId)
             const appIconSize = tokens.launchpad.iconSize * 0.82
 
             return (
-              <div
-                key={appId}
-                className="flex flex-col items-center gap-1"
-              >
+              <div key={appId} className="flex flex-col items-center gap-1">
                 <motion.button
                   type="button"
                   style={{
@@ -292,8 +306,7 @@ export default function Launchpad() {
   // Layout store
   const layoutItems = useLaunchpadLayoutStore(s => s.items)
   const loaded = useLaunchpadLayoutStore(s => s.loaded)
-  const { renameFolder, dissolveFolder } =
-    useLaunchpadLayoutStore.getState()
+  const { renameFolder, dissolveFolder } = useLaunchpadLayoutStore.getState()
 
   // All apps including hidden ones (hidden = not in Dock, but all appear in Launchpad)
   const allVisibleApps = useMemo(() => Array.from(appsMap.values()), [appsMap])
@@ -340,21 +353,26 @@ export default function Launchpad() {
   const searchResults = useMemo(() => {
     if (!isSearching) return []
     const q = searchQuery.toLowerCase()
-    return allVisibleApps.filter(a =>
-      a.name.toLowerCase().includes(q) || (a.description ?? '').toLowerCase().includes(q)
+    return allVisibleApps.filter(
+      a => a.name.toLowerCase().includes(q) || (a.description ?? '').toLowerCase().includes(q)
     )
   }, [isSearching, searchQuery, allVisibleApps])
 
   function handleFolderContextMenu(e: React.MouseEvent, folderId: string, folderName: string) {
     e.preventDefault()
     e.stopPropagation()
-    showCtxMenu(e.clientX, e.clientY, [
-      {
-        id: 'dissolve',
-        label: '解散文件夹',
-        action: () => dissolveFolder(folderId)
-      }
-    ], { compact: true })
+    showCtxMenu(
+      e.clientX,
+      e.clientY,
+      [
+        {
+          id: 'dissolve',
+          label: '解散文件夹',
+          action: () => dissolveFolder(folderId)
+        }
+      ],
+      { compact: true }
+    )
   }
 
   const handleLaunch = useCallback((): boolean => {
@@ -371,7 +389,12 @@ export default function Launchpad() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
-          onClick={e => { if (e.target === e.currentTarget) { if (openFolderIndex !== null) setOpenFolderIndex(null); else close() } }}
+          onClick={e => {
+            if (e.target === e.currentTarget) {
+              if (openFolderIndex !== null) setOpenFolderIndex(null)
+              else close()
+            }
+          }}
         >
           {/* Search bar */}
           <motion.div
@@ -400,37 +423,28 @@ export default function Launchpad() {
           {/* App grid */}
           <div className="vos-launchpad-grid">
             <AnimatePresence mode="popLayout">
-              {isSearching ? (
-                searchResults.map((app, i) => (
-                  <LaunchpadAppIcon key={app.id} app={app} index={i} onLaunch={handleLaunch} />
-                ))
-              ) : (
-                layoutItems.map((item, index) => {
-                  if (item.type === 'app') {
-                    const app = appsMap.get(item.appId)
-                    if (!app) return null
+              {isSearching
+                ? searchResults.map((app, i) => (
+                    <LaunchpadAppIcon key={app.id} app={app} index={i} onLaunch={handleLaunch} />
+                  ))
+                : layoutItems.map((item, index) => {
+                    if (item.type === 'app') {
+                      const app = appsMap.get(item.appId)
+                      if (!app) return null
+                      return <LaunchpadAppIcon key={item.appId} app={app} index={index} onLaunch={handleLaunch} />
+                    }
+
                     return (
-                      <LaunchpadAppIcon
-                        key={item.appId}
-                        app={app}
+                      <LaunchpadFolderIcon
+                        key={item.id}
+                        folder={item}
+                        appsMap={appsMap}
                         index={index}
-                        onLaunch={handleLaunch}
+                        onClick={() => setOpenFolderIndex(openFolderIndex === index ? null : index)}
+                        onContextMenu={e => handleFolderContextMenu(e, item.id, item.name)}
                       />
                     )
-                  }
-
-                  return (
-                    <LaunchpadFolderIcon
-                      key={item.id}
-                      folder={item}
-                      appsMap={appsMap}
-                      index={index}
-                      onClick={() => setOpenFolderIndex(openFolderIndex === index ? null : index)}
-                      onContextMenu={e => handleFolderContextMenu(e, item.id, item.name)}
-                    />
-                  )
-                })
-              )}
+                  })}
             </AnimatePresence>
             {isSearching && searchResults.length === 0 && (
               <motion.p
@@ -450,21 +464,25 @@ export default function Launchpad() {
 
           {/* Folder overlay */}
           <AnimatePresence>
-            {openFolderIndex !== null && (() => {
-              const item = layoutItems[openFolderIndex]
-              if (!item || item.type !== 'folder') return null
-              return (
-                <FolderOverlay
-                  key={item.id}
-                  folder={item}
-                  appsMap={appsMap}
-                  onClose={() => setOpenFolderIndex(null)}
-                  onLaunch={handleLaunch}
-                  onRename={name => renameFolder(item.id, name)}
-                  onDissolve={() => { dissolveFolder(item.id); setOpenFolderIndex(null) }}
-                />
-              )
-            })()}
+            {openFolderIndex !== null &&
+              (() => {
+                const item = layoutItems[openFolderIndex]
+                if (!item || item.type !== 'folder') return null
+                return (
+                  <FolderOverlay
+                    key={item.id}
+                    folder={item}
+                    appsMap={appsMap}
+                    onClose={() => setOpenFolderIndex(null)}
+                    onLaunch={handleLaunch}
+                    onRename={name => renameFolder(item.id, name)}
+                    onDissolve={() => {
+                      dissolveFolder(item.id)
+                      setOpenFolderIndex(null)
+                    }}
+                  />
+                )
+              })()}
           </AnimatePresence>
         </motion.div>
       )}

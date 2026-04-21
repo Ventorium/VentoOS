@@ -51,9 +51,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     }
 
     return (
-      <div
-        className="flex flex-col items-center justify-center flex-1 gap-3 p-8 text-[var(--vos-text-secondary)] text-center"
-      >
+      <div className="flex flex-col items-center justify-center flex-1 gap-3 p-8 text-[var(--vos-text-secondary)] text-center">
         <AlertTriangle size={36} color="var(--vos-accent-warning)" />
         <div className="text-sm font-semibold text-[var(--vos-text-primary)]">应用发生错误</div>
         <div className="text-xs max-w-[360px] leading-[1.5]">{this.state.error?.message ?? '未知错误'}</div>

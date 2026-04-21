@@ -135,15 +135,18 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
   )
 
   const isMac = /Mac/.test(navigator.userAgent)
-  const extraFileItems = useMemo(() => [
-    {
-      id: 'save',
-      label: '保存',
-      shortcut: isMac ? '⌘S' : 'Ctrl+S',
-      action: () => handleSave(),
-      disabled: !hasChanges
-    }
-  ], [isMac, handleSave, hasChanges])
+  const extraFileItems = useMemo(
+    () => [
+      {
+        id: 'save',
+        label: '保存',
+        shortcut: isMac ? '⌘S' : 'Ctrl+S',
+        action: () => handleSave(),
+        disabled: !hasChanges
+      }
+    ],
+    [isMac, handleSave, hasChanges]
+  )
 
   // Register menus (uses useFileOpenMenu for "打开" + Ctrl+O)
   const { showFilePicker, closeFilePicker, handleFilePickerConfirm } = useFileOpenMenu({
@@ -158,9 +161,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
 
   if (!mountId || !node) {
     return (
-      <div
-        className="flex-1 flex items-center justify-center bg-[var(--vos-bg-primary)] text-[var(--vos-text-tertiary)]"
-      >
+      <div className="flex-1 flex items-center justify-center bg-[var(--vos-bg-primary)] text-[var(--vos-text-tertiary)]">
         <div className="text-center text-sm">
           <div>文本编辑器</div>
           <div className="text-xs mt-1">通过资源管理器打开文件</div>
@@ -179,9 +180,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
 
   if (error) {
     return (
-      <div
-        className="flex-1 flex items-center justify-center bg-[var(--vos-bg-primary)] text-[var(--vos-accent-danger)]"
-      >
+      <div className="flex-1 flex items-center justify-center bg-[var(--vos-bg-primary)] text-[var(--vos-accent-danger)]">
         <div className="text-sm">{error}</div>
       </div>
     )
@@ -190,14 +189,12 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
   return (
     <div className="flex flex-col h-full bg-[var(--vos-bg-primary)]">
       {/* Toolbar */}
-      <div
-        className="flex items-center gap-2 px-3 py-1.5 flex-shrink-0 [border-bottom:0.5px_solid_var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]"
-      >
-          <span className="text-xs font-medium flex-1 truncate text-[var(--vos-text-primary)]">
+      <div className="flex items-center gap-2 px-3 py-1.5 flex-shrink-0 [border-bottom:0.5px_solid_var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]">
+        <span className="text-xs font-medium flex-1 truncate text-[var(--vos-text-primary)]">
           {node.name}
           {hasChanges && <span className="text-[var(--vos-accent-warning)] ml-1">●</span>}
         </span>
-          <span className="text-[10px] text-[var(--vos-text-tertiary)]">
+        <span className="text-[10px] text-[var(--vos-text-tertiary)]">
           {language.toUpperCase()} · {lineCount} 行
         </span>
         <button
@@ -220,9 +217,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
       {/* Editor area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Line numbers */}
-        <div
-          className="flex-shrink-0 py-2 pr-2 text-right select-none overflow-hidden w-[48px] bg-[var(--vos-bg-surface)] text-[var(--vos-text-tertiary)] text-[12px] leading-[20px] font-mono [border-right:0.5px_solid_var(--vos-border-subtle)]"
-        >
+        <div className="flex-shrink-0 py-2 pr-2 text-right select-none overflow-hidden w-[48px] bg-[var(--vos-bg-surface)] text-[var(--vos-text-tertiary)] text-[12px] leading-[20px] font-mono [border-right:0.5px_solid_var(--vos-border-subtle)]">
           {Array.from({ length: lineCount }, (_, i) => (
             <div key={i}>{i + 1}</div>
           ))}

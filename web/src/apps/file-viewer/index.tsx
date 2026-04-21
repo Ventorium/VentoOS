@@ -203,9 +203,7 @@ function ImageViewer({ src }: { src: string }) {
         }}
       />
       {/* scale badge */}
-      <div
-        className="absolute bottom-2 right-3 text-[11px] px-2 py-0.5 rounded bg-[rgba(0,0,0,0.45)] text-white pointer-events-none"
-      >
+      <div className="absolute bottom-2 right-3 text-[11px] px-2 py-0.5 rounded bg-[rgba(0,0,0,0.45)] text-white pointer-events-none">
         {Math.round(scale * 100)}%
       </div>
     </div>
@@ -309,22 +307,14 @@ function MediaPlayer({ src, type }: { src: string; type: 'video' | 'audio' }) {
         />
         {/* Buttons row */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="vos-btn px-[10px] py-1 flex items-center gap-1 text-xs"
-            onClick={togglePlay}
-          >
+          <button type="button" className="vos-btn px-[10px] py-1 flex items-center gap-1 text-xs" onClick={togglePlay}>
             {playing ? <Pause size={14} /> : <Play size={14} />}
           </button>
           <span className="text-[11px] text-[var(--vos-text-secondary)] min-w-[80px]">
             {fmt(currentTime)} / {duration ? fmt(duration) : '--:--'}
           </span>
           <div className="flex-1" />
-          <button
-            type="button"
-            className="vos-btn px-2 py-1 flex items-center"
-            onClick={toggleMute}
-          >
+          <button type="button" className="vos-btn px-2 py-1 flex items-center" onClick={toggleMute}>
             {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
           </button>
           <input
@@ -360,9 +350,7 @@ function HexViewer({ data }: { data: ArrayBuffer }) {
       <div className="text-xs mb-2 text-[var(--vos-text-tertiary)]">
         Hex dump (first {Math.min(bytes.length, 4096)} bytes)
       </div>
-      <pre
-        className="text-[11px] m-0 text-[var(--vos-text-secondary)] leading-[1.6] whitespace-pre font-mono"
-      >
+      <pre className="text-[11px] m-0 text-[var(--vos-text-secondary)] leading-[1.6] whitespace-pre font-mono">
         {hex}
       </pre>
     </div>
@@ -511,13 +499,9 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Toolbar ── */}
-      <div
-        className="flex items-center px-3 py-2 gap-2 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
-      >
+      <div className="flex items-center px-3 py-2 gap-2 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
         <FileText size={13} className="text-[var(--vos-text-tertiary)] shrink-0" />
-        <span className="text-xs font-medium flex-1 truncate text-[var(--vos-text-primary)]">
-          {node.name}
-        </span>
+        <span className="text-xs font-medium flex-1 truncate text-[var(--vos-text-primary)]">{node.name}</span>
 
         {/* Edit / Save buttons for text files */}
         {isText &&
@@ -565,22 +549,14 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
           </div>
         )}
 
-        {!loading && error && (
-          <div className="p-6 text-xs text-[var(--vos-accent-danger)]">
-            加载失败：{error}
-          </div>
-        )}
+        {!loading && error && <div className="p-6 text-xs text-[var(--vos-accent-danger)]">加载失败：{error}</div>}
 
         {/* Image */}
         {!loading && !error && isImage && blobUrl && <ImageViewer src={blobUrl} />}
 
         {/* PDF */}
         {!loading && !error && isPdf && blobUrl && (
-          <embed
-            src={`${blobUrl}#toolbar=1&navpanes=0`}
-            type="application/pdf"
-            className="w-full h-full"
-          />
+          <embed src={`${blobUrl}#toolbar=1&navpanes=0`} type="application/pdf" className="w-full h-full" />
         )}
 
         {/* Video */}
@@ -600,9 +576,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
         {!loading && !error && isText && !isMd && textContent && !textContent.is_binary && !editing && (
           <div className="w-full h-full overflow-auto">
             {textContent.truncated && (
-              <div
-                className="px-3 py-1 text-[11px] bg-[var(--vos-accent-warning-subtle,rgba(234,179,8,0.1))] text-[var(--vos-accent-warning,#ca8a04)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]"
-              >
+              <div className="px-3 py-1 text-[11px] bg-[var(--vos-accent-warning-subtle,rgba(234,179,8,0.1))] text-[var(--vos-accent-warning,#ca8a04)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
                 文件过大，仅预览前 4MB
               </div>
             )}
@@ -618,7 +592,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
         {!loading && !error && editing && textContent && !textContent.is_binary && (
           <textarea
             autoFocus
-            className={`w-full h-full p-3 text-xs resize-none border-none outline-none bg-[var(--vos-bg-editor,var(--vos-bg-base))] text-[var(--vos-text-primary)] leading-[1.7] ${(isCode || isMd) ? 'font-mono' : 'font-[inherit]'}`}
+            className={`w-full h-full p-3 text-xs resize-none border-none outline-none bg-[var(--vos-bg-editor,var(--vos-bg-base))] text-[var(--vos-text-primary)] leading-[1.7] ${isCode || isMd ? 'font-mono' : 'font-[inherit]'}`}
             style={{
               tabSize: 2
             }}
@@ -634,9 +608,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
 
       {/* ── Footer ── */}
       {(textContent || node.size !== undefined) && (
-        <div
-          className="flex items-center gap-4 px-3 py-1.5 text-[11px] flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)] text-[var(--vos-text-tertiary)]"
-        >
+        <div className="flex items-center gap-4 px-3 py-1.5 text-[11px] flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)] text-[var(--vos-text-tertiary)]">
           {textContent && <span>{fmtSize(textContent.size)}</span>}
           {!textContent && node.size !== undefined && node.size !== null && <span>{fmtSize(node.size)}</span>}
           {node.modified && <span>{new Date(node.modified).toLocaleString()}</span>}

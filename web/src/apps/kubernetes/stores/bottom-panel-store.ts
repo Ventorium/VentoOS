@@ -39,7 +39,7 @@ export const useBottomPanelStore = create<BottomPanelStore>((set, get) => ({
       clusterId,
       namespace,
       kind,
-      name,
+      name
     }
     set({ tabs: [...tabs, tab], activeTabId: id })
     return id
@@ -55,7 +55,7 @@ export const useBottomPanelStore = create<BottomPanelStore>((set, get) => ({
       clusterId,
       namespace,
       name: podName,
-      container,
+      container
     }
     set({ tabs: [...tabs, tab], activeTabId: id })
     return id
@@ -71,7 +71,7 @@ export const useBottomPanelStore = create<BottomPanelStore>((set, get) => ({
       clusterId,
       namespace,
       name: podName,
-      container,
+      container
     }
     set({ tabs: [...tabs, tab], activeTabId: id })
     return id
@@ -96,5 +96,5 @@ export const useBottomPanelStore = create<BottomPanelStore>((set, get) => ({
   getActiveTab() {
     const { tabs, activeTabId } = get()
     return tabs.find(t => t.id === activeTabId) ?? null
-  },
+  }
 }))

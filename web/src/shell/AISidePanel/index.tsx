@@ -121,12 +121,7 @@ export default function AISidePanel() {
             >
               <MessageSquare size={13} className="text-[var(--vos-text-tertiary)]" />
             </button>
-            <button
-              type="button"
-              className="vos-topbar-btn p-1"
-              onClick={newSession}
-              title="新建会话"
-            >
+            <button type="button" className="vos-topbar-btn p-1" onClick={newSession} title="新建会话">
               <Plus size={13} className="text-[var(--vos-text-tertiary)]" />
             </button>
             <button type="button" className="vos-topbar-btn p-1" onClick={close} title="关闭">
@@ -155,9 +150,7 @@ export default function AISidePanel() {
                 }}
               >
                 {sessions.length === 0 && (
-                  <div className="p-4 text-center text-xs text-[var(--vos-text-tertiary)]">
-                    暂无会话
-                  </div>
+                  <div className="p-4 text-center text-xs text-[var(--vos-text-tertiary)]">暂无会话</div>
                 )}
                 {sessions.map(s => (
                   <div
@@ -196,21 +189,22 @@ export default function AISidePanel() {
               </div>
             )}
             {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex gap-2 mb-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-              >
+              <div key={i} className={`flex gap-2 mb-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                 <div
-                  className={msg.role === 'assistant'
-                    ? 'shrink-0 w-6 h-6 rounded-full vos-flex-center bg-[var(--vos-accent-primary)] text-white'
-                    : 'shrink-0 w-6 h-6 rounded-full vos-flex-center bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)]'}
+                  className={
+                    msg.role === 'assistant'
+                      ? 'shrink-0 w-6 h-6 rounded-full vos-flex-center bg-[var(--vos-accent-primary)] text-white'
+                      : 'shrink-0 w-6 h-6 rounded-full vos-flex-center bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)]'
+                  }
                 >
                   {msg.role === 'assistant' ? <Sparkles size={12} /> : <User size={12} />}
                 </div>
                 <div
-                  className={msg.role === 'user'
-                    ? 'max-w-[80%] px-2.5 py-1.5 text-xs leading-normal rounded-[10px_10px_3px_10px] bg-[var(--vos-accent-primary)] text-white'
-                    : 'max-w-[80%] px-2.5 py-1.5 text-xs leading-normal rounded-[10px_10px_10px_3px] bg-[var(--vos-bg-surface)] text-[var(--vos-text-primary)]'}
+                  className={
+                    msg.role === 'user'
+                      ? 'max-w-[80%] px-2.5 py-1.5 text-xs leading-normal rounded-[10px_10px_3px_10px] bg-[var(--vos-accent-primary)] text-white'
+                      : 'max-w-[80%] px-2.5 py-1.5 text-xs leading-normal rounded-[10px_10px_10px_3px] bg-[var(--vos-bg-surface)] text-[var(--vos-text-primary)]'
+                  }
                 >
                   {msg.content ?? ''}
                 </div>

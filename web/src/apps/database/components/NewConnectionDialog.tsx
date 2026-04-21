@@ -1,13 +1,13 @@
 import { Database, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Modal } from '@/components/ui'
-import type { DbEngine } from '../types'
 import { useDatabaseStore } from '../stores'
+import type { DbEngine } from '../types'
 
 const DB_TYPES: { engine: DbEngine; label: string }[] = [
   { engine: 'mysql', label: 'MySQL' },
   { engine: 'postgresql', label: 'PostgreSQL' },
-  { engine: 'sqlite', label: 'SQLite' },
+  { engine: 'sqlite', label: 'SQLite' }
 ]
 
 const RECENT_KEY = 'ventoos-db-recent-engines'
@@ -17,14 +17,14 @@ function getRecentEngines(): DbEngine[] {
     const raw = localStorage.getItem(RECENT_KEY)
     if (!raw) return []
     const arr = JSON.parse(raw) as DbEngine[]
-    return arr.filter((e) => DB_TYPES.some((d) => d.engine === e))
+    return arr.filter(e => DB_TYPES.some(d => d.engine === e))
   } catch {
     return []
   }
 }
 
 function saveRecentEngine(engine: DbEngine) {
-  const recent = getRecentEngines().filter((e) => e !== engine)
+  const recent = getRecentEngines().filter(e => e !== engine)
   recent.unshift(engine)
   localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, 6)))
 }
@@ -35,16 +35,17 @@ export function NewConnectionDialog() {
   const recentEngines = useMemo(() => getRecentEngines(), [])
 
   const filteredTypes = useMemo(
-    () => DB_TYPES.filter((d) => d.label.toLowerCase().includes(search.toLowerCase())),
-    [search],
+    () => DB_TYPES.filter(d => d.label.toLowerCase().includes(search.toLowerCase())),
+    [search]
   )
 
   const filteredRecent = useMemo(
-    () => recentEngines.filter((e) => {
-      const info = DB_TYPES.find((d) => d.engine === e)
-      return info && info.label.toLowerCase().includes(search.toLowerCase())
-    }),
-    [recentEngines, search],
+    () =>
+      recentEngines.filter(e => {
+        const info = DB_TYPES.find(d => d.engine === e)
+        return info && info.label.toLowerCase().includes(search.toLowerCase())
+      }),
+    [recentEngines, search]
   )
 
   const handleSelect = (engine: DbEngine) => {
@@ -62,12 +63,16 @@ export function NewConnectionDialog() {
     >
       <div className="flex flex-col gap-4 p-4">
         <div className="relative">
-          <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--vos-text-tertiary)' }} />
+          <Search
+            size={14}
+            className="absolute left-2 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--vos-text-tertiary)' }}
+          />
           <input
             className="vos-input vos-input-sm w-full pl-7"
             placeholder="搜索数据库类型..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
           />
         </div>
 
@@ -77,8 +82,8 @@ export function NewConnectionDialog() {
               最近使用过的
             </div>
             <div className="flex gap-3 flex-wrap">
-              {filteredRecent.map((engine) => {
-                const info = DB_TYPES.find((d) => d.engine === engine)!
+              {filteredRecent.map(engine => {
+                const info = DB_TYPES.find(d => d.engine === engine)!
                 return (
                   <button
                     key={engine}
@@ -89,14 +94,14 @@ export function NewConnectionDialog() {
                       height: 72,
                       borderColor: 'var(--vos-border-subtle)',
                       background: 'var(--vos-bg-surface)',
-                      color: 'var(--vos-text-primary)',
+                      color: 'var(--vos-text-primary)'
                     }}
                     onClick={() => handleSelect(engine)}
-                    onMouseEnter={(e) => {
+                    onMouseEnter={e => {
                       e.currentTarget.style.borderColor = 'var(--vos-accent-primary)'
                       e.currentTarget.style.background = 'var(--vos-bg-hover)'
                     }}
-                    onMouseLeave={(e) => {
+                    onMouseLeave={e => {
                       e.currentTarget.style.borderColor = 'var(--vos-border-subtle)'
                       e.currentTarget.style.background = 'var(--vos-bg-surface)'
                     }}
@@ -125,14 +130,14 @@ export function NewConnectionDialog() {
                   height: 56,
                   borderColor: 'var(--vos-border-subtle)',
                   background: 'var(--vos-bg-surface)',
-                  color: 'var(--vos-text-primary)',
+                  color: 'var(--vos-text-primary)'
                 }}
                 onClick={() => handleSelect(engine)}
-                onMouseEnter={(e) => {
+                onMouseEnter={e => {
                   e.currentTarget.style.borderColor = 'var(--vos-accent-primary)'
                   e.currentTarget.style.background = 'var(--vos-bg-hover)'
                 }}
-                onMouseLeave={(e) => {
+                onMouseLeave={e => {
                   e.currentTarget.style.borderColor = 'var(--vos-border-subtle)'
                   e.currentTarget.style.background = 'var(--vos-bg-surface)'
                 }}

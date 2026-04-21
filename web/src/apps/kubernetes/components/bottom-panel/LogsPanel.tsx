@@ -21,21 +21,17 @@ export function LogsPanel({ clusterId, namespace, podName, container }: Props) {
           type="text"
           className="bg-transparent border-[0.5px] border-[var(--vos-border-subtle)] rounded px-1 py-0.5 text-[var(--vos-text-primary)] w-[120px]"
           value={activeContainer}
-          onChange={(e) => setActiveContainer(e.target.value)}
+          onChange={e => setActiveContainer(e.target.value)}
           placeholder="default"
         />
         <label className="flex items-center gap-1 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={follow}
-            onChange={(e) => setFollow(e.target.checked)}
-          />
+          <input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} />
           <span className="text-[var(--vos-text-secondary)]">Follow</span>
         </label>
         <select
           className="bg-[var(--vos-bg-input)] border-[0.5px] border-[var(--vos-border-subtle)] rounded px-1 py-0.5 text-[var(--vos-text-primary)]"
           value={tailLines}
-          onChange={(e) => setTailLines(Number(e.target.value))}
+          onChange={e => setTailLines(Number(e.target.value))}
         >
           <option value={100}>100 lines</option>
           <option value={200}>200 lines</option>

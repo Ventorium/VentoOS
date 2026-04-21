@@ -15,7 +15,7 @@ const mockMysqlConn: DbConnectionConfig = {
   port: 3306,
   username: 'root',
   database: 'testdb',
-  ssl_enabled: false,
+  ssl_enabled: false
 }
 
 const mockPgConn: DbConnectionConfig = {
@@ -25,7 +25,7 @@ const mockPgConn: DbConnectionConfig = {
   host: '10.0.0.1',
   port: 5432,
   username: 'postgres',
-  ssl_enabled: true,
+  ssl_enabled: true
 }
 
 function resetStore() {
@@ -58,7 +58,7 @@ function resetStore() {
     showConnectionConfigDialog: false,
     editingConnectionId: null,
     editingConnectionEngine: null,
-    loading: false,
+    loading: false
   })
 }
 
@@ -125,7 +125,13 @@ describe('DatabaseStore – Tree State', () => {
   })
 
   it('sets selected node', () => {
-    const node = { id: 'conn-1', type: 'connection' as const, label: 'Local MySQL', connId: 'conn-1', engine: 'mysql' as const }
+    const node = {
+      id: 'conn-1',
+      type: 'connection' as const,
+      label: 'Local MySQL',
+      connId: 'conn-1',
+      engine: 'mysql' as const
+    }
     useDatabaseStore.getState().setSelectedNode('conn-1', node as never)
     expect(useDatabaseStore.getState().selectedNodeId).toBe('conn-1')
     expect(useDatabaseStore.getState().selectedNode).not.toBeNull()
@@ -174,7 +180,14 @@ describe('DatabaseStore – Tabs', () => {
   })
 
   it('switches active tab', () => {
-    const tab: TabItem = { id: 'data-1', type: 'data', label: 'users', connId: 'conn-1', table: 'users', closable: true }
+    const tab: TabItem = {
+      id: 'data-1',
+      type: 'data',
+      label: 'users',
+      connId: 'conn-1',
+      table: 'users',
+      closable: true
+    }
     useDatabaseStore.getState().addTab(tab)
     useDatabaseStore.getState().setActiveTab('objects')
     expect(useDatabaseStore.getState().activeTabId).toBe('objects')
@@ -204,9 +217,12 @@ describe('DatabaseStore – Data View', () => {
 
   const mockData: QueryResult = {
     columns: ['id', 'name', 'email'],
-    rows: [[1, 'Alice', 'alice@example.com'], [2, 'Bob', 'bob@example.com']],
+    rows: [
+      [1, 'Alice', 'alice@example.com'],
+      [2, 'Bob', 'bob@example.com']
+    ],
     rowCount: 2,
-    executionTime: 12,
+    executionTime: 12
   }
 
   it('sets table data', () => {
@@ -225,9 +241,7 @@ describe('DatabaseStore – Data View', () => {
   })
 
   it('sets filter conditions', () => {
-    const conditions: FilterCondition[] = [
-      { column: 'name', operator: 'contains', value: 'Alice' },
-    ]
+    const conditions: FilterCondition[] = [{ column: 'name', operator: 'contains', value: 'Alice' }]
     useDatabaseStore.getState().setFilterConditions(conditions)
     expect(useDatabaseStore.getState().filterConditions).toHaveLength(1)
     expect(useDatabaseStore.getState().filterConditions[0].column).toBe('name')

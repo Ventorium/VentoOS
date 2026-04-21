@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { RefreshCw, Search } from 'lucide-react'
+import { useState } from 'react'
 import { useClusterStore } from '../../stores/cluster-store'
 import { useKubernetesStore } from '../../stores/kubernetes-store'
 import type { K8sResourceKind } from '../../types'
@@ -24,7 +24,7 @@ export function ResourceToolbar({
   onSearchChange,
   onRefresh,
   selectedCount,
-  onDeleteSelected,
+  onDeleteSelected
 }: Props) {
   const namespaces = useClusterStore(s => s.getClusterNamespaces(clusterId))
   const openTab = useKubernetesStore(s => s.openTab)
@@ -48,9 +48,7 @@ export function ResourceToolbar({
           </select>
         )}
 
-        <span className="text-xs text-[var(--vos-text-tertiary)]">
-          {def.pluralLabel}
-        </span>
+        <span className="text-xs text-[var(--vos-text-tertiary)]">{def.pluralLabel}</span>
 
         <span className="flex-1" />
 
@@ -78,9 +76,7 @@ export function ResourceToolbar({
 
       {selectedCount > 0 && (
         <div className="flex items-center gap-2 h-8 px-3 bg-[rgba(var(--vos-accent-warning-rgb,204,169,0),0.12)] text-xs">
-          <span className="flex-1">
-            {selectedCount} items selected
-          </span>
+          <span className="flex-1">{selectedCount} items selected</span>
           <button
             type="button"
             className="px-2 py-0.5 rounded text-[10px] bg-[var(--vos-accent-danger)] text-white"

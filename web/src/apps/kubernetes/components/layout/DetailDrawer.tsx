@@ -1,27 +1,19 @@
+import { Copy, Edit3, MoreHorizontal, Power, RefreshCw, Scale, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
-import {
-  Copy,
-  Edit3,
-  MoreHorizontal,
-  Power,
-  RefreshCw,
-  Scale,
-  Trash2,
-  X,
-} from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
+import { Tabs } from '@/components/ui'
 import { notificationService } from '@/services/notification'
 import { k8sApi } from '../../api'
-import { useKubernetesStore } from '../../stores/kubernetes-store'
 import { useBottomPanelStore } from '../../stores/bottom-panel-store'
+import { useKubernetesStore } from '../../stores/kubernetes-store'
+import { getResourceDef } from '../../utils/resource-registry'
 import { DataTab } from '../detail-tabs/DataTab'
 import { EndpointsTab } from '../detail-tabs/EndpointsTab'
 import { EventsTab } from '../detail-tabs/EventsTab'
+import { LogsTab } from '../detail-tabs/LogsTab'
 import { PodsTab } from '../detail-tabs/PodsTab'
 import { SummaryTab } from '../detail-tabs/SummaryTab'
 import { YamlTab } from '../detail-tabs/YamlTab'
-import { LogsTab } from '../detail-tabs/LogsTab'
-import { getResourceDef } from '../../utils/resource-registry'
 
 const TAB_LABELS: Record<string, string> = {
   summary: 'Summary',
@@ -31,7 +23,7 @@ const TAB_LABELS: Record<string, string> = {
   logs: 'Logs',
   shell: 'Shell',
   data: 'Data',
-  endpoints: 'Endpoints',
+  endpoints: 'Endpoints'
 }
 
 export function DetailDrawer() {
@@ -69,13 +61,7 @@ export function DetailDrawer() {
     if (!clusterId || !resource.namespace) return
     setActionLoading(true)
     try {
-      await k8sApi.scaleDeployment(
-        clusterId,
-        'deployment',
-        resource.name,
-        resource.namespace,
-        replicas,
-      )
+      await k8sApi.scaleDeployment(clusterId, 'deployment', resource.name, resource.namespace, replicas)
       notificationService.success('Scale Deployment', `Scaled ${resource.name} to ${replicas} replicas`, 'kubernetes')
       setScaleOpen(false)
     } catch (e) {
@@ -106,7 +92,7 @@ export function DetailDrawer() {
       notificationService.success(
         cordon ? 'Cordon Node' : 'Uncordon Node',
         `${cordon ? 'Cordoned' : 'Uncordoned'} ${resource.name}`,
-        'kubernetes',
+        'kubernetes'
       )
     } catch (e) {
       notificationService.error('Node Action', String(e), 'kubernetes')
@@ -195,7 +181,9 @@ export function DetailDrawer() {
           <button
             type="button"
             className="p-1 rounded hover:bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-tertiary)]"
-            onClick={() => { /* copy name */ }}
+            onClick={() => {
+              /* copy name */
+            }}
             title="复制名称"
           >
             <Copy size={13} />
@@ -240,22 +228,13 @@ export function DetailDrawer() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center h-8 border-b-[0.5px] border-b-[var(--vos-border-subtle)] flex-shrink-0 overflow-x-auto">
-          {detailTabs.map(tabId => (
-            <button
-              key={tabId}
-              type="button"
-              className="px-3 h-full text-[11px] whitespace-nowrap border-b-[2px]"
-              style={{
-                color: activeTab === tabId ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
-                borderBottomColor: activeTab === tabId ? 'var(--vos-accent-primary)' : 'transparent',
-              }}
-              onClick={() => setDetailActiveTab(tabId)}
-            >
-              {TAB_LABELS[tabId] ?? tabId}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          tabs={detailTabs.map(id => ({ id, label: TAB_LABELS[id] ?? id }))}
+          activeTabId={activeTab}
+          onActivate={setDetailActiveTab}
+          variant="compact"
+          className="h-8"
+        />
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-3">
@@ -264,12 +243,10 @@ export function DetailDrawer() {
           {activeTab === 'events' && <EventsTab resource={resource} />}
           {activeTab === 'pods' && <PodsTab resource={resource} />}
           {activeTab === 'data' && <DataTab resource={resource} />}
-            {activeTab === 'logs' && <LogsTab resource={resource} />}
-            {activeTab === 'endpoints' && <EndpointsTab resource={resource} />}
-            {['shell'].includes(activeTab) && (
-            <div className="text-xs text-[var(--vos-text-tertiary)] py-8 text-center">
-              {activeTab} 视图开发中
-            </div>
+          {activeTab === 'logs' && <LogsTab resource={resource} />}
+          {activeTab === 'endpoints' && <EndpointsTab resource={resource} />}
+          {['shell'].includes(activeTab) && (
+            <div className="text-xs text-[var(--vos-text-tertiary)] py-8 text-center">{activeTab} 视图开发中</div>
           )}
         </div>
       </div>
@@ -279,7 +256,7 @@ export function DetailDrawer() {
         open={scaleOpen}
         onClose={() => setScaleOpen(false)}
         title={`Scale ${resource.name}`}
-        footer={(
+        footer={
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -297,7 +274,7 @@ export function DetailDrawer() {
               Scale
             </button>
           </div>
-        )}
+        }
       >
         <div className="flex items-center gap-3">
           <span className="text-xs text-[var(--vos-text-secondary)]">Replicas:</span>
@@ -316,7 +293,7 @@ export function DetailDrawer() {
         open={drainOpen}
         onClose={() => setDrainOpen(false)}
         title={`Drain ${resource.name}`}
-        footer={(
+        footer={
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -334,23 +311,15 @@ export function DetailDrawer() {
               Drain
             </button>
           </div>
-        )}
+        }
       >
         <div className="flex flex-col gap-2">
           <label className="flex items-center gap-2 text-xs cursor-pointer">
-            <input
-              type="checkbox"
-              checked={forceDrain}
-              onChange={e => setForceDrain(e.target.checked)}
-            />
+            <input type="checkbox" checked={forceDrain} onChange={e => setForceDrain(e.target.checked)} />
             Force (delete pods not managed by a controller)
           </label>
           <label className="flex items-center gap-2 text-xs cursor-pointer">
-            <input
-              type="checkbox"
-              checked={ignoreDaemonSets}
-              onChange={e => setIgnoreDaemonSets(e.target.checked)}
-            />
+            <input type="checkbox" checked={ignoreDaemonSets} onChange={e => setIgnoreDaemonSets(e.target.checked)} />
             Ignore DaemonSets
           </label>
         </div>

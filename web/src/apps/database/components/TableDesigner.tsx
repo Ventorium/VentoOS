@@ -1,20 +1,8 @@
-import {
-  Copy,
-  Key,
-  Minus,
-  Plus,
-  Save,
-} from 'lucide-react'
+import { Copy, Key, Minus, Plus, Save } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Tabs } from '@/components/ui'
 import { useDatabaseStore } from '../stores'
-import type {
-  CheckConstraint,
-  ColumnInfo,
-  ForeignKeyInfo,
-  IndexInfo,
-  TriggerInfo,
-  UniqueConstraint,
-} from '../types'
+import type { CheckConstraint, ColumnInfo, ForeignKeyInfo, IndexInfo, TriggerInfo, UniqueConstraint } from '../types'
 
 type DesignerTab = 'columns' | 'indexes' | 'foreignKeys' | 'unique' | 'checks' | 'triggers' | 'comment' | 'sql'
 
@@ -26,22 +14,43 @@ const DESIGNER_TABS: { key: DesignerTab; label: string }[] = [
   { key: 'checks', label: '检查' },
   { key: 'triggers', label: '触发器' },
   { key: 'comment', label: '注释' },
-  { key: 'sql', label: 'SQL预览' },
+  { key: 'sql', label: 'SQL预览' }
 ]
 
 const SQL_TYPES = [
-  'int', 'bigint', 'smallint', 'tinyint',
-  'serial', 'bigserial',
-  'varchar', 'char', 'text',
-  'boolean', 'bool',
-  'float', 'double', 'decimal', 'numeric', 'real',
-  'date', 'time', 'timestamp', 'timestamptz',
-  'uuid', 'json', 'jsonb',
-  'bytea', 'blob',
-  'inet', 'cidr', 'macaddr',
-  'xml', 'money',
+  'int',
+  'bigint',
+  'smallint',
+  'tinyint',
+  'serial',
+  'bigserial',
+  'varchar',
+  'char',
+  'text',
+  'boolean',
+  'bool',
+  'float',
+  'double',
+  'decimal',
+  'numeric',
+  'real',
+  'date',
+  'time',
+  'timestamp',
+  'timestamptz',
+  'uuid',
+  'json',
+  'jsonb',
+  'bytea',
+  'blob',
+  'inet',
+  'cidr',
+  'macaddr',
+  'xml',
+  'money',
   'interval',
-  'enum', 'array',
+  'enum',
+  'array'
 ]
 
 const INDEX_METHODS = ['BTree', 'Hash', 'GiST', 'GIN']
@@ -60,7 +69,7 @@ function makeDefaultColumn(): ColumnInfo {
     length: undefined,
     precision: undefined,
     collation: undefined,
-    comment: undefined,
+    comment: undefined
   }
 }
 
@@ -82,46 +91,46 @@ export function TableDesigner() {
 
   useEffect(() => {
     if (tableStructure) {
-      setColumns(tableStructure.columns.map((c) => ({ ...c })))
-      setIndexes(tableStructure.indexes.map((i) => ({ ...i })))
-      setForeignKeys((tableStructure.foreignKeys ?? []).map((fk) => ({ ...fk })))
-      setUniqueConstraints((tableStructure.uniqueConstraints ?? []).map((u) => ({ ...u })))
-      setCheckConstraints((tableStructure.checkConstraints ?? []).map((ck) => ({ ...ck })))
-      setTriggers((tableStructure.triggers ?? []).map((t) => ({ ...t })))
+      setColumns(tableStructure.columns.map(c => ({ ...c })))
+      setIndexes(tableStructure.indexes.map(i => ({ ...i })))
+      setForeignKeys((tableStructure.foreignKeys ?? []).map(fk => ({ ...fk })))
+      setUniqueConstraints((tableStructure.uniqueConstraints ?? []).map(u => ({ ...u })))
+      setCheckConstraints((tableStructure.checkConstraints ?? []).map(ck => ({ ...ck })))
+      setTriggers((tableStructure.triggers ?? []).map(t => ({ ...t })))
     }
   }, [tableStructure])
 
   const addColumn = useCallback(() => {
-    setColumns((prev) => [...prev, makeDefaultColumn()])
+    setColumns(prev => [...prev, makeDefaultColumn()])
     setSelectedColumnIndex(columns.length)
   }, [columns.length])
 
   const removeColumn = useCallback(() => {
     if (selectedColumnIndex === null) return
-    setColumns((prev) => prev.filter((_, i) => i !== selectedColumnIndex))
+    setColumns(prev => prev.filter((_, i) => i !== selectedColumnIndex))
     setSelectedColumnIndex(null)
   }, [selectedColumnIndex])
 
   const togglePrimaryKey = useCallback(() => {
     if (selectedColumnIndex === null) return
-    setColumns((prev) =>
+    setColumns(prev =>
       prev.map((col, i) =>
-        i === selectedColumnIndex ? { ...col, is_primary_key: !col.is_primary_key, nullable: col.is_primary_key ? col.nullable : false } : col,
-      ),
+        i === selectedColumnIndex
+          ? { ...col, is_primary_key: !col.is_primary_key, nullable: col.is_primary_key ? col.nullable : false }
+          : col
+      )
     )
   }, [selectedColumnIndex])
 
   const updateColumn = useCallback((index: number, field: keyof ColumnInfo, value: unknown) => {
-    setColumns((prev) =>
-      prev.map((col, i) => (i === index ? { ...col, [field]: value } : col)),
-    )
+    setColumns(prev => prev.map((col, i) => (i === index ? { ...col, [field]: value } : col)))
   }, [])
 
   const handleSave = useCallback(async () => {
     setSaving(true)
     try {
       // TODO: call API to save table structure
-      await new Promise((r) => setTimeout(r, 500))
+      await new Promise(r => setTimeout(r, 500))
     } finally {
       setSaving(false)
     }
@@ -131,7 +140,7 @@ export function TableDesigner() {
     const lines: string[] = []
     lines.push(`CREATE TABLE "${tableName}" (`)
 
-    const colDefs: string[] = columns.map((col) => {
+    const colDefs: string[] = columns.map(col => {
       let def = `  "${col.name}" ${col.data_type}`
       if (col.length) def += `(${col.length}${col.precision ? `, ${col.precision}` : ''})`
       if (!col.nullable) def += ' NOT NULL'
@@ -139,13 +148,13 @@ export function TableDesigner() {
       return def
     })
 
-    const pks = columns.filter((c) => c.is_primary_key).map((c) => `"${c.name}"`)
+    const pks = columns.filter(c => c.is_primary_key).map(c => `"${c.name}"`)
     if (pks.length > 0) {
       colDefs.push(`  PRIMARY KEY (${pks.join(', ')})`)
     }
 
     for (const u of uniqueConstraints) {
-      colDefs.push(`  CONSTRAINT "${u.name}" UNIQUE (${u.columns.map((c) => `"${c}"`).join(', ')})`)
+      colDefs.push(`  CONSTRAINT "${u.name}" UNIQUE (${u.columns.map(c => `"${c}"`).join(', ')})`)
     }
 
     for (const ck of checkConstraints) {
@@ -154,7 +163,7 @@ export function TableDesigner() {
 
     for (const fk of foreignKeys) {
       colDefs.push(
-        `  CONSTRAINT "${fk.name}" FOREIGN KEY ("${fk.column}") REFERENCES "${fk.referencedTable}" ("${fk.referencedColumn}") ON DELETE ${fk.onDelete} ON UPDATE ${fk.onUpdate}`,
+        `  CONSTRAINT "${fk.name}" FOREIGN KEY ("${fk.column}") REFERENCES "${fk.referencedTable}" ("${fk.referencedColumn}") ON DELETE ${fk.onDelete} ON UPDATE ${fk.onUpdate}`
       )
     }
 
@@ -174,7 +183,7 @@ export function TableDesigner() {
     for (const idx of indexes) {
       const u = idx.unique ? 'UNIQUE ' : ''
       const m = idx.method ? ` USING ${idx.method}` : ''
-      lines.push(`CREATE ${u}INDEX "${idx.name}" ON "${tableName}"${m} (${idx.columns.map((c) => `"${c}"`).join(', ')});`)
+      lines.push(`CREATE ${u}INDEX "${idx.name}" ON "${tableName}"${m} (${idx.columns.map(c => `"${c}"`).join(', ')});`)
     }
 
     return lines.join('\n')
@@ -228,22 +237,13 @@ export function TableDesigner() {
       </div>
 
       {/* Tab bar */}
-      <div className="h-9 shrink-0 flex items-center gap-0 border-b border-solid border-(--vos-border) bg-(--vos-bg-elevated) px-2 overflow-x-auto">
-        {DESIGNER_TABS.map((tab) => (
-          <button
-            type="button"
-            key={tab.key}
-            className={`h-full px-3 text-xs cursor-pointer border-b-2 border-solid transition-colors ${
-              activeTab === tab.key
-                ? 'border-(--vos-primary) text-(--vos-primary) bg-transparent'
-                : 'border-transparent text-(--vos-text-secondary) hover:text-(--vos-text) bg-transparent'
-            }`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={DESIGNER_TABS.map(t => ({ id: t.key, label: t.label }))}
+        activeTabId={activeTab}
+        onActivate={id => setActiveTab(id as DesignerTab)}
+        variant="default"
+        className="h-9 border-b border-solid border-(--vos-border) bg-(--vos-bg-elevated) px-2"
+      />
 
       {/* Tab content */}
       <div className="flex-1 overflow-auto">
@@ -256,27 +256,17 @@ export function TableDesigner() {
             onUpdate={updateColumn}
           />
         )}
-        {activeTab === 'indexes' && (
-          <IndexesTab indexes={indexes} columns={columns} onChange={setIndexes} />
-        )}
+        {activeTab === 'indexes' && <IndexesTab indexes={indexes} columns={columns} onChange={setIndexes} />}
         {activeTab === 'foreignKeys' && (
           <ForeignKeysTab foreignKeys={foreignKeys} columns={columns} onChange={setForeignKeys} />
         )}
         {activeTab === 'unique' && (
           <UniqueTab constraints={uniqueConstraints} columns={columns} onChange={setUniqueConstraints} />
         )}
-        {activeTab === 'checks' && (
-          <ChecksTab constraints={checkConstraints} onChange={setCheckConstraints} />
-        )}
-        {activeTab === 'triggers' && (
-          <TriggersTab triggers={triggers} onChange={setTriggers} />
-        )}
-        {activeTab === 'comment' && (
-          <CommentTab comment={tableComment} onChange={setTableComment} />
-        )}
-        {activeTab === 'sql' && (
-          <SqlPreviewTab sql={generatedSql} onCopy={copyToClipboard} />
-        )}
+        {activeTab === 'checks' && <ChecksTab constraints={checkConstraints} onChange={setCheckConstraints} />}
+        {activeTab === 'triggers' && <TriggersTab triggers={triggers} onChange={setTriggers} />}
+        {activeTab === 'comment' && <CommentTab comment={tableComment} onChange={setTableComment} />}
+        {activeTab === 'sql' && <SqlPreviewTab sql={generatedSql} onCopy={copyToClipboard} />}
       </div>
     </div>
   )
@@ -289,7 +279,7 @@ function ColumnsTab({
   selectedIndex,
   selectedCol,
   onSelect,
-  onUpdate,
+  onUpdate
 }: {
   columns: ColumnInfo[]
   selectedIndex: number | null
@@ -303,13 +293,27 @@ function ColumnsTab({
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="bg-(--vos-bg-elevated) sticky top-0 z-1">
-              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-40">名称</th>
-              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-32">类型</th>
-              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">长度</th>
-              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">小数点</th>
-              <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">不是Null</th>
-              <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-12">键</th>
-              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">注释</th>
+              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-40">
+                名称
+              </th>
+              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-32">
+                类型
+              </th>
+              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">
+                长度
+              </th>
+              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">
+                小数点
+              </th>
+              <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">
+                不是Null
+              </th>
+              <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-12">
+                键
+              </th>
+              <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+                注释
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -323,7 +327,7 @@ function ColumnsTab({
                   <input
                     type="text"
                     value={col.name}
-                    onChange={(e) => onUpdate(i, 'name', e.target.value)}
+                    onChange={e => onUpdate(i, 'name', e.target.value)}
                     className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                     placeholder="column_name"
                   />
@@ -331,11 +335,13 @@ function ColumnsTab({
                 <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                   <select
                     value={col.data_type}
-                    onChange={(e) => onUpdate(i, 'data_type', e.target.value)}
+                    onChange={e => onUpdate(i, 'data_type', e.target.value)}
                     className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
                   >
-                    {SQL_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
+                    {SQL_TYPES.map(t => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
                     ))}
                   </select>
                 </td>
@@ -343,7 +349,7 @@ function ColumnsTab({
                   <input
                     type="number"
                     value={col.length ?? ''}
-                    onChange={(e) => onUpdate(i, 'length', e.target.value ? Number(e.target.value) : undefined)}
+                    onChange={e => onUpdate(i, 'length', e.target.value ? Number(e.target.value) : undefined)}
                     className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                   />
                 </td>
@@ -351,7 +357,7 @@ function ColumnsTab({
                   <input
                     type="number"
                     value={col.precision ?? ''}
-                    onChange={(e) => onUpdate(i, 'precision', e.target.value ? Number(e.target.value) : undefined)}
+                    onChange={e => onUpdate(i, 'precision', e.target.value ? Number(e.target.value) : undefined)}
                     className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                   />
                 </td>
@@ -359,7 +365,7 @@ function ColumnsTab({
                   <input
                     type="checkbox"
                     checked={!col.nullable}
-                    onChange={(e) => onUpdate(i, 'nullable', !e.target.checked)}
+                    onChange={e => onUpdate(i, 'nullable', !e.target.checked)}
                     className="cursor-pointer accent-(--vos-primary)"
                   />
                 </td>
@@ -371,7 +377,7 @@ function ColumnsTab({
                   <input
                     type="text"
                     value={col.comment ?? ''}
-                    onChange={(e) => onUpdate(i, 'comment', e.target.value || undefined)}
+                    onChange={e => onUpdate(i, 'comment', e.target.value || undefined)}
                     className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                     placeholder=""
                   />
@@ -399,7 +405,7 @@ function ColumnsTab({
               <input
                 type="text"
                 value={selectedCol.default_value ?? ''}
-                onChange={(e) => onUpdate(selectedIndex, 'default_value', e.target.value || null)}
+                onChange={e => onUpdate(selectedIndex, 'default_value', e.target.value || null)}
                 className="h-7 px-2 text-xs rounded border border-solid border-(--vos-border) bg-(--vos-bg) text-(--vos-text) outline-none focus:border-(--vos-primary)"
               />
             </label>
@@ -407,11 +413,15 @@ function ColumnsTab({
               <span className="text-[11px] text-(--vos-text-secondary)">排序规则</span>
               <select
                 value={selectedCol.collation ?? 'default'}
-                onChange={(e) => onUpdate(selectedIndex, 'collation', e.target.value === 'default' ? undefined : e.target.value)}
+                onChange={e =>
+                  onUpdate(selectedIndex, 'collation', e.target.value === 'default' ? undefined : e.target.value)
+                }
                 className="h-7 px-2 text-xs rounded border border-solid border-(--vos-border) bg-(--vos-bg) text-(--vos-text) outline-none cursor-pointer focus:border-(--vos-primary)"
               >
-                {COLLATIONS.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                {COLLATIONS.map(c => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
             </label>
@@ -419,7 +429,7 @@ function ColumnsTab({
               <span className="text-[11px] text-(--vos-text-secondary)">注释</span>
               <textarea
                 value={selectedCol.comment ?? ''}
-                onChange={(e) => onUpdate(selectedIndex, 'comment', e.target.value || undefined)}
+                onChange={e => onUpdate(selectedIndex, 'comment', e.target.value || undefined)}
                 rows={1}
                 className="px-2 py-1 text-xs rounded border border-solid border-(--vos-border) bg-(--vos-bg) text-(--vos-text) outline-none resize-none focus:border-(--vos-primary)"
               />
@@ -436,7 +446,7 @@ function ColumnsTab({
 function IndexesTab({
   indexes,
   columns,
-  onChange,
+  onChange
 }: {
   indexes: IndexInfo[]
   columns: ColumnInfo[]
@@ -456,9 +466,7 @@ function IndexesTab({
 
   const toggleColumn = (idxI: number, colName: string) => {
     const idx = indexes[idxI]
-    const cols = idx.columns.includes(colName)
-      ? idx.columns.filter((c) => c !== colName)
-      : [...idx.columns, colName]
+    const cols = idx.columns.includes(colName) ? idx.columns.filter(c => c !== colName) : [...idx.columns, colName]
     update(idxI, 'columns', cols)
   }
 
@@ -477,11 +485,21 @@ function IndexesTab({
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr className="bg-(--vos-bg-elevated)">
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">索引名</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-24">方法</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">字段</th>
-            <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">唯一</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">注释</th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              索引名
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-24">
+              方法
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              字段
+            </th>
+            <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">
+              唯一
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              注释
+            </th>
             <th className="w-10 border-b border-solid border-(--vos-border)" />
           </tr>
         </thead>
@@ -492,7 +510,7 @@ function IndexesTab({
                 <input
                   type="text"
                   value={idx.name}
-                  onChange={(e) => update(i, 'name', e.target.value)}
+                  onChange={e => update(i, 'name', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                   placeholder="idx_name"
                 />
@@ -500,17 +518,19 @@ function IndexesTab({
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <select
                   value={idx.method ?? 'BTree'}
-                  onChange={(e) => update(i, 'method', e.target.value)}
+                  onChange={e => update(i, 'method', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
                 >
-                  {INDEX_METHODS.map((m) => (
-                    <option key={m} value={m}>{m}</option>
+                  {INDEX_METHODS.map(m => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
                   ))}
                 </select>
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <div className="flex flex-wrap gap-1">
-                  {columns.map((col) => (
+                  {columns.map(col => (
                     <label key={col.name} className="flex items-center gap-0.5 cursor-pointer">
                       <input
                         type="checkbox"
@@ -527,7 +547,7 @@ function IndexesTab({
                 <input
                   type="checkbox"
                   checked={idx.unique}
-                  onChange={(e) => update(i, 'unique', e.target.checked)}
+                  onChange={e => update(i, 'unique', e.target.checked)}
                   className="cursor-pointer accent-(--vos-primary)"
                 />
               </td>
@@ -535,12 +555,16 @@ function IndexesTab({
                 <input
                   type="text"
                   value={idx.comment ?? ''}
-                  onChange={(e) => update(i, 'comment', e.target.value)}
+                  onChange={e => update(i, 'comment', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                 />
               </td>
               <td className="text-center px-2 py-1 border-b border-solid border-(--vos-border)">
-                <button type="button" className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0" onClick={() => remove(i)}>
+                <button
+                  type="button"
+                  className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0"
+                  onClick={() => remove(i)}
+                >
                   <Minus size={14} />
                 </button>
               </td>
@@ -548,9 +572,7 @@ function IndexesTab({
           ))}
         </tbody>
       </table>
-      {indexes.length === 0 && (
-        <div className="text-center py-6 text-xs text-(--vos-text-secondary)">暂无索引</div>
-      )}
+      {indexes.length === 0 && <div className="text-center py-6 text-xs text-(--vos-text-secondary)">暂无索引</div>}
     </div>
   )
 }
@@ -560,7 +582,7 @@ function IndexesTab({
 function ForeignKeysTab({
   foreignKeys,
   columns,
-  onChange,
+  onChange
 }: {
   foreignKeys: ForeignKeyInfo[]
   columns: ColumnInfo[]
@@ -569,7 +591,7 @@ function ForeignKeysTab({
   const add = () => {
     onChange([
       ...foreignKeys,
-      { name: '', column: '', referencedTable: '', referencedColumn: '', onDelete: 'NO ACTION', onUpdate: 'NO ACTION' },
+      { name: '', column: '', referencedTable: '', referencedColumn: '', onDelete: 'NO ACTION', onUpdate: 'NO ACTION' }
     ])
   }
 
@@ -596,12 +618,24 @@ function ForeignKeysTab({
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr className="bg-(--vos-bg-elevated)">
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">外键名</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">字段</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">引用表</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">引用字段</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-28">删除时</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-28">更新时</th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              外键名
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              字段
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              引用表
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              引用字段
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-28">
+              删除时
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-28">
+              更新时
+            </th>
             <th className="w-10 border-b border-solid border-(--vos-border)" />
           </tr>
         </thead>
@@ -612,7 +646,7 @@ function ForeignKeysTab({
                 <input
                   type="text"
                   value={fk.name}
-                  onChange={(e) => update(i, 'name', e.target.value)}
+                  onChange={e => update(i, 'name', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                   placeholder="fk_name"
                 />
@@ -620,12 +654,14 @@ function ForeignKeysTab({
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <select
                   value={fk.column}
-                  onChange={(e) => update(i, 'column', e.target.value)}
+                  onChange={e => update(i, 'column', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
                 >
                   <option value="">选择字段</option>
-                  {columns.map((c) => (
-                    <option key={c.name} value={c.name}>{c.name}</option>
+                  {columns.map(c => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </td>
@@ -633,7 +669,7 @@ function ForeignKeysTab({
                 <input
                   type="text"
                   value={fk.referencedTable}
-                  onChange={(e) => update(i, 'referencedTable', e.target.value)}
+                  onChange={e => update(i, 'referencedTable', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                   placeholder="table_name"
                 />
@@ -642,7 +678,7 @@ function ForeignKeysTab({
                 <input
                   type="text"
                   value={fk.referencedColumn}
-                  onChange={(e) => update(i, 'referencedColumn', e.target.value)}
+                  onChange={e => update(i, 'referencedColumn', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                   placeholder="column_name"
                 />
@@ -650,27 +686,35 @@ function ForeignKeysTab({
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <select
                   value={fk.onDelete}
-                  onChange={(e) => update(i, 'onDelete', e.target.value)}
+                  onChange={e => update(i, 'onDelete', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
                 >
-                  {FK_ACTIONS.map((a) => (
-                    <option key={a} value={a}>{a}</option>
+                  {FK_ACTIONS.map(a => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
                   ))}
                 </select>
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <select
                   value={fk.onUpdate}
-                  onChange={(e) => update(i, 'onUpdate', e.target.value)}
+                  onChange={e => update(i, 'onUpdate', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
                 >
-                  {FK_ACTIONS.map((a) => (
-                    <option key={a} value={a}>{a}</option>
+                  {FK_ACTIONS.map(a => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
                   ))}
                 </select>
               </td>
               <td className="text-center px-2 py-1 border-b border-solid border-(--vos-border)">
-                <button type="button" className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0" onClick={() => remove(i)}>
+                <button
+                  type="button"
+                  className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0"
+                  onClick={() => remove(i)}
+                >
                   <Minus size={14} />
                 </button>
               </td>
@@ -678,9 +722,7 @@ function ForeignKeysTab({
           ))}
         </tbody>
       </table>
-      {foreignKeys.length === 0 && (
-        <div className="text-center py-6 text-xs text-(--vos-text-secondary)">暂无外键</div>
-      )}
+      {foreignKeys.length === 0 && <div className="text-center py-6 text-xs text-(--vos-text-secondary)">暂无外键</div>}
     </div>
   )
 }
@@ -690,7 +732,7 @@ function ForeignKeysTab({
 function UniqueTab({
   constraints,
   columns,
-  onChange,
+  onChange
 }: {
   constraints: UniqueConstraint[]
   columns: ColumnInfo[]
@@ -710,9 +752,7 @@ function UniqueTab({
 
   const toggleColumn = (ci: number, colName: string) => {
     const c = constraints[ci]
-    const cols = c.columns.includes(colName)
-      ? c.columns.filter((x) => x !== colName)
-      : [...c.columns, colName]
+    const cols = c.columns.includes(colName) ? c.columns.filter(x => x !== colName) : [...c.columns, colName]
     update(ci, 'columns', cols)
   }
 
@@ -731,8 +771,12 @@ function UniqueTab({
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr className="bg-(--vos-bg-elevated)">
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">唯一键名</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">字段列表</th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              唯一键名
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              字段列表
+            </th>
             <th className="w-10 border-b border-solid border-(--vos-border)" />
           </tr>
         </thead>
@@ -743,14 +787,14 @@ function UniqueTab({
                 <input
                   type="text"
                   value={c.name}
-                  onChange={(e) => update(i, 'name', e.target.value)}
+                  onChange={e => update(i, 'name', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                   placeholder="uq_name"
                 />
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <div className="flex flex-wrap gap-1">
-                  {columns.map((col) => (
+                  {columns.map(col => (
                     <label key={col.name} className="flex items-center gap-0.5 cursor-pointer">
                       <input
                         type="checkbox"
@@ -764,7 +808,11 @@ function UniqueTab({
                 </div>
               </td>
               <td className="text-center px-2 py-1 border-b border-solid border-(--vos-border)">
-                <button type="button" className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0" onClick={() => remove(i)}>
+                <button
+                  type="button"
+                  className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0"
+                  onClick={() => remove(i)}
+                >
                   <Minus size={14} />
                 </button>
               </td>
@@ -783,7 +831,7 @@ function UniqueTab({
 
 function ChecksTab({
   constraints,
-  onChange,
+  onChange
 }: {
   constraints: CheckConstraint[]
   onChange: (v: CheckConstraint[]) => void
@@ -815,8 +863,12 @@ function ChecksTab({
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr className="bg-(--vos-bg-elevated)">
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-48">约束名</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">检查表达式</th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-48">
+              约束名
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              检查表达式
+            </th>
             <th className="w-10 border-b border-solid border-(--vos-border)" />
           </tr>
         </thead>
@@ -827,7 +879,7 @@ function ChecksTab({
                 <input
                   type="text"
                   value={c.name}
-                  onChange={(e) => update(i, 'name', e.target.value)}
+                  onChange={e => update(i, 'name', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                   placeholder="ck_name"
                 />
@@ -836,13 +888,17 @@ function ChecksTab({
                 <input
                   type="text"
                   value={c.expression}
-                  onChange={(e) => update(i, 'expression', e.target.value)}
+                  onChange={e => update(i, 'expression', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 font-mono"
                   placeholder="age > 0"
                 />
               </td>
               <td className="text-center px-2 py-1 border-b border-solid border-(--vos-border)">
-                <button type="button" className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0" onClick={() => remove(i)}>
+                <button
+                  type="button"
+                  className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0"
+                  onClick={() => remove(i)}
+                >
                   <Minus size={14} />
                 </button>
               </td>
@@ -859,13 +915,7 @@ function ChecksTab({
 
 // ── Triggers Tab ─────────────────────────────────────────────────────────
 
-function TriggersTab({
-  triggers,
-  onChange,
-}: {
-  triggers: TriggerInfo[]
-  onChange: (v: TriggerInfo[]) => void
-}) {
+function TriggersTab({ triggers, onChange }: { triggers: TriggerInfo[]; onChange: (v: TriggerInfo[]) => void }) {
   const add = () => {
     onChange([...triggers, { name: '', timing: 'BEFORE', event: 'INSERT', enabled: true, definition: '' }])
   }
@@ -893,11 +943,21 @@ function TriggersTab({
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr className="bg-(--vos-bg-elevated)">
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">触发器名</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-28">时机</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-24">事件</th>
-            <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">启用</th>
-            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">定义</th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              触发器名
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-28">
+              时机
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-24">
+              事件
+            </th>
+            <th className="text-center px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border) w-16">
+              启用
+            </th>
+            <th className="text-left px-2 py-1.5 font-medium text-(--vos-text-secondary) border-b border-solid border-(--vos-border)">
+              定义
+            </th>
             <th className="w-10 border-b border-solid border-(--vos-border)" />
           </tr>
         </thead>
@@ -908,7 +968,7 @@ function TriggersTab({
                 <input
                   type="text"
                   value={t.name}
-                  onChange={(e) => update(i, 'name', e.target.value)}
+                  onChange={e => update(i, 'name', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0"
                   placeholder="trg_name"
                 />
@@ -916,22 +976,26 @@ function TriggersTab({
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <select
                   value={t.timing}
-                  onChange={(e) => update(i, 'timing', e.target.value)}
+                  onChange={e => update(i, 'timing', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
                 >
-                  {TRIGGER_TIMINGS.map((v) => (
-                    <option key={v} value={v}>{v}</option>
+                  {TRIGGER_TIMINGS.map(v => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
                   ))}
                 </select>
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <select
                   value={t.event}
-                  onChange={(e) => update(i, 'event', e.target.value)}
+                  onChange={e => update(i, 'event', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
                 >
-                  {TRIGGER_EVENTS.map((v) => (
-                    <option key={v} value={v}>{v}</option>
+                  {TRIGGER_EVENTS.map(v => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
                   ))}
                 </select>
               </td>
@@ -939,7 +1003,7 @@ function TriggersTab({
                 <input
                   type="checkbox"
                   checked={t.enabled}
-                  onChange={(e) => update(i, 'enabled', e.target.checked)}
+                  onChange={e => update(i, 'enabled', e.target.checked)}
                   className="cursor-pointer accent-(--vos-primary)"
                 />
               </td>
@@ -947,13 +1011,17 @@ function TriggersTab({
                 <input
                   type="text"
                   value={t.definition}
-                  onChange={(e) => update(i, 'definition', e.target.value)}
+                  onChange={e => update(i, 'definition', e.target.value)}
                   className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 font-mono"
                   placeholder="EXECUTE FUNCTION ..."
                 />
               </td>
               <td className="text-center px-2 py-1 border-b border-solid border-(--vos-border)">
-                <button type="button" className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0" onClick={() => remove(i)}>
+                <button
+                  type="button"
+                  className="text-(--vos-text-secondary) hover:text-(--vos-error) cursor-pointer bg-transparent border-none p-0"
+                  onClick={() => remove(i)}
+                >
                   <Minus size={14} />
                 </button>
               </td>
@@ -961,9 +1029,7 @@ function TriggersTab({
           ))}
         </tbody>
       </table>
-      {triggers.length === 0 && (
-        <div className="text-center py-6 text-xs text-(--vos-text-secondary)">暂无触发器</div>
-      )}
+      {triggers.length === 0 && <div className="text-center py-6 text-xs text-(--vos-text-secondary)">暂无触发器</div>}
     </div>
   )
 }
@@ -977,7 +1043,7 @@ function CommentTab({ comment, onChange }: { comment: string; onChange: (v: stri
         <span className="text-xs text-(--vos-text-secondary)">表注释</span>
         <textarea
           value={comment}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={e => onChange(e.target.value)}
           rows={4}
           className="w-full px-2 py-1.5 text-xs rounded border border-solid border-(--vos-border) bg-(--vos-bg) text-(--vos-text) outline-none resize-y focus:border-(--vos-primary)"
           placeholder="输入表注释..."
@@ -1002,7 +1068,9 @@ function SqlPreviewTab({ sql, onCopy }: { sql: string; onCopy: () => void }) {
           <span>复制</span>
         </button>
       </div>
-      <pre className="flex-1 overflow-auto m-0 px-4 pb-4 text-xs font-mono text-(--vos-text) whitespace-pre-wrap leading-5">{sql}</pre>
+      <pre className="flex-1 overflow-auto m-0 px-4 pb-4 text-xs font-mono text-(--vos-text) whitespace-pre-wrap leading-5">
+        {sql}
+      </pre>
     </div>
   )
 }

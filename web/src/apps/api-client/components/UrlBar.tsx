@@ -1,18 +1,18 @@
 import { ChevronDown, Loader2, Save, Send } from 'lucide-react'
 import { useState } from 'react'
-import { useApiClientStore } from '../store'
 import { HTTP_METHODS, METHOD_COLORS } from '../constants'
+import { useApiClientStore } from '../store'
 import type { HttpMethod } from '../types'
 
 export default function UrlBar() {
-  const tabs = useApiClientStore((s) => s.tabs)
-  const activeTabId = useApiClientStore((s) => s.activeTabId)
-  const updateTabRequest = useApiClientStore((s) => s.updateTabRequest)
-  const sendRequest = useApiClientStore((s) => s.sendRequest)
-  const isSending = useApiClientStore((s) => s.isSending)
+  const tabs = useApiClientStore(s => s.tabs)
+  const activeTabId = useApiClientStore(s => s.activeTabId)
+  const updateTabRequest = useApiClientStore(s => s.updateTabRequest)
+  const sendRequest = useApiClientStore(s => s.sendRequest)
+  const isSending = useApiClientStore(s => s.isSending)
   const [methodDropdownOpen, setMethodDropdownOpen] = useState(false)
 
-  const activeTab = tabs.find((t) => t.id === activeTabId)
+  const activeTab = tabs.find(t => t.id === activeTabId)
   if (!activeTab) return null
 
   return (
@@ -27,7 +27,7 @@ export default function UrlBar() {
           style={{
             color: METHOD_COLORS[activeTab.method],
             background: 'var(--vos-bg-tertiary)',
-            border: '1px solid var(--vos-border-subtle)',
+            border: '1px solid var(--vos-border-subtle)'
           }}
           onClick={() => setMethodDropdownOpen(!methodDropdownOpen)}
         >
@@ -41,10 +41,10 @@ export default function UrlBar() {
               className="absolute left-0 top-full mt-1 z-50 min-w-24 rounded-md shadow-lg py-1"
               style={{
                 background: 'var(--vos-bg-elevated)',
-                border: '1px solid var(--vos-border-subtle)',
+                border: '1px solid var(--vos-border-subtle)'
               }}
             >
-              {HTTP_METHODS.map((m) => (
+              {HTTP_METHODS.map(m => (
                 <div
                   key={m}
                   className="px-3 py-1.5 text-xs font-bold cursor-pointer hover:opacity-80"
@@ -68,12 +68,12 @@ export default function UrlBar() {
         style={{
           color: 'var(--vos-text-primary)',
           background: 'var(--vos-bg-tertiary)',
-          border: '1px solid var(--vos-border-subtle)',
+          border: '1px solid var(--vos-border-subtle)'
         }}
         value={activeTab.url}
         placeholder="Enter request URL..."
-        onChange={(e) => updateTabRequest(activeTab.id, { url: e.target.value })}
-        onKeyDown={(e) => {
+        onChange={e => updateTabRequest(activeTab.id, { url: e.target.value })}
+        onKeyDown={e => {
           if (e.key === 'Enter' && !isSending) {
             sendRequest(activeTab.id)
           }
@@ -85,7 +85,7 @@ export default function UrlBar() {
         className="flex items-center gap-1.5 px-4 py-1.5 rounded text-xs font-medium text-white"
         style={{
           background: isSending ? '#9ca3af' : 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
-          opacity: isSending ? 0.7 : 1,
+          opacity: isSending ? 0.7 : 1
         }}
         disabled={isSending}
         onClick={() => sendRequest(activeTab.id)}

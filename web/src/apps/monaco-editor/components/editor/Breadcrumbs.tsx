@@ -9,9 +9,7 @@ export default function Breadcrumbs() {
   if (!activeTab) return null
 
   return (
-    <div
-      className="flex items-center gap-1 px-3 flex-shrink-0 overflow-hidden text-xs h-[22px] bg-[var(--vos-bg-surface)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] text-[var(--vos-text-tertiary)]"
-    >
+    <div className="flex items-center gap-1 px-3 flex-shrink-0 overflow-hidden text-xs h-[22px] bg-[var(--vos-bg-surface)] border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] text-[var(--vos-text-tertiary)]">
       {workspace && (
         <>
           <span className="flex-shrink-0 max-w-20 truncate">{workspace.name}</span>

@@ -86,9 +86,7 @@ export const useDockLayoutStore = create<DockLayoutState>((set, get) => ({
       const saved = await storage.getJSON<DockItem[]>(LAYOUT_KEY)
       if (saved && Array.isArray(saved) && saved.length > 0) {
         // Ensure always-pinned apps are present
-        const allIds = new Set(
-          saved.flatMap(i => (i.type === 'app' ? [i.appId] : i.appIds))
-        )
+        const allIds = new Set(saved.flatMap(i => (i.type === 'app' ? [i.appId] : i.appIds)))
         const extra: DockItem[] = ALWAYS_PINNED.filter(id => !allIds.has(id)).map(id => ({
           type: 'app',
           appId: id
@@ -129,10 +127,8 @@ export const useDockLayoutStore = create<DockLayoutState>((set, get) => ({
     const ontoItem = items[ontoIndex]
     if (!fromItem || !ontoItem) return
 
-    const fromAppIds: string[] =
-      fromItem.type === 'app' ? [fromItem.appId] : fromItem.appIds
-    const ontoAppIds: string[] =
-      ontoItem.type === 'app' ? [ontoItem.appId] : ontoItem.appIds
+    const fromAppIds: string[] = fromItem.type === 'app' ? [fromItem.appId] : fromItem.appIds
+    const ontoAppIds: string[] = ontoItem.type === 'app' ? [ontoItem.appId] : ontoItem.appIds
 
     const folder: DockFolderItem = {
       type: 'folder',
@@ -157,9 +153,7 @@ export const useDockLayoutStore = create<DockLayoutState>((set, get) => ({
     const appItem = items[appIndex]
     if (!appItem || appItem.type !== 'app') return
 
-    const folderIndex = items.findIndex(
-      i => i.type === 'folder' && (i as DockFolderItem).id === folderId
-    )
+    const folderIndex = items.findIndex(i => i.type === 'folder' && (i as DockFolderItem).id === folderId)
     if (folderIndex < 0) return
 
     const folder = items[folderIndex] as DockFolderItem
@@ -177,18 +171,14 @@ export const useDockLayoutStore = create<DockLayoutState>((set, get) => ({
   },
 
   renameFolder(folderId: string, name: string) {
-    const items = get().items.map(i =>
-      i.type === 'folder' && i.id === folderId ? { ...i, name } : i
-    )
+    const items = get().items.map(i => (i.type === 'folder' && i.id === folderId ? { ...i, name } : i))
     set({ items })
     persist(items)
   },
 
   removeFromFolder(folderId: string, appId: string) {
     const items = [...get().items]
-    const folderIndex = items.findIndex(
-      i => i.type === 'folder' && (i as DockFolderItem).id === folderId
-    )
+    const folderIndex = items.findIndex(i => i.type === 'folder' && (i as DockFolderItem).id === folderId)
     if (folderIndex < 0) return
 
     const folder = items[folderIndex] as DockFolderItem
@@ -208,9 +198,7 @@ export const useDockLayoutStore = create<DockLayoutState>((set, get) => ({
 
   reorderFolderApp(folderId: string, fromIdx: number, gapIdx: number) {
     const items = [...get().items]
-    const folderIndex = items.findIndex(
-      i => i.type === 'folder' && (i as DockFolderItem).id === folderId
-    )
+    const folderIndex = items.findIndex(i => i.type === 'folder' && (i as DockFolderItem).id === folderId)
     if (folderIndex < 0) return
 
     const folder = items[folderIndex] as DockFolderItem
@@ -229,11 +217,7 @@ export const useDockLayoutStore = create<DockLayoutState>((set, get) => ({
   isPinned(appId: string) {
     const { items, loaded } = get()
     if (!loaded) return true
-    return items.some(
-      i =>
-        (i.type === 'app' && i.appId === appId) ||
-        (i.type === 'folder' && i.appIds.includes(appId))
-    )
+    return items.some(i => (i.type === 'app' && i.appId === appId) || (i.type === 'folder' && i.appIds.includes(appId)))
   },
 
   pin(appId: string) {

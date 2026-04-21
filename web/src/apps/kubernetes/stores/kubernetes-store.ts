@@ -5,21 +5,26 @@
  */
 
 import { create } from 'zustand'
-import type { K8sResource, K8sResourceKind, K8sTab } from '../types'
-import { getResourceDef } from '../utils/resource-registry'
 import {
   DEFAULT_BOTTOM_HEIGHT,
   DEFAULT_DRAWER_WIDTH,
   MAX_DRAWER_WIDTH_PCT,
   MIN_BOTTOM_HEIGHT,
-  MIN_DRAWER_WIDTH,
+  MIN_DRAWER_WIDTH
 } from '../constants'
+import type { K8sResource, K8sResourceKind, K8sTab } from '../types'
+import { getResourceDef } from '../utils/resource-registry'
 
 interface KubernetesStore {
   // Tabs
   tabs: K8sTab[]
   activeTabId: string | null
-  openTab: (clusterId: string, namespace: string, kind: K8sResourceKind, options?: { reuse?: boolean; isPreview?: boolean }) => string
+  openTab: (
+    clusterId: string,
+    namespace: string,
+    kind: K8sResourceKind,
+    options?: { reuse?: boolean; isPreview?: boolean }
+  ) => string
   pinTab: (id: string) => void
   closeTab: (id: string) => void
   closeOtherTabs: (id: string) => void
@@ -71,7 +76,7 @@ export const useKubernetesStore = create<KubernetesStore>((set, get) => ({
     if (reuse && existing) {
       // If opening permanently and tab is currently preview, pin it
       if (!isPreview && existing.isPreview) {
-        set({ tabs: tabs.map(t => t.id === existing.id ? { ...t, isPreview: false } : t), activeTabId: existing.id })
+        set({ tabs: tabs.map(t => (t.id === existing.id ? { ...t, isPreview: false } : t)), activeTabId: existing.id })
       } else {
         set({ activeTabId: existing.id })
       }
@@ -89,9 +94,9 @@ export const useKubernetesStore = create<KubernetesStore>((set, get) => ({
           namespace,
           kind,
           title: makeTabTitle(kind),
-          isPreview: true,
+          isPreview: true
         }
-        set({ tabs: tabs.map(t => t.id === previewTab.id ? updatedTab : t), activeTabId: previewTab.id })
+        set({ tabs: tabs.map(t => (t.id === previewTab.id ? updatedTab : t)), activeTabId: previewTab.id })
         get().expandSidebarCluster(clusterId)
         return previewTab.id
       }
@@ -104,7 +109,7 @@ export const useKubernetesStore = create<KubernetesStore>((set, get) => ({
       namespace,
       kind,
       title: makeTabTitle(kind),
-      isPreview,
+      isPreview
     }
     set({ tabs: [...tabs, newTab], activeTabId: id })
     get().expandSidebarCluster(clusterId)
@@ -112,7 +117,7 @@ export const useKubernetesStore = create<KubernetesStore>((set, get) => ({
   },
 
   pinTab(id) {
-    set(s => ({ tabs: s.tabs.map(t => t.id === id ? { ...t, isPreview: false } : t) }))
+    set(s => ({ tabs: s.tabs.map(t => (t.id === id ? { ...t, isPreview: false } : t)) }))
   },
 
   closeTab(id) {
@@ -221,5 +226,5 @@ export const useKubernetesStore = create<KubernetesStore>((set, get) => ({
 
   setBottomPanelHeight(h) {
     set({ bottomPanelHeight: Math.max(MIN_BOTTOM_HEIGHT, h) })
-  },
+  }
 }))

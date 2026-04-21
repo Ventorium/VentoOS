@@ -320,7 +320,8 @@ function ContextMenu({
     setPos({ x: nx, y: ny })
   }, [x, y])
 
-  const itemClassName = "flex items-center gap-2 py-1.5 px-4 cursor-pointer text-[13px] text-[#d4d4d4] whitespace-nowrap relative"
+  const itemClassName =
+    'flex items-center gap-2 py-1.5 px-4 cursor-pointer text-[13px] text-[#d4d4d4] whitespace-nowrap relative'
 
   const handleClick = (fn: () => void) => (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -352,9 +353,7 @@ function ContextMenu({
           <span>粘贴常用命令</span>
           <span className="text-[10px] text-[#888]">▶</span>
           {showCmdSub && (
-            <div
-              className="absolute left-full top-0 bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[180px] shadow-[0_8px_24px_rgba(0,0,0,0.5)] z-[10000]"
-            >
+            <div className="absolute left-full top-0 bg-[#252525] border border-[#444] rounded-[6px] py-1 min-w-[180px] shadow-[0_8px_24px_rgba(0,0,0,0.5)] z-[10000]">
               {commands.map(cmd => (
                 <div
                   key={cmd.id}
@@ -519,11 +518,14 @@ export default function LocalTerminal() {
 
   const handlePaste = useCallback(() => {
     const paneId = contextMenu?.paneId || activePaneId
-    navigator.clipboard.readText().then(text => {
-      if (!text) return
-      terminalRegistry.get(paneId)?.write(text)
-      terminalRegistry.get(paneId)?.focus()
-    }).catch(() => {})
+    navigator.clipboard
+      .readText()
+      .then(text => {
+        if (!text) return
+        terminalRegistry.get(paneId)?.write(text)
+        terminalRegistry.get(paneId)?.focus()
+      })
+      .catch(() => {})
   }, [contextMenu?.paneId, activePaneId])
 
   const handlePasteCommand = useCallback(
@@ -558,7 +560,10 @@ export default function LocalTerminal() {
         type: 'split',
         id: crypto.randomUUID(),
         direction,
-        children: [{ type: 'leaf', id: targetId }, { type: 'leaf', id: newPaneId }],
+        children: [
+          { type: 'leaf', id: targetId },
+          { type: 'leaf', id: newPaneId }
+        ],
         ratio: 0.5
       }
       setPaneIds(prev => [...prev, newPaneId])
@@ -594,8 +599,7 @@ export default function LocalTerminal() {
 
   const handleDrag = useCallback(
     (node: SplitNodeBranch, delta: number) => {
-      const containerPixels =
-        node.direction === 'horizontal' ? containerSize.w : containerSize.h
+      const containerPixels = node.direction === 'horizontal' ? containerSize.w : containerSize.h
       if (containerPixels <= 0) return
 
       const updateRatio = (n: SplitNode): SplitNode => {
@@ -665,9 +669,7 @@ export default function LocalTerminal() {
             >
               <Suspense
                 fallback={
-                  <div className="flex items-center justify-center h-full text-[#666] bg-[#0d0d0d]">
-                    加载中…
-                  </div>
+                  <div className="flex items-center justify-center h-full text-[#666] bg-[#0d0d0d]">加载中…</div>
                 }
               >
                 <WebShell target="local" paneId={paneId} shell={terminalSettings.shell || undefined} />
@@ -702,4 +704,3 @@ export default function LocalTerminal() {
     </div>
   )
 }
-

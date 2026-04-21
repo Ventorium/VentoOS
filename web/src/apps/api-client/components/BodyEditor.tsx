@@ -8,7 +8,7 @@ const BODY_TYPES = [
   { value: 'form-urlencoded', label: 'Form URL Encoded' },
   { value: 'form-data', label: 'Form Data' },
   { value: 'xml', label: 'XML' },
-  { value: 'binary', label: 'Binary' },
+  { value: 'binary', label: 'Binary' }
 ] as const
 
 interface BodyEditorProps {
@@ -27,19 +27,19 @@ export default function BodyEditor({ body, onChange }: BodyEditorProps) {
         className="flex items-center gap-1 px-3 py-2 shrink-0"
         style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
       >
-        {BODY_TYPES.map((bt) => (
+        {BODY_TYPES.map(bt => (
           <button
             key={bt.value}
             className="px-2.5 py-1 rounded text-xs"
             style={{
               background: body.type === bt.value ? 'var(--vos-bg-tertiary)' : 'transparent',
-              color: body.type === bt.value ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)',
+              color: body.type === bt.value ? 'var(--vos-text-primary)' : 'var(--vos-text-tertiary)'
             }}
             onClick={() =>
               onChange({
                 ...body,
                 type: bt.value,
-                content: bt.value === 'none' ? '' : body.content,
+                content: bt.value === 'none' ? '' : body.content
               })
             }
           >
@@ -51,7 +51,10 @@ export default function BodyEditor({ body, onChange }: BodyEditorProps) {
       {/* Content area */}
       <div className="flex-1 overflow-auto">
         {body.type === 'none' && (
-          <div className="flex items-center justify-center h-full text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <div
+            className="flex items-center justify-center h-full text-xs"
+            style={{ color: 'var(--vos-text-tertiary)' }}
+          >
             This request does not have a body
           </div>
         )}
@@ -62,7 +65,7 @@ export default function BodyEditor({ body, onChange }: BodyEditorProps) {
             style={{ color: 'var(--vos-text-primary)' }}
             value={body.content ?? ''}
             placeholder={body.type === 'json' ? '{\n  \n}' : 'Enter request body...'}
-            onChange={(e) => onChange({ ...body, content: e.target.value })}
+            onChange={e => onChange({ ...body, content: e.target.value })}
             spellCheck={false}
           />
         )}
@@ -76,7 +79,10 @@ export default function BodyEditor({ body, onChange }: BodyEditorProps) {
         )}
 
         {body.type === 'binary' && (
-          <div className="flex items-center justify-center h-full text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
+          <div
+            className="flex items-center justify-center h-full text-xs"
+            style={{ color: 'var(--vos-text-tertiary)' }}
+          >
             Binary file upload not yet supported
           </div>
         )}

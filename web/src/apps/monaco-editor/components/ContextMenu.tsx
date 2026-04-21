@@ -121,9 +121,7 @@ export default function ContextMenu({
               onMouseDown={e => e.stopPropagation()}
               onClick={item.action}
             >
-              <span className="text-[var(--vos-text-tertiary)] w-4 flex items-center">
-                {item.icon}
-              </span>
+              <span className="text-[var(--vos-text-tertiary)] w-4 flex items-center">{item.icon}</span>
               {item.label}
             </button>
           )

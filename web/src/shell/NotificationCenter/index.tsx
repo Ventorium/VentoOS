@@ -26,9 +26,11 @@ function NotifItem({ n }: { n: NotificationItem }) {
 
   return (
     <div
-      className={n.read
-        ? 'flex gap-3 p-3 rounded-lg border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] cursor-pointer bg-transparent'
-        : 'flex gap-3 p-3 rounded-lg border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] cursor-pointer bg-[var(--vos-bg-input)]'}
+      className={
+        n.read
+          ? 'flex gap-3 p-3 rounded-lg border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] cursor-pointer bg-transparent'
+          : 'flex gap-3 p-3 rounded-lg border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] cursor-pointer bg-[var(--vos-bg-input)]'
+      }
       onClick={() => {
         if (!n.read) markAsRead(n.id)
       }}
@@ -37,9 +39,7 @@ function NotifItem({ n }: { n: NotificationItem }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium truncate">{n.title}</span>
-          <span className="text-[10px] flex-shrink-0 ml-2 text-[var(--vos-text-tertiary)]">
-            {timeStr}
-          </span>
+          <span className="text-[10px] flex-shrink-0 ml-2 text-[var(--vos-text-tertiary)]">{timeStr}</span>
         </div>
         <p className="text-xs mt-0.5 opacity-70">{n.message}</p>
       </div>
@@ -91,12 +91,7 @@ function VirtualizedNotifList({ items }: { items: NotificationItem[] }) {
   }, [])
 
   return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      className="overflow-auto"
-      style={{ height: viewportHeight }}
-    >
+    <div ref={containerRef} onScroll={handleScroll} className="overflow-auto" style={{ height: viewportHeight }}>
       <div className="relative" style={{ height: totalHeight }}>
         <div className="absolute left-0 right-0" style={{ top: offsetY }}>
           {visibleItems.map(n => (

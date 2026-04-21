@@ -1,7 +1,7 @@
-import { useContextMenu } from '@/shell/ContextMenu/store'
 import { notificationService } from '@/services/notification'
-import { useKubernetesStore } from '../../stores/kubernetes-store'
+import { useContextMenu } from '@/shell/ContextMenu/store'
 import { k8sApi } from '../../api'
+import { useKubernetesStore } from '../../stores/kubernetes-store'
 import type { K8sResource, K8sResourceKind } from '../../types'
 import { getResourceDef } from '../../utils/resource-registry'
 
@@ -59,7 +59,7 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
       notificationService.success(
         cordon ? 'Cordon Node' : 'Uncordon Node',
         `${cordon ? 'Cordoned' : 'Uncordoned'} ${resource.name}`,
-        'kubernetes',
+        'kubernetes'
       )
     } catch (e) {
       notificationService.error('Node Action', String(e), 'kubernetes')
@@ -72,26 +72,27 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
     const isNode = resource.kind.toLowerCase() === 'node'
     const nodeCordoned = (resource.raw as Record<string, unknown>)?.spec?.unschedulable === true
 
-    const items: Array<
-      | { id: string; label: string; action: () => void; danger?: boolean }
-      | { type: 'separator' }
-    > = [
+    const items: Array<{ id: string; label: string; action: () => void; danger?: boolean } | { type: 'separator' }> = [
       { id: 'detail', label: '查看详情', action: () => openDetailDrawer(resource) },
-      { id: 'yaml', label: '编辑 YAML', action: () => openDetailDrawer(resource, 'yaml') },
+      { id: 'yaml', label: '编辑 YAML', action: () => openDetailDrawer(resource, 'yaml') }
     ]
 
     if (isDeployment) {
       items.push(
         { type: 'separator' },
-        { id: 'restart', label: 'Restart', action: () => handleRestartDeployment(resource) },
+        { id: 'restart', label: 'Restart', action: () => handleRestartDeployment(resource) }
       )
     }
 
     if (isNode) {
       items.push(
         { type: 'separator' },
-        { id: 'cordon', label: nodeCordoned ? 'Uncordon' : 'Cordon', action: () => handleCordonNode(resource, !nodeCordoned) },
-        { id: 'drain', label: 'Drain', action: () => openDetailDrawer(resource) },
+        {
+          id: 'cordon',
+          label: nodeCordoned ? 'Uncordon' : 'Cordon',
+          action: () => handleCordonNode(resource, !nodeCordoned)
+        },
+        { id: 'drain', label: 'Drain', action: () => openDetailDrawer(resource) }
       )
     }
 
@@ -99,7 +100,7 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
       { type: 'separator' },
       { id: 'copy', label: '复制名称', action: () => navigator.clipboard.writeText(resource.name) },
       { type: 'separator' },
-      { id: 'delete', label: '删除', danger: true, action: () => {} },
+      { id: 'delete', label: '删除', danger: true, action: () => {} }
     )
 
     return items
@@ -146,11 +147,7 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
                   toggleRow(r.name)
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={selected.has(r.name)}
-                  onChange={() => toggleRow(r.name)}
-                />
+                <input type="checkbox" checked={selected.has(r.name)} onChange={() => toggleRow(r.name)} />
               </td>
               {columns.map(col => (
                 <td key={col.key} className="px-2 py-1.5">
@@ -162,9 +159,7 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
         </tbody>
       </table>
       {resources.length === 0 && (
-        <div className="flex items-center justify-center py-8 text-[var(--vos-text-tertiary)]">
-          无资源
-        </div>
+        <div className="flex items-center justify-center py-8 text-[var(--vos-text-tertiary)]">无资源</div>
       )}
     </div>
   )

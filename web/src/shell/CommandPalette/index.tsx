@@ -82,11 +82,7 @@ export default function CommandPalette() {
     <AnimatePresence>
       {open && (
         <>
-          <div
-            role="presentation"
-            className="fixed inset-0 z-[3999] bg-black/25"
-            onClick={() => setOpen(false)}
-          />
+          <div role="presentation" className="fixed inset-0 z-[3999] bg-black/25" onClick={() => setOpen(false)} />
           <motion.div
             initial={{ opacity: 0, y: -10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -99,9 +95,7 @@ export default function CommandPalette() {
             }}
           >
             {/* Search input */}
-            <div
-              className="flex items-center gap-2 px-4 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] h-12"
-            >
+            <div className="flex items-center gap-2 px-4 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] h-12">
               <Search size={16} className="text-[var(--vos-text-tertiary)] shrink-0" />
               <input
                 ref={inputRef}
@@ -115,9 +109,7 @@ export default function CommandPalette() {
                 }}
                 onKeyDown={onKeyDown}
               />
-              <kbd
-                className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)] border-[0.5px] border-solid border-[var(--vos-border-default)]"
-              >
+              <kbd className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-[var(--vos-bg-input)] text-[var(--vos-text-tertiary)] border-[0.5px] border-solid border-[var(--vos-border-default)]">
                 ⌘K
               </kbd>
             </div>

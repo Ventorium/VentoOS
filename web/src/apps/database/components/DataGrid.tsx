@@ -23,16 +23,20 @@ const ROW_HEIGHT = 30
 function typeIcon(colType: string | undefined): string {
   if (!colType) return '?'
   const t = colType.toLowerCase()
-  if (t.includes('int') || t.includes('float') || t.includes('double') || t.includes('numeric') || t.includes('decimal') || t.includes('real') || t.includes('serial'))
+  if (
+    t.includes('int') ||
+    t.includes('float') ||
+    t.includes('double') ||
+    t.includes('numeric') ||
+    t.includes('decimal') ||
+    t.includes('real') ||
+    t.includes('serial')
+  )
     return '#'
-  if (t.includes('bool'))
-    return '☑'
-  if (t.includes('date') || t.includes('time') || t.includes('timestamp'))
-    return '⏱'
-  if (t.includes('json'))
-    return '{}'
-  if (t.includes('text') || t.includes('char') || t.includes('varchar') || t.includes('string'))
-    return 'ᴬᴮ'
+  if (t.includes('bool')) return '☑'
+  if (t.includes('date') || t.includes('time') || t.includes('timestamp')) return '⏱'
+  if (t.includes('json')) return '{}'
+  if (t.includes('text') || t.includes('char') || t.includes('varchar') || t.includes('string')) return 'ᴬᴮ'
   return '?'
 }
 
@@ -50,7 +54,7 @@ export function DataGrid({
   onCellEdit,
   selectedRows,
   onSelectRow,
-  editedRows,
+  editedRows
 }: DataGridProps) {
   const [editing, setEditing] = useState<EditingCell | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -63,24 +67,15 @@ export function DataGrid({
     return indices
   }, [columns])
 
-  const sortedColumns = useMemo(
-    () => sortedIndices.map((i) => columns[i]),
-    [sortedIndices, columns],
-  )
+  const sortedColumns = useMemo(() => sortedIndices.map(i => columns[i]), [sortedIndices, columns])
   const sortedColumnTypes = useMemo(
-    () => (columnTypes ? sortedIndices.map((i) => columnTypes[i]) : undefined),
-    [sortedIndices, columnTypes],
+    () => (columnTypes ? sortedIndices.map(i => columnTypes[i]) : undefined),
+    [sortedIndices, columnTypes]
   )
-  const sortedRows = useMemo(
-    () => rows.map((row) => sortedIndices.map((i) => row[i])),
-    [rows, sortedIndices],
-  )
+  const sortedRows = useMemo(() => rows.map(row => sortedIndices.map(i => row[i])), [rows, sortedIndices])
 
   // Translate a sorted column index back to the original index for callbacks.
-  const originalColIndex = useCallback(
-    (sortedCol: number) => sortedIndices[sortedCol] ?? sortedCol,
-    [sortedIndices],
-  )
+  const originalColIndex = useCallback((sortedCol: number) => sortedIndices[sortedCol] ?? sortedCol, [sortedIndices])
 
   const startEdit = useCallback(
     (row: number, col: number) => {
@@ -90,7 +85,7 @@ export function DataGrid({
       setEditing({ row, col })
       requestAnimationFrame(() => inputRef.current?.focus())
     },
-    [readOnly, sortedRows],
+    [readOnly, sortedRows]
   )
 
   const commitEdit = useCallback(() => {
@@ -125,14 +120,14 @@ export function DataGrid({
         startEdit(nextRow, nextCol)
       }
     },
-    [editing, cancelEdit, commitEdit, startEdit, sortedRows.length, sortedColumns.length],
+    [editing, cancelEdit, commitEdit, startEdit, sortedRows.length, sortedColumns.length]
   )
 
   const handleRowClick = useCallback(
     (rowIndex: number, e: React.MouseEvent) => {
       onSelectRow?.(rowIndex, e.shiftKey)
     },
-    [onSelectRow],
+    [onSelectRow]
   )
 
   return (
@@ -141,7 +136,7 @@ export function DataGrid({
         className="flex shrink-0 sticky top-0 z-10"
         style={{
           background: 'var(--vos-bg-elevated)',
-          borderBottom: '1px solid var(--vos-border-subtle)',
+          borderBottom: '1px solid var(--vos-border-subtle)'
         }}
       >
         <div
@@ -151,7 +146,7 @@ export function DataGrid({
             minWidth: 52,
             color: 'var(--vos-text-tertiary)',
             borderRight: '1px solid var(--vos-border-subtle)',
-            height: ROW_HEIGHT,
+            height: ROW_HEIGHT
           }}
         >
           #
@@ -165,13 +160,10 @@ export function DataGrid({
               flex: '1 0 120px',
               color: 'var(--vos-text-secondary)',
               borderRight: '1px solid var(--vos-border-subtle)',
-              height: ROW_HEIGHT,
+              height: ROW_HEIGHT
             }}
           >
-            <span
-              className="shrink-0 text-[10px]"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-            >
+            <span className="shrink-0 text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
               {typeIcon(sortedColumnTypes?.[ci])}
             </span>
             <span className="truncate">{col}</span>
@@ -188,11 +180,15 @@ export function DataGrid({
               key={ri}
               className="flex"
               style={{
-                background: isSelected ? 'var(--vos-bg-selected)' : ri % 2 === 0 ? 'transparent' : 'var(--vos-bg-elevated)',
+                background: isSelected
+                  ? 'var(--vos-bg-selected)'
+                  : ri % 2 === 0
+                    ? 'transparent'
+                    : 'var(--vos-bg-elevated)',
                 borderBottom: '1px solid var(--vos-border-subtle)',
-                minHeight: ROW_HEIGHT,
+                minHeight: ROW_HEIGHT
               }}
-              onClick={(e) => handleRowClick(ri, e)}
+              onClick={e => handleRowClick(ri, e)}
             >
               <div
                 className="shrink-0 flex items-center justify-center text-xs px-2"
@@ -200,14 +196,10 @@ export function DataGrid({
                   width: 52,
                   minWidth: 52,
                   color: 'var(--vos-text-tertiary)',
-                  borderRight: '1px solid var(--vos-border-subtle)',
+                  borderRight: '1px solid var(--vos-border-subtle)'
                 }}
               >
-                {isEdited ? (
-                  <Pencil size={12} style={{ color: 'var(--vos-warning)' }} />
-                ) : (
-                  ri + 1
-                )}
+                {isEdited ? <Pencil size={12} style={{ color: 'var(--vos-warning)' }} /> : ri + 1}
               </div>
               {row.map((cell, ci) => {
                 const isEditingThis = editing?.row === ri && editing?.col === ci
@@ -220,7 +212,7 @@ export function DataGrid({
                       minWidth: 120,
                       flex: '1 0 120px',
                       borderRight: '1px solid var(--vos-border-subtle)',
-                      minHeight: ROW_HEIGHT,
+                      minHeight: ROW_HEIGHT
                     }}
                     onDoubleClick={() => startEdit(ri, ci)}
                   >
@@ -232,10 +224,10 @@ export function DataGrid({
                           background: 'var(--vos-bg-input)',
                           color: 'var(--vos-text-primary)',
                           border: '1px solid var(--vos-accent-primary)',
-                          borderRadius: 2,
+                          borderRadius: 2
                         }}
                         value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
+                        onChange={e => setEditValue(e.target.value)}
                         onBlur={commitEdit}
                         onKeyDown={handleKeyDown}
                       />
@@ -243,7 +235,7 @@ export function DataGrid({
                       <span
                         className={isNull ? 'italic' : ''}
                         style={{
-                          color: isNull ? 'var(--vos-text-tertiary)' : 'var(--vos-text-primary)',
+                          color: isNull ? 'var(--vos-text-tertiary)' : 'var(--vos-text-primary)'
                         }}
                       >
                         {text}

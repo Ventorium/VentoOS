@@ -86,15 +86,11 @@ function TunnelCard({
   const providerLabel = getProviderLabel(exposure.name)
 
   return (
-    <div
-      className="pa-card bg-[#1e1e1e] border border-[#333] rounded-[8px] p-4 flex flex-col gap-3"
-    >
+    <div className="pa-card bg-[#1e1e1e] border border-[#333] rounded-[8px] p-4 flex flex-col gap-3">
       {/* Header: provider + status + actions */}
       <div className="flex items-center gap-2">
         <Globe size={18} className="shrink-0" style={{ color: statusColor(exposure.status) }} />
-        <span
-          className="text-[14px] font-medium text-[var(--vos-text-primary)] flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
-        >
+        <span className="text-[14px] font-medium text-[var(--vos-text-primary)] flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
           {providerLabel}
         </span>
         <StatusBadge status={exposure.status} icon={<CircleDot size={10} />} />
@@ -103,9 +99,7 @@ function TunnelCard({
       {/* Local service address */}
       <div className="flex items-center gap-2 text-xs">
         <span className="text-[var(--vos-text-tertiary)]">本地服务:</span>
-        <span
-          className="font-mono text-[var(--vos-text-secondary)]"
-        >
+        <span className="font-mono text-[var(--vos-text-secondary)]">
           {exposure.source_host}:{exposure.source_port}
         </span>
       </div>
@@ -129,19 +123,13 @@ function TunnelCard({
       {isRunning && !exposure.public_url && exposure.public_port > 0 && (
         <div className="flex items-center gap-2 text-xs">
           <span className="text-[var(--vos-text-tertiary)]">公网端口:</span>
-          <span
-            className="font-mono text-[var(--vos-accent-primary)]"
-          >
-            {exposure.public_port}
-          </span>
+          <span className="font-mono text-[var(--vos-accent-primary)]">{exposure.public_port}</span>
         </div>
       )}
 
       {/* Starting indicator */}
       {isRunning && !hasPublicInfo && (
-        <div className="text-xs text-[var(--vos-text-tertiary)] italic">
-          正在建立隧道，等待公网地址…
-        </div>
+        <div className="text-xs text-[var(--vos-text-tertiary)] italic">正在建立隧道，等待公网地址…</div>
       )}
 
       {/* Actions row */}
@@ -273,7 +261,11 @@ function TunnelFormModal({
         <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
           服务提供商 <span className="text-[#ff453a]">*</span>
         </label>
-        <select className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border appearance-auto" value={form.providerId} onChange={e => updateField('providerId', e.target.value)}>
+        <select
+          className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border appearance-auto"
+          value={form.providerId}
+          onChange={e => updateField('providerId', e.target.value)}
+        >
           {publicAccessProviders.map(p => (
             <option key={p.id} value={p.id}>
               {p.name} — {p.description}
@@ -293,9 +285,7 @@ function TunnelFormModal({
           onChange={e => updateField('localAddress', e.target.value)}
           placeholder="localhost:3000"
         />
-        <span className="text-[11px] text-[var(--vos-text-tertiary)] mt-0.5 block">
-          要暴露到公网的本地服务地址
-        </span>
+        <span className="text-[11px] text-[var(--vos-text-tertiary)] mt-0.5 block">要暴露到公网的本地服务地址</span>
       </div>
 
       {isCustom && (
@@ -316,9 +306,7 @@ function TunnelFormModal({
       {sshCommand && (
         <div className="mb-3">
           <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">SSH 命令预览</label>
-          <div
-            className="py-2 px-3 border border-[#333] rounded font-mono text-xs text-[var(--vos-accent-success)] leading-[1.6] break-all"
-          >
+          <div className="py-2 px-3 border border-[#333] rounded font-mono text-xs text-[var(--vos-accent-success)] leading-[1.6] break-all">
             {sshCommand}
           </div>
         </div>
@@ -458,9 +446,7 @@ export default function PublicAccess() {
       <style>{hoverStyles}</style>
 
       {/* Toolbar */}
-      <div
-        className="flex items-center gap-2 px-4 py-2 border-b border-b-[#333] shrink-0"
-      >
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-b-[#333] shrink-0">
         <button type="button" className="vos-btn vos-btn-primary vos-btn-sm" onClick={() => setFormOpen(true)}>
           <Plus size={14} className="mr-1" />
           新建隧道
@@ -485,9 +471,7 @@ export default function PublicAccess() {
           }
         />
       ) : (
-        <div
-          className="flex-1 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3 content-start"
-        >
+        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3 content-start">
           {exposures.map(exposure => (
             <TunnelCard
               key={exposure.id}

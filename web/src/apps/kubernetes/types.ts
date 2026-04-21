@@ -117,15 +117,7 @@ export interface ResourceTypeDef {
   label: string
   pluralLabel: string
   icon: LucideIcon
-  category:
-    | 'cluster'
-    | 'workloads'
-    | 'config'
-    | 'network'
-    | 'storage'
-    | 'access'
-    | 'custom'
-    | 'helm'
+  category: 'cluster' | 'workloads' | 'config' | 'network' | 'storage' | 'access' | 'custom' | 'helm'
   namespaced: boolean
   detailTabs: string[]
   columns: ResourceColumn[]

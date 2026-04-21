@@ -86,7 +86,7 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
           const resp = await fetch(`/api/vfs/mounts/${encodeURIComponent(mId)}/upload`, {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: formData,
+            body: formData
           })
           if (!resp.ok) console.error('Save failed:', await resp.text())
         } catch (err) {
@@ -100,17 +100,25 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
           if (!imageData || !fileName) return
           const ext = fileName.split('.').pop()?.toLowerCase() ?? 'png'
           const mimeMap: Record<string, string> = {
-            png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-            gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp', svg: 'image/svg+xml',
+            png: 'image/png',
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            gif: 'image/gif',
+            bmp: 'image/bmp',
+            webp: 'image/webp',
+            svg: 'image/svg+xml'
           }
           const blob = new Blob([imageData], { type: mimeMap[ext] ?? 'image/png' })
           const url = URL.createObjectURL(blob)
           mediaRef.current[`media/${fileName}`] = url
           // Forward updated media map back to iframe
-          iframeRef.current?.contentWindow?.postMessage({
-            type: 'updateMedia',
-            media: mediaRef.current
-          }, '*')
+          iframeRef.current?.contentWindow?.postMessage(
+            {
+              type: 'updateMedia',
+              media: mediaRef.current
+            },
+            '*'
+          )
         } catch (err) {
           console.error('handleWriteFile error:', err)
         }
@@ -157,11 +165,14 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
         const sendToIframe = () => {
           const win = iframeRef.current?.contentWindow
           if (!win) return
-          win.postMessage({
-            type: 'openDocument',
-            token,
-            payload: { bin, media, fileExt, fileName: node.name }
-          }, '*')
+          win.postMessage(
+            {
+              type: 'openDocument',
+              token,
+              payload: { bin, media, fileExt, fileName: node.name }
+            },
+            '*'
+          )
         }
 
         setMode('editor')
@@ -176,7 +187,9 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
       }
     })()
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [mountId, node?.path]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup on unmount
@@ -231,12 +244,7 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   return (
     <div className="w-full h-full bg-[var(--vos-bg-primary)]">
-      <iframe
-        ref={iframeRef}
-        src="/office-editor.html"
-        className="w-full h-full border-none"
-        title="Office Editor"
-      />
+      <iframe ref={iframeRef} src="/office-editor.html" className="w-full h-full border-none" title="Office Editor" />
       {filePicker}
     </div>
   )

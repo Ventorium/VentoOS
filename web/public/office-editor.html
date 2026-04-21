@@ -27,7 +27,7 @@
     }
 
     // Listen for commands from parent window
-    window.addEventListener('message', function(e) {
+    window.addEventListener('message', (e) => {
       const msg = e.data;
 
       if (msg.type === 'openDocument') {
@@ -79,17 +79,17 @@
           },
         },
         events: {
-          onAppReady: function() {
+          onAppReady: () => {
             if (media && Object.keys(media).length > 0) {
               editor.sendCommand({ command: 'asc_setImageUrls', data: { urls: media } });
             }
             editor.sendCommand({ command: 'asc_openDocument', data: { buf: bin } });
             parent.postMessage({ type: 'editorReady', token }, '*');
           },
-          onDocumentReady: function() {
+          onDocumentReady: () => {
             parent.postMessage({ type: 'documentReady', token }, '*');
           },
-          onSave: function(event) {
+          onSave: (event) => {
             parent.postMessage({
               type: 'saveDocument',
               token,
@@ -99,7 +99,7 @@
               }
             }, '*');
           },
-          writeFile: function(event) {
+          writeFile: (event) => {
             parent.postMessage({
               type: 'writeFile',
               token,
@@ -109,7 +109,7 @@
               }
             }, '*');
           },
-          onError: function(event) {
+          onError: (event) => {
             parent.postMessage({
               type: 'editorError',
               token,

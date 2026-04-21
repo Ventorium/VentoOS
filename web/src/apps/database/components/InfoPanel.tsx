@@ -1,10 +1,4 @@
-import {
-  Database,
-  Layers,
-  Link,
-  Server,
-  Table,
-} from 'lucide-react'
+import { Database, Layers, Link, Server, Table } from 'lucide-react'
 import { useDatabaseStore } from '../stores'
 import type { InfoPanelData, TreeNodeType } from '../types'
 
@@ -17,11 +11,11 @@ const TYPE_LABELS: Partial<Record<TreeNodeType, string>> = {
   materialized_view: '实体化视图',
   function: '函数',
   event: '事件',
-  trigger: '触发器',
+  trigger: '触发器'
 }
 
 function TypeIcon({ type }: { type: TreeNodeType }) {
-  const className = "text-(--vos-text-secondary)"
+  const className = 'text-(--vos-text-secondary)'
   switch (type) {
     case 'connection':
       return <Server size={32} className={className} />
@@ -37,9 +31,7 @@ function TypeIcon({ type }: { type: TreeNodeType }) {
 }
 
 function MetaList({ meta }: { meta: InfoPanelData['meta'] }) {
-  const entries = Object.entries(meta).filter(
-    ([, v]) => v !== undefined && v !== null && v !== '',
-  )
+  const entries = Object.entries(meta).filter(([, v]) => v !== undefined && v !== null && v !== '')
   if (entries.length === 0) return null
 
   return (
@@ -72,9 +64,7 @@ export function InfoPanel() {
           {/* Header */}
           <div className="flex flex-col items-center gap-2 py-2">
             <TypeIcon type={infoPanelData.type} />
-            <div className="text-sm font-medium text-(--vos-text) text-center break-all">
-              {infoPanelData.name}
-            </div>
+            <div className="text-sm font-medium text-(--vos-text) text-center break-all">{infoPanelData.name}</div>
             <span className="px-2 py-0.5 rounded text-[10px] bg-(--vos-bg-hover) text-(--vos-text-secondary)">
               {TYPE_LABELS[infoPanelData.type] ?? infoPanelData.type}
             </span>
