@@ -1,5 +1,4 @@
 import { Plus, X } from 'lucide-react'
-import { useCallback, useRef } from 'react'
 import { useClusterStore } from '../../stores/cluster-store'
 import { useKubernetesStore } from '../../stores/kubernetes-store'
 import { getResourceDef } from '../../utils/resource-registry'
@@ -9,33 +8,9 @@ export function K8sTabBar() {
   const activeTabId = useKubernetesStore(s => s.activeTabId)
   const setActiveTab = useKubernetesStore(s => s.setActiveTab)
   const closeTab = useKubernetesStore(s => s.closeTab)
-  const closeOtherTabs = useKubernetesStore(s => s.closeOtherTabs)
-  const closeTabsToTheRight = useKubernetesStore(s => s.closeTabsToTheRight)
-  const reorderTabs = useKubernetesStore(s => s.reorderTabs)
   const pinTab = useKubernetesStore(s => s.pinTab)
   const openTab = useKubernetesStore(s => s.openTab)
   const clusters = useClusterStore(s => s.clusters)
-
-  const dragFromRef = useRef<number | null>(null)
-  const dragToRef = useRef<number | null>(null)
-
-  const handleDragStart = useCallback((index: number) => {
-    dragFromRef.current = index
-  }, [])
-
-  const handleDragOver = useCallback((index: number) => {
-    dragToRef.current = index
-  }, [])
-
-  const handleDragEnd = useCallback(() => {
-    const from = dragFromRef.current
-    const to = dragToRef.current
-    dragFromRef.current = null
-    dragToRef.current = null
-    if (from !== null && to !== null && from !== to) {
-      reorderTabs(from, to)
-    }
-  }, [reorderTabs])
 
   const handleAuxClick = (e: React.MouseEvent, tabId: string) => {
     if (e.button === 1) {
@@ -65,7 +40,6 @@ export function K8sTabBar() {
             key={tab.id}
             role="button"
             tabIndex={0}
-            draggable
             className="flex items-center gap-1.5 px-3 h-full flex-shrink-0 cursor-pointer text-xs group border-r-[0.5px] border-r-[var(--vos-border-subtle)] min-w-[100px] max-w-[240px] select-none"
             style={{
               background: isActive ? 'var(--vos-bg-window)' : 'transparent',
@@ -75,12 +49,6 @@ export function K8sTabBar() {
             onClick={() => setActiveTab(tab.id)}
             onDoubleClick={() => { if (tab.isPreview) pinTab(tab.id) }}
             onAuxClick={e => handleAuxClick(e, tab.id)}
-            onDragStart={() => handleDragStart(i)}
-            onDragOver={e => {
-              e.preventDefault()
-              handleDragOver(i)
-            }}
-            onDragEnd={handleDragEnd}
           >
             <Icon size={11} className="shrink-0" style={{ color: isActive ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)' }} />
             <span className="truncate flex-1" style={{ fontStyle: tab.isPreview ? 'italic' : 'normal' }}>

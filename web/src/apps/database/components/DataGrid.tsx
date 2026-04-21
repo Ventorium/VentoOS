@@ -1,5 +1,5 @@
 import { Pencil } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { VList } from 'virtua'
 
 interface DataGridProps {
@@ -56,26 +56,52 @@ export function DataGrid({
   const [editValue, setEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Sort columns alphabetically; keep row data and types aligned.
+  const sortedIndices = useMemo(() => {
+    const indices = columns.map((_, i) => i)
+    indices.sort((a, b) => columns[a].localeCompare(columns[b]))
+    return indices
+  }, [columns])
+
+  const sortedColumns = useMemo(
+    () => sortedIndices.map((i) => columns[i]),
+    [sortedIndices, columns],
+  )
+  const sortedColumnTypes = useMemo(
+    () => (columnTypes ? sortedIndices.map((i) => columnTypes[i]) : undefined),
+    [sortedIndices, columnTypes],
+  )
+  const sortedRows = useMemo(
+    () => rows.map((row) => sortedIndices.map((i) => row[i])),
+    [rows, sortedIndices],
+  )
+
+  // Translate a sorted column index back to the original index for callbacks.
+  const originalColIndex = useCallback(
+    (sortedCol: number) => sortedIndices[sortedCol] ?? sortedCol,
+    [sortedIndices],
+  )
+
   const startEdit = useCallback(
     (row: number, col: number) => {
       if (readOnly) return
-      const val = rows[row]?.[col]
+      const val = sortedRows[row]?.[col]
       setEditValue(val == null ? '' : String(val))
       setEditing({ row, col })
       requestAnimationFrame(() => inputRef.current?.focus())
     },
-    [readOnly, rows],
+    [readOnly, sortedRows],
   )
 
   const commitEdit = useCallback(() => {
     if (!editing || !onCellEdit) return
-    const original = rows[editing.row]?.[editing.col]
+    const original = sortedRows[editing.row]?.[editing.col]
     const newVal = editValue === '' && original === null ? null : editValue
     if (String(newVal) !== String(original)) {
-      onCellEdit(editing.row, editing.col, newVal)
+      onCellEdit(editing.row, originalColIndex(editing.col), newVal)
     }
     setEditing(null)
-  }, [editing, editValue, onCellEdit, rows])
+  }, [editing, editValue, onCellEdit, sortedRows, originalColIndex])
 
   const cancelEdit = useCallback(() => {
     setEditing(null)
@@ -88,18 +114,18 @@ export function DataGrid({
         cancelEdit()
       } else if (e.key === 'Enter') {
         commitEdit()
-        if (editing.row + 1 < rows.length) {
+        if (editing.row + 1 < sortedRows.length) {
           startEdit(editing.row + 1, editing.col)
         }
       } else if (e.key === 'Tab') {
         e.preventDefault()
         commitEdit()
-        const nextCol = editing.col + 1 < columns.length ? editing.col + 1 : 0
-        const nextRow = nextCol === 0 ? Math.min(editing.row + 1, rows.length - 1) : editing.row
+        const nextCol = editing.col + 1 < sortedColumns.length ? editing.col + 1 : 0
+        const nextRow = nextCol === 0 ? Math.min(editing.row + 1, sortedRows.length - 1) : editing.row
         startEdit(nextRow, nextCol)
       }
     },
-    [editing, cancelEdit, commitEdit, startEdit, rows.length, columns.length],
+    [editing, cancelEdit, commitEdit, startEdit, sortedRows.length, sortedColumns.length],
   )
 
   const handleRowClick = useCallback(
@@ -130,7 +156,7 @@ export function DataGrid({
         >
           #
         </div>
-        {columns.map((col, ci) => (
+        {sortedColumns.map((col, ci) => (
           <div
             key={col}
             className="flex items-center gap-1 px-2 text-xs font-medium truncate"
@@ -146,7 +172,7 @@ export function DataGrid({
               className="shrink-0 text-[10px]"
               style={{ color: 'var(--vos-text-tertiary)' }}
             >
-              {typeIcon(columnTypes?.[ci])}
+              {typeIcon(sortedColumnTypes?.[ci])}
             </span>
             <span className="truncate">{col}</span>
           </div>
@@ -154,7 +180,7 @@ export function DataGrid({
       </div>
 
       <VList style={{ flex: 1 }}>
-        {rows.map((row, ri) => {
+        {sortedRows.map((row, ri) => {
           const isSelected = selectedRows?.has(ri) ?? false
           const isEdited = editedRows?.has(ri) ?? false
           return (

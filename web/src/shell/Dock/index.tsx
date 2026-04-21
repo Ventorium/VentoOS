@@ -4,11 +4,8 @@
  * Features:
  * - Spring hover magnification
  * - Running indicator dot
- * - Long-press drag to reorder (500ms hold)
- * - Drag onto another icon for 2s to create/merge folder
  * - Folder: 3×3 preview grid in dock, full popup on click
  * - Folder: rename (click name → edit → Enter/Esc)
- * - Folder: drag-sort inside popup
  * - Layout persisted to backend
  */
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
@@ -37,35 +34,6 @@ import { useDockPositionStore } from './dockPositionStore'
 const { gap } = tokens.dock
 const HOVER_SCALE = 1.45
 const NEIGHBOR_SCALE = 1.0
-const LONG_PRESS_MS = 500
-const DRAG_MOVE_THRESHOLD = 5
-
-/* ─── SVG circular progress ring for folder hover ─── */
-function FolderHoverRing({ progress, size }: { progress: number; size: number }) {
-  const r = size / 2 - 3
-  const circ = 2 * Math.PI * r
-  const offset = circ * (1 - progress)
-  return (
-    <svg
-      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 10 }}
-      width={size}
-      height={size}
-    >
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="rgba(255,255,255,0.9)"
-        strokeWidth={3}
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-      />
-    </svg>
-  )
-}
 
 /* ─── DockIcon ─── */
 function DockIcon({
@@ -78,10 +46,7 @@ function DockIcon({
   mouseX,
   iconSize,
   magnification,
-  isHorizontal,
-  isDragActive,
-  onMouseDown,
-  mergeProgress
+  isHorizontal
 }: {
   label: string
   icon: React.ReactNode
@@ -93,9 +58,6 @@ function DockIcon({
   iconSize: number
   magnification: boolean
   isHorizontal: boolean
-  isDragActive?: boolean
-  onMouseDown?: (e: React.MouseEvent) => void
-  mergeProgress?: number
 }) {
   const ref = useRef<HTMLButtonElement>(null)
   const [hovered, setHovered] = useState(false)
@@ -121,7 +83,7 @@ function DockIcon({
     return Math.abs(val - center)
   })
 
-  const shouldMagnify = magnification && !isDragActive
+  const shouldMagnify = magnification
   const scale = useSpring(
     useTransform(distance, [0, 40, 80], shouldMagnify ? [HOVER_SCALE, NEIGHBOR_SCALE, 1] : [1, 1, 1]),
     { stiffness: 350, damping: 30, mass: 0.5 }
@@ -144,11 +106,8 @@ function DockIcon({
   }
 
   return (
-    <div
-      className={clsx('relative flex items-center', isHorizontal ? 'flex-col' : 'flex-row')}
-      onMouseDown={onMouseDown}
-    >
-      {hovered && !isDragActive && (
+    <div className={clsx('relative flex items-center', isHorizontal ? 'flex-col' : 'flex-row')}>
+      {hovered && (
         <motion.div
           initial={{ opacity: 0, y: isHorizontal ? 4 : 0, x: isHorizontal ? 0 : -4 }}
           animate={{ opacity: 1, y: 0, x: 0 }}
@@ -160,9 +119,6 @@ function DockIcon({
       )}
 
       <div className="relative">
-        {mergeProgress !== undefined && mergeProgress > 0 && (
-          <FolderHoverRing progress={mergeProgress} size={iconSize} />
-        )}
         <motion.button
           ref={ref}
           type="button"
@@ -197,11 +153,8 @@ function DockFolderIcon({
   isHorizontal,
   mouseX,
   magnification,
-  isDragActive,
-  onMouseDown,
   onClick,
-  onContextMenu,
-  mergeProgress
+  onContextMenu
 }: {
   folder: DockFolderItem
   appsMap: Map<string, AppManifest>
@@ -209,11 +162,8 @@ function DockFolderIcon({
   isHorizontal: boolean
   mouseX: ReturnType<typeof useMotionValue<number>>
   magnification: boolean
-  isDragActive: boolean
-  onMouseDown?: (e: React.MouseEvent) => void
   onClick: () => void
   onContextMenu?: (e: React.MouseEvent) => void
-  mergeProgress?: number
 }) {
   const [hovered, setHovered] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)
@@ -225,7 +175,7 @@ function DockFolderIcon({
     return Math.abs(val - center)
   })
 
-  const shouldMagnify = magnification && !isDragActive
+  const shouldMagnify = magnification
   const scale = useSpring(
     useTransform(distance, [0, 40, 80], shouldMagnify ? [HOVER_SCALE, NEIGHBOR_SCALE, 1] : [1, 1, 1]),
     { stiffness: 350, damping: 30, mass: 0.5 }
@@ -244,11 +194,8 @@ function DockFolderIcon({
   const miniPad = iconSize * 0.08
 
   return (
-    <div
-      className={clsx('relative flex items-center', isHorizontal ? 'flex-col' : 'flex-row')}
-      onMouseDown={onMouseDown}
-    >
-      {hovered && !isDragActive && (
+    <div className={clsx('relative flex items-center', isHorizontal ? 'flex-col' : 'flex-row')}>
+      {hovered && (
         <motion.div
           initial={{ opacity: 0, y: isHorizontal ? 4 : 0 }}
           animate={{ opacity: 1, y: 0 }}
@@ -260,9 +207,6 @@ function DockFolderIcon({
       )}
 
       <div className="relative">
-        {mergeProgress !== undefined && mergeProgress > 0 && (
-          <FolderHoverRing progress={mergeProgress} size={iconSize} />
-        )}
         <motion.button
           ref={ref}
           type="button"
@@ -316,24 +260,6 @@ function DockFolderIcon({
         </motion.button>
       </div>
     </div>
-  )
-}
-
-/* ─── Drop gap indicator ─── */
-function DropGapIndicator({ iconSize, isHorizontal }: { iconSize: number; isHorizontal: boolean }) {
-  return (
-    <div
-      style={{
-        width: isHorizontal ? 2 : iconSize * 0.8,
-        height: isHorizontal ? iconSize * 0.8 : 2,
-        background: 'rgba(255,255,255,0.8)',
-        borderRadius: 2,
-        alignSelf: 'center',
-        flexShrink: 0,
-        boxShadow: '0 0 6px rgba(255,255,255,0.6)',
-        zIndex: 5
-      }}
-    />
   )
 }
 
@@ -393,8 +319,7 @@ function FolderPopup({
   iconSize,
   onClose,
   onOpenApp,
-  onRename,
-  onReorderApp
+  onRename
 }: {
   folder: DockFolderItem
   anchorRect: DOMRect
@@ -405,22 +330,11 @@ function FolderPopup({
   onClose: () => void
   onOpenApp: (appId: string) => void
   onRename: (name: string) => void
-  onReorderApp: (fromIdx: number, gapIdx: number) => void
 }) {
   const [isRenaming, setIsRenaming] = useState(false)
   const [nameInput, setNameInput] = useState(folder.name)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const popupRef = useRef<HTMLDivElement>(null)
-
-  const [folderDrag, setFolderDrag] = useState<{
-    fromIdx: number
-    ghostX: number
-    ghostY: number
-    offsetX: number
-    offsetY: number
-    dropGapIdx: number | null
-  } | null>(null)
-  const folderItemRefs = useRef<(HTMLDivElement | null)[]>([])
 
   useEffect(() => {
     if (isRenaming) {
@@ -461,245 +375,154 @@ function FolderPopup({
     popupStyle.top = Math.max(8, anchorRect.top + anchorRect.height / 2 - 150)
   }
 
-  function computeFolderDropGap(clientX: number, clientY: number): number {
-    const rects = folderItemRefs.current.map(el => el?.getBoundingClientRect())
-    let gapIdx = folder.appIds.length
-    for (let i = 0; i < rects.length; i++) {
-      const r = rects[i]
-      if (!r) continue
-      const midX = r.left + r.width / 2
-      const midY = r.top + r.height / 2
-      // Check if cursor is in the top-left quadrant of this item
-      if (clientY < midY) {
-        if (clientX < midX) {
-          gapIdx = i
-          break
-        }
-      }
-    }
-    return gapIdx
-  }
-
-  function handleFolderItemMouseDown(idx: number, e: React.MouseEvent) {
-    e.stopPropagation()
-    const el = folderItemRefs.current[idx]
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const offsetX = e.clientX - rect.left
-    const offsetY = e.clientY - rect.top
-    const startX = e.clientX
-    const startY = e.clientY
-    let activated = false
-
-    const onMove = (me: MouseEvent) => {
-      if (!activated) {
-        const dx = Math.abs(me.clientX - startX)
-        const dy = Math.abs(me.clientY - startY)
-        if (dx < DRAG_MOVE_THRESHOLD && dy < DRAG_MOVE_THRESHOLD) return
-        activated = true
-        setFolderDrag({ fromIdx: idx, ghostX: me.clientX, ghostY: me.clientY, offsetX, offsetY, dropGapIdx: null })
-      }
-      const dropGapIdx = computeFolderDropGap(me.clientX, me.clientY)
-      setFolderDrag(prev => prev ? { ...prev, ghostX: me.clientX, ghostY: me.clientY, dropGapIdx } : null)
-    }
-
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      setFolderDrag(prev => {
-        if (prev && prev.dropGapIdx !== null) {
-          onReorderApp(prev.fromIdx, prev.dropGapIdx)
-        }
-        return null
-      })
-    }
-
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }
-
   const appIds = folder.appIds
 
   return ReactDOM.createPortal(
-    <>
-      <div style={popupStyle}>
-        <motion.div
-          ref={popupRef}
-          initial={{ opacity: 0, scale: 0.92, y: dockPosition === 'bottom' ? 10 : 0 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.92, y: dockPosition === 'bottom' ? 10 : 0 }}
-          transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
-          style={{
-            width: popupWidth,
-            maxHeight: 380,
-            background: 'var(--vos-bg-dock)',
-            backdropFilter: 'blur(24px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-            borderRadius: 16,
-            border: '0.5px solid var(--vos-border-default)',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
-        >
-          {/* Folder name header */}
-          <div style={{ padding: '12px 14px 6px', textAlign: 'center', flexShrink: 0 }}>
-            {isRenaming ? (
-              <input
-                ref={nameInputRef}
-                value={nameInput}
-                onChange={e => setNameInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    onRename(nameInput.trim() || folder.name)
-                    setIsRenaming(false)
-                  } else if (e.key === 'Escape') {
-                    setNameInput(folder.name)
-                    setIsRenaming(false)
-                  }
-                }}
-                onBlur={() => {
+    <div style={popupStyle}>
+      <motion.div
+        ref={popupRef}
+        initial={{ opacity: 0, scale: 0.92, y: dockPosition === 'bottom' ? 10 : 0 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.92, y: dockPosition === 'bottom' ? 10 : 0 }}
+        transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
+        style={{
+          width: popupWidth,
+          maxHeight: 380,
+          background: 'var(--vos-bg-dock)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          borderRadius: 16,
+          border: '0.5px solid var(--vos-border-default)',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Folder name header */}
+        <div style={{ padding: '12px 14px 6px', textAlign: 'center', flexShrink: 0 }}>
+          {isRenaming ? (
+            <input
+              ref={nameInputRef}
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
                   onRename(nameInput.trim() || folder.name)
                   setIsRenaming(false)
-                }}
-                style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  border: '1px solid rgba(255,255,255,0.35)',
-                  borderRadius: 6,
-                  color: 'var(--vos-text-primary)',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  padding: '3px 10px',
-                  textAlign: 'center',
-                  outline: 'none',
-                  width: '80%'
-                }}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsRenaming(true)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--vos-text-primary)',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  padding: '3px 10px',
-                  borderRadius: 6
-                }}
-                title="点击重命名"
-              >
-                {folder.name}
-              </button>
-            )}
-          </div>
-
-          {/* App grid (scrollable, drag-sortable) */}
-          <div
-            style={{
-              overflowY: 'auto',
-              padding: '4px 14px 14px',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 10,
-              rowGap: 14
-            }}
-          >
-            {appIds.map((appId, idx) => {
-              const app = appsMap.get(appId)
-              const isRunning = windows.some(w => w.appId === appId)
-              const isDraggingThis = folderDrag?.fromIdx === idx
-
-              return (
-                <div
-                  key={appId}
-                  ref={el => { folderItemRefs.current[idx] = el }}
-                  style={{ opacity: isDraggingThis ? 0.25 : 1, transition: 'opacity 0.15s' }}
-                  onMouseDown={e => handleFolderItemMouseDown(idx, e)}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'grab' }}>
-                    <button
-                      type="button"
-                      style={{
-                        width: appItemSize,
-                        height: appItemSize,
-                        borderRadius: appItemSize * 0.22,
-                        overflow: 'hidden',
-                        border: isRunning ? '2px solid var(--vos-accent-primary)' : '2px solid transparent',
-                        cursor: 'pointer',
-                        background: 'none',
-                        padding: 0,
-                        flexShrink: 0
-                      }}
-                      onClick={e => {
-                        e.stopPropagation()
-                        onOpenApp(appId)
-                        onClose()
-                      }}
-                    >
-                      {app?.icon}
-                    </button>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: 'var(--vos-text-secondary)',
-                        textAlign: 'center',
-                        maxWidth: appItemSize,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {app?.name ?? appId}
-                    </span>
-                    {isRunning && (
-                      <div
-                        style={{
-                          width: 5,
-                          height: 5,
-                          borderRadius: '50%',
-                          background: 'var(--vos-accent-primary)',
-                          marginTop: -6
-                        }}
-                      />
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Ghost for internal folder drag */}
-      {folderDrag &&
-        (() => {
-          const app = appsMap.get(folder.appIds[folderDrag.fromIdx])
-          return ReactDOM.createPortal(
-            <div
-              style={{
-                position: 'fixed',
-                left: folderDrag.ghostX - folderDrag.offsetX,
-                top: folderDrag.ghostY - folderDrag.offsetY,
-                width: appItemSize,
-                height: appItemSize,
-                borderRadius: appItemSize * 0.22,
-                overflow: 'hidden',
-                opacity: 0.8,
-                transform: 'scale(1.1)',
-                pointerEvents: 'none',
-                zIndex: 9999
+                } else if (e.key === 'Escape') {
+                  setNameInput(folder.name)
+                  setIsRenaming(false)
+                }
               }}
+              onBlur={() => {
+                onRename(nameInput.trim() || folder.name)
+                setIsRenaming(false)
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.35)',
+                borderRadius: 6,
+                color: 'var(--vos-text-primary)',
+                fontSize: 13,
+                fontWeight: 500,
+                padding: '3px 10px',
+                textAlign: 'center',
+                outline: 'none',
+                width: '80%'
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsRenaming(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--vos-text-primary)',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+                padding: '3px 10px',
+                borderRadius: 6
+              }}
+              title="点击重命名"
             >
-              {app?.icon}
-            </div>,
-            document.body
-          )
-        })()}
-    </>,
+              {folder.name}
+            </button>
+          )}
+        </div>
+
+        {/* App grid (scrollable) */}
+        <div
+          style={{
+            overflowY: 'auto',
+            padding: '4px 14px 14px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 10,
+            rowGap: 14
+          }}
+        >
+          {appIds.map(appId => {
+            const app = appsMap.get(appId)
+            const isRunning = windows.some(w => w.appId === appId)
+
+            return (
+              <div key={appId}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <button
+                    type="button"
+                    style={{
+                      width: appItemSize,
+                      height: appItemSize,
+                      borderRadius: appItemSize * 0.22,
+                      overflow: 'hidden',
+                      border: isRunning ? '2px solid var(--vos-accent-primary)' : '2px solid transparent',
+                      cursor: 'pointer',
+                      background: 'none',
+                      padding: 0,
+                      flexShrink: 0
+                    }}
+                    onClick={e => {
+                      e.stopPropagation()
+                      onOpenApp(appId)
+                      onClose()
+                    }}
+                  >
+                    {app?.icon}
+                  </button>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--vos-text-secondary)',
+                      textAlign: 'center',
+                      maxWidth: appItemSize,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {app?.name ?? appId}
+                  </span>
+                  {isRunning && (
+                    <div
+                      style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: '50%',
+                        background: 'var(--vos-accent-primary)',
+                        marginTop: -6
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </motion.div>
+    </div>,
     document.body
   )
 }
@@ -716,9 +539,7 @@ export default function Dock() {
   const dockItems = useDockLayoutStore(s => s.items)
   const loaded = useDockLayoutStore(s => s.loaded)
   const setItems = useDockLayoutStore(s => s.setItems)
-  const moveItem = useDockLayoutStore(s => s.moveItem)
   const renameFolder = useDockLayoutStore(s => s.renameFolder)
-  const reorderFolderApp = useDockLayoutStore(s => s.reorderFolderApp)
   const pinApp = useDockLayoutStore(s => s.pin)
   const unpinApp = useDockLayoutStore(s => s.unpin)
 
@@ -737,24 +558,6 @@ export default function Dock() {
       .map(a => ({ type: 'app' as const, appId: a.id }))
     return [...dockItems, ...runningUnpinned]
   }, [dockItems, loaded, allVisibleApps, appsMap, runningAppIds])
-
-  // ─── Drag state ───
-  const [dragActive, setDragActive] = useState(false)
-  const [dragFromIndex, setDragFromIndex] = useState<number | null>(null)
-  const [ghostPos, setGhostPos] = useState({ x: 0, y: 0 })
-  const [ghostOffset, setGhostOffset] = useState({ x: 0, y: 0 })
-  const [dropGapIndex, setDropGapIndex] = useState<number | null>(null)
-  const [mergeTarget, setMergeTarget] = useState<{ index: number; progress: number } | null>(null)
-
-  const dragActiveRef = useRef(false)
-  const dragFromIndexRef = useRef<number | null>(null)
-  const dropGapIndexRef = useRef<number | null>(null)
-  const mergeTimerRef = useRef<{ index: number; enterTime: number; rafId: number } | null>(null)
-  const itemRefs = useRef<(HTMLDivElement | null)[]>([])
-  const longPressRef = useRef<{ index: number; timerId: ReturnType<typeof setTimeout> } | null>(null)
-  const displayItemsRef = useRef(displayItems)
-  useEffect(() => { displayItemsRef.current = displayItems }, [displayItems])
-  const dragJustEndedRef = useRef(false)
 
   // ─── Folder popup ───
   const [openFolderIndex, setOpenFolderIndex] = useState<number | null>(null)
@@ -783,125 +586,6 @@ export default function Dock() {
     if (!autoHide) return
     hideTimer.current = setTimeout(() => setVisible(false), 800)
   }, [autoHide])
-
-  // ─── Drag helpers ───
-  function clearMergeTimer() {
-    if (mergeTimerRef.current?.rafId) cancelAnimationFrame(mergeTimerRef.current.rafId)
-    mergeTimerRef.current = null
-    setMergeTarget(null)
-  }
-
-  function computeDropGap(clientX: number, clientY: number): number {
-    const rects = itemRefs.current.slice(0, displayItemsRef.current.length).map(el => el?.getBoundingClientRect())
-    const coord = isHorizontal ? clientX : clientY
-    for (let i = 0; i < rects.length; i++) {
-      const r = rects[i]
-      if (!r) continue
-      const mid = isHorizontal ? r.left + r.width / 2 : r.top + r.height / 2
-      if (coord < mid) return i
-    }
-    return rects.filter(Boolean).length
-  }
-
-  const handleGlobalMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!dragActiveRef.current) return
-      setGhostPos({ x: e.clientX, y: e.clientY })
-      // Dock drag only reorders — no folder creation
-      clearMergeTimer()
-      const gapIdx = computeDropGap(e.clientX, e.clientY)
-      setDropGapIndex(gapIdx)
-      dropGapIndexRef.current = gapIdx
-    },
-    [] // eslint-disable-line react-hooks/exhaustive-deps
-  )
-
-  function endDrag() {
-    window.removeEventListener('mousemove', handleGlobalMouseMove)
-    window.removeEventListener('mouseup', handleGlobalMouseUp) // eslint-disable-line @typescript-eslint/no-use-before-define
-    clearMergeTimer()
-    dragActiveRef.current = false
-    setDragActive(false)
-    setDragFromIndex(null)
-    dragFromIndexRef.current = null
-    setDropGapIndex(null)
-    dropGapIndexRef.current = null
-    // Prevent click from firing after drag
-    dragJustEndedRef.current = true
-    setTimeout(() => { dragJustEndedRef.current = false }, 50)
-  }
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleGlobalMouseUp = useCallback(() => {
-    const from = dragFromIndexRef.current
-    const gapIdx = dropGapIndexRef.current
-    if (from !== null && gapIdx !== null) {
-      moveItem(from, gapIdx)
-    }
-    endDrag()
-  }, [moveItem]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  function activateDrag(index: number, x: number, y: number, offsetX: number, offsetY: number) {
-    dragActiveRef.current = true
-    dragFromIndexRef.current = index
-    setDragActive(true)
-    setDragFromIndex(index)
-    setGhostPos({ x, y })
-    setGhostOffset({ x: offsetX, y: offsetY })
-    setOpenFolderIndex(null)
-    window.addEventListener('mousemove', handleGlobalMouseMove)
-    window.addEventListener('mouseup', handleGlobalMouseUp)
-  }
-
-  function handleItemMouseDown(index: number, e: React.MouseEvent) {
-    if (e.button !== 0) return
-    e.stopPropagation()
-
-    const el = itemRefs.current[index]
-    const rect = el?.getBoundingClientRect()
-    const offsetX = rect ? e.clientX - rect.left : 0
-    const offsetY = rect ? e.clientY - rect.top : 0
-    const startX = e.clientX
-    const startY = e.clientY
-
-    if (longPressRef.current) clearTimeout(longPressRef.current.timerId)
-
-    // Capture the element rect at mousedown time so ghost offset is correct
-    const capturedRect = rect ?? null
-
-    const timerId = setTimeout(() => {
-      longPressRef.current = null
-      // Use the element's current position (not mousedown position) for ghost
-      const ghostX = capturedRect ? capturedRect.left + offsetX : 0
-      const ghostY = capturedRect ? capturedRect.top + offsetY : 0
-      activateDrag(index, ghostX, ghostY, offsetX, offsetY)
-    }, LONG_PRESS_MS)
-
-    longPressRef.current = { index, timerId }
-
-    const cancelLongPress = (me: MouseEvent) => {
-      const dx = Math.abs(me.clientX - startX)
-      const dy = Math.abs(me.clientY - startY)
-      if (dx > DRAG_MOVE_THRESHOLD || dy > DRAG_MOVE_THRESHOLD) {
-        if (longPressRef.current?.timerId) {
-          clearTimeout(longPressRef.current.timerId)
-          longPressRef.current = null
-        }
-        cleanup()
-      }
-    }
-    const cleanup = () => {
-      // Cancel long-press timer on mouseup (normal click should not start drag)
-      if (longPressRef.current?.timerId) {
-        clearTimeout(longPressRef.current.timerId)
-        longPressRef.current = null
-      }
-      window.removeEventListener('mousemove', cancelLongPress)
-      window.removeEventListener('mouseup', cleanup)
-    }
-    window.addEventListener('mousemove', cancelLongPress)
-    window.addEventListener('mouseup', cleanup)
-  }
 
   // ─── Dock background context menu (adjust size, position, etc.) ───
   const handleDockContextMenu = useCallback(
@@ -961,7 +645,6 @@ export default function Dock() {
     (e: React.MouseEvent, app: AppManifest) => {
       e.preventDefault()
       e.stopPropagation()
-      if (dragActive) return
       const getWindowsByApp = useWindowStore.getState().getWindowsByApp
       const appWindows = getWindowsByApp(app.id)
       const isRunning = appWindows.length > 0
@@ -1005,29 +688,27 @@ export default function Dock() {
       const menuX = dockPos === 'right' ? rect.left : e.clientX
       showCtxMenu(menuX, menuY, ctxItems, { compact: true, anchor, showArrow: dockPos === 'bottom' })
     },
-    [dragActive, showCtxMenu, pinApp, unpinApp]
+    [showCtxMenu, pinApp, unpinApp]
   )
 
   const handleFolderContextMenu = useCallback(
     (e: React.MouseEvent, folder: DockFolderItem, menuIndex: number) => {
       e.preventDefault()
       e.stopPropagation()
-      if (dragActive) return
       const ctxItems: import('@/shell/ContextMenu/store').ContextMenuItems = [
         {
           id: 'open', label: '打开文件夹',
           action: () => {
-            const el = itemRefs.current[menuIndex]
+            const el = document.querySelector(`[data-dock-folder="${folder.id}"]`)
             setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
             setOpenFolderIndex(menuIndex)
           }
         },
         { id: 'rename', label: '重命名文件夹',
           action: () => {
-            const el = itemRefs.current[menuIndex]
+            const el = document.querySelector(`[data-dock-folder="${folder.id}"]`)
             setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
             setOpenFolderIndex(menuIndex)
-            // The FolderPopup will handle renaming, we just open it
           }
         },
         {
@@ -1050,13 +731,12 @@ export default function Dock() {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       showCtxMenu(e.clientX, dockPos === 'bottom' ? rect.top : e.clientY, ctxItems, { compact: true, anchor, showArrow: dockPos === 'bottom' })
     },
-    [dragActive, dockItems, setItems, showCtxMenu]
+    [dockItems, setItems, showCtxMenu]
   )
 
   // ─── App click ───
   const handleAppClick = useCallback(
     (app: AppManifest) => {
-      if (dragActive || dragJustEndedRef.current) return
       const getWindowsByApp = useWindowStore.getState().getWindowsByApp
       const appWindows = getWindowsByApp(app.id).filter(w => !w.isMinimized)
       const allWins = getWindowsByApp(app.id)
@@ -1072,41 +752,8 @@ export default function Dock() {
         focusWindow(top.id)
       }
     },
-    [dragActive]
+    []
   )
-
-  // ─── Ghost content ───
-  const ghostContent = useMemo(() => {
-    if (dragFromIndex === null) return null
-    const item = displayItems[dragFromIndex]
-    if (!item) return null
-    if (item.type === 'app') {
-      const app = appsMap.get(item.appId)
-      return app ? (
-        <div className="vos-dock-icon-inner overflow-hidden" style={{ width: iconSize, height: iconSize, borderRadius: iconSize * 0.22 }}>
-          {app.icon}
-        </div>
-      ) : null
-    }
-    const miniSize = iconSize * 0.28
-    return (
-      <div
-        className="vos-dock-icon-inner overflow-hidden vos-flex-center"
-        style={{ width: iconSize, height: iconSize, borderRadius: iconSize * 0.22, background: 'rgba(100,100,100,0.35)', padding: iconSize * 0.08 }}
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, width: '100%', height: '100%', alignItems: 'center', justifyItems: 'center' }}>
-          {item.appIds.slice(0, 9).map(appId => {
-            const app = appsMap.get(appId)
-            return (
-              <div key={appId} style={{ width: miniSize, height: miniSize, borderRadius: miniSize * 0.22, overflow: 'hidden' }}>
-                {app?.icon ?? null}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    )
-  }, [dragFromIndex, displayItems, appsMap, iconSize])
 
   // ─── Layout styles ───
   const wrapperStyle: React.CSSProperties =
@@ -1148,7 +795,7 @@ export default function Dock() {
         onMouseEnter={showDock}
       >
         <div style={dockStyle} onContextMenu={handleDockContextMenu}>
-          {/* Launchpad — always first, not draggable */}
+          {/* Launchpad — always first */}
           <DockIcon
             label="启动台"
             icon={
@@ -1161,78 +808,62 @@ export default function Dock() {
             iconSize={iconSize}
             magnification={magnification}
             isHorizontal={isHorizontal}
-            isDragActive={dragActive}
           />
 
           {displayItems.length > 0 && <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />}
 
-          {/* Dock items with drop gap indicators */}
+          {/* Dock items */}
           <div style={{ display: 'flex', alignItems: isHorizontal ? 'flex-end' : 'center', flexDirection: isHorizontal ? 'row' : 'column', gap }}>
-            {displayItems.map((item, index) => {
-              const isDraggingThis = dragActive && dragFromIndex === index
-              const mProgress = mergeTarget?.index === index ? mergeTarget.progress : undefined
-              const showGapBefore = dropGapIndex === index && dragFromIndex !== null && dragFromIndex !== index && dragFromIndex + 1 !== index
-
+            {displayItems.map(item => {
               return (
                 <div
                   key={item.type === 'app' ? item.appId : item.id}
+                  data-dock-folder={item.type === 'folder' ? item.id : undefined}
                   style={{ display: 'flex', alignItems: 'center', flexDirection: isHorizontal ? 'row' : 'column' }}
                 >
-                  {showGapBefore && <DropGapIndicator iconSize={iconSize} isHorizontal={isHorizontal} />}
-                  <div
-                    ref={el => { itemRefs.current[index] = el }}
-                    style={{ opacity: isDraggingThis ? 0.3 : 1, transition: 'opacity 0.15s' }}
-                  >
-                    {item.type === 'app' ? (
-                      (() => {
-                        const app = appsMap.get(item.appId)
-                        if (!app) return null
-                        return (
-                          <DockIcon
-                            label={app.name}
-                            icon={app.icon}
-                            isRunning={windows.some(w => w.appId === app.id)}
-                            appId={app.id}
-                            onClick={() => handleAppClick(app)}
-                            onContextMenu={e => handleAppContextMenu(e, app)}
-                            mouseX={mouseX}
-                            iconSize={iconSize}
-                            magnification={magnification}
-                            isHorizontal={isHorizontal}
-                            isDragActive={dragActive}
-                            onMouseDown={e => handleItemMouseDown(index, e)}
-                            mergeProgress={mProgress}
-                          />
-                        )
-                      })()
-                    ) : (
-                      <DockFolderIcon
-                        folder={item}
-                        appsMap={appsMap}
-                        iconSize={iconSize}
-                        isHorizontal={isHorizontal}
-                        mouseX={mouseX}
-                        magnification={magnification}
-                        isDragActive={dragActive}
-                        onMouseDown={e => handleItemMouseDown(index, e)}
-                        onClick={() => {
-                          if (dragActive) return
-                          const el = itemRefs.current[index]
-                          setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
-                          setOpenFolderIndex(openFolderIndex === index ? null : index)
-                        }}
-                        onContextMenu={e => handleFolderContextMenu(e, item, index)}
-                        mergeProgress={mProgress}
-                      />
-                    )}
-                  </div>
+                  {item.type === 'app' ? (
+                    (() => {
+                      const app = appsMap.get(item.appId)
+                      if (!app) return null
+                      return (
+                        <DockIcon
+                          label={app.name}
+                          icon={app.icon}
+                          isRunning={windows.some(w => w.appId === app.id)}
+                          appId={app.id}
+                          onClick={() => handleAppClick(app)}
+                          onContextMenu={e => handleAppContextMenu(e, app)}
+                          mouseX={mouseX}
+                          iconSize={iconSize}
+                          magnification={magnification}
+                          isHorizontal={isHorizontal}
+                        />
+                      )
+                    })()
+                  ) : (
+                    (() => {
+                      const idx = displayItems.indexOf(item)
+                      return (
+                        <DockFolderIcon
+                          folder={item}
+                          appsMap={appsMap}
+                          iconSize={iconSize}
+                          isHorizontal={isHorizontal}
+                          mouseX={mouseX}
+                          magnification={magnification}
+                          onClick={() => {
+                            const el = document.querySelector(`[data-dock-folder="${item.id}"]`)
+                            setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
+                            setOpenFolderIndex(openFolderIndex === idx ? null : idx)
+                          }}
+                          onContextMenu={e => handleFolderContextMenu(e, item, idx)}
+                        />
+                      )
+                    })()
+                  )}
                 </div>
               )
             })}
-            {/* Gap after last item */}
-            {dropGapIndex === displayItems.length && dragFromIndex !== null && (
-              <DropGapIndicator iconSize={iconSize} isHorizontal={isHorizontal} />
-            )}
           </div>
 
           {/* Minimized thumbnails */}
@@ -1251,35 +882,10 @@ export default function Dock() {
         </div>
       </div>
 
-      {/* Drag ghost via portal */}
-      {dragActive && ghostContent &&
-        ReactDOM.createPortal(
-          <div
-            style={{
-              position: 'fixed',
-              left: ghostPos.x - ghostOffset.x,
-              top: ghostPos.y - ghostOffset.y,
-              width: iconSize,
-              height: iconSize,
-              pointerEvents: 'none',
-              zIndex: 9999,
-              opacity: 0.85,
-              transform: 'scale(1.15)',
-              transformOrigin: 'top left',
-              borderRadius: iconSize * 0.22,
-              overflow: 'hidden',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.4)'
-            }}
-          >
-            {ghostContent}
-          </div>,
-          document.body
-        )}
-
       {/* Folder popup */}
       <AnimatePresence>
         {openFolderIndex !== null && folderAnchorRect && (() => {
-          const item = displayItems[openFolderIndex]
+          const item = displayItems.find(i => i.type === 'folder' && i.id === openFolderIndex)
           if (!item || item.type !== 'folder') return null
           return (
             <FolderPopup
@@ -1293,7 +899,6 @@ export default function Dock() {
               onClose={() => setOpenFolderIndex(null)}
               onOpenApp={appId => { const app = appsMap.get(appId); if (app) handleAppClick(app) }}
               onRename={name => renameFolder(item.id, name)}
-              onReorderApp={(fromIdx, gapIdx) => reorderFolderApp(item.id, fromIdx, gapIdx)}
             />
           )
         })()}

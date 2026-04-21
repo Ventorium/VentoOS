@@ -1,5 +1,4 @@
 import { Plus } from 'lucide-react'
-import { useCallback, useRef } from 'react'
 import { useEditorStore } from '../../stores/editor-store'
 import EditorTab from './EditorTab'
 
@@ -10,30 +9,7 @@ export default function EditorTabs() {
   const closeTab = useEditorStore(s => s.closeTab)
   const openNewUntitled = useEditorStore(s => s.openNewUntitled)
   const pinTab = useEditorStore(s => s.pinTab)
-  const moveTab = useEditorStore(s => s.moveTab)
   const isMac = /Mac/.test(navigator.userAgent)
-
-  // Drag state
-  const dragFromRef = useRef<number | null>(null)
-  const dragToRef = useRef<number | null>(null)
-
-  const handleDragStart = useCallback((index: number) => {
-    dragFromRef.current = index
-  }, [])
-
-  const handleDragOver = useCallback((index: number) => {
-    dragToRef.current = index
-  }, [])
-
-  const handleDragEnd = useCallback(() => {
-    const from = dragFromRef.current
-    const to = dragToRef.current
-    dragFromRef.current = null
-    dragToRef.current = null
-    if (from !== null && to !== null && from !== to) {
-      moveTab(from, to)
-    }
-  }, [moveTab])
 
   return (
     <div
@@ -52,9 +28,6 @@ export default function EditorTabs() {
             closeTab(tab.id)
           }}
           onDoubleClick={() => pinTab(tab.id)}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
         />
       ))}
       <button

@@ -12,9 +12,6 @@ interface Props {
   onActivate: () => void
   onClose: (e: React.MouseEvent) => void
   onDoubleClick: () => void
-  onDragStart: (index: number) => void
-  onDragOver: (index: number) => void
-  onDragEnd: () => void
 }
 
 export default function EditorTab({
@@ -24,10 +21,7 @@ export default function EditorTab({
   index,
   onActivate,
   onClose,
-  onDoubleClick,
-  onDragStart,
-  onDragOver,
-  onDragEnd
+  onDoubleClick
 }: Props) {
   const iconInfo = getFileIconByName(tab.node.name)
   const IconComp = iconInfo.icon
@@ -36,7 +30,6 @@ export default function EditorTab({
     <div
       role="button"
       tabIndex={0}
-      draggable
       className="flex items-center gap-1.5 px-3 h-full flex-shrink-0 cursor-pointer text-xs group border-r-[0.5px] border-r-[var(--vos-border-subtle)] min-w-[80px] max-w-[200px] select-none"
       style={{
         background: isActive ? 'var(--vos-bg-window)' : 'transparent',
@@ -50,12 +43,6 @@ export default function EditorTab({
         if (e.button === 1) onClose(e)
       }}
       onKeyDown={e => e.key === 'Enter' && onActivate()}
-      onDragStart={() => onDragStart(index)}
-      onDragOver={e => {
-        e.preventDefault()
-        onDragOver(index)
-      }}
-      onDragEnd={onDragEnd}
     >
       <IconComp size={11} className="shrink-0" style={{ color: isActive ? iconInfo.color : 'var(--vos-text-tertiary)' }} />
       <span className="truncate flex-1">

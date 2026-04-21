@@ -963,8 +963,6 @@ export default function SshServers() {
 
   // Expanded groups in sidebar
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
-  // Drag-drop state
-  const [dragServerId, setDragServerId] = useState<string | null>(null)
 
   // ── Data loading ─────────────────────────────────────────────────────
 
@@ -1408,17 +1406,6 @@ export default function SshServers() {
                       groupName: g
                     })
                   }}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={e => {
-                    e.preventDefault()
-                    const sid = dragServerId ?? e.dataTransfer.getData('text/plain')
-                    if (sid) {
-                      superTerminalApi.updateSshServer(sid, { group: g }).then(res => {
-                        if (res.data) setServers(servers.map(s => s.id === sid ? res.data! : s))
-                      })
-                      setDragServerId(null)
-                    }
-                  }}
                 >
                   <span
                     className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap flex-1"
@@ -1449,11 +1436,6 @@ export default function SshServers() {
                 {isExpanded && groupServers.map(s => (
                   <div
                     key={s.id}
-                    draggable
-                    onDragStart={e => {
-                      setDragServerId(s.id)
-                      e.dataTransfer.setData('text/plain', s.id)
-                    }}
                     className="ssh-group-item py-[5px] pr-3 pl-[34px] text-xs cursor-pointer flex items-center gap-1.5 text-[var(--vos-text-secondary)] rounded mx-1"
                     onClick={() => connectServer(s)}
                   >
@@ -1473,17 +1455,6 @@ export default function SshServers() {
               data-group=""
               className={`ssh-group-item ${selectedGroup === '' ? 'active' : ''} py-2 px-3 text-[13px] cursor-pointer flex items-center justify-between rounded mx-1 text-[var(--vos-text-tertiary)]`}
               onClick={() => setSelectedGroup('')}
-              onDragOver={e => e.preventDefault()}
-              onDrop={e => {
-                e.preventDefault()
-                const sid = dragServerId ?? e.dataTransfer.getData('text/plain')
-                if (sid) {
-                  superTerminalApi.updateSshServer(sid, { group: undefined }).then(res => {
-                    if (res.data) setServers(servers.map(s => s.id === sid ? res.data! : s))
-                  })
-                  setDragServerId(null)
-                }
-              }}
             >
               <span className="flex items-center gap-1.5">
                 <FolderOpen size={14} />
@@ -1595,11 +1566,6 @@ export default function SshServers() {
                 <div
                   key={server.id}
                   className={`ssh-row ${isSelected ? 'selected' : ''} flex items-center px-4 border-b border-b-[#262626] cursor-default text-[13px]`}
-                  draggable={true}
-                  onDragStart={e => {
-                    setDragServerId(server.id)
-                    e.dataTransfer.setData('text/plain', server.id)
-                  }}
                   style={{ height: ROW_HEIGHT }}
                   onClick={e => handleRowClick(server.id, e)}
                   onContextMenu={e => {
