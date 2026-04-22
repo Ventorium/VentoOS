@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2, Save, Send, Terminal } from 'lucide-react'
+import { Check, ChevronDown, Loader2, Save, Send, Terminal } from 'lucide-react'
 import { useState } from 'react'
 import { HTTP_METHODS, METHOD_COLORS } from '../constants'
 import { useApiClientStore } from '../store'
@@ -14,6 +14,7 @@ export default function UrlBar() {
   const [methodDropdownOpen, setMethodDropdownOpen] = useState(false)
 
   const activeTab = tabs.find(t => t.id === activeTabId)
+  const [copied, setCopied] = useState(false)
   if (!activeTab) return null
 
   return (
@@ -102,7 +103,7 @@ export default function UrlBar() {
       <button
         className="flex items-center gap-1 px-2 py-1.5 rounded text-[11px] cursor-pointer"
         style={{
-          color: 'var(--vos-text-tertiary)',
+          color: copied ? 'var(--vos-accent-success)' : 'var(--vos-text-tertiary)',
           background: 'var(--vos-bg-tertiary)',
           border: '1px solid var(--vos-border-subtle)'
         }}
@@ -116,10 +117,12 @@ export default function UrlBar() {
             auth: activeTab.request.auth
           })
           navigator.clipboard.writeText(curl)
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1500)
         }}
       >
-        <Terminal size={12} />
-        cURL
+        {copied ? <Check size={12} /> : <Terminal size={12} />}
+        {copied ? 'Copied' : 'cURL'}
       </button>
 
       {/* Send button */}
