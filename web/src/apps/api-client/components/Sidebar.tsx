@@ -1,6 +1,5 @@
 import { BookOpen, Clock, FolderPlus, Globe, Import, Plus, Star, Trash2 } from 'lucide-react'
 import { useEffect } from 'react'
-import { Tabs } from '@/components/ui'
 import { METHOD_COLORS } from '../constants'
 import { useApiClientStore } from '../store'
 import type { HistoryEntry } from '../types'
@@ -97,7 +96,7 @@ function EnvironmentsList() {
 
 type SidebarTabKey = 'collections' | 'environments' | 'history'
 
-const SIDEBAR_TABS: { key: SidebarTabKey; label: string; icon: typeof BookOpen }[] = [
+const SIDEBAR_NAV: { key: SidebarTabKey; label: string; icon: typeof BookOpen }[] = [
   { key: 'collections', label: 'Collections', icon: BookOpen },
   { key: 'environments', label: 'Env', icon: Globe },
   { key: 'history', label: 'History', icon: Clock }
@@ -117,81 +116,104 @@ export default function Sidebar() {
   }, [])
 
   return (
-    <div
-      className="flex flex-col h-full shrink-0"
-      style={{
-        width: 260,
-        borderRight: '1px solid var(--vos-border-subtle)',
-        background: 'var(--vos-bg-secondary)'
-      }}
-    >
-      {/* Sidebar tabs */}
-      <Tabs
-        tabs={SIDEBAR_TABS.map(t => ({ id: t.key, label: t.label, icon: t.icon }))}
-        activeTabId={sidebarTab}
-        onActivate={id => setSidebarTab(id as SidebarTabKey)}
-        variant="underline"
-        block
-        renderPrefix={(tab) => {
-          const Icon = tab.icon as typeof BookOpen
-          return <Icon size={12} />
-        }}
-      />
-
-      {/* Actions bar */}
+    <div className="flex h-full shrink-0" style={{ width: 260 }}>
+      {/* Left icon nav */}
       <div
-        className="flex items-center justify-between px-2 py-1.5 shrink-0"
-        style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
+        className="flex flex-col items-center py-2 gap-1 shrink-0"
+        style={{
+          width: 40,
+          borderRight: '1px solid var(--vos-border-subtle)',
+          background: 'var(--vos-bg-secondary)'
+        }}
       >
-        {sidebarTab === 'collections' && (
-          <div className="flex items-center gap-1">
+        {SIDEBAR_NAV.map(item => {
+          const Icon = item.icon
+          const isActive = sidebarTab === item.key
+          return (
             <button
-              className="p-1 rounded hover:opacity-80"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-              title="New Collection"
+              key={item.key}
+              type="button"
+              className="w-8 h-8 flex items-center justify-center rounded-md cursor-pointer"
+              style={{
+                background: isActive ? 'var(--vos-bg-tertiary)' : 'transparent',
+                color: isActive ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)'
+              }}
+              title={item.label}
+              onClick={() => setSidebarTab(item.key)}
             >
-              <FolderPlus size={13} />
+              <Icon size={16} />
             </button>
-            <button
-              className="p-1 rounded hover:opacity-80"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-              title="Import"
-            >
-              <Import size={13} />
-            </button>
-          </div>
-        )}
-        {sidebarTab === 'environments' && (
-          <div className="flex items-center gap-1">
-            <button
-              className="p-1 rounded hover:opacity-80"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-              title="New Environment"
-            >
-              <Plus size={13} />
-            </button>
-          </div>
-        )}
-        {sidebarTab === 'history' && (
-          <div className="flex items-center gap-1">
-            <button
-              className="p-1 rounded hover:opacity-80"
-              style={{ color: 'var(--vos-text-tertiary)' }}
-              title="Clear History"
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
-        )}
-        <div className="flex-1" />
-        <EnvironmentSelector />
+          )
+        })}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto">
-        {sidebarTab === 'collections' && <CollectionTreeView />}
-        {sidebarTab === 'environments' && <EnvironmentsList />}
-        {sidebarTab === 'history' && <HistoryList />}
+      {/* Right content panel */}
+      <div
+        className="flex flex-col flex-1 min-w-0"
+        style={{
+          borderRight: '1px solid var(--vos-border-subtle)',
+          background: 'var(--vos-bg-secondary)'
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-3 py-2 shrink-0"
+          style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
+        >
+          <span className="text-xs font-medium" style={{ color: 'var(--vos-text-primary)' }}>
+            {SIDEBAR_NAV.find(n => n.key === sidebarTab)?.label}
+          </span>
+          <div className="flex items-center gap-1">
+            {sidebarTab === 'collections' && (
+              <>
+                <button
+                  className="p-1 rounded hover:opacity-80 cursor-pointer"
+                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  title="New Collection"
+                >
+                  <FolderPlus size={13} />
+                </button>
+                <button
+                  className="p-1 rounded hover:opacity-80 cursor-pointer"
+                  style={{ color: 'var(--vos-text-tertiary)' }}
+                  title="Import"
+                >
+                  <Import size={13} />
+                </button>
+              </>
+            )}
+            {sidebarTab === 'environments' && (
+              <button
+                className="p-1 rounded hover:opacity-80 cursor-pointer"
+                style={{ color: 'var(--vos-text-tertiary)' }}
+                title="New Environment"
+              >
+                <Plus size={13} />
+              </button>
+            )}
+            {sidebarTab === 'history' && (
+              <button
+                className="p-1 rounded hover:opacity-80 cursor-pointer"
+                style={{ color: 'var(--vos-text-tertiary)' }}
+                title="Clear History"
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Environment selector (for all tabs) */}
+        <div className="px-2 py-1.5 shrink-0" style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}>
+          <EnvironmentSelector />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto">
+          {sidebarTab === 'collections' && <CollectionTreeView />}
+          {sidebarTab === 'environments' && <EnvironmentsList />}
+          {sidebarTab === 'history' && <HistoryList />}
+        </div>
       </div>
     </div>
   )

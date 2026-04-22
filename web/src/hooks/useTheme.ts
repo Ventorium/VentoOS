@@ -37,6 +37,12 @@ function applyThemeVars(theme: ThemeColors) {
   set('--vos-bg-selection', theme.bg.selection)
   set('--vos-bg-item-hover', theme.bg.itemHover)
   set('--vos-bg-launchpad', theme.bg.launchpad)
+  // Elevated / hover / selected aliases used across apps
+  set('--vos-bg-elevated', theme.bg.windowActive)
+  set('--vos-bg-hover', theme.bg.itemHover)
+  set('--vos-bg-selected', theme.bg.selection)
+  // Tertiary background alias (used by API Client and other apps)
+  set('--vos-bg-tertiary', theme.bg.surfaceHover)
 }
 
 /**

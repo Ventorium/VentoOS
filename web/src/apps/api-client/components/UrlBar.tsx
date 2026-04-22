@@ -1,4 +1,4 @@
-import { ChevronDown, Clipboard, Loader2, Save, Send, Terminal } from 'lucide-react'
+import { ChevronDown, Loader2, Save, Send, Terminal } from 'lucide-react'
 import { useState } from 'react'
 import { HTTP_METHODS, METHOD_COLORS } from '../constants'
 import { useApiClientStore } from '../store'
@@ -100,7 +100,7 @@ export default function UrlBar() {
 
       {/* Copy as cURL */}
       <button
-        className="flex items-center gap-1 px-2 py-1.5 rounded text-[11px]"
+        className="flex items-center gap-1 px-2 py-1.5 rounded text-[11px] cursor-pointer"
         style={{
           color: 'var(--vos-text-tertiary)',
           background: 'var(--vos-bg-tertiary)',

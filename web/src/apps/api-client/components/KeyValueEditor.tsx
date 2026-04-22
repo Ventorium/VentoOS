@@ -1,24 +1,41 @@
-import { Trash2 } from 'lucide-react'
+import { FileUp, Trash2 } from 'lucide-react'
 import { useCallback } from 'react'
-import type { KeyValueItem } from '../types'
+import type { FormDataType, KeyValueItem } from '../types'
+
+const FORM_DATA_TYPES: { value: FormDataType; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'integer', label: 'Int' },
+  { value: 'boolean', label: 'Bool' },
+  { value: 'number', label: 'Num' },
+  { value: 'file', label: 'File' },
+  { value: 'array', label: 'Arr' }
+]
 
 interface KeyValueEditorProps {
   items: KeyValueItem[]
   onChange: (items: KeyValueItem[]) => void
   showDescription?: boolean
   placeholder?: { key?: string; value?: string }
+  bodyType?: string
 }
 
-export default function KeyValueEditor({ items, onChange, showDescription = false, placeholder }: KeyValueEditorProps) {
-  const allItems = [...items, { key: '', value: '', enabled: true, description: '' }]
+export default function KeyValueEditor({
+  items,
+  onChange,
+  showDescription = false,
+  placeholder,
+  bodyType
+}: KeyValueEditorProps) {
+  const isFormData = bodyType === 'form-data'
+
+  const allItems = [...items, { key: '', value: '', enabled: true, description: '', dataType: 'text' as FormDataType }]
 
   const updateItem = useCallback(
-    (index: number, field: keyof KeyValueItem, val: string | boolean) => {
+    (index: number, field: keyof KeyValueItem, val: string | boolean | FormDataType) => {
       const isNewRow = index === items.length
       let newItems: KeyValueItem[]
       if (isNewRow) {
-        // Adding a new row
-        newItems = [...items, { key: '', value: '', enabled: true, description: '', [field]: val }]
+        newItems = [...items, { key: '', value: '', enabled: true, description: '', dataType: 'text', [field]: val }]
       } else {
         newItems = items.map((item, i) => (i === index ? { ...item, [field]: val } : item))
       }
@@ -34,6 +51,19 @@ export default function KeyValueEditor({ items, onChange, showDescription = fals
     [items, onChange]
   )
 
+  const handleFileSelect = useCallback(
+    (index: number, file: File | null) => {
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1]
+        updateItem(index, 'value', base64)
+      }
+      reader.readAsDataURL(file)
+    },
+    [updateItem]
+  )
+
   return (
     <div className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>
       {/* Header */}
@@ -43,6 +73,7 @@ export default function KeyValueEditor({ items, onChange, showDescription = fals
       >
         <div className="w-6" />
         <div className="flex-1">Key</div>
+        {isFormData && <div className="w-16 shrink-0">Type</div>}
         <div className="flex-1">Value</div>
         {showDescription && <div className="flex-1">Description</div>}
         <div className="w-6" />
@@ -50,6 +81,9 @@ export default function KeyValueEditor({ items, onChange, showDescription = fals
       {/* Rows */}
       {allItems.map((item, idx) => {
         const isNew = idx === items.length
+        const dataType = item.dataType ?? 'text'
+        const isFileType = isFormData && dataType === 'file'
+
         return (
           <div
             key={idx}
@@ -71,13 +105,39 @@ export default function KeyValueEditor({ items, onChange, showDescription = fals
               placeholder={placeholder?.key ?? 'Key'}
               onChange={e => updateItem(idx, 'key', e.target.value)}
             />
-            <input
-              className="flex-1 bg-transparent outline-none py-1 placeholder:opacity-40"
-              style={{ color: 'var(--vos-text-primary)' }}
-              value={item.value}
-              placeholder={placeholder?.value ?? 'Value'}
-              onChange={e => updateItem(idx, 'value', e.target.value)}
-            />
+            {isFormData && (
+              <select
+                className="w-16 shrink-0 bg-transparent outline-none py-1 text-[10px]"
+                style={{ color: 'var(--vos-text-primary)' }}
+                value={dataType}
+                onChange={e => updateItem(idx, 'dataType', e.target.value as FormDataType)}
+              >
+                {FORM_DATA_TYPES.map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            )}
+            {isFileType ? (
+              <label className="flex-1 flex items-center gap-1 cursor-pointer">
+                <FileUp size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
+                <span className="truncate text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
+                  {item.value ? 'File selected' : 'Choose file'}
+                </span>
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={e => handleFileSelect(idx, e.target.files?.[0] ?? null)}
+                />
+              </label>
+            ) : (
+              <input
+                className="flex-1 bg-transparent outline-none py-1 placeholder:opacity-40"
+                style={{ color: 'var(--vos-text-primary)' }}
+                value={item.value}
+                placeholder={placeholder?.value ?? 'Value'}
+                onChange={e => updateItem(idx, 'value', e.target.value)}
+              />
+            )}
             {showDescription && (
               <input
                 className="flex-1 bg-transparent outline-none py-1 placeholder:opacity-40"

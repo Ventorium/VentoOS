@@ -80,15 +80,15 @@ export default function ResponseViewer() {
       >
         <span className="flex items-center gap-1 text-xs font-bold" style={{ color: statusColor(response.status) }}>
           {response.status >= 200 && response.status < 400 ? <CheckCircle size={12} /> : <XCircle size={12} />}
-          {response.status} {response.statusText}
+          {response.status} {response.status_text}
         </span>
         <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--vos-text-tertiary)' }}>
           <Clock size={11} />
-          {formatDuration(response.durationMs)}
+          {formatDuration(response.duration_ms)}
         </span>
         <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--vos-text-tertiary)' }}>
           <Database size={11} />
-          {formatSize(response.sizeBytes)}
+          {formatSize(response.size_bytes)}
         </span>
 
         <div className="flex-1" />

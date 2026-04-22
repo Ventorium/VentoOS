@@ -48,11 +48,14 @@ export interface ApiRequest {
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS'
 
+export type FormDataType = 'text' | 'integer' | 'boolean' | 'number' | 'file' | 'array'
+
 export interface KeyValueItem {
   key: string
   value: string
   enabled: boolean
   description?: string
+  dataType?: FormDataType
 }
 
 export interface BodyConfig {
@@ -93,11 +96,11 @@ export interface HistoryEntry {
 
 export interface ProxyResponse {
   status: number
-  statusText: string
+  status_text: string
   headers: KeyValueItem[]
   body: string
-  durationMs: number
-  sizeBytes: number
+  duration_ms: number
+  size_bytes: number
 }
 
 export interface CollectionTree {

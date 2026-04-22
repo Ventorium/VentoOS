@@ -103,14 +103,41 @@ export function parseCurl(input: string): ParsedCurl | null {
       }
     } else if (tok === '-d' || tok === '--data' || tok === '--data-raw') {
       i++
-      bodyContent = unquote(tokens[i] ?? '')
+      const data = unquote(tokens[i] ?? '')
+      if (bodyContent) {
+        bodyContent += '&' + data
+      } else {
+        bodyContent = data
+      }
       bodyType = 'text'
       if (!method || method === 'GET') {
         method = 'POST'
       }
     } else if (tok === '--data-binary') {
       i++
-      bodyContent = unquote(tokens[i] ?? '')
+      const data = unquote(tokens[i] ?? '')
+      if (data.startsWith('@')) {
+        bodyContent = data
+        bodyType = 'binary'
+      } else {
+        if (bodyContent) {
+          bodyContent += '&' + data
+        } else {
+          bodyContent = data
+        }
+        bodyType = 'text'
+      }
+      if (!method || method === 'GET') {
+        method = 'POST'
+      }
+    } else if (tok === '--data-urlencode') {
+      i++
+      const data = encodeURIComponent(unquote(tokens[i] ?? ''))
+      if (bodyContent) {
+        bodyContent += '&' + data
+      } else {
+        bodyContent = data
+      }
       bodyType = 'text'
       if (!method || method === 'GET') {
         method = 'POST'
@@ -164,7 +191,7 @@ export function parseCurl(input: string): ParsedCurl | null {
     i++
   }
 
-  // Infer body type from Content-Type header
+  // Infer body type from Content-Type header, or default curl behavior
   const ctHeader = headers.find(h => h.key.toLowerCase() === 'content-type')
   if (ctHeader) {
     const ct = ctHeader.value.toLowerCase()
@@ -173,6 +200,10 @@ export function parseCurl(input: string): ParsedCurl | null {
     else if (ct.includes('multipart/form-data')) bodyType = 'form-data'
     else if (ct.includes('application/xml') || ct.includes('text/xml')) bodyType = 'xml'
     else if (ct.includes('text/plain')) bodyType = 'text'
+  } else if (bodyContent && bodyType === 'text') {
+    // curl defaults to form-urlencoded when -d is used without Content-Type
+    bodyType = 'form-urlencoded'
+    headers.push({ key: 'Content-Type', value: 'application/x-www-form-urlencoded', enabled: true })
   }
 
   let body: BodyConfig | undefined
@@ -253,7 +284,8 @@ export function toCurl(opts: {
       case 'form-data':
         if (body.params && body.params.length > 0) {
           for (const p of body.params.filter(p => p.enabled && p.key)) {
-            cmd += ` \\n  -F '${p.key}=${p.value}'`
+            const val = p.dataType === 'file' ? '@file' : p.value
+            cmd += ` \\n  -F '${p.key}=${val}'`
           }
         }
         break

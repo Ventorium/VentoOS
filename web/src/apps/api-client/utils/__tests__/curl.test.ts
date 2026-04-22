@@ -63,6 +63,29 @@ describe('curl utils', () => {
       expect(parsed!.body!.type).toBe('form-urlencoded')
     })
 
+    it('defaults -d without Content-Type to form-urlencoded', () => {
+      const parsed = parseCurl(`curl -d 'foo=bar' 'https://example.com'`)
+      expect(parsed!.body!.type).toBe('form-urlencoded')
+      expect(parsed!.body!.content).toBe('foo=bar')
+      expect(parsed!.headers).toContainEqual({
+        key: 'Content-Type',
+        value: 'application/x-www-form-urlencoded',
+        enabled: true
+      })
+    })
+
+    it('concatenates multiple -d flags with &', () => {
+      const parsed = parseCurl(`curl -d 'a=1' -d 'b=2' 'https://example.com'`)
+      expect(parsed!.body!.type).toBe('form-urlencoded')
+      expect(parsed!.body!.content).toBe('a=1&b=2')
+    })
+
+    it('parses --data-urlencode', () => {
+      const parsed = parseCurl(`curl --data-urlencode 'name=hello world' 'https://example.com'`)
+      expect(parsed!.body!.type).toBe('form-urlencoded')
+      expect(parsed!.body!.content).toBe('name%3Dhello%20world')
+    })
+
     it('returns null for non-curl strings', () => {
       expect(parseCurl('https://example.com')).toBeNull()
       expect(parseCurl('not a curl command')).toBeNull()
