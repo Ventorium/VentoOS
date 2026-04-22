@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 ventoos-core = { workspace = true }
+ventoos-persist = { workspace = true }
 tokio = { workspace = true }
 axum = { workspace = true }
 serde = { workspace = true }

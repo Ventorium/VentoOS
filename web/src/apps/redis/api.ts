@@ -7,6 +7,18 @@ import { request } from '@/infra/api'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+export interface SshTunnelConfig {
+  enabled: boolean
+  host: string
+  port: number
+  username: string
+  authMethod: 'password' | 'publickey' | 'agent'
+  password?: string
+  identityFilePath?: string
+  passphrase?: string
+  savePassword: boolean
+}
+
 export interface RedisConnectionConfig {
   id: string
   name: string
@@ -17,6 +29,7 @@ export interface RedisConnectionConfig {
   db: number
   group?: string
   ssl_enabled: boolean
+  ssh?: SshTunnelConfig
 }
 
 export interface CreateRedisConnectionReq {
@@ -28,6 +41,7 @@ export interface CreateRedisConnectionReq {
   db?: number
   group?: string
   ssl_enabled?: boolean
+  ssh?: SshTunnelConfig
 }
 
 export interface RedisKeyInfo {

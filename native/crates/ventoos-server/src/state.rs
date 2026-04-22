@@ -43,7 +43,10 @@ impl AppState {
 
         let ssh = Arc::new(SshManager::new_with_db(Arc::clone(&db)).await);
         let db_manager = Arc::new(DbManager::new());
-        let redis_manager = Arc::new(RedisManager::new());
+        let settings_mgr = Arc::new(SettingsManager::new(Arc::clone(&db)));
+        let redis_manager = Arc::new(RedisManager::with_settings_mgr(Arc::clone(
+            &settings_mgr)));
+        redis_manager.load_connections().await;
         let vfs_manager = Arc::new(
             VfsManager::with_db_and_ssh_provider(Arc::clone(&db), Arc::clone(&ssh) as _).await,
         );
@@ -66,7 +69,7 @@ impl AppState {
         auth.ensure_fileprovider_token_file();
 
         Ok(Self {
-            settings_mgr: Arc::new(SettingsManager::new(Arc::clone(&db))),
+            settings_mgr,
             window_states: Arc::new(WindowStateManager::new(Arc::clone(&db))),
             storage: Arc::new(StorageManager::new(data_dir)),
             notification_mgr: Arc::new(NotificationStore::new(Arc::clone(&db))),

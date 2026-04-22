@@ -6,6 +6,7 @@ use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
+use ventoos_persist::SettingsManager;
 
 use crate::resp::{self, RespValue};
 use crate::types::{
@@ -47,6 +48,7 @@ pub struct RedisManager {
     connections: Arc<RwLock<HashMap<String, RedisConn>>>,
     pub_sub_states: Arc<RwLock<HashMap<String, PubSubState>>>,
     monitor_states: Arc<RwLock<HashMap<String, MonitorState>>>,
+    settings_mgr: Option<Arc<SettingsManager>>,
 }
 
 impl RedisManager {
@@ -56,6 +58,53 @@ impl RedisManager {
             connections: Arc::new(RwLock::new(HashMap::new())),
             pub_sub_states: Arc::new(RwLock::new(HashMap::new())),
             monitor_states: Arc::new(RwLock::new(HashMap::new())),
+            settings_mgr: None,
+        }
+    }
+
+    pub fn with_settings_mgr(settings_mgr: Arc<SettingsManager>) -> Self {
+        Self {
+            configs: Arc::new(RwLock::new(HashMap::new())),
+            connections: Arc::new(RwLock::new(HashMap::new())),
+            pub_sub_states: Arc::new(RwLock::new(HashMap::new())),
+            monitor_states: Arc::new(RwLock::new(HashMap::new())),
+            settings_mgr: Some(settings_mgr),
+        }
+    }
+
+    pub async fn load_connections(&self) {
+        if let Some(ref settings) = self.settings_mgr {
+            match settings.get("redis_connections") {
+                Ok(Some(json)) => {
+                    match serde_json::from_str::<Vec<RedisConnectionConfig>>(&json) {
+                        Ok(connections) => {
+                            let mut configs = self.configs.write().await;
+                            for conn in connections {
+                                configs.insert(conn.id.clone(), conn);
+                            }
+                            info!("Loaded {} Redis connections from persistence", configs.len());
+                        }
+                        Err(e) => warn!("Failed to deserialize redis connections: {e}"),
+                    }
+                }
+                Ok(None) => debug!("No persisted Redis connections found"),
+                Err(e) => warn!("Failed to load redis connections: {e}"),
+            }
+        }
+    }
+
+    async fn persist_connections(&self) {
+        if let Some(ref settings) = self.settings_mgr {
+            let configs = self.configs.read().await;
+            let connections: Vec<_> = configs.values().cloned().collect();
+            match serde_json::to_string(&connections) {
+                Ok(json) => {
+                    if let Err(e) = settings.set("redis_connections", &json) {
+                        warn!("Failed to persist redis connections: {e}");
+                    }
+                }
+                Err(e) => warn!("Failed to serialize redis connections: {e}"),
+            }
         }
     }
 
@@ -77,6 +126,7 @@ impl RedisManager {
             cluster: req.cluster,
         };
         self.configs.write().await.insert(id, config.clone());
+        self.persist_connections().await;
         config
     }
 
@@ -93,7 +143,11 @@ impl RedisManager {
 
     pub async fn delete_connection(&self, id: &str) -> bool {
         self.disconnect(id).await;
-        self.configs.write().await.remove(id).is_some()
+        let removed = self.configs.write().await.remove(id).is_some();
+        if removed {
+            self.persist_connections().await;
+        }
+        removed
     }
 
     pub async fn test_connection(&self, id: &str) -> Option<RedisTestResult> {
@@ -428,18 +482,31 @@ impl RedisManager {
         }
 
         let cursor = arr[0].as_str().unwrap_or("0").to_string();
-        let keys = arr[1]
+        let raw_keys: Vec<String> = arr[1]
             .clone()
             .into_array()
             .unwrap_or_default()
             .iter()
-            .map(|k| RedisKeyInfo {
-                key: k.as_str().unwrap_or("").to_string(),
-                key_type: "unknown".into(),
-                ttl: -1,
-                size: None,
-            })
+            .filter_map(|k| k.as_str().map(|s| s.to_string()))
             .collect();
+
+        // Fetch TYPE and TTL for each key (fast O(1) commands)
+        let mut keys = Vec::with_capacity(raw_keys.len());
+        for key in &raw_keys {
+            let type_resp = Self::send_command(conn, &["TYPE", key]).await;
+            let key_type = match type_resp {
+                Ok(r) => r.as_str().unwrap_or("unknown").to_string(),
+                Err(_) => "unknown".to_string(),
+            };
+            let ttl_resp = Self::send_command(conn, &["TTL", key]).await;
+            let ttl = ttl_resp.ok().and_then(|r| r.as_i64()).unwrap_or(-1);
+            keys.push(RedisKeyInfo {
+                key: key.clone(),
+                key_type,
+                ttl,
+                size: None,
+            });
+        }
 
         let finished = cursor == "0";
         Ok(RedisScanResult {
@@ -480,6 +547,10 @@ impl RedisManager {
             "zset" => {
                 let r =
                     Self::send_command(conn, &["ZRANGE", key, "0", "999", "WITHSCORES"]).await?;
+                r.to_json()
+            }
+            "stream" => {
+                let r = Self::send_command(conn, &["XRANGE", key, "-", "+", "COUNT", "100"]).await?;
                 r.to_json()
             }
             _ => serde_json::Value::Null,

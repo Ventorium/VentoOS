@@ -1,4 +1,5 @@
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   Database,
@@ -9,18 +10,80 @@ import {
   Search,
   Send,
   Terminal,
-  Trash2,
-  Unplug,
-  X,
-  Zap
+  X
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VList } from 'virtua'
-import { AppLayout, AppSidebar, EmptyState, FormInput, Modal, SectionHeader, Spinner } from '@/components'
+import { AppLayout, AppSidebar, EmptyState, Modal, SectionHeader, Spinner } from '@/components'
+import { FormInput, FormSelect } from '@/components/ui'
+import { PathPickerInput } from '@/shell/FilePicker'
 import type { AppComponentProps } from '@/kernel'
 import { useAppStateSync, useAppStorage } from '@/kernel'
 import type { CreateRedisConnectionReq, RedisConnectionConfig, RedisKeyInfo, RedisKeyValue } from './api'
 import { redisApi } from './api'
+
+// ─── Local Context Menu ────────────────────────────────────────────────────
+
+interface CtxMenuItem {
+  label: string
+  danger?: boolean
+  action: () => void
+}
+
+function ContextMenu({
+  x,
+  y,
+  items,
+  onDismiss
+}: {
+  x: number
+  y: number
+  items: CtxMenuItem[]
+  onDismiss: () => void
+}) {
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ x, y })
+
+  useEffect(() => {
+    if (!menuRef.current) return
+    const rect = menuRef.current.getBoundingClientRect()
+    const nx = x + rect.width > window.innerWidth ? window.innerWidth - rect.width - 4 : x
+    const ny = y + rect.height > window.innerHeight ? window.innerHeight - rect.height - 4 : y
+    setPos({ x: nx, y: ny })
+  }, [x, y])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onDismiss()
+      }
+    }
+    document.addEventListener('mousedown', handler, true)
+    return () => document.removeEventListener('mousedown', handler, true)
+  }, [onDismiss])
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-[9999] bg-[var(--vos-bg-context-menu)] border border-[var(--vos-border-subtle)] rounded-[6px] py-1 min-w-[140px] select-none shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+      style={{ left: pos.x, top: pos.y }}
+    >
+      {items.map((item, i) => (
+        <div
+          key={i}
+          className="py-[5px] px-[14px] cursor-pointer text-xs whitespace-nowrap hover:bg-[var(--vos-bg-item-hover)]"
+          style={{ color: item.danger ? '#f14c4c' : 'var(--vos-text-primary)' }}
+          onClick={() => {
+            item.action()
+            onDismiss()
+          }}
+        >
+          {item.label}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 // ─── Trie Tree for key grouping ────────────────────────────────────────────
 
@@ -83,7 +146,8 @@ function TrieTreeView({
   selectedKey,
   onSelect,
   expandedPaths,
-  onToggle
+  onToggle,
+  onKeyContextMenu
 }: {
   node: TrieNode
   depth: number
@@ -91,6 +155,7 @@ function TrieTreeView({
   onSelect: (key: string) => void
   expandedPaths: Set<string>
   onToggle: (path: string) => void
+  onKeyContextMenu?: (key: string, e: React.MouseEvent) => void
 }) {
   const sorted = useMemo(
     () =>
@@ -128,6 +193,12 @@ function TrieTreeView({
                   onSelect(child.fullKey)
                 } else if (isFolder) {
                   // If folder, don't select — just expand/collapse
+                }
+              }}
+              onContextMenu={e => {
+                if (child.isLeaf && onKeyContextMenu) {
+                  e.preventDefault()
+                  onKeyContextMenu(child.fullKey, e)
                 }
               }}
             >
@@ -168,6 +239,7 @@ function TrieTreeView({
                 onSelect={onSelect}
                 expandedPaths={expandedPaths}
                 onToggle={onToggle}
+                onKeyContextMenu={onKeyContextMenu}
               />
             )}
           </div>
@@ -184,8 +256,16 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
   const [host, setHost] = useState('127.0.0.1')
   const [port, setPort] = useState('6379')
   const [password, setPassword] = useState('')
-  const [db, setDb] = useState('0')
   const [saving, setSaving] = useState(false)
+
+  const [useSsh, setUseSsh] = useState(false)
+  const [sshHost, setSshHost] = useState('')
+  const [sshPort, setSshPort] = useState('22')
+  const [sshUsername, setSshUsername] = useState('')
+  const [sshAuthMethod, setSshAuthMethod] = useState<'password' | 'publickey'>('password')
+  const [sshPassword, setSshPassword] = useState('')
+  const [sshIdentityFile, setSshIdentityFile] = useState('')
+  const [sshPassphrase, setSshPassphrase] = useState('')
 
   const submit = async () => {
     if (!name) return
@@ -195,8 +275,20 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
         name,
         host,
         port: Number(port),
-        password: password || undefined,
-        db: Number(db)
+        password: password || undefined
+      }
+      if (useSsh) {
+        body.ssh = {
+          enabled: true,
+          host: sshHost,
+          port: Number(sshPort),
+          username: sshUsername,
+          authMethod: sshAuthMethod,
+          password: sshAuthMethod === 'password' ? sshPassword || undefined : undefined,
+          identityFilePath: sshAuthMethod === 'publickey' ? sshIdentityFile || undefined : undefined,
+          passphrase: sshAuthMethod === 'publickey' ? sshPassphrase || undefined : undefined,
+          savePassword: false
+        }
       }
       const res = await redisApi.createRedisConnection(body)
       onCreated(res.data)
@@ -212,7 +304,7 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
       open={true}
       onClose={onClose}
       title="新建 Redis 连接"
-      width={360}
+      width={420}
       footer={
         <>
           <button type="button" className="vos-btn vos-btn-sm" onClick={onClose}>
@@ -224,18 +316,177 @@ function ConnForm({ onClose, onCreated }: { onClose: () => void; onCreated: (c: 
         </>
       }
     >
-      <FormInput placeholder="连接名称" value={name} onChange={e => setName(e.target.value)} />
-      <div className="flex gap-2">
-        <FormInput className="flex-1" placeholder="Host" value={host} onChange={e => setHost(e.target.value)} />
-        <FormInput className="w-[70px]" placeholder="Port" value={port} onChange={e => setPort(e.target.value)} />
+      <div className="flex flex-col gap-3">
+        <FormInput placeholder="连接名称" value={name} onChange={e => setName(e.target.value)} />
+        <div className="flex gap-2">
+          <div className="flex-[3]">
+            <FormInput placeholder="Host" value={host} onChange={e => setHost(e.target.value)} />
+          </div>
+          <div className="w-[60px]">
+            <FormInput placeholder="Port" value={port} onChange={e => setPort(e.target.value)} />
+          </div>
+        </div>
+        <FormInput
+          placeholder="密码（可选）"
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+        />
+
+        <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--vos-text-primary)' }}>
+          <input type="checkbox" checked={useSsh} onChange={e => setUseSsh(e.target.checked)} />
+          使用 SSH 隧道
+        </label>
+
+        {useSsh && (
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
+              <div className="flex-[3]">
+                <FormInput placeholder="SSH 主机" value={sshHost} onChange={e => setSshHost(e.target.value)} />
+              </div>
+              <div className="w-[60px]">
+                <FormInput placeholder="端口" value={sshPort} onChange={e => setSshPort(e.target.value)} />
+              </div>
+            </div>
+            <FormInput placeholder="SSH 用户名" value={sshUsername} onChange={e => setSshUsername(e.target.value)} />
+            <FormSelect value={sshAuthMethod} onChange={e => setSshAuthMethod(e.target.value as 'password' | 'publickey')}>
+              <option value="password">密码</option>
+              <option value="publickey">公钥</option>
+            </FormSelect>
+            {sshAuthMethod === 'password' ? (
+              <FormInput
+                type="password"
+                placeholder="SSH 密码"
+                value={sshPassword}
+                onChange={e => setSshPassword(e.target.value)}
+              />
+            ) : (
+              <>
+                <PathPickerInput
+                  mode="file"
+                  placeholder="选择私钥文件"
+                  value={sshIdentityFile}
+                  onChange={setSshIdentityFile}
+                />
+                <FormInput
+                  type="password"
+                  placeholder="私钥口令（可选）"
+                  value={sshPassphrase}
+                  onChange={e => setSshPassphrase(e.target.value)}
+                />
+              </>
+            )}
+          </div>
+        )}
       </div>
-      <FormInput
-        placeholder="密码（可选）"
-        type="password"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-      />
-      <FormInput placeholder="数据库 (0)" value={db} onChange={e => setDb(e.target.value)} />
+    </Modal>
+  )
+}
+
+// ─── Add Key Modal ─────────────────────────────────────────────────────────
+
+function AddKeyModal({
+  connId,
+  onClose,
+  onAdded
+}: {
+  connId: string
+  onClose: () => void
+  onAdded: () => void
+}) {
+  const [keyName, setKeyName] = useState('')
+  const [keyType, setKeyType] = useState('string')
+  const [value, setValue] = useState('')
+  const [field, setField] = useState('')
+  const [score, setScore] = useState('0')
+  const [saving, setSaving] = useState(false)
+
+  const submit = async () => {
+    if (!keyName) return
+    setSaving(true)
+    try {
+      let cmd = ''
+      switch (keyType) {
+        case 'string':
+          cmd = `SET ${keyName} ${value}`
+          break
+        case 'hash':
+          cmd = `HSET ${keyName} ${field} ${value}`
+          break
+        case 'list':
+          cmd = `LPUSH ${keyName} ${value}`
+          break
+        case 'set':
+          cmd = `SADD ${keyName} ${value}`
+          break
+        case 'zset':
+          cmd = `ZADD ${keyName} ${score} ${value}`
+          break
+        case 'stream':
+          cmd = `XADD ${keyName} * ${field} ${value}`
+          break
+        default:
+          cmd = `SET ${keyName} ${value}`
+      }
+      await redisApi.executeRedisCommand(connId, cmd)
+      onAdded()
+      onClose()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const typeNeedsField = keyType === 'hash' || keyType === 'stream'
+  const typeNeedsScore = keyType === 'zset'
+  const valueLabel =
+    keyType === 'zset'
+      ? 'Member'
+      : keyType === 'hash' || keyType === 'stream'
+        ? 'Value'
+        : 'Value'
+
+  return (
+    <Modal
+      open={true}
+      onClose={onClose}
+      title="新建 Key"
+      width={380}
+      footer={
+        <>
+          <button type="button" className="vos-btn vos-btn-sm" onClick={onClose}>
+            取消
+          </button>
+          <button type="button" className="vos-btn vos-btn-sm vos-btn-primary" onClick={submit} disabled={saving || !keyName}>
+            {saving ? '创建中…' : '创建'}
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <FormInput placeholder="Key 名称" value={keyName} onChange={e => setKeyName(e.target.value)} />
+        <FormSelect value={keyType} onChange={e => setKeyType(e.target.value)}>
+          <option value="string">String</option>
+          <option value="hash">Hash</option>
+          <option value="list">List</option>
+          <option value="set">Set</option>
+          <option value="zset">ZSet</option>
+          <option value="stream">Stream</option>
+        </FormSelect>
+        {typeNeedsField && (
+          <FormInput placeholder="Field" value={field} onChange={e => setField(e.target.value)} />
+        )}
+        {typeNeedsScore && (
+          <FormInput
+            placeholder="Score"
+            type="number"
+            value={score}
+            onChange={e => setScore(e.target.value)}
+          />
+        )}
+        <FormInput placeholder={valueLabel} value={value} onChange={e => setValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} />
+      </div>
     </Modal>
   )
 }
@@ -303,6 +554,10 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   const [newField, setNewField] = useState('')
   const [newVal, setNewVal] = useState('')
   const [adding, setAdding] = useState(false)
+  const [editingField, setEditingField] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [savingField, setSavingField] = useState<string | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; field: string; value: string } | null>(null)
 
   const delField = async (field: string) => {
     await redisApi.executeRedisCommand(connId, `HDEL ${kv.key} ${field}`)
@@ -322,41 +577,89 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       setAdding(false)
     }
   }
+  const startEdit = (field: string, value: string) => {
+    setEditingField(field)
+    setEditValue(value)
+  }
+  const saveEdit = async (field: string) => {
+    setSavingField(field)
+    try {
+      await redisApi.executeRedisCommand(connId, `HSET ${kv.key} ${field} ${editValue}`)
+      setEditingField(null)
+      onRefresh()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingField(null)
+    }
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0 text-xs bg-[var(--vos-bg-surface)]">
         <div className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
-          {['Field', 'Value', ''].map(h => (
-            <div
-              key={h}
-              className="px-3 py-1.5 text-left font-medium"
-              style={{ width: h === '' ? 24 : h === 'Field' ? '30%' : undefined, flex: h === 'Value' ? 1 : undefined }}
-            >
-              {h}
-            </div>
-          ))}
+          <div className="px-3 py-1.5 text-left font-medium w-[30%]">Field</div>
+          <div className="px-3 py-1.5 text-left font-medium flex-1">Value</div>
         </div>
       </div>
       {/* Virtualized body */}
       <VList className="text-xs flex-1">
         {entries.map(([f, v]) => (
-          <div key={f} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
+          <div key={f} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)] items-center">
             <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-[30%]">{f}</div>
-            <div className="px-3 py-1.5 font-mono flex-1 break-all">{v}</div>
-            <div className="px-2 py-1 w-6 text-right">
-              <button
-                type="button"
-                className="vos-btn-reset text-[var(--vos-text-tertiary)]"
-                onClick={() => delField(f)}
+            {editingField === f ? (
+              <>
+                <FormInput
+                  className="font-mono flex-1 text-[11px] mx-1"
+                  value={editValue}
+                  onChange={e => setEditValue(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && saveEdit(f)}
+                  autoFocus
+                />
+                <div className="px-1 w-12 flex gap-1 justify-end">
+                  <button
+                    type="button"
+                    className="vos-btn-reset text-[var(--vos-text-tertiary)]"
+                    onClick={() => setEditingField(null)}
+                  >
+                    <X size={11} />
+                  </button>
+                  <button
+                    type="button"
+                    className="vos-btn-reset text-[var(--vos-accent-primary)]"
+                    disabled={savingField === f}
+                    onClick={() => saveEdit(f)}
+                  >
+                    {savingField === f ? <Spinner size={10} /> : <Check size={11} />}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div
+                className="px-3 py-1.5 font-mono flex-1 break-all cursor-context-menu"
+                onContextMenu={e => {
+                  e.preventDefault()
+                  setCtxMenu({ x: e.clientX, y: e.clientY, field: f, value: v })
+                }}
               >
-                <Trash2 size={11} />
-              </button>
-            </div>
+                {v}
+              </div>
+            )}
           </div>
         ))}
       </VList>
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={[
+            { label: '编辑', action: () => startEdit(ctxMenu.field, ctxMenu.value) },
+            { label: '删除', danger: true, action: () => delField(ctxMenu.field) }
+          ]}
+          onDismiss={() => setCtxMenu(null)}
+        />
+      )}
       <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]">
         <FormInput
           className="font-mono text-[11px] flex-[0_0_120px]"
@@ -369,6 +672,7 @@ function HashViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
           placeholder="Value"
           value={newVal}
           onChange={e => setNewVal(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addField()}
         />
         <button
           type="button"
@@ -387,6 +691,10 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   const items = useMemo(() => (kv.value as string[]) ?? [], [kv.value])
   const [newItem, setNewItem] = useState('')
   const [adding, setAdding] = useState(false)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [savingIndex, setSavingIndex] = useState<number | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; index: number; value: string } | null>(null)
 
   const delItem = async (val: string) => {
     await redisApi.executeRedisCommand(connId, `LREM ${kv.key} 1 ${val}`)
@@ -405,6 +713,22 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       setAdding(false)
     }
   }
+  const startEdit = (index: number, value: string) => {
+    setEditingIndex(index)
+    setEditValue(value)
+  }
+  const saveEdit = async (index: number) => {
+    setSavingIndex(index)
+    try {
+      await redisApi.executeRedisCommand(connId, `LSET ${kv.key} ${index} ${editValue}`)
+      setEditingIndex(null)
+      onRefresh()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingIndex(null)
+    }
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -413,27 +737,65 @@ function ListViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
         <div className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
           <div className="px-3 py-1.5 text-left font-medium w-12">#</div>
           <div className="px-3 py-1.5 text-left font-medium flex-1">Value</div>
-          <div className="w-6" />
         </div>
       </div>
       {/* Virtualized body */}
       <VList className="text-xs flex-1">
         {items.map((v, i) => (
-          <div key={`${i}-${v}`} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
+          <div key={`${i}-${v}`} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)] items-center">
             <div className="px-3 py-1.5 font-mono text-[var(--vos-text-tertiary)] w-12">{i}</div>
-            <div className="px-3 py-1.5 font-mono flex-1 break-all">{v}</div>
-            <div className="px-2 py-1 w-6 text-right">
-              <button
-                type="button"
-                className="vos-btn-reset text-[var(--vos-text-tertiary)]"
-                onClick={() => delItem(v)}
+            {editingIndex === i ? (
+              <>
+                <FormInput
+                  className="font-mono flex-1 text-[11px] mx-1"
+                  value={editValue}
+                  onChange={e => setEditValue(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && saveEdit(i)}
+                  autoFocus
+                />
+                <div className="px-1 w-12 flex gap-1 justify-end">
+                  <button
+                    type="button"
+                    className="vos-btn-reset text-[var(--vos-text-tertiary)]"
+                    onClick={() => setEditingIndex(null)}
+                  >
+                    <X size={11} />
+                  </button>
+                  <button
+                    type="button"
+                    className="vos-btn-reset text-[var(--vos-accent-primary)]"
+                    disabled={savingIndex === i}
+                    onClick={() => saveEdit(i)}
+                  >
+                    {savingIndex === i ? <Spinner size={10} /> : <Check size={11} />}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div
+                className="px-3 py-1.5 font-mono flex-1 break-all cursor-context-menu"
+                onContextMenu={e => {
+                  e.preventDefault()
+                  setCtxMenu({ x: e.clientX, y: e.clientY, index: i, value: v })
+                }}
               >
-                <Trash2 size={11} />
-              </button>
-            </div>
+                {v}
+              </div>
+            )}
           </div>
         ))}
       </VList>
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={[
+            { label: '编辑', action: () => startEdit(ctxMenu.index, ctxMenu.value) },
+            { label: '删除', danger: true, action: () => delItem(ctxMenu.value) }
+          ]}
+          onDismiss={() => setCtxMenu(null)}
+        />
+      )}
       <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]">
         <FormInput
           className="font-mono flex-1 text-[11px]"
@@ -459,6 +821,7 @@ function SetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: strin
   const members = useMemo(() => (kv.value as string[]) ?? [], [kv.value])
   const [newMember, setNewMember] = useState('')
   const [adding, setAdding] = useState(false)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; member: string } | null>(null)
 
   const delMember = async (m: string) => {
     await redisApi.executeRedisCommand(connId, `SREM ${kv.key} ${m}`)
@@ -484,20 +847,27 @@ function SetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: strin
         {members.map(m => (
           <div
             key={m}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-primary)]"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-primary)] cursor-context-menu"
+            onContextMenu={e => {
+              e.preventDefault()
+              setCtxMenu({ x: e.clientX, y: e.clientY, member: m })
+            }}
           >
             {m}
-            <button
-              type="button"
-              className="vos-btn-reset text-[var(--vos-text-tertiary)] flex"
-              onClick={() => delMember(m)}
-            >
-              <X size={10} />
-            </button>
           </div>
         ))}
         {members.length === 0 && <span className="text-xs text-[var(--vos-text-tertiary)]">空 Set</span>}
       </div>
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={[
+            { label: '删除', danger: true, action: () => delMember(ctxMenu.member) }
+          ]}
+          onDismiss={() => setCtxMenu(null)}
+        />
+      )}
       <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]">
         <FormInput
           className="font-mono flex-1 text-[11px]"
@@ -524,20 +894,38 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   const entries = useMemo(() => {
     const v = kv.value
     if (Array.isArray(v)) {
-      // backend might return [{member, score}, ...] or [[member, score], ...]
-      if (v.length > 0 && typeof v[0] === 'object' && v[0] !== null && 'member' in v[0]) {
+      if (v.length === 0) return []
+      // Case 1: Array of objects [{member, score}, ...]
+      if (typeof v[0] === 'object' && v[0] !== null && 'member' in v[0]) {
         return v as ZEntry[]
       }
-      // flat array alternating [member, score, member, score]
+      // Case 2: Array of arrays [[member, score], ...] (Redis 8.x RESP3-like nested array)
+      if (Array.isArray(v[0])) {
+        return (v as unknown[][]).map(item => ({
+          member: String(item[0] ?? ''),
+          score: Number(item[1] ?? 0)
+        }))
+      }
+      // Case 3: Flat array alternating [member, score, member, score]
       const r: ZEntry[] = []
-      for (let i = 0; i < v.length - 1; i += 2) r.push({ member: String(v[i]), score: Number(v[i + 1]) })
+      for (let i = 0; i < v.length - 1; i += 2) {
+        r.push({ member: String(v[i]), score: Number(v[i + 1]) })
+      }
       return r
+    }
+    // Case 4: Object/map format { "member1": score1, ... }
+    if (typeof v === 'object' && v !== null) {
+      return Object.entries(v as Record<string, unknown>).map(([member, score]) => ({
+        member,
+        score: Number(score)
+      }))
     }
     return []
   }, [kv.value])
   const [newMember, setNewMember] = useState('')
   const [newScore, setNewScore] = useState('0')
   const [adding, setAdding] = useState(false)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; member: string } | null>(null)
 
   const delMember = async (m: string) => {
     await redisApi.executeRedisCommand(connId, `ZREM ${kv.key} ${m}`)
@@ -563,36 +951,46 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
       {/* Header */}
       <div className="flex-shrink-0 text-xs bg-[var(--vos-bg-surface)]">
         <div className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
-          <div className="px-3 py-1.5 text-left font-medium w-20">Score</div>
+          <div className="px-3 py-1.5 text-left font-medium w-14">Score</div>
           <div className="px-3 py-1.5 text-left font-medium flex-1">Member</div>
-          <div className="w-6" />
         </div>
       </div>
       {/* Virtualized body */}
       <VList className="text-xs flex-1">
         {entries.map(e => (
-          <div key={e.member} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
-            <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-20">{e.score}</div>
+          <div
+            key={e.member}
+            className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)] cursor-context-menu"
+            onContextMenu={evt => {
+              evt.preventDefault()
+              setCtxMenu({ x: evt.clientX, y: evt.clientY, member: e.member })
+            }}
+          >
+            <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-14">{e.score}</div>
             <div className="px-3 py-1.5 font-mono flex-1 break-all">{e.member}</div>
-            <div className="px-2 py-1 w-6 text-right">
-              <button
-                type="button"
-                className="vos-btn-reset text-[var(--vos-text-tertiary)]"
-                onClick={() => delMember(e.member)}
-              >
-                <Trash2 size={11} />
-              </button>
-            </div>
           </div>
         ))}
       </VList>
-      <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]">
-        <FormInput
-          className="font-mono w-[70px] text-[11px]"
-          placeholder="Score"
-          value={newScore}
-          onChange={e => setNewScore(e.target.value)}
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={[
+            { label: '删除', danger: true, action: () => delMember(ctxMenu.member) }
+          ]}
+          onDismiss={() => setCtxMenu(null)}
         />
+      )}
+      <div className="flex items-center gap-1 px-3 py-2 flex-shrink-0 [border-top:0.5px_solid_var(--vos-border-subtle)]">
+        <div className="w-14 shrink-0">
+          <FormInput
+            className="font-mono text-[11px] w-full"
+            placeholder="Score"
+            value={newScore}
+            onChange={e => setNewScore(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addMember()}
+          />
+        </div>
         <FormInput
           className="font-mono flex-1 text-[11px]"
           placeholder="Member"
@@ -613,28 +1011,76 @@ function ZSetViewer({ kv, connId, onRefresh }: { kv: RedisKeyValue; connId: stri
   )
 }
 
+function StreamViewer({ kv }: { kv: RedisKeyValue; connId: string; onRefresh: () => void }) {
+  type StreamEntry = { id: string; fields: Record<string, string> }
+  const entries = useMemo(() => {
+    const v = kv.value
+    if (!Array.isArray(v)) return []
+    const result: StreamEntry[] = []
+    for (const item of v) {
+      if (!Array.isArray(item) || item.length < 2) continue
+      const id = String(item[0])
+      const rawFields = item[1]
+      const fields: Record<string, string> = {}
+      if (Array.isArray(rawFields)) {
+        for (let i = 0; i + 1 < rawFields.length; i += 2) {
+          fields[String(rawFields[i])] = String(rawFields[i + 1])
+        }
+      }
+      result.push({ id, fields })
+    }
+    return result
+  }, [kv.value])
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-shrink-0 text-xs bg-[var(--vos-bg-surface)]">
+        <div className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
+          <div className="px-3 py-1.5 text-left font-medium w-48">ID</div>
+          <div className="px-3 py-1.5 text-left font-medium flex-1">Fields</div>
+        </div>
+      </div>
+      <VList className="text-xs flex-1">
+        {entries.map(e => (
+          <div key={e.id} className="flex [border-bottom:0.5px_solid_var(--vos-border-subtle)]">
+            <div className="px-3 py-1.5 font-mono text-[var(--vos-accent-primary)] w-48 shrink-0 truncate">{e.id}</div>
+            <div className="px-3 py-1.5 flex-1">
+              {Object.entries(e.fields).map(([k, v]) => (
+                <div key={k} className="flex gap-1">
+                  <span className="font-mono text-[var(--vos-text-tertiary)]">{k}</span>
+                  <span className="font-mono text-[var(--vos-text-secondary)]">=</span>
+                  <span className="font-mono break-all">{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </VList>
+      {entries.length === 0 && (
+        <div className="flex items-center justify-center py-8 text-xs text-[var(--vos-text-tertiary)]">
+          空 Stream
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ValueViewer({
   kv,
   connId,
-  onDeleted,
   onRefresh
 }: {
   kv: RedisKeyValue
   connId: string
-  onDeleted: () => void
   onRefresh: () => void
 }) {
-  const handleDelete = async () => {
-    await redisApi.deleteRedisKey(connId, kv.key)
-    onDeleted()
-  }
-
   const TYPE_COLOR: Record<string, string> = {
     string: '#3b82f6',
     hash: '#f59e0b',
     list: '#10b981',
     set: '#8b5cf6',
-    zset: '#ec4899'
+    zset: '#ec4899',
+    stream: '#06b6d4'
   }
 
   return (
@@ -658,14 +1104,6 @@ function ValueViewer({
           </span>
         )}
         {kv.ttl === -1 && <span className="text-[10px] text-[var(--vos-text-tertiary)]">永久</span>}
-        <button
-          type="button"
-          className="vos-btn-reset text-[var(--vos-text-tertiary)]"
-          onClick={handleDelete}
-          title="删除 Key"
-        >
-          <Trash2 size={12} />
-        </button>
       </div>
       {/* Type-specific content */}
       {kv.key_type === 'string' && <StringViewer kv={kv} connId={connId} onRefresh={onRefresh} />}
@@ -673,7 +1111,8 @@ function ValueViewer({
       {kv.key_type === 'list' && <ListViewer kv={kv} connId={connId} onRefresh={onRefresh} />}
       {kv.key_type === 'set' && <SetViewer kv={kv} connId={connId} onRefresh={onRefresh} />}
       {kv.key_type === 'zset' && <ZSetViewer kv={kv} connId={connId} onRefresh={onRefresh} />}
-      {!['string', 'hash', 'list', 'set', 'zset'].includes(kv.key_type) && (
+      {kv.key_type === 'stream' && <StreamViewer kv={kv} connId={connId} onRefresh={onRefresh} />}
+      {!['string', 'hash', 'list', 'set', 'zset', 'stream'].includes(kv.key_type) && (
         <div className="flex-1 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap text-[var(--vos-text-primary)]">
           {typeof kv.value === 'string' ? kv.value : JSON.stringify(kv.value, null, 2)}
         </div>
@@ -688,10 +1127,9 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
   const storage = useAppStorage('redis')
   const [connections, setConnections] = useState<RedisConnectionConfig[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [showAddKey, setShowAddKey] = useState(false)
   const [connectedIds, setConnectedIds] = useState<Set<string>>(new Set())
-  const [expandedConns, setExpandedConns] = useState<Set<string>>(
-    () => new Set((initialAppState?.expandedConns as string[]) ?? [])
-  )
+  const [connectingIds, setConnectingIds] = useState<Set<string>>(new Set())
   const [selectedConn, setSelectedConn] = useState<string | null>(
     () => (initialAppState?.selectedConnId as string) ?? null
   )
@@ -702,6 +1140,10 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
     () => new Set((initialAppState?.expandedPaths as string[]) ?? [])
   )
+  const [currentDb, setCurrentDb] = useState(0)
+  const [dbKeyCounts, setDbKeyCounts] = useState<Record<number, number>>({})
+  const [connCtxMenu, setConnCtxMenu] = useState<{ x: number; y: number; connId: string } | null>(null)
+  const [keyCtxMenu, setKeyCtxMenu] = useState<{ x: number; y: number; key: string } | null>(null)
   // CLI state
   const [cliMode, setCliMode] = useState((initialAppState?.cliMode as boolean) ?? false)
   const [cliInput, setCliInput] = useState('')
@@ -722,10 +1164,9 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
       selectedConnId: selectedConn,
       pattern,
       expandedPaths: [...expandedPaths],
-      expandedConns: [...expandedConns],
       cliMode
     },
-    [selectedConn, pattern, expandedPaths, expandedConns, cliMode]
+    [selectedConn, pattern, expandedPaths, cliMode]
   )
 
   // Build trie from flat key list
@@ -744,13 +1185,52 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
     reload()
   }, [reload])
 
+  const parseDbKeyCounts = (infoStr: string): Record<number, number> => {
+    const counts: Record<number, number> = {}
+    for (const line of infoStr.split('\n')) {
+      const match = line.match(/^db(\d+):keys=(\d+)/)
+      if (match) {
+        counts[Number(match[1])] = Number(match[2])
+      }
+    }
+    return counts
+  }
+
+  const fetchDbKeyCounts = async (connId: string) => {
+    try {
+      const r = await redisApi.executeRedisCommand(connId, 'INFO keyspace')
+      const infoStr = typeof r.data.result === 'string' ? r.data.result : ''
+      setDbKeyCounts(parseDbKeyCounts(infoStr))
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   const connectTo = async (id: string) => {
+    setConnectingIds(s => new Set(s).add(id))
     try {
       await redisApi.connectRedis(id)
       setConnectedIds(s => new Set(s).add(id))
-      setExpandedConns(s => new Set(s).add(id))
       setSelectedConn(id)
+      await fetchDbKeyCounts(id)
       scanKeys(id, '*')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setConnectingIds(s => {
+        const n = new Set(s)
+        n.delete(id)
+        return n
+      })
+    }
+  }
+
+  const switchDb = async (db: number) => {
+    if (!selectedConn) return
+    try {
+      await redisApi.executeRedisCommand(selectedConn, `SELECT ${db}`)
+      setCurrentDb(db)
+      scanKeys(selectedConn, pattern)
     } catch (e) {
       console.error(e)
     }
@@ -767,6 +1247,8 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
       setSelectedConn(null)
       setKeys([])
       setSelectedKey(null)
+      setCurrentDb(0)
+      setDbKeyCounts({})
     }
   }
 
@@ -834,13 +1316,6 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
     }
   }
 
-  const toggleConn = (id: string) =>
-    setExpandedConns(s => {
-      const n = new Set(s)
-      n.has(id) ? n.delete(id) : n.add(id)
-      return n
-    })
-
   return (
     <AppLayout
       sidebar={
@@ -865,65 +1340,70 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
 
           {connections.map(conn => {
             const connected = connectedIds.has(conn.id)
-            const expanded = expandedConns.has(conn.id)
+            const isConnecting = connectingIds.has(conn.id)
             const isActive = selectedConn === conn.id
             return (
-              <div key={conn.id}>
-                <div
-                  className="flex items-center gap-1 px-2 py-1 cursor-pointer text-xs group rounded my-px mx-1"
-                  style={{
-                    background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
-                    color: isActive ? '#fff' : 'var(--vos-text-primary)'
-                  }}
-                >
-                  <button type="button" className="vos-btn-reset text-inherit" onClick={() => toggleConn(conn.id)}>
-                    {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                  </button>
-                  <Database
-                    size={12}
-                    className="shrink-0"
+              <div
+                key={conn.id}
+                className="flex items-center gap-1.5 px-2 py-1.5 cursor-pointer text-xs rounded my-px mx-1"
+                style={{
+                  background: isActive ? 'var(--vos-accent-primary)' : 'transparent',
+                  color: isActive ? '#fff' : 'var(--vos-text-primary)'
+                }}
+                onClick={() =>
+                  connected ? (setSelectedConn(conn.id), scanKeys(conn.id, pattern)) : connectTo(conn.id)
+                }
+                onContextMenu={e => {
+                  e.preventDefault()
+                  setConnCtxMenu({ x: e.clientX, y: e.clientY, connId: conn.id })
+                }}
+              >
+                {isConnecting ? (
+                  <Spinner size={10} className="shrink-0" />
+                ) : (
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
                     style={{
-                      color: isActive ? '#fff' : connected ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)'
+                      background: connected
+                        ? 'var(--vos-success)'
+                        : isActive
+                          ? 'rgba(255,255,255,0.6)'
+                          : 'var(--vos-text-tertiary)'
                     }}
                   />
+                )}
+                <Database
+                  size={12}
+                  className="shrink-0"
+                  style={{
+                    color: isActive ? '#fff' : connected ? 'var(--vos-accent-primary)' : 'var(--vos-text-tertiary)'
+                  }}
+                />
+                <span className="flex-1 truncate">{conn.name}</span>
+                {connected && (
                   <span
-                    className="flex-1 truncate"
-                    onClick={() =>
-                      connected ? (setSelectedConn(conn.id), scanKeys(conn.id, pattern)) : connectTo(conn.id)
-                    }
-                  >
-                    {conn.name}
-                  </span>
-                  <span className="hidden group-hover:flex gap-0.5">
-                    {connected ? (
-                      <button
-                        type="button"
-                        className="vos-btn-reset text-inherit"
-                        onClick={() => disconnectFrom(conn.id)}
-                      >
-                        <Unplug size={10} />
-                      </button>
-                    ) : (
-                      <button type="button" className="vos-btn-reset text-inherit" onClick={() => connectTo(conn.id)}>
-                        <Zap size={10} />
-                      </button>
-                    )}
-                    <button type="button" className="vos-btn-reset text-inherit" onClick={() => deleteConn(conn.id)}>
-                      <Trash2 size={10} />
-                    </button>
-                  </span>
-                </div>
-                {expanded && connected && (
-                  <div
-                    className="text-[10px] px-2 py-0.5 ml-6"
+                    className="text-[9px] opacity-60 shrink-0"
                     style={{ color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--vos-text-tertiary)' }}
                   >
-                    {conn.host}:{conn.port} db{conn.db}
-                  </div>
+                    已连接
+                  </span>
                 )}
               </div>
             )
           })}
+          {connCtxMenu && (
+            <ContextMenu
+              x={connCtxMenu.x}
+              y={connCtxMenu.y}
+              items={[
+                ...(connectedIds.has(connCtxMenu.connId)
+                  ? [{ label: '断开连接', action: () => disconnectFrom(connCtxMenu.connId) }]
+                  : [{ label: '连接', action: () => connectTo(connCtxMenu.connId) }]),
+                { label: '删除连接', danger: true, action: () => deleteConn(connCtxMenu.connId) }
+              ]}
+              onDismiss={() => setConnCtxMenu(null)}
+            />
+          )}
 
           {connections.length === 0 && (
             <div className="flex-1 flex items-center justify-center text-xs text-[var(--vos-text-tertiary)]">
@@ -933,15 +1413,26 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
         </AppSidebar>
       }
       overlay={
-        showForm ? (
-          <ConnForm
-            onClose={() => setShowForm(false)}
-            onCreated={c => {
-              setConnections(p => [...p, c])
-              setShowForm(false)
-            }}
-          />
-        ) : undefined
+        <>
+          {showForm && (
+            <ConnForm
+              onClose={() => setShowForm(false)}
+              onCreated={c => {
+                setConnections(p => [...p, c])
+                setShowForm(false)
+              }}
+            />
+          )}
+          {showAddKey && selectedConn && (
+            <AddKeyModal
+              connId={selectedConn}
+              onClose={() => setShowAddKey(false)}
+              onAdded={() => {
+                scanKeys(selectedConn, pattern)
+              }}
+            />
+          )}
+        </>
       }
     >
       {/* Right panel */}
@@ -967,6 +1458,14 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
                 onClick={() => selectedConn && scanKeys(selectedConn, pattern)}
               >
                 <RefreshCw size={11} />
+              </button>
+              <button
+                type="button"
+                className="vos-btn-reset text-[var(--vos-accent-primary)]"
+                onClick={() => setShowAddKey(true)}
+                title="新建 Key"
+              >
+                <Plus size={13} />
               </button>
               <button
                 type="button"
@@ -1011,14 +1510,14 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
             ) : (
               /* Key browser with trie tree */
               <div className="flex-1 flex overflow-hidden">
-                {/* Key tree */}
-                <div className="flex flex-col overflow-auto w-[260px] [border-right:0.5px_solid_var(--vos-border-subtle)]">
-                  {loading && keys.length === 0 && (
-                    <div className="flex items-center justify-center py-4">
-                      <Spinner size={16} />
-                    </div>
-                  )}
+                {/* Key tree + DB selector */}
+                <div className="flex flex-col w-[260px] [border-right:0.5px_solid_var(--vos-border-subtle)]">
                   <div className="flex-1 overflow-auto py-1">
+                    {loading && keys.length === 0 && (
+                      <div className="flex items-center justify-center py-4">
+                        <Spinner size={16} />
+                      </div>
+                    )}
                     <TrieTreeView
                       node={trie}
                       depth={0}
@@ -1026,13 +1525,52 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
                       onSelect={key => selectKey(selectedConn, key)}
                       expandedPaths={expandedPaths}
                       onToggle={toggleTriePath}
+                      onKeyContextMenu={(key, e) => {
+                        e.preventDefault()
+                        setKeyCtxMenu({ x: e.clientX, y: e.clientY, key })
+                      }}
                     />
+                    {keyCtxMenu && (
+                      <ContextMenu
+                        x={keyCtxMenu.x}
+                        y={keyCtxMenu.y}
+                        items={[
+                          { label: '删除 Key', danger: true, action: async () => {
+                            await redisApi.deleteRedisKey(selectedConn, keyCtxMenu.key)
+                            setSelectedKey(null)
+                            scanKeys(selectedConn, pattern)
+                          } }
+                        ]}
+                        onDismiss={() => setKeyCtxMenu(null)}
+                      />
+                    )}
+                    {!loading && keys.length === 0 && (
+                      <div className="flex items-center justify-center py-8 text-xs text-[var(--vos-text-tertiary)]">
+                        无 Key
+                      </div>
+                    )}
                   </div>
-                  {!loading && keys.length === 0 && (
-                    <div className="flex items-center justify-center py-8 text-xs text-[var(--vos-text-tertiary)]">
-                      无 Key
-                    </div>
-                  )}
+                  {/* DB selector */}
+                  <div className="flex-shrink-0 flex items-center gap-2 px-2 py-1.5 [border-top:0.5px_solid_var(--vos-border-subtle)]">
+                    <span className="text-[10px] text-[var(--vos-text-secondary)] shrink-0">DB</span>
+                    <select
+                      className="vos-input vos-input-sm flex-1 text-[11px] h-6 min-h-0 py-0 px-1.5"
+                      value={currentDb}
+                      onChange={e => {
+                        const db = Number(e.target.value)
+                        switchDb(db)
+                      }}
+                    >
+                      {Array.from({ length: 16 }, (_, i) => {
+                        const count = dbKeyCounts[i] ?? 0
+                        return (
+                          <option key={i} value={i}>
+                            db{i} ({count} keys)
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Value viewer */}
@@ -1040,10 +1578,6 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
                   <ValueViewer
                     kv={selectedKey}
                     connId={selectedConn}
-                    onDeleted={() => {
-                      setSelectedKey(null)
-                      scanKeys(selectedConn, pattern)
-                    }}
                     onRefresh={() => selectKey(selectedConn, selectedKey.key)}
                   />
                 ) : (
