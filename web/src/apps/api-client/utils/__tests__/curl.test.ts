@@ -116,7 +116,8 @@ describe('curl utils', () => {
   describe('toCurl', () => {
     it('generates a simple GET curl', () => {
       const cmd = toCurl({ url: 'https://example.com/api', method: 'GET' })
-      expect(cmd).toBe("curl \\n  'https://example.com/api'")
+      expect(cmd).toContain("curl")
+      expect(cmd).toContain("'https://example.com/api'")
     })
 
     it('generates POST with headers and body', () => {

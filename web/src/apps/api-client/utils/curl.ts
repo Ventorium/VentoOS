@@ -248,22 +248,22 @@ export function toCurl(opts: {
 
   const enabledHeaders = headers.filter(h => h.enabled && h.key)
   for (const h of enabledHeaders) {
-    cmd += ` \\n  -H '${h.key}: ${h.value}'`
+    cmd += ` \\\n  -H '${h.key}: ${h.value}'`
   }
 
   if (auth) {
     if (auth.type === 'basic' && auth.username) {
       const creds = auth.password ? `${auth.username}:${auth.password}` : auth.username
-      cmd += ` \\n  -u '${creds}'`
+      cmd += ` \\\n  -u '${creds}'`
     } else if (auth.type === 'bearer' && auth.token) {
-      cmd += ` \\n  -H 'Authorization: Bearer ${auth.token}'`
+      cmd += ` \\\n  -H 'Authorization: Bearer ${auth.token}'`
     } else if (auth.type === 'api-key' && auth.key && auth.value) {
       if (auth.addTo === 'query') {
         const sep = url.includes('?') ? '&' : '?'
         // Don't mutate the original cmd display; just show a comment
-        cmd += ` \\n  # API Key would be appended to URL: ${url}${sep}${auth.key}=${auth.value}`
+        cmd += ` \\\n  # API Key would be appended to URL: ${url}${sep}${auth.key}=${auth.value}`
       } else {
-        cmd += ` \\n  -H '${auth.key}: ${auth.value}'`
+        cmd += ` \\\n  -H '${auth.key}: ${auth.value}'`
       }
     }
   }
@@ -272,41 +272,41 @@ export function toCurl(opts: {
     switch (body.type) {
       case 'json':
         if (body.content) {
-          cmd += ` \\n  -d '${body.content.replace(/'/g, "'\\''")}'`
+          cmd += ` \\\n  -d '${body.content.replace(/'/g, "'\\''")}'`
         }
         break
       case 'text':
       case 'xml':
         if (body.content) {
-          cmd += ` \\n  -d '${body.content.replace(/'/g, "'\\''")}'`
+          cmd += ` \\\n  -d '${body.content.replace(/'/g, "'\\''")}'`
         }
         break
       case 'form-urlencoded':
         if (body.params && body.params.length > 0) {
           for (const p of body.params.filter(p => p.enabled && p.key)) {
-            cmd += ` \\n  -d '${p.key}=${p.value}'`
+            cmd += ` \\\n  -d '${p.key}=${p.value}'`
           }
         } else if (body.content) {
-          cmd += ` \\n  -d '${body.content.replace(/'/g, "'\\''")}'`
+          cmd += ` \\\n  -d '${body.content.replace(/'/g, "'\\''")}'`
         }
         break
       case 'form-data':
         if (body.params && body.params.length > 0) {
           for (const p of body.params.filter(p => p.enabled && p.key)) {
             const val = p.dataType === 'file' ? '@file' : p.value
-            cmd += ` \\n  -F '${p.key}=${val}'`
+            cmd += ` \\\n  -F '${p.key}=${val}'`
           }
         }
         break
       case 'binary':
-        cmd += ` \\n  --data-binary '@file'`
+        cmd += ` \\\n  --data-binary '@file'`
         break
       default:
         break
     }
   }
 
-  cmd += ` \\n  '${url}'`
+  cmd += ` \\\n  '${url}'`
 
   return cmd
 }
