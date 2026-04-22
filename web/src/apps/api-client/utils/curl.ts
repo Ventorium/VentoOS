@@ -24,6 +24,15 @@ function tokenizeCurl(input: string): string[] {
     }
 
     if (ch === '\\') {
+      // Shell line-continuation: \ followed by newline (or \r\n) should be ignored
+      if (i + 1 < input.length && (input[i + 1] === '\n' || input[i + 1] === '\r')) {
+        if (input[i + 1] === '\r' && i + 2 < input.length && input[i + 2] === '\n') {
+          i += 2 // skip \r\n
+        } else {
+          i++ // skip \n
+        }
+        continue
+      }
       escaped = true
       current += ch
       continue

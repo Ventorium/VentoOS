@@ -86,6 +86,27 @@ describe('curl utils', () => {
       expect(parsed!.body!.content).toBe('name%3Dhello%20world')
     })
 
+    it('parses multiline curl with backslash line continuations', () => {
+      const input = `curl --location --request POST 'http://localhost:3000/auth/register' \\
+--header 'Content-Type: application/json' \\
+--data-raw '{
+  "email": "a1@example.com",
+  "password": "password",
+  "name": "abc"
+}'`
+      const parsed = parseCurl(input)
+      expect(parsed).not.toBeNull()
+      expect(parsed!.method).toBe('POST')
+      expect(parsed!.url).toBe('http://localhost:3000/auth/register')
+      expect(parsed!.headers).toContainEqual({
+        key: 'Content-Type',
+        value: 'application/json',
+        enabled: true
+      })
+      expect(parsed!.body!.type).toBe('json')
+      expect(parsed!.body!.content).toContain('"email": "a1@example.com"')
+    })
+
     it('returns null for non-curl strings', () => {
       expect(parseCurl('https://example.com')).toBeNull()
       expect(parseCurl('not a curl command')).toBeNull()
