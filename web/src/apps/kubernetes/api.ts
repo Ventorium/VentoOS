@@ -159,6 +159,11 @@ export const k8sApi = {
     if (namespace) params.set('ns', namespace)
     return request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/resources/${kind}/${name}/restart?${params}`)
   },
+  deleteK8sResource: (id: string, kind: K8sResourceKind, name: string, namespace?: string) => {
+    const params = new URLSearchParams()
+    if (namespace) params.set('ns', namespace)
+    return request<ApiResponse<null>>('DELETE', `/api/k8s/clusters/${id}/resources/${kind}/${name}?${params}`)
+  },
   cordonNode: (id: string, name: string, cordon: boolean) =>
     request<ApiResponse<unknown>>('POST', `/api/k8s/clusters/${id}/nodes/${name}/cordon`, { cordon }),
   drainNode: (id: string, name: string, force?: boolean, ignoreDaemonSets?: boolean) =>

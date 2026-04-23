@@ -99,15 +99,15 @@ export default function ResourceMonitorPanel({ serverId, onClose }: ResourceMoni
         width: 280,
         minWidth: 280,
         height: '100%',
-        borderLeft: '1px solid var(--vos-border)',
-        background: 'var(--vos-bg-primary)',
+        borderLeft: '1px solid var(--vos-border-subtle)',
+        background: 'var(--vos-bg-surface)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden'
       }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-[10px] border-b border-b-[var(--vos-border)] shrink-0">
+      <div className="flex items-center justify-between px-3 py-[10px] border-b border-b-[var(--vos-border-subtle)] shrink-0">
         <span className="text-[13px] font-semibold text-[var(--vos-text-primary)]">资源监控</span>
         <button type="button" className="vos-icon-btn" onClick={onClose} title="关闭监控">
           <X size={14} />

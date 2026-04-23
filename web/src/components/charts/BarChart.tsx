@@ -20,7 +20,7 @@ export default function BarChart({ items, className, formatValue = defaultFormat
               <span className="text-[var(--vos-text-secondary)]">{item.label}</span>
               <span className="text-[var(--vos-text-tertiary)] text-[11px]">{formatValue(item.value)}</span>
             </div>
-            <div className="h-[6px] rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden">
+            <div className="h-[6px] rounded-[3px] bg-[var(--vos-border-subtle)] overflow-hidden">
               <div
                 style={{
                   height: '100%',

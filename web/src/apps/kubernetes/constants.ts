@@ -47,7 +47,6 @@ export const SIDEBAR_TREE: SidebarNode[] = [
     label: 'Workloads',
     icon: Box,
     children: [
-      { type: 'leaf', id: 'workloads-overview', label: 'Overview', kind: 'workloads_overview' },
       { type: 'leaf', id: 'pods', label: 'Pods', kind: 'pod' },
       { type: 'leaf', id: 'deployments', label: 'Deployments', kind: 'deployment' },
       { type: 'leaf', id: 'daemonsets', label: 'Daemon Sets', kind: 'daemonset' },

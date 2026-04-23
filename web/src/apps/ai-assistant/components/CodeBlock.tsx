@@ -1,6 +1,7 @@
 import copyToClipboard from 'copy-to-clipboard'
 import { Check, Copy } from 'lucide-react'
 import { useCallback, useState } from 'react'
+import { toast } from '@/components/Toast'
 
 interface CodeBlockProps {
   children: string
@@ -13,6 +14,7 @@ export default function CodeBlock({ children, language, showLineNumbers = true }
 
   const handleCopy = useCallback(() => {
     copyToClipboard(children)
+    toast.success('已复制')
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }, [children])

@@ -1,6 +1,7 @@
 import { Copy, Key, Minus, Plus, Save } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Tabs } from '@/components/ui'
+import { Button, FormSelect, Tabs } from '@/components/ui'
+import { toast } from '@/components/Toast'
 import { useDatabaseStore } from '../stores'
 import type { CheckConstraint, ColumnInfo, ForeignKeyInfo, IndexInfo, TriggerInfo, UniqueConstraint } from '../types'
 
@@ -190,7 +191,7 @@ export function TableDesigner() {
   }, [columns, indexes, foreignKeys, uniqueConstraints, checkConstraints, tableName, tableComment])
 
   const copyToClipboard = useCallback(() => {
-    navigator.clipboard.writeText(generatedSql)
+    navigator.clipboard.writeText(generatedSql).then(() => toast.success('已复制'))
   }, [generatedSql])
 
   const selectedCol = selectedColumnIndex !== null ? columns[selectedColumnIndex] : null
@@ -199,41 +200,30 @@ export function TableDesigner() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Toolbar */}
       <div className="h-10 shrink-0 flex items-center gap-1 px-3 border-b border-solid border-(--vos-border)">
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          <Save size={14} />
-          <span>{saving ? '保存中...' : '保存'}</span>
-        </button>
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={addColumn}
-        >
-          <Plus size={14} />
-          <span>添加字段</span>
-        </button>
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer disabled:opacity-40"
+        <Button variant="toolbar" size="sm" leadingIcon={<Save size={14} />} onClick={handleSave} disabled={saving}>
+          {saving ? '保存中...' : '保存'}
+        </Button>
+        <Button variant="toolbar" size="sm" leadingIcon={<Plus size={14} />} onClick={addColumn}>
+          添加字段
+        </Button>
+        <Button
+          variant="toolbar"
+          size="sm"
+          leadingIcon={<Minus size={14} />}
           onClick={removeColumn}
           disabled={selectedColumnIndex === null}
         >
-          <Minus size={14} />
-          <span>删除字段</span>
-        </button>
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer disabled:opacity-40"
+          删除字段
+        </Button>
+        <Button
+          variant="toolbar"
+          size="sm"
+          leadingIcon={<Key size={14} />}
           onClick={togglePrimaryKey}
           disabled={selectedColumnIndex === null}
         >
-          <Key size={14} />
-          <span>设为主键</span>
-        </button>
+          设为主键
+        </Button>
       </div>
 
       {/* Tab bar */}
@@ -333,17 +323,19 @@ function ColumnsTab({
                   />
                 </td>
                 <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
-                  <select
+                  <FormSelect
                     value={col.data_type}
                     onChange={e => onUpdate(i, 'data_type', e.target.value)}
-                    className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
+                    variant="minimal"
+                    className="w-full text-xs text-(--vos-text) border-none p-0"
+                    wrapperClassName="w-full"
                   >
                     {SQL_TYPES.map(t => (
                       <option key={t} value={t}>
                         {t}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </td>
                 <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                   <input
@@ -411,19 +403,21 @@ function ColumnsTab({
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-[11px] text-(--vos-text-secondary)">排序规则</span>
-              <select
+              <FormSelect
                 value={selectedCol.collation ?? 'default'}
                 onChange={e =>
                   onUpdate(selectedIndex, 'collation', e.target.value === 'default' ? undefined : e.target.value)
                 }
-                className="h-7 px-2 text-xs rounded border border-solid border-(--vos-border) bg-(--vos-bg) text-(--vos-text) outline-none cursor-pointer focus:border-(--vos-primary)"
+                variant="toolbar"
+                className="h-7 text-xs"
+                wrapperClassName="w-full"
               >
                 {COLLATIONS.map(c => (
                   <option key={c} value={c}>
                     {c}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-[11px] text-(--vos-text-secondary)">注释</span>
@@ -473,14 +467,9 @@ function IndexesTab({
   return (
     <div className="p-3">
       <div className="mb-2">
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={addIndex}
-        >
-          <Plus size={14} />
-          <span>添加索引</span>
-        </button>
+        <Button variant="toolbar" size="sm" leadingIcon={<Plus size={14} />} onClick={addIndex}>
+          添加索引
+        </Button>
       </div>
       <table className="w-full text-xs border-collapse">
         <thead>
@@ -516,17 +505,19 @@ function IndexesTab({
                 />
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
-                <select
+                <FormSelect
                   value={idx.method ?? 'BTree'}
                   onChange={e => update(i, 'method', e.target.value)}
-                  className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
+                  variant="minimal"
+                  className="w-full text-xs text-(--vos-text) border-none p-0"
+                  wrapperClassName="w-full"
                 >
                   {INDEX_METHODS.map(m => (
                     <option key={m} value={m}>
                       {m}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <div className="flex flex-wrap gap-1">
@@ -606,14 +597,9 @@ function ForeignKeysTab({
   return (
     <div className="p-3">
       <div className="mb-2">
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={add}
-        >
-          <Plus size={14} />
-          <span>添加外键</span>
-        </button>
+        <Button variant="toolbar" size="sm" leadingIcon={<Plus size={14} />} onClick={add}>
+          添加外键
+        </Button>
       </div>
       <table className="w-full text-xs border-collapse">
         <thead>
@@ -652,10 +638,12 @@ function ForeignKeysTab({
                 />
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
-                <select
+                <FormSelect
                   value={fk.column}
                   onChange={e => update(i, 'column', e.target.value)}
-                  className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
+                  variant="minimal"
+                  className="w-full text-xs text-(--vos-text) border-none p-0"
+                  wrapperClassName="w-full"
                 >
                   <option value="">选择字段</option>
                   {columns.map(c => (
@@ -663,7 +651,7 @@ function ForeignKeysTab({
                       {c.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
                 <input
@@ -684,30 +672,34 @@ function ForeignKeysTab({
                 />
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
-                <select
+                <FormSelect
                   value={fk.onDelete}
                   onChange={e => update(i, 'onDelete', e.target.value)}
-                  className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
+                  variant="minimal"
+                  className="w-full text-xs text-(--vos-text) border-none p-0"
+                  wrapperClassName="w-full"
                 >
                   {FK_ACTIONS.map(a => (
                     <option key={a} value={a}>
                       {a}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
-                <select
+                <FormSelect
                   value={fk.onUpdate}
                   onChange={e => update(i, 'onUpdate', e.target.value)}
-                  className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
+                  variant="minimal"
+                  className="w-full text-xs text-(--vos-text) border-none p-0"
+                  wrapperClassName="w-full"
                 >
                   {FK_ACTIONS.map(a => (
                     <option key={a} value={a}>
                       {a}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </td>
               <td className="text-center px-2 py-1 border-b border-solid border-(--vos-border)">
                 <button
@@ -759,14 +751,9 @@ function UniqueTab({
   return (
     <div className="p-3">
       <div className="mb-2">
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={add}
-        >
-          <Plus size={14} />
-          <span>添加唯一键</span>
-        </button>
+        <Button variant="toolbar" size="sm" leadingIcon={<Plus size={14} />} onClick={add}>
+          添加唯一键
+        </Button>
       </div>
       <table className="w-full text-xs border-collapse">
         <thead>
@@ -851,14 +838,9 @@ function ChecksTab({
   return (
     <div className="p-3">
       <div className="mb-2">
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={add}
-        >
-          <Plus size={14} />
-          <span>添加检查</span>
-        </button>
+        <Button variant="toolbar" size="sm" leadingIcon={<Plus size={14} />} onClick={add}>
+          添加检查
+        </Button>
       </div>
       <table className="w-full text-xs border-collapse">
         <thead>
@@ -931,14 +913,9 @@ function TriggersTab({ triggers, onChange }: { triggers: TriggerInfo[]; onChange
   return (
     <div className="p-3">
       <div className="mb-2">
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={add}
-        >
-          <Plus size={14} />
-          <span>添加触发器</span>
-        </button>
+        <Button variant="toolbar" size="sm" leadingIcon={<Plus size={14} />} onClick={add}>
+          添加触发器
+        </Button>
       </div>
       <table className="w-full text-xs border-collapse">
         <thead>
@@ -974,30 +951,34 @@ function TriggersTab({ triggers, onChange }: { triggers: TriggerInfo[]; onChange
                 />
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
-                <select
+                <FormSelect
                   value={t.timing}
                   onChange={e => update(i, 'timing', e.target.value)}
-                  className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
+                  variant="minimal"
+                  className="w-full text-xs text-(--vos-text) border-none p-0"
+                  wrapperClassName="w-full"
                 >
                   {TRIGGER_TIMINGS.map(v => (
                     <option key={v} value={v}>
                       {v}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </td>
               <td className="px-2 py-1 border-b border-solid border-(--vos-border)">
-                <select
+                <FormSelect
                   value={t.event}
                   onChange={e => update(i, 'event', e.target.value)}
-                  className="w-full bg-transparent outline-none text-xs text-(--vos-text) border-none p-0 cursor-pointer"
+                  variant="minimal"
+                  className="w-full text-xs text-(--vos-text) border-none p-0"
+                  wrapperClassName="w-full"
                 >
                   {TRIGGER_EVENTS.map(v => (
                     <option key={v} value={v}>
                       {v}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </td>
               <td className="text-center px-2 py-1 border-b border-solid border-(--vos-border)">
                 <input
@@ -1059,14 +1040,9 @@ function SqlPreviewTab({ sql, onCopy }: { sql: string; onCopy: () => void }) {
   return (
     <div className="h-full flex flex-col">
       <div className="flex justify-end p-2">
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={onCopy}
-        >
-          <Copy size={14} />
-          <span>复制</span>
-        </button>
+        <Button variant="toolbar" size="sm" leadingIcon={<Copy size={14} />} onClick={onCopy}>
+          复制
+        </Button>
       </div>
       <pre className="flex-1 overflow-auto m-0 px-4 pb-4 text-xs font-mono text-(--vos-text) whitespace-pre-wrap leading-5">
         {sql}

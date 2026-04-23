@@ -85,7 +85,7 @@ export default function LineChart({
                 y1={y}
                 x2={width - PADDING.right}
                 y2={y}
-                stroke="var(--vos-border-secondary)"
+                stroke="var(--vos-border-subtle)"
                 strokeWidth={0.5}
                 strokeDasharray="3,3"
               />

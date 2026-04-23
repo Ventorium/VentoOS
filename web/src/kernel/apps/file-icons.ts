@@ -26,10 +26,10 @@ import {
   Terminal,
   Type
 } from 'lucide-react'
-import type { ComponentType } from 'react'
+import type { ComponentType, CSSProperties } from 'react'
 
 interface FileIconInfo {
-  icon: ComponentType<{ size?: number; style?: React.CSSProperties }>
+  icon: ComponentType<{ size?: number; style?: CSSProperties; className?: string }>
   color: string
 }
 

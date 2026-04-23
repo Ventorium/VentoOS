@@ -17,6 +17,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
+import { FormSelect } from '@/components/ui'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -60,13 +61,24 @@ function PrefNavItem({
 export function AppPreferences({ appName, categories, defaultCategory }: AppPreferencesProps) {
   const [activeId, setActiveId] = useState(defaultCategory ?? categories[0]?.id ?? '')
   const activeCategory = categories.find(c => c.id === activeId)
+  const title = `${appName}偏好设置`
+
+  useEffect(() => {
+    const nextActiveId = categories.some(c => c.id === activeId)
+      ? activeId
+      : defaultCategory ?? categories[0]?.id ?? ''
+
+    if (nextActiveId !== activeId) {
+      setActiveId(nextActiveId)
+    }
+  }, [activeId, categories, defaultCategory])
 
   return (
-    <div className="flex h-full bg-[var(--vos-bg-window)] overflow-hidden">
+    <div className="flex h-full bg-[var(--vos-bg-window-active)] overflow-hidden">
       {/* Sidebar */}
       <div className="w-[180px] shrink-0 border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] flex flex-col p-2 overflow-y-auto">
         <div className="text-[11px] font-bold text-[var(--vos-text-tertiary)] uppercase tracking-[0.06em] px-2 pt-1 pb-2">
-          {appName} 偏好设置
+          {title}
         </div>
 
         {categories.map(cat => (
@@ -76,20 +88,17 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
 
       {/* Content */}
       <div className="flex-1 overflow-hidden relative">
-        <AnimatePresence mode="wait">
-          {activeCategory && (
-            <motion.div
-              key={activeId}
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.15, ease: [0.32, 0.72, 0, 1] }}
-              className="h-full overflow-y-auto"
-            >
-              {activeCategory.content}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {activeCategory && (
+          <motion.div
+            key={activeId}
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.15, ease: [0.32, 0.72, 0, 1] }}
+            className="h-full overflow-y-auto"
+          >
+            {activeCategory.content}
+          </motion.div>
+        )}
       </div>
     </div>
   )
@@ -171,12 +180,13 @@ export function PreferenceSelect({
   placeholder?: string
 } & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange'>) {
   return (
-    <select
+    <FormSelect
       {...rest}
       value={value ?? ''}
       onChange={e => onChange(e.target.value)}
-      className={`vos-select border-[0.5px] border-[var(--vos-border-subtle)] ${rest.className ?? ''}`}
-      style={rest.style}
+      variant="toolbar"
+      className={rest.className}
+      wrapperClassName="w-full"
     >
       {placeholder && <option value="">{placeholder}</option>}
       {options.map(o => (
@@ -184,7 +194,7 @@ export function PreferenceSelect({
           {o.label}
         </option>
       ))}
-    </select>
+    </FormSelect>
   )
 }
 
@@ -226,6 +236,8 @@ export interface AppPreferencesSheetProps extends AppPreferencesProps {
  * Renders centered with a backdrop, keyboard-dismissable.
  */
 export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPreferencesSheetProps) {
+  const title = `${prefsProps.appName}偏好设置`
+
   // Close on Escape key
   useEffect(() => {
     if (!open) return
@@ -239,53 +251,57 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
   return (
     <AnimatePresence>
       {open && (
-        <>
+        <div className="absolute inset-0 z-[120] pointer-events-none">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 bg-[rgba(0,0,0,0.35)] backdrop-blur-[4px] z-[100]"
+            className="absolute inset-0 bg-[rgba(10,14,22,0.18)] backdrop-blur-[6px] pointer-events-auto"
             onClick={onClose}
           />
 
-          {/* Preferences "window" */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
-            className="absolute inset-0 flex items-center justify-center z-[101] pointer-events-none"
-          >
-            <div
-              className="w-[640px] h-[460px] max-w-[calc(100%-48px)] max-h-[calc(100%-64px)] rounded-xl overflow-hidden bg-[var(--vos-bg-surface)] border-[0.5px] border-solid border-[var(--vos-border-default)] shadow-[0_24px_72px_rgba(0,0,0,.35),0_6px_20px_rgba(0,0,0,.18)] flex flex-col pointer-events-auto"
+          <div className="absolute inset-x-0 top-0 flex justify-center px-4 pt-4 pb-4 pointer-events-none">
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label={title}
+              data-sheet-position="top"
+              initial={{ opacity: 0, y: -18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -18, scale: 0.98 }}
+              transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
+              className="rounded-xl overflow-hidden bg-[var(--vos-bg-overlay)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] shadow-[0_24px_72px_rgba(0,0,0,.24),0_6px_20px_rgba(0,0,0,.16)] flex flex-col pointer-events-auto"
               style={{
+                width: 'min(760px, calc(100% - 8px))',
+                height: 'min(520px, calc(100% - 8px))',
                 backdropFilter: 'blur(48px) saturate(200%)',
                 WebkitBackdropFilter: 'blur(48px) saturate(200%)'
               }}
             >
               {/* Mini title bar */}
-              <div className="h-[38px] flex items-center justify-between px-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] shrink-0">
+              <div className="h-[40px] flex items-center justify-between px-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] shrink-0 bg-[var(--vos-bg-window-title)]">
                 <span className="text-[13px] font-semibold text-[var(--vos-text-primary)]">
-                  {prefsProps.appName} 偏好设置
+                  {title}
                 </span>
                 <button
                   type="button"
                   className="vos-btn-icon w-[22px] h-[22px] rounded-[6px] text-[var(--vos-text-tertiary)]"
                   onClick={onClose}
+                  aria-label="关闭偏好设置"
                 >
                   <X size={13} />
                 </button>
               </div>
 
               {/* Preferences content */}
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden min-h-0">
                 <AppPreferences {...prefsProps} />
               </div>
-            </div>
-          </motion.div>
-        </>
+            </motion.div>
+          </div>
+        </div>
       )}
     </AnimatePresence>
   )

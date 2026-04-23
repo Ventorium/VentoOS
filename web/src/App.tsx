@@ -15,6 +15,7 @@ import Launchpad from '@/shell/Launchpad'
 import LoginScreen from '@/shell/LoginScreen'
 import NotificationCenter from '@/shell/NotificationCenter'
 import NotificationToast from '@/shell/NotificationToast'
+import ToastContainer from '@/components/Toast'
 import TaskCenter from '@/shell/TaskCenter'
 import TopBar from '@/shell/TopBar'
 import WindowManager from '@/shell/WindowManager'
@@ -83,6 +84,7 @@ function App() {
           <ContextMenu />
           <Launchpad />
           <NotificationToast />
+          <ToastContainer />
           <AISidePanel />
         </>
       )}

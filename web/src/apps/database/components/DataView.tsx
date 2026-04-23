@@ -14,7 +14,7 @@ import {
   X
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Spinner } from '@/components/ui'
+import { FormSelect, Spinner } from '@/components/ui'
 import { dbApi } from '../api'
 import { useDatabaseStore } from '../stores'
 import { DataGrid } from './DataGrid'
@@ -255,14 +255,10 @@ export function DataView() {
             <ChevronLast size={13} />
           </button>
           <div className="w-px h-3 mx-1" style={{ background: 'var(--vos-border-subtle)' }} />
-          <select
-            className="text-xs outline-none rounded"
-            style={{
-              background: 'var(--vos-bg-input)',
-              color: 'var(--vos-text-primary)',
-              border: '1px solid var(--vos-border-subtle)',
-              padding: '1px 2px'
-            }}
+          <FormSelect
+            variant="toolbar"
+            className="text-xs"
+            wrapperClassName="w-[92px]"
             value={pageSize}
             onChange={e => {
               setPageSize(Number(e.target.value))
@@ -274,7 +270,7 @@ export function DataView() {
                 {s} 条/页
               </option>
             ))}
-          </select>
+          </FormSelect>
           <span className="px-1" style={{ color: 'var(--vos-text-tertiary)' }}>
             共 {totalRows} 条
           </span>

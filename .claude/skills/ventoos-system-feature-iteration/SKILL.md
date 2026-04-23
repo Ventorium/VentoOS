@@ -9,6 +9,13 @@ description: Use when adding new system-level features to VentoOS, iterating on 
 
 以 OS 级架构师视角完成系统功能设计与迭代。核心原则：**遵循现有分层，不跨层堆逻辑，不重复设计。**
 
+## 状态持久化硬约束
+
+- 新增系统能力时，业务状态必须同步进入数据库持久化层，页面和组件只负责表现与交互，不得成为唯一状态源
+- 需求设计阶段就要标出哪些状态需要刷新恢复，并明确采用哪条持久化链路：`window appState -> SQLite`、系统 settings、或专用领域表
+- 只放在前端 store / 组件内存中的状态，一律视为临时 UI 态；会影响工作上下文、任务续接、会话恢复的数据必须落库
+- 验收时除功能可用外，还必须检查刷新恢复、重启恢复或重新打开窗口后的状态一致性
+
 ## 五层架构速查
 
 | 层级 | 目录 | 职责 |
@@ -36,10 +43,11 @@ description: Use when adding new system-level features to VentoOS, iterating on 
 - 状态层：Zustand store，不引入额外路由
 - 动效：使用 Framer Motion，参考 `tokens.animation`
 - **禁止**：在 Shell 中发起直接的外部网络请求
+- **新增要求**：Shell 态若需要刷新恢复，必须同步到后端数据库，不能只留在前端 store
 
 ### 影响 System Capability 层
 - 服务文件：`web/src/services/<module>/`
-- 模式：Zustand store（状态缓存） + service 对象（API 调用/WS 订阅）
+- 模式：Zustand store（状态缓存） + service 对象（API 调用/WS 订阅） + 后端数据库持久化
 - **禁止**：在 service 中包含 React 组件或渲染逻辑
 
 ### 影响 Runtime Core（Rust）

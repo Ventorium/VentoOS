@@ -28,6 +28,7 @@ import {
   X,
   Zap
 } from 'lucide-react'
+import { FormSelect } from '@/components/ui'
 import { useCallback, useEffect, useState } from 'react'
 import type { PreferenceGroup } from '@/components/PreferencesPanel'
 import PreferencesPanel from '@/components/PreferencesPanel'
@@ -842,20 +843,17 @@ function PortMappingForm({
           </div>
           <div className="vos-form-row">
             <label>SSH 服务器</label>
-            <div className="vos-select-wrap">
-              <select
-                className="vos-input"
-                value={form.ssh_server_id}
-                onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}
-              >
-                {servers.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="vos-select-arrow" />
-            </div>
+            <FormSelect
+              value={form.ssh_server_id}
+              onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}
+              wrapperClassName="w-full"
+            >
+              {servers.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </FormSelect>
           </div>
           <div className="vos-form-row grid grid-cols-[1fr_90px] gap-2">
             <div>
@@ -1123,21 +1121,18 @@ function ExposureForm({
           {form.source_type === 'ssh' && (
             <div className="vos-form-row">
               <label>SSH 服务器</label>
-              <div className="vos-select-wrap">
-                <select
-                  className="vos-input"
-                  value={form.ssh_server_id ?? ''}
-                  onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}
-                >
-                  <option value="">选择服务器…</option>
-                  {servers.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="vos-select-arrow" />
-              </div>
+              <FormSelect
+                value={form.ssh_server_id ?? ''}
+                onChange={e => setForm(f => ({ ...f, ssh_server_id: e.target.value }))}
+                wrapperClassName="w-full"
+              >
+                <option value="">选择服务器…</option>
+                {servers.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </FormSelect>
             </div>
           )}
           <div className="vos-form-row grid grid-cols-[1fr_90px] gap-2">
@@ -1271,7 +1266,7 @@ export default function SshApp(_props: AppComponentProps) {
   ]
 
   return (
-    <div className="ssh-app">
+    <div className="ssh-app relative">
       {/* Sidebar */}
       <div className="ssh-sidebar">
         <div className="ssh-sidebar-header">

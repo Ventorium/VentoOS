@@ -28,6 +28,7 @@ import {
   Zap
 } from 'lucide-react'
 import type React from 'react'
+import { FormSelect } from '@/components/ui'
 import { useCallback, useEffect, useState } from 'react'
 import type {
   AgentConfig,
@@ -1256,14 +1257,14 @@ function AISelect({
   placeholder?: string
 }) {
   return (
-    <select value={value ?? ''} onChange={e => onChange(e.target.value)} className="vos-select">
+    <FormSelect value={value ?? ''} onChange={e => onChange(e.target.value)} variant="toolbar" wrapperClassName="w-full">
       <option value="">{placeholder ?? '请选择'}</option>
       {options.map(o => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
       ))}
-    </select>
+    </FormSelect>
   )
 }
 

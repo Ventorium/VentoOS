@@ -406,3 +406,109 @@ pub struct HistoryQuery {
 fn default_limit() -> u32 {
     50
 }
+
+// ---------------------------------------------------------------------------
+// Protocol sessions
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolConnectionState {
+    Idle,
+    Connecting,
+    Connected,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolLogKind {
+    System,
+    In,
+    Out,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtocolLogEntry {
+    pub id: String,
+    pub kind: ProtocolLogKind,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtocolSessionSnapshot {
+    pub session_id: String,
+    pub connection_state: ProtocolConnectionState,
+    pub logs: Vec<ProtocolLogEntry>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WebSocketSessionConnectReq {
+    pub session_id: String,
+    pub scheme: String,
+    pub host: String,
+    pub port: u16,
+    #[serde(default)]
+    pub path: String,
+    #[serde(default)]
+    pub protocols: String,
+    pub connect_timeout_ms: u64,
+    #[serde(default)]
+    pub auto_reconnect: bool,
+    #[serde(default)]
+    pub reconnect_period_ms: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WebSocketSendFrameReq {
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MqttSubscriptionReq {
+    pub topic: String,
+    pub qos: u8,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MqttSessionConnectReq {
+    pub session_id: String,
+    pub scheme: String,
+    pub host: String,
+    pub port: u16,
+    #[serde(default)]
+    pub path: String,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub password: String,
+    #[serde(default)]
+    pub client_id: String,
+    pub mqtt_version: String,
+    pub connect_timeout_seconds: u64,
+    pub keep_alive_seconds: u64,
+    #[serde(default)]
+    pub auto_reconnect: bool,
+    #[serde(default)]
+    pub reconnect_period_ms: u64,
+    #[serde(default = "default_true")]
+    pub clean_start: bool,
+    #[serde(default)]
+    pub subscriptions: Vec<MqttSubscriptionReq>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MqttPublishReq {
+    pub topic: String,
+    pub payload: String,
+    pub qos: u8,
+    #[serde(default)]
+    pub retain: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MqttSyncSubscriptionsReq {
+    #[serde(default)]
+    pub subscriptions: Vec<MqttSubscriptionReq>,
+}

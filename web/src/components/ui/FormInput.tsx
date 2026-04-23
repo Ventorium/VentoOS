@@ -1,10 +1,18 @@
+import { ChevronDown } from 'lucide-react'
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
 type InputSize = 'md' | 'sm'
+type SelectVariant = 'default' | 'toolbar' | 'minimal'
 
 const sizeClass: Record<InputSize, string> = {
   md: '',
   sm: 'vos-input-sm'
+}
+
+const selectVariantClass: Record<SelectVariant, string> = {
+  default: '',
+  toolbar: 'vos-select-toolbar',
+  minimal: 'vos-select-minimal'
 }
 
 export interface FormInputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -17,13 +25,25 @@ export function FormInput({ inputSize = 'sm', className, ...props }: FormInputPr
 
 export interface FormSelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   inputSize?: InputSize
+  variant?: SelectVariant
+  wrapperClassName?: string
 }
 
-export function FormSelect({ inputSize = 'sm', className, children, ...props }: FormSelectProps) {
+export function FormSelect({
+  inputSize = 'sm',
+  variant = 'default',
+  wrapperClassName,
+  className,
+  children,
+  ...props
+}: FormSelectProps) {
   return (
-    <select className={`vos-input ${sizeClass[inputSize]} ${className ?? ''}`} {...props}>
-      {children}
-    </select>
+    <div className={`vos-select-wrap ${wrapperClassName ?? ''}`} data-variant={variant}>
+      <select className={`vos-input vos-select ${sizeClass[inputSize]} ${selectVariantClass[variant]} ${className ?? ''}`} {...props}>
+        {children}
+      </select>
+      <ChevronDown size={14} className="vos-select-arrow" />
+    </div>
   )
 }
 

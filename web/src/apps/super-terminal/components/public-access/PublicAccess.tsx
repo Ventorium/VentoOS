@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { superTerminalApi } from '@/apps/super-terminal/api'
 import type { CreateServiceExposureReq, PublicAccessProvider, ServiceExposure } from '@/apps/super-terminal/types'
 import { publicAccessProviders } from '@/apps/super-terminal/types'
+import { FormSelect } from '@/components/ui'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -261,8 +262,10 @@ function TunnelFormModal({
         <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
           服务提供商 <span className="text-[#ff453a]">*</span>
         </label>
-        <select
-          className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border appearance-auto"
+        <FormSelect
+          variant="toolbar"
+          className="w-full text-[13px]"
+          wrapperClassName="w-full"
           value={form.providerId}
           onChange={e => updateField('providerId', e.target.value)}
         >
@@ -272,7 +275,7 @@ function TunnelFormModal({
             </option>
           ))}
           <option value="custom">自定义</option>
-        </select>
+        </FormSelect>
       </div>
 
       <div className="mb-3">

@@ -1,6 +1,6 @@
 import { AlertCircle, Box, CheckCircle2, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { EmptyState, FormInput, Modal } from '@/components'
+import { EmptyState, FormInput, FormSelect, Modal } from '@/components'
 import type { AppComponentProps } from '@/kernel'
 import { useAppStorage } from '@/kernel'
 import type { VfsPickerResult } from '@/shell/FilePicker'
@@ -402,8 +402,9 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
                   <div className="vos-form-row">
                     <label>K8s 集群</label>
                     {tpClusters.length > 0 ? (
-                      <select
-                        className="vos-input text-xs"
+                      <FormSelect
+                        className="text-xs"
+                        wrapperClassName="w-full"
                         value={tpSelectedCluster}
                         onChange={e => {
                           setTpSelectedCluster(e.target.value)
@@ -415,7 +416,7 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
                             {c.name}
                           </option>
                         ))}
-                      </select>
+                      </FormSelect>
                     ) : (
                       <div className="text-xs text-[var(--vos-text-tertiary)] py-2">未发现可用的 Kubernetes 集群</div>
                     )}
@@ -440,21 +441,22 @@ function ClusterForm({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
 // ─── Edit cluster modal ────────────────────────────────────────────────────
 
-function EditClusterModal({
-  cluster,
-  onClose,
-  onUpdated
-}: {
-  cluster: K8sCluster
-  onClose: () => void
-  onUpdated: (c: K8sCluster) => void
-}) {
+function EditClusterModal({ cluster, onClose, onUpdated }: { cluster: K8sCluster; onClose: () => void; onUpdated: (c: K8sCluster) => void }) {
+  const isTeleport = cluster.group === 'teleport'
   const [name, setName] = useState(cluster.name)
   const [kubeconfigPath, setKubeconfigPath] = useState(cluster.kubeconfig_path ?? '')
   const [kubeconfigInline, setKubeconfigInline] = useState<string | undefined>(cluster.kubeconfig_inline)
   const [contextName, setContextName] = useState(cluster.context_name)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // Teleport re-login state
+  const [tpProxy, setTpProxy] = useState('')
+  const [tpUser, setTpUser] = useState('')
+  const [tpPassword, setTpPassword] = useState('')
+  const [tpOtp, setTpOtp] = useState('')
+  const [tpNeedsOtp, setTpNeedsOtp] = useState(false)
+  const [tpReloginLoading, setTpReloginLoading] = useState(false)
 
   const handleKubeconfigChange = async (path: string, result?: VfsPickerResult) => {
     setKubeconfigPath(path)
@@ -483,6 +485,56 @@ function EditClusterModal({
       setError(e?.message || '保存失败')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleTeleportRelogin = async () => {
+    if (!tpProxy || !tpUser || !tpPassword) return
+    setTpReloginLoading(true)
+    setError('')
+    try {
+      // Step 1: Login
+      const loginRes = await k8sApi.teleportLogin({
+        proxy: tpProxy,
+        user: tpUser,
+        password: tpPassword,
+        otp: tpNeedsOtp ? tpOtp || undefined : undefined,
+      })
+      const loginResult = loginRes.data
+      if (!loginResult.success) {
+        if (loginResult.needs_otp) {
+          setTpNeedsOtp(true)
+          return
+        }
+        setError(loginResult.message)
+        return
+      }
+
+      // Step 2: Extract cluster name from context (format: "proxy-clustername")
+      // The cluster name is the part after the first hyphen that matches the original context
+      const clusterName = cluster.context_name.split('-').slice(1).join('-') || cluster.context_name
+
+      // Step 3: Refresh kubeconfig
+      const kcRes = await k8sApi.teleportGetKubeconfig(tpProxy, clusterName)
+      const kcResult = kcRes.data
+      if (!kcResult.success) {
+        setError(kcResult.message)
+        return
+      }
+
+      // Step 4: Update the cluster with new kubeconfig
+      const updateReq: UpdateK8sClusterReq = {
+        name: name.trim(),
+        kubeconfig_path: kcResult.kubeconfig_path || undefined,
+        kubeconfig_inline: kcResult.kubeconfig_path ? undefined : kcResult.kubeconfig || undefined,
+        context_name: kcResult.context_name || cluster.context_name,
+      }
+      const res = await k8sApi.updateK8sCluster(cluster.id, updateReq)
+      onUpdated(res.data)
+    } catch (e: any) {
+      setError(e?.message || '重新登录失败')
+    } finally {
+      setTpReloginLoading(false)
     }
   }
 
@@ -518,24 +570,66 @@ function EditClusterModal({
         <label>集群名称</label>
         <FormInput value={name} onChange={e => setName(e.target.value)} placeholder="集群名称" />
       </div>
-      <div className="vos-form-row">
-        <label>Kubeconfig 路径</label>
-        <VfsPathPickerInput
-          mode="file"
-          value={kubeconfigPath}
-          onChange={handleKubeconfigChange}
-          placeholder="留空使用默认路径"
-          className="vos-input vos-input-sm"
-        />
-      </div>
-      <div className="vos-form-row">
-        <label>Context 名称</label>
-        <FormInput
-          value={contextName}
-          onChange={e => setContextName(e.target.value)}
-          placeholder="kubeconfig 中的 context 名称"
-        />
-      </div>
+      {isTeleport ? (
+        <>
+          <div className="vos-form-row">
+            <label>Context</label>
+            <FormInput value={cluster.context_name} disabled placeholder="Teleport 自动生成" />
+          </div>
+          <div className="vos-form-row">
+            <label>Kubeconfig</label>
+            <FormInput value={cluster.kubeconfig_path ?? ''} disabled />
+          </div>
+
+          {/* Re-login section */}
+          <div className="mt-4 pt-3 border-t border-[var(--vos-border-subtle)]">
+            <div className="text-xs font-medium text-[var(--vos-text-secondary)] mb-3">重新登录 Teleport</div>
+            <div className="vos-form-row">
+              <label>Proxy</label>
+              <FormInput value={tpProxy} onChange={e => setTpProxy(e.target.value)} placeholder="https://teleport.example.com" />
+            </div>
+            <div className="vos-form-row">
+              <label>用户名</label>
+              <FormInput value={tpUser} onChange={e => setTpUser(e.target.value)} placeholder="Teleport 用户名" />
+            </div>
+            <div className="vos-form-row">
+              <label>密码</label>
+              <FormInput value={tpPassword} onChange={e => setTpPassword(e.target.value)} type="password" placeholder="密码" />
+            </div>
+            {tpNeedsOtp && (
+              <div className="vos-form-row">
+                <label>OTP</label>
+                <FormInput value={tpOtp} onChange={e => setTpOtp(e.target.value)} placeholder="OTP 验证码" />
+              </div>
+            )}
+            <button
+              type="button"
+              className="vos-btn vos-btn-primary w-full mt-2"
+              onClick={handleTeleportRelogin}
+              disabled={tpReloginLoading || !tpProxy || !tpUser || !tpPassword}
+            >
+              {tpReloginLoading ? '登录中…' : tpNeedsOtp ? '验证 OTP 并登录' : '重新登录并刷新凭证'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="vos-form-row">
+            <label>Kubeconfig 路径</label>
+            <VfsPathPickerInput
+              mode="file"
+              value={kubeconfigPath}
+              onChange={handleKubeconfigChange}
+              placeholder="留空使用默认路径"
+              className="vos-input vos-input-sm"
+            />
+          </div>
+          <div className="vos-form-row">
+            <label>Context 名称</label>
+            <FormInput value={contextName} onChange={e => setContextName(e.target.value)} placeholder="kubeconfig 中的 context 名称" />
+          </div>
+        </>
+      )}
     </Modal>
   )
 }

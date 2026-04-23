@@ -24,16 +24,28 @@
 | 18 | pnpm build | 构建成功 | 通过 | 无 | api-client chunk 正常输出 |
 | 19 | 前端测试 | 11/11 通过 | 通过 | 无 | vitest store.test.ts |
 | 20 | 文档完整性 | PRD + 拆解 + 完成 + 验收 | 通过 | 无 | 4 份文档齐全 |
+| 21 | 协议 Activity Bar | 一级导航支持 HTTP / WebSocket / MQTT / Guide，支持右键配置可见视图 | 通过 | 无 | 通用 UIKit 已接入 API Client |
+| 22 | 环境变量链路 | `{{TOKEN}}` 在发送前可解析并注入 Bearer 头 | 通过 | 无 | store/runtime/mappers 测试已覆盖 |
+| 23 | 响应值保存到环境变量 | 响应 Body/Headers 支持右键保存到环境变量 | 通过 | 无 | 可直接保存登录 token 到环境变量 |
+| 24 | 环境管理基础面板 | 支持创建环境、查看变量、编辑变量值、新增变量 | 通过 | 无 | 满足 token 工作流所需的最小闭环 |
+| 25 | WebSocket 测试工作台 | 支持连接、断开、收发消息、查看日志 | 通过 | 无 | 浏览器侧实现，已随前端构建通过 |
+| 26 | MQTT 测试工作台 | 支持 Broker 连接、Topic 订阅、消息发布与日志 | 通过 | 无 | 基于 MQTT over WebSocket |
+| 27 | DTO 映射稳定性 | 后端 snake_case/扁平结构被正确映射为前端模型 | 通过 | 无 | collection/env 数据不再直接耦合后端 DTO |
+| 28 | 后端集成验证 | `cargo clippy -p ventoos-api-client` 和 `cargo build -p ventoos-server` 通过 | 通过 | 无 | 本轮未改动 Rust 代码，但重新确认 server 集成构建正常 |
+| 29 | 状态入库约束 | HTTP tabs、activeView、activeEnvironment、response snapshot、WS/MQTT 会话状态进入数据库持久化链 | 通过 | 无 | 通过 window appState → SQLite 持久化，不再只保存在页面内存 |
+| 30 | 刷新恢复 | 刷新后恢复 tabs、协议视图、环境选择、响应快照、WS/MQTT 草稿与日志 | 通过 | 无 | store hydrate/snapshot 测试已覆盖 |
+| 31 | 连接意图恢复 | 刷新后恢复 WebSocket 连接意图与 MQTT 连接/订阅意图 | 通过 | 无 | 工作台改为由 store 驱动，并在挂载时根据持久化状态恢复 |
+| 32 | coding skill 约束同步 | 相关 coding skill 已明确“状态必须入库，页面只是表现层” | 通过 | 无 | app/system 创建与修复类 skill 已补充该约束 |
 
 ## P1/P2 未实现功能（后续迭代）
 
 以下功能已在 PRD 和任务拆解中规划，属于后续迭代范围：
 
-- **P1**: 环境变量插值、请求前/后脚本、Cookie 管理 UI、导出功能完善
-- **P1**: WebSocket/SSE/GraphQL 协议支持
+- **P1**: SSE、GraphQL、高级导入导出、Cookie 管理 UI
+- **P1**: 环境管理高级能力（复制/重命名/删除/导入导出）
 - **P2**: 请求链（workflow）、Mock Server、性能测试
 - **P2**: 协作与分享、高级认证（OAuth2 流程）
 
 ## 结论
 
-P0 基础框架已全部实现并通过验收，包括完整的 Rust 后端（数据存储、HTTP 代理、导入、代码生成）和前端应用（三栏布局、标签页管理、请求编辑、响应查看）。所有构建和测试通过。
+P0 基础框架、本轮协议导航/环境链路优化，以及新增的状态入库与刷新恢复要求已完成并通过验收。当前 API Client 已具备：HTTP 工作台、WebSocket 测试、MQTT 测试、Activity Bar 一级导航、环境变量解析、响应值右键保存到环境变量、登录 token 复用到 Bearer Auth 的完整闭环，以及基于数据库的工作区状态恢复能力。所有本轮相关前端测试与构建已通过。

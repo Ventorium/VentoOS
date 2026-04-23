@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tabs } from '@/components/ui'
+import { toast } from '@/components/Toast'
 import { getAuthHeaders } from '@/infra/api/client'
 import { useAppStateSync, useAppStorage, useWindowStore } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
@@ -405,7 +406,7 @@ function CommandsPanel({
 
   // Copy command to clipboard
   const handleCopy = (cmd: string) => {
-    navigator.clipboard.writeText(cmd)
+    navigator.clipboard.writeText(cmd).then(() => toast.success('已复制'))
   }
 
   return (

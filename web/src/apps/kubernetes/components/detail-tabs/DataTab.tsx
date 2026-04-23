@@ -1,5 +1,6 @@
 import { Copy, Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from '@/components/Toast'
 import type { K8sResource } from '../../types'
 
 interface Props {
@@ -27,7 +28,7 @@ export function DataTab({ resource }: Props) {
   }
 
   const copy = (text: string) => {
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(text).then(() => toast.success('已复制'))
   }
 
   if (dataKeys.length === 0) {

@@ -29,6 +29,8 @@ interface KubernetesStore {
   closeTab: (id: string) => void
   closeOtherTabs: (id: string) => void
   closeTabsToTheRight: (id: string) => void
+  closeTabsToTheLeft: (id: string) => void
+  closeAllTabs: () => void
   reorderTabs: (fromIndex: number, toIndex: number) => void
   setActiveTab: (id: string) => void
   getActiveTab: () => K8sTab | null
@@ -149,6 +151,22 @@ export const useKubernetesStore = create<KubernetesStore>((set, get) => ({
       nextActive = nextTabs[nextTabs.length - 1]?.id ?? null
     }
     set({ tabs: nextTabs, activeTabId: nextActive })
+  },
+
+  closeTabsToTheLeft(id) {
+    const { tabs, activeTabId } = get()
+    const idx = tabs.findIndex(t => t.id === id)
+    if (idx === -1) return
+    const nextTabs = tabs.slice(idx)
+    let nextActive = activeTabId
+    if (activeTabId && !nextTabs.find(t => t.id === activeTabId)) {
+      nextActive = nextTabs[0]?.id ?? null
+    }
+    set({ tabs: nextTabs, activeTabId: nextActive })
+  },
+
+  closeAllTabs() {
+    set({ tabs: [], activeTabId: null })
   },
 
   reorderTabs(fromIndex, toIndex) {

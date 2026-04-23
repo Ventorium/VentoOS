@@ -4,6 +4,7 @@
 import { AlertTriangle, Check, CheckCircle2, Copy, Download, ExternalLink, Loader2, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { AppComponentProps } from '@/kernel'
+import { toast } from '@/components/Toast'
 import { type Dependency, depsApi } from './api'
 
 type InstallState = 'idle' | 'installing' | 'success' | 'error'
@@ -223,7 +224,7 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(text).then(() => toast.success('已复制'))
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }

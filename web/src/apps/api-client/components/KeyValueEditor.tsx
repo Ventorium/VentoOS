@@ -1,5 +1,6 @@
 import { FileUp, Trash2 } from 'lucide-react'
 import { useCallback } from 'react'
+import { FormSelect } from '@/components/ui'
 import type { FormDataType, KeyValueItem } from '../types'
 
 const FORM_DATA_TYPES: { value: FormDataType; label: string }[] = [
@@ -106,16 +107,17 @@ export default function KeyValueEditor({
               onChange={e => updateItem(idx, 'key', e.target.value)}
             />
             {isFormData && (
-              <select
-                className="w-16 shrink-0 bg-transparent outline-none py-1 text-[10px]"
-                style={{ color: 'var(--vos-text-primary)' }}
+              <FormSelect
+                variant="minimal"
+                className="w-full text-[10px]"
+                wrapperClassName="w-16 shrink-0"
                 value={dataType}
                 onChange={e => updateItem(idx, 'dataType', e.target.value as FormDataType)}
               >
                 {FORM_DATA_TYPES.map(t => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
-              </select>
+              </FormSelect>
             )}
             {isFileType ? (
               <label className="flex-1 flex items-center gap-1 cursor-pointer">

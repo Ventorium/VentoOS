@@ -2,6 +2,7 @@ import copyToClipboard from 'copy-to-clipboard'
 import { Check, Copy } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import type { Components } from 'react-markdown'
+import { toast } from '@/components/Toast'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
@@ -18,6 +19,7 @@ function CopyButton({ text }: { text: string }) {
 
   const handleCopy = useCallback(() => {
     copyToClipboard(text)
+    toast.success('已复制')
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }, [text])

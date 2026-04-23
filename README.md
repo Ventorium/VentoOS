@@ -1,4 +1,6 @@
-# VentoOS — 本地开发启动说明
+# VentoOS
+
+> Part of the Ventorium ecosystem.
 
 快速启动说明（macOS / Linux）
 

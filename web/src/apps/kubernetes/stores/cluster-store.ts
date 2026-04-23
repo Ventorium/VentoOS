@@ -21,6 +21,8 @@ interface ClusterConnectionState {
 interface ClusterStore {
   clusters: K8sCluster[]
   connections: Record<string, ClusterConnectionState>
+  /** Last used namespace per cluster (clusterId → namespace). */
+  lastNamespace: Record<string, string>
   loading: boolean
   error: string | null
 
@@ -33,6 +35,8 @@ interface ClusterStore {
   fetchNamespaces: (id: string) => Promise<K8sNamespace[]>
   getClusterNamespaces: (id: string) => K8sNamespace[]
   setClusterStatus: (id: string, status: K8sCluster['status']) => void
+  setLastNamespace: (clusterId: string, namespace: string) => void
+  getLastNamespace: (clusterId: string) => string
 }
 
 function defaultConnectionState(): ClusterConnectionState {
@@ -49,6 +53,7 @@ function defaultConnectionState(): ClusterConnectionState {
 export const useClusterStore = create<ClusterStore>((set, get) => ({
   clusters: [],
   connections: {},
+  lastNamespace: {},
   loading: false,
   error: null,
 
@@ -102,13 +107,20 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
     }))
   },
 
-  removeCluster(id) {
+  async removeCluster(id) {
+    // Optimistically remove from local state
     set(s => {
       const nextClusters = s.clusters.filter(c => c.id !== id)
       const nextConnections = { ...s.connections }
       delete nextConnections[id]
       return { clusters: nextClusters, connections: nextConnections }
     })
+    try {
+      await k8sApi.deleteK8sCluster(id)
+    } catch {
+      // Silently ignore — the cluster is already removed from local state.
+      // If the API failed, the cluster will reappear on next page load.
+    }
   },
 
   async fetchNamespaces(id) {
@@ -159,5 +171,15 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
     set(s => ({
       clusters: s.clusters.map(c => (c.id === id ? { ...c, status } : c))
     }))
-  }
+  },
+
+  setLastNamespace(clusterId, namespace) {
+    set(s => ({
+      lastNamespace: { ...s.lastNamespace, [clusterId]: namespace },
+    }))
+  },
+
+  getLastNamespace(clusterId) {
+    return get().lastNamespace[clusterId] ?? ''
+  },
 }))

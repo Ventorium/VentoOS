@@ -2,6 +2,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::ops::Deref;
 
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::routing::{delete, get, post, put};
@@ -13,6 +14,8 @@ use ventoos_core::types::ApiResponse;
 use crate::codegen;
 use crate::import::{curl, openapi, postman};
 use crate::models::{CollectionTree, CreateCollectionReq, Collection, UpdateCollectionReq, CreateFolderReq, Folder, UpdateFolderReq, ApiRequest, CreateApiRequestReq, UpdateApiRequestReq, Environment, CreateEnvironmentReq, UpdateEnvironmentReq, HistoryQuery, HistoryEntry, ExportData, CodegenReq, CodegenResult, FolderTree};
+use crate::models::{MqttPublishReq, MqttSessionConnectReq, MqttSyncSubscriptionsReq, ProtocolSessionSnapshot, WebSocketSendFrameReq, WebSocketSessionConnectReq};
+use crate::protocol_runtime::ProtocolRuntime;
 use crate::proxy;
 use crate::store::ApiClientStore;
 
@@ -22,6 +25,7 @@ use crate::store::ApiClientStore;
 
 pub struct ApiClientPlugin {
     store: Arc<ApiClientStore>,
+    protocol_runtime: Arc<ProtocolRuntime>,
 }
 
 impl ApiClientPlugin {
@@ -29,6 +33,7 @@ impl ApiClientPlugin {
         let store = ApiClientStore::open(data_dir).expect("Failed to open API Client database");
         Self {
             store: Arc::new(store),
+            protocol_runtime: Arc::new(ProtocolRuntime::default()),
         }
     }
 }
@@ -39,6 +44,11 @@ impl AppPlugin for ApiClientPlugin {
     }
 
     fn routes(&self) -> Router {
+        let state = AppState {
+            store: Arc::clone(&self.store),
+            protocol_runtime: Arc::clone(&self.protocol_runtime),
+        };
+
         Router::new()
             // Collections
             .route(
@@ -82,6 +92,50 @@ impl AppPlugin for ApiClientPlugin {
             .route("/api/api-client/history/{id}", delete(delete_history))
             // Proxy
             .route("/api/api-client/proxy/rest", post(proxy_rest))
+            .route(
+                "/api/api-client/proxy/websocket/sessions/connect",
+                post(connect_websocket_session),
+            )
+            .route(
+                "/api/api-client/proxy/websocket/sessions/{session_id}",
+                get(get_websocket_session),
+            )
+            .route(
+                "/api/api-client/proxy/websocket/sessions/{session_id}/disconnect",
+                post(disconnect_websocket_session),
+            )
+            .route(
+                "/api/api-client/proxy/websocket/sessions/{session_id}/send",
+                post(send_websocket_frame),
+            )
+            .route(
+                "/api/api-client/proxy/websocket/sessions/{session_id}/clear-logs",
+                post(clear_websocket_logs),
+            )
+            .route(
+                "/api/api-client/proxy/mqtt/sessions/connect",
+                post(connect_mqtt_session),
+            )
+            .route(
+                "/api/api-client/proxy/mqtt/sessions/{session_id}",
+                get(get_mqtt_session),
+            )
+            .route(
+                "/api/api-client/proxy/mqtt/sessions/{session_id}/disconnect",
+                post(disconnect_mqtt_session),
+            )
+            .route(
+                "/api/api-client/proxy/mqtt/sessions/{session_id}/publish",
+                post(publish_mqtt_message),
+            )
+            .route(
+                "/api/api-client/proxy/mqtt/sessions/{session_id}/subscriptions",
+                post(sync_mqtt_subscriptions),
+            )
+            .route(
+                "/api/api-client/proxy/mqtt/sessions/{session_id}/clear-logs",
+                post(clear_mqtt_logs),
+            )
             // Import
             .route("/api/api-client/import/openapi", post(import_openapi))
             .route("/api/api-client/import/postman", post(import_postman))
@@ -93,11 +147,23 @@ impl AppPlugin for ApiClientPlugin {
             )
             // Code generation
             .route("/api/api-client/codegen", post(codegen_handler))
-            .with_state(self.store.clone())
+            .with_state(state)
     }
 }
 
-type AppState = Arc<ApiClientStore>;
+#[derive(Clone)]
+struct AppState {
+    store: Arc<ApiClientStore>,
+    protocol_runtime: Arc<ProtocolRuntime>,
+}
+
+impl Deref for AppState {
+    type Target = ApiClientStore;
+
+    fn deref(&self) -> &Self::Target {
+        &self.store
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Collections
@@ -363,6 +429,117 @@ async fn proxy_rest(
             Json(ApiResponse::err(e.to_string()))
         }
     }
+}
+
+async fn connect_websocket_session(
+    State(state): State<AppState>,
+    Json(req): Json<WebSocketSessionConnectReq>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    match state.protocol_runtime.connect_websocket(req).await {
+        Ok(snapshot) => Json(ApiResponse::ok(snapshot)),
+        Err(error) => Json(ApiResponse::err(error)),
+    }
+}
+
+async fn get_websocket_session(
+    State(state): State<AppState>,
+    AxumPath(session_id): AxumPath<String>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    Json(ApiResponse::ok(
+        state.protocol_runtime.get_websocket_session(&session_id).await,
+    ))
+}
+
+async fn disconnect_websocket_session(
+    State(state): State<AppState>,
+    AxumPath(session_id): AxumPath<String>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    Json(ApiResponse::ok(
+        state.protocol_runtime.disconnect_websocket(&session_id).await,
+    ))
+}
+
+async fn send_websocket_frame(
+    State(state): State<AppState>,
+    AxumPath(session_id): AxumPath<String>,
+    Json(req): Json<WebSocketSendFrameReq>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    match state.protocol_runtime.send_websocket_frame(&session_id, req).await {
+        Ok(snapshot) => Json(ApiResponse::ok(snapshot)),
+        Err(error) => Json(ApiResponse::err(error)),
+    }
+}
+
+async fn clear_websocket_logs(
+    State(state): State<AppState>,
+    AxumPath(session_id): AxumPath<String>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    Json(ApiResponse::ok(
+        state.protocol_runtime.clear_websocket_logs(&session_id).await,
+    ))
+}
+
+async fn connect_mqtt_session(
+    State(state): State<AppState>,
+    Json(req): Json<MqttSessionConnectReq>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    match state.protocol_runtime.connect_mqtt(req).await {
+        Ok(snapshot) => Json(ApiResponse::ok(snapshot)),
+        Err(error) => Json(ApiResponse::err(error)),
+    }
+}
+
+async fn get_mqtt_session(
+    State(state): State<AppState>,
+    AxumPath(session_id): AxumPath<String>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    Json(ApiResponse::ok(
+        state.protocol_runtime.get_mqtt_session(&session_id).await,
+    ))
+}
+
+async fn disconnect_mqtt_session(
+    State(state): State<AppState>,
+    AxumPath(session_id): AxumPath<String>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    Json(ApiResponse::ok(
+        state.protocol_runtime.disconnect_mqtt(&session_id).await,
+    ))
+}
+
+async fn publish_mqtt_message(
+    State(state): State<AppState>,
+    AxumPath(session_id): AxumPath<String>,
+    Json(req): Json<MqttPublishReq>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    match state.protocol_runtime.publish_mqtt(&session_id, req).await {
+        Ok(snapshot) => Json(ApiResponse::ok(snapshot)),
+        Err(error) => Json(ApiResponse::err(error)),
+    }
+}
+
+async fn sync_mqtt_subscriptions(
+    State(state): State<AppState>,
+    AxumPath(session_id): AxumPath<String>,
+    Json(req): Json<MqttSyncSubscriptionsReq>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    match state
+        .protocol_runtime
+        .sync_mqtt_subscriptions(&session_id, req.subscriptions)
+        .await
+    {
+        Ok(snapshot) => Json(ApiResponse::ok(snapshot)),
+        Err(error) => Json(ApiResponse::err(error)),
+    }
+}
+
+async fn clear_mqtt_logs(
+    State(state): State<AppState>,
+    AxumPath(session_id): AxumPath<String>,
+) -> Json<ApiResponse<ProtocolSessionSnapshot>> {
+    Json(ApiResponse::ok(
+        state.protocol_runtime.clear_mqtt_logs(&session_id).await,
+    ))
 }
 
 // ---------------------------------------------------------------------------

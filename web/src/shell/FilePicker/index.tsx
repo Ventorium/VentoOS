@@ -27,6 +27,8 @@ import { getFileIconByName } from '@/kernel'
 export type FilePickerMode = 'file' | 'directory'
 
 export interface PathPickerInputProps {
+  id?: string
+  'aria-describedby'?: string
   value: string
   onChange: (path: string) => void
   mode?: FilePickerMode
@@ -138,6 +140,7 @@ function FilePickerModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="关闭"
             className="ml-auto bg-transparent border-none cursor-pointer text-[var(--vos-text-secondary)] flex p-[2px]"
           >
             <X size={14} />
@@ -149,6 +152,7 @@ function FilePickerModal({
           <button
             type="button"
             onClick={() => loadDir('~')}
+            aria-label="返回主目录"
             className="bg-transparent border-none cursor-pointer text-[var(--vos-text-secondary)] px-1 py-[2px] flex items-center"
           >
             <Home size={12} />
@@ -274,6 +278,8 @@ function FilePickerModal({
  * since the shell's root has no backdrop-filter containment).
  */
 export function PathPickerInput({
+  id,
+  'aria-describedby': ariaDescribedBy,
   value,
   onChange,
   mode = 'file',
@@ -288,6 +294,8 @@ export function PathPickerInput({
     <>
       <div className="flex gap-[6px] items-center">
         <input
+          id={id}
+          aria-describedby={ariaDescribedBy}
           className={className ?? 'vos-input'}
           style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, ...(style ?? {}) }}
           placeholder={placeholder ?? (mode === 'directory' ? '目录路径' : '文件路径')}
@@ -526,7 +534,7 @@ export function VfsFilePickerModal({
           onPointerDown={e => dragControls.start(e)}
         >
           <span className="text-xs font-semibold flex-1">{mode === 'directory' ? '选择目录' : '选择文件'}</span>
-          <button type="button" className="vos-btn px-1.5 py-[2px]" onClick={onClose}>
+          <button type="button" className="vos-btn px-1.5 py-[2px]" aria-label="关闭" onClick={onClose}>
             <X size={12} />
           </button>
         </div>
@@ -569,6 +577,7 @@ export function VfsFilePickerModal({
                   <button
                     type="button"
                     className="bg-transparent border-none cursor-pointer text-xs p-0"
+                    aria-label={i === 0 ? '返回根目录' : undefined}
                     style={{
                       color: i === segments.length - 1 ? 'var(--vos-text-primary)' : 'var(--vos-text-secondary)'
                     }}

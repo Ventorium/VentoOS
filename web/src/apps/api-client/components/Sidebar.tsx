@@ -1,9 +1,10 @@
 import { BookOpen, Clock, FolderPlus, Globe, Import, Plus, Star, Trash2 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { METHOD_COLORS } from '../constants'
 import { useApiClientStore } from '../store'
 import type { HistoryEntry } from '../types'
 import CollectionTreeView from './CollectionTree'
+import EnvironmentPanel from './EnvironmentPanel'
 import EnvironmentSelector from './EnvironmentSelector'
 
 function HistoryList() {
@@ -56,44 +57,6 @@ function HistoryList() {
   )
 }
 
-function EnvironmentsList() {
-  const environments = useApiClientStore(s => s.environments)
-
-  if (environments.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 px-4 text-center gap-2">
-        <Globe size={24} style={{ color: 'var(--vos-text-tertiary)' }} />
-        <span className="text-xs" style={{ color: 'var(--vos-text-tertiary)' }}>
-          No environments yet
-        </span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="py-1">
-      {environments.map(env => (
-        <div
-          key={env.id}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs cursor-pointer hover:opacity-80 rounded mx-1"
-          style={{ color: 'var(--vos-text-secondary)' }}
-        >
-          <Globe size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
-          <span className="truncate flex-1">{env.name}</span>
-          {env.isGlobal && (
-            <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
-              Global
-            </span>
-          )}
-          <span className="text-[10px]" style={{ color: 'var(--vos-text-tertiary)' }}>
-            {env.variables.length} vars
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 type SidebarTabKey = 'collections' | 'environments' | 'history'
 
 const SIDEBAR_NAV: { key: SidebarTabKey; label: string; icon: typeof BookOpen }[] = [
@@ -108,6 +71,7 @@ export default function Sidebar() {
   const loadCollections = useApiClientStore(s => s.loadCollections)
   const loadEnvironments = useApiClientStore(s => s.loadEnvironments)
   const loadHistory = useApiClientStore(s => s.loadHistory)
+  const [environmentComposerOpen, setEnvironmentComposerOpen] = useState(false)
 
   useEffect(() => {
     loadCollections()
@@ -187,6 +151,7 @@ export default function Sidebar() {
                 className="p-1 rounded hover:opacity-80 cursor-pointer"
                 style={{ color: 'var(--vos-text-tertiary)' }}
                 title="New Environment"
+                onClick={() => setEnvironmentComposerOpen(true)}
               >
                 <Plus size={13} />
               </button>
@@ -211,7 +176,13 @@ export default function Sidebar() {
         {/* Content */}
         <div className="flex-1 overflow-auto">
           {sidebarTab === 'collections' && <CollectionTreeView />}
-          {sidebarTab === 'environments' && <EnvironmentsList />}
+          {sidebarTab === 'environments' && (
+            <EnvironmentPanel
+              composerOpen={environmentComposerOpen}
+              onComposerOpen={() => setEnvironmentComposerOpen(true)}
+              onComposerClose={() => setEnvironmentComposerOpen(false)}
+            />
+          )}
           {sidebarTab === 'history' && <HistoryList />}
         </div>
       </div>

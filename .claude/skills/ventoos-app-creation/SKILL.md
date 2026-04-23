@@ -9,6 +9,13 @@ description: Use when creating a brand new application for VentoOS, extending th
 
 以架构师 + 产品经理的视角，完成 VentoOS 新应用的完整设计与实现。**先创建图标，再设计应用，最后开发**，全程复用系统已有能力。
 
+## 状态持久化硬约束
+
+- 新应用的业务状态必须默认进入数据库持久化链路，页面和组件只负责表现，不得成为唯一状态源
+- 设计阶段就要明确哪些状态需要刷新恢复，并为其选择持久化路径：`window appState -> SQLite`、系统 settings、或应用专属 Rust/SQLite 表
+- `useState` 仅用于模态开关、hover、临时输入框焦点等短生命周期 UI 态；可恢复的会话、选择、草稿、日志、上下文必须进入 store + DB
+- 若应用宣称支持刷新恢复，必须在测试与验收中明确验证恢复行为，不能只验证首屏渲染
+
 ## 第一步：创建应用图标
 
 **REQUIRED SUB-SKILL:** 使用 `ventoos-icon-creation` 技能创建应用图标。
@@ -65,7 +72,7 @@ apps/<app-id>/
   App.tsx            # 根组件
   components/        # 应用内部组件
   hooks/             # 应用 hooks
-  store.ts           # 应用级状态（Zustand）
+  store.ts           # 应用级状态（Zustand，业务状态需同步到数据库）
   api.ts             # 后端 API 调用（如需要）
   __tests__/         # 测试
 ```

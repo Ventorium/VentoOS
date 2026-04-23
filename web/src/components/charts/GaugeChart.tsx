@@ -18,7 +18,7 @@ export default function GaugeChart({
   size = 100,
   thickness = 8,
   color = 'var(--vos-accent-primary)',
-  backgroundColor = 'var(--vos-border-secondary)',
+  backgroundColor = 'var(--vos-border-subtle)',
   label,
   formatValue = defaultFormat,
   className

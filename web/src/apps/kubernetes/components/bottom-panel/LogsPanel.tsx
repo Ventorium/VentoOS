@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FormSelect } from '@/components/ui'
 import { K8sLogStream } from './K8sLogStream'
 
 interface Props {
@@ -28,8 +29,10 @@ export function LogsPanel({ clusterId, namespace, podName, container }: Props) {
           <input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} />
           <span className="text-[var(--vos-text-secondary)]">Follow</span>
         </label>
-        <select
-          className="bg-[var(--vos-bg-input)] border-[0.5px] border-[var(--vos-border-subtle)] rounded px-1 py-0.5 text-[var(--vos-text-primary)]"
+        <FormSelect
+          variant="toolbar"
+          className="text-[11px]"
+          wrapperClassName="w-[92px]"
           value={tailLines}
           onChange={e => setTailLines(Number(e.target.value))}
         >
@@ -37,7 +40,7 @@ export function LogsPanel({ clusterId, namespace, podName, container }: Props) {
           <option value={200}>200 lines</option>
           <option value={500}>500 lines</option>
           <option value={1000}>1000 lines</option>
-        </select>
+        </FormSelect>
       </div>
       <K8sLogStream
         clusterId={clusterId}

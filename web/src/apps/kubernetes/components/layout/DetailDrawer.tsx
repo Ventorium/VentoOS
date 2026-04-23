@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Tabs } from '@/components/ui'
 import { notificationService } from '@/services/notification'
+import { toast } from '@/components/Toast'
 import { k8sApi } from '../../api'
 import { useBottomPanelStore } from '../../stores/bottom-panel-store'
 import { useKubernetesStore } from '../../stores/kubernetes-store'
@@ -182,7 +183,7 @@ export function DetailDrawer() {
             type="button"
             className="p-1 rounded hover:bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-tertiary)]"
             onClick={() => {
-              /* copy name */
+              navigator.clipboard.writeText(resource.name).then(() => toast.success('已复制'))
             }}
             title="复制名称"
           >

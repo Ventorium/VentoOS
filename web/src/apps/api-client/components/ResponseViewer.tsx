@@ -1,7 +1,9 @@
 import { CheckCircle, Clock, Database, XCircle } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { useApiClientStore } from '../store'
-import type { KeyValueItem, ProxyResponse } from '../types'
+import type { ProxyResponse } from '../types'
+import SaveResponseValueModal from './SaveResponseValueModal'
 
 type ResponseTab = 'body' | 'headers'
 
@@ -34,9 +36,11 @@ function tryFormatJson(body: string): { formatted: string; isJson: boolean } {
 
 export default function ResponseViewer() {
   const [activeTab, setActiveTab] = useState<ResponseTab>('body')
+  const [modalValue, setModalValue] = useState('')
   const activeTabId = useApiClientStore(s => s.activeTabId)
   const responses = useApiClientStore(s => s.responses)
   const isSending = useApiClientStore(s => s.isSending)
+  const showContextMenu = useContextMenuStore(s => s.show)
 
   const response = activeTabId ? responses[activeTabId] : null
 
@@ -70,6 +74,21 @@ export default function ResponseViewer() {
   }
 
   const { formatted, isJson } = tryFormatJson(response.body)
+
+  const openSaveMenu = (event: React.MouseEvent, value: string) => {
+    if (!value.trim()) {
+      return
+    }
+
+    event.preventDefault()
+    showContextMenu(event.clientX, event.clientY, [
+      {
+        id: 'save-to-environment',
+        label: 'Save value to environment',
+        action: () => setModalValue(value.trim())
+      }
+    ])
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden" style={{ borderTop: '1px solid var(--vos-border-subtle)' }}>
@@ -124,6 +143,10 @@ export default function ResponseViewer() {
           <pre
             className="p-3 text-xs font-mono whitespace-pre-wrap break-all"
             style={{ color: 'var(--vos-text-primary)' }}
+            onContextMenu={event => {
+              const selectedValue = window.getSelection()?.toString().trim() ?? ''
+              openSaveMenu(event, selectedValue)
+            }}
           >
             {formatted}
           </pre>
@@ -136,6 +159,7 @@ export default function ResponseViewer() {
                 key={i}
                 className="flex items-center px-3 py-1.5"
                 style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
+                onContextMenu={event => openSaveMenu(event, h.value)}
               >
                 <span className="w-48 shrink-0 font-medium" style={{ color: 'var(--vos-text-secondary)' }}>
                   {h.key}
@@ -148,6 +172,12 @@ export default function ResponseViewer() {
           </div>
         )}
       </div>
+
+      <SaveResponseValueModal
+        open={Boolean(modalValue)}
+        initialValue={modalValue}
+        onClose={() => setModalValue('')}
+      />
     </div>
   )
 }

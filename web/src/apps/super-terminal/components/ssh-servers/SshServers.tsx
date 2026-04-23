@@ -21,6 +21,7 @@ import {
   Trash2
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from '@/components/Toast'
 import { superTerminalApi } from '@/apps/super-terminal/api'
 import { useSuperTerminalStore } from '@/apps/super-terminal/store'
 import type {
@@ -31,7 +32,7 @@ import type {
   SshConfigHost,
   SshServer
 } from '@/apps/super-terminal/types'
-import { Checkbox } from '@/components/ui/Checkbox'
+import { Button, Checkbox, FormField, FormSelect } from '@/components/ui'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -68,7 +69,7 @@ function osIcon(osType?: string) {
 }
 
 function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {})
+  navigator.clipboard.writeText(text).then(() => toast.success('已复制')).catch(() => {})
 }
 
 /** Build default empty form data */
@@ -364,11 +365,47 @@ function ServerFormModal({
     }
   }
 
-  const labelCls = 'block text-xs text-[var(--vos-text-secondary)] mb-1'
   const inputCls =
     'w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border'
-  const rowCls = 'mb-3'
   const twoColCls = 'grid grid-cols-2 gap-3'
+  const fieldId = (name: string) => `ssh-server-${name}`
+  const tabButtonId = (key: string) => `ssh-server-tab-${key}`
+  const tabPanelId = (key: string) => `ssh-server-panel-${key}`
+
+  const focusTab = (key: string) => {
+    setActiveTab(key as typeof activeTab)
+    requestAnimationFrame(() => {
+      document.getElementById(tabButtonId(key))?.focus()
+    })
+  }
+
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, currentKey: string) => {
+    const currentIndex = tabs.findIndex(tab => tab.key === currentKey)
+    if (currentIndex === -1) return
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      focusTab(tabs[(currentIndex + 1) % tabs.length]?.key ?? currentKey)
+      return
+    }
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      focusTab(tabs[(currentIndex - 1 + tabs.length) % tabs.length]?.key ?? currentKey)
+      return
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault()
+      focusTab(tabs[0]?.key ?? currentKey)
+      return
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault()
+      focusTab(tabs[tabs.length - 1]?.key ?? currentKey)
+    }
+  }
 
   const tabs = [
     { key: 'basic', label: '基本信息' },
@@ -398,45 +435,56 @@ function ServerFormModal({
             )}
           </div>
           <div className="flex gap-2">
-            <button
-              type="button"
-              className="vos-btn vos-btn-ghost vos-btn-sm"
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={testing || !editingServer}
               title={!editingServer ? '请先保存服务器后再测试' : ''}
               onClick={handleTest}
             >
               {testing ? '测试中…' : '测试连接'}
-            </button>
-            <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
               取消
-            </button>
-            <button
-              type="button"
-              className="vos-btn vos-btn-primary vos-btn-sm"
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
               disabled={submitting || !form.name.trim() || !form.host.trim() || !form.username.trim()}
               onClick={handleSubmit}
             >
               {submitting ? '保存中…' : '保存'}
-            </button>
+            </Button>
           </div>
         </div>
       }
     >
       {/* Tabs */}
-      <div className="ssh-form-tabs flex border-b border-b-[#333] mb-4 gap-1">
+      <div className="ssh-form-tabs flex border-b border-b-[#333] mb-4 gap-1" role="tablist" aria-label="SSH 服务器配置标签页">
         {tabs.map(t => (
-          <div key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
+          <button
+            key={t.key}
+            type="button"
+            id={tabButtonId(t.key)}
+            role="tab"
+            tabIndex={activeTab === t.key ? 0 : -1}
+            aria-selected={activeTab === t.key}
+            aria-controls={tabPanelId(t.key)}
+            className={`tab ${activeTab === t.key ? 'active' : ''}`}
+            onClick={() => setActiveTab(t.key)}
+            onKeyDown={event => handleTabKeyDown(event, t.key)}
+          >
             {t.label}
-          </div>
+          </button>
         ))}
       </div>
 
       {/* Tab: Basic */}
       {activeTab === 'basic' && (
-        <div>
-          <div className={rowCls}>
-            <label className={labelCls}>分组</label>
+        <div id={tabPanelId('basic')} role="tabpanel" aria-labelledby={tabButtonId('basic')}>
+          <FormField label="分组" htmlFor={fieldId('group')} className="mb-3">
             <input
+              id={fieldId('group')}
               list="ssh-group-datalist"
               className={inputCls}
               value={form.group}
@@ -448,178 +496,178 @@ function ServerFormModal({
                 <option key={g} value={g} />
               ))}
             </datalist>
-          </div>
-          <div className={rowCls}>
-            <label className={labelCls}>
-              名称 <span className="text-[#ff453a]">*</span>
-            </label>
+          </FormField>
+          <FormField label="名称" htmlFor={fieldId('name')} required className="mb-3">
             <input
+              id={fieldId('name')}
               className={inputCls}
               value={form.name}
               onChange={e => updateField('name', e.target.value)}
               placeholder="My Server"
             />
-          </div>
+          </FormField>
           <div className={twoColCls}>
-            <div className={rowCls}>
-              <label className={labelCls}>
-                地址 <span className="text-[#ff453a]">*</span>
-              </label>
+            <FormField label="地址" htmlFor={fieldId('host')} required className="mb-3">
               <input
+                id={fieldId('host')}
                 className={inputCls}
                 value={form.host}
                 onChange={e => updateField('host', e.target.value)}
                 placeholder="192.168.1.100"
               />
-            </div>
-            <div className={rowCls}>
-              <label className={labelCls}>端口</label>
+            </FormField>
+            <FormField label="端口" htmlFor={fieldId('port')} className="mb-3">
               <input
+                id={fieldId('port')}
                 type="number"
                 className={inputCls}
                 value={form.port}
                 onChange={e => updateField('port', Number(e.target.value) || 22)}
               />
-            </div>
+            </FormField>
           </div>
-          <div className={rowCls}>
-            <label className={labelCls}>
-              用户名 <span className="text-[#ff453a]">*</span>
-            </label>
+          <FormField label="用户名" htmlFor={fieldId('username')} required className="mb-3">
             <input
+              id={fieldId('username')}
               className={inputCls}
               value={form.username}
               onChange={e => updateField('username', e.target.value)}
               placeholder="root"
             />
-          </div>
-          <div className={rowCls}>
-            <label className={labelCls}>认证方式</label>
-            <select
-              className={inputCls}
+          </FormField>
+          <FormField label="认证方式" htmlFor={fieldId('auth-type')} className="mb-3">
+            <FormSelect
+              id={fieldId('auth-type')}
+              variant="toolbar"
+              className="w-full"
+              wrapperClassName="w-full"
               value={form.authType}
               onChange={e => updateField('authType', e.target.value as 'password' | 'private_key' | 'agent')}
             >
               <option value="password">密码</option>
               <option value="private_key">密钥</option>
               <option value="agent">SSH Agent</option>
-            </select>
-          </div>
+            </FormSelect>
+          </FormField>
           {form.authType === 'password' && (
-            <div className={rowCls}>
-              <label className={labelCls}>密码</label>
+            <FormField label="密码" htmlFor={fieldId('password')} className="mb-3">
               <input
+                id={fieldId('password')}
                 type="password"
                 className={inputCls}
                 value={form.password}
                 onChange={e => updateField('password', e.target.value)}
                 placeholder="输入密码"
               />
-            </div>
+            </FormField>
           )}
           {form.authType === 'private_key' && (
             <>
-              <div className={rowCls}>
-                <label className={labelCls}>密钥路径</label>
+              <FormField label="密钥路径" htmlFor={fieldId('key-path')} className="mb-3">
                 <PathPickerInput
+                  id={fieldId('key-path')}
                   value={form.keyPath}
                   onChange={v => updateField('keyPath', v)}
                   mode="file"
                   placeholder="~/.ssh/id_rsa"
                   className="w-full"
                 />
-              </div>
-              <div className={rowCls}>
-                <label className={labelCls}>密钥内容（可选，优先于路径）</label>
+              </FormField>
+              <FormField label="密钥内容（可选，优先于路径）" htmlFor={fieldId('private-key')} className="mb-3">
                 <textarea
+                  id={fieldId('private-key')}
                   className={`${inputCls} min-h-[60px] resize-y`}
                   value={form.privateKey}
                   onChange={e => updateField('privateKey', e.target.value)}
                   placeholder="粘贴私钥内容…"
                 />
-              </div>
+              </FormField>
             </>
           )}
-          <div className={rowCls}>
-            <label className={labelCls}>备注</label>
+          <FormField label="备注" htmlFor={fieldId('remark')} className="mb-3">
             <input
+              id={fieldId('remark')}
               className={inputCls}
               value={form.remark}
               onChange={e => updateField('remark', e.target.value)}
               placeholder="可选备注"
             />
-          </div>
+          </FormField>
         </div>
       )}
 
       {/* Tab: Connection */}
       {activeTab === 'connection' && (
-        <div>
-          <div className={rowCls}>
-            <label className={labelCls}>连接超时 (ms)</label>
+        <div id={tabPanelId('connection')} role="tabpanel" aria-labelledby={tabButtonId('connection')}>
+          <FormField label="连接超时 (ms)" htmlFor={fieldId('connect-timeout')} className="mb-3">
             <input
+              id={fieldId('connect-timeout')}
               type="number"
               className={inputCls}
               value={form.connectTimeout}
               onChange={e => updateField('connectTimeout', Number(e.target.value) || 10000)}
             />
-          </div>
-          <div className={rowCls}>
-            <label className={labelCls}>心跳间隔 (ms)</label>
+          </FormField>
+          <FormField label="心跳间隔 (ms)" htmlFor={fieldId('heartbeat-ms')} className="mb-3">
             <input
+              id={fieldId('heartbeat-ms')}
               type="number"
               className={inputCls}
               value={form.heartbeatMs}
               onChange={e => updateField('heartbeatMs', Number(e.target.value) || 30000)}
             />
-          </div>
+          </FormField>
         </div>
       )}
 
       {/* Tab: Init */}
       {activeTab === 'init' && (
-        <div>
-          <div className={rowCls}>
-            <label className={labelCls}>默认路径</label>
+        <div id={tabPanelId('init')} role="tabpanel" aria-labelledby={tabButtonId('init')}>
+          <FormField label="默认路径" htmlFor={fieldId('default-path')} className="mb-3">
             <input
+              id={fieldId('default-path')}
               className={inputCls}
               value={form.defaultPath}
               onChange={e => updateField('defaultPath', e.target.value)}
               placeholder="/home/user"
             />
-          </div>
-          <div className={rowCls}>
-            <label className={labelCls}>初始化脚本</label>
+          </FormField>
+          <FormField label="初始化脚本" htmlFor={fieldId('init-script')} className="mb-3">
             <textarea
+              id={fieldId('init-script')}
               className={`${inputCls} min-h-[120px] resize-y font-mono`}
               value={form.initScript}
               onChange={e => updateField('initScript', e.target.value)}
               placeholder={'# 连接后自动执行的命令\nexport LANG=en_US.UTF-8'}
             />
-          </div>
+          </FormField>
         </div>
       )}
 
       {/* Tab: Jump host */}
       {activeTab === 'jump' && (
-        <div>
-          <div className={rowCls}>
-            <label className={labelCls}>跳板机方式</label>
-            <select
-              className={inputCls}
+        <div id={tabPanelId('jump')} role="tabpanel" aria-labelledby={tabButtonId('jump')}>
+          <FormField label="跳板机方式" htmlFor={fieldId('jump-type')} className="mb-3">
+            <FormSelect
+              id={fieldId('jump-type')}
+              variant="toolbar"
+              className="w-full"
+              wrapperClassName="w-full"
               value={form.jumpType}
               onChange={e => updateField('jumpType', e.target.value as 'none' | 'existing' | 'manual')}
             >
               <option value="none">不使用跳板机</option>
               <option value="existing">选择已有服务器</option>
               <option value="manual">手动输入</option>
-            </select>
-          </div>
+            </FormSelect>
+          </FormField>
           {form.jumpType === 'existing' && (
-            <div className={rowCls}>
-              <label className={labelCls}>选择服务器</label>
-              <select
-                className={inputCls}
+            <FormField label="选择服务器" htmlFor={fieldId('jump-server')} className="mb-3">
+              <FormSelect
+                id={fieldId('jump-server')}
+                variant="toolbar"
+                className="w-full"
+                wrapperClassName="w-full"
                 value={form.jumpServerId}
                 onChange={e => updateField('jumpServerId', e.target.value)}
               >
@@ -631,57 +679,57 @@ function ServerFormModal({
                       {s.name} ({s.host})
                     </option>
                   ))}
-              </select>
-            </div>
+              </FormSelect>
+            </FormField>
           )}
           {form.jumpType === 'manual' && (
             <>
               <div className={twoColCls}>
-                <div className={rowCls}>
-                  <label className={labelCls}>地址</label>
+                <FormField label="地址" htmlFor={fieldId('jump-host')} className="mb-3">
                   <input
+                    id={fieldId('jump-host')}
                     className={inputCls}
                     value={form.jumpHost}
                     onChange={e => updateField('jumpHost', e.target.value)}
                     placeholder="jump.example.com"
                   />
-                </div>
-                <div className={rowCls}>
-                  <label className={labelCls}>端口</label>
+                </FormField>
+                <FormField label="端口" htmlFor={fieldId('jump-port')} className="mb-3">
                   <input
+                    id={fieldId('jump-port')}
                     type="number"
                     className={inputCls}
                     value={form.jumpPort}
                     onChange={e => updateField('jumpPort', Number(e.target.value) || 22)}
                   />
-                </div>
+                </FormField>
               </div>
-              <div className={rowCls}>
-                <label className={labelCls}>用户名</label>
+              <FormField label="用户名" htmlFor={fieldId('jump-username')} className="mb-3">
                 <input
+                  id={fieldId('jump-username')}
                   className={inputCls}
                   value={form.jumpUsername}
                   onChange={e => updateField('jumpUsername', e.target.value)}
                 />
-              </div>
-              <div className={rowCls}>
-                <label className={labelCls}>密码</label>
+              </FormField>
+              <FormField label="密码" htmlFor={fieldId('jump-password')} className="mb-3">
                 <input
+                  id={fieldId('jump-password')}
                   type="password"
                   className={inputCls}
                   value={form.jumpPassword}
                   onChange={e => updateField('jumpPassword', e.target.value)}
                   placeholder="留空则使用密钥"
                 />
-              </div>
-              <div className={rowCls}>
-                <label className={labelCls}>密钥内容（可选）</label>
+              </FormField>
+              <FormField label="密钥内容（可选）" htmlFor={fieldId('jump-private-key')} className="mb-3">
                 <textarea
+                  id={fieldId('jump-private-key')}
                   className={`${inputCls} min-h-[60px] resize-y`}
                   value={form.jumpPrivateKey}
                   onChange={e => updateField('jumpPrivateKey', e.target.value)}
                 />
-              </div>
+              </FormField>
             </>
           )}
         </div>
@@ -689,8 +737,8 @@ function ServerFormModal({
 
       {/* Tab: Proxy */}
       {activeTab === 'proxy' && (
-        <div>
-          <div className={`${rowCls} flex items-center gap-2`}>
+        <div id={tabPanelId('proxy')} role="tabpanel" aria-labelledby={tabButtonId('proxy')}>
+          <div className="mb-3 flex items-center gap-2">
             <Checkbox
               checked={form.proxyEnabled}
               onChange={checked => updateField('proxyEnabled', checked)}
@@ -698,15 +746,15 @@ function ServerFormModal({
             />
           </div>
           {form.proxyEnabled && (
-            <div className={rowCls}>
-              <label className={labelCls}>代理地址</label>
+            <FormField label="代理地址" htmlFor={fieldId('proxy-address')} className="mb-3">
               <input
+                id={fieldId('proxy-address')}
                 className={inputCls}
                 value={form.proxyAddress}
                 onChange={e => updateField('proxyAddress', e.target.value)}
                 placeholder="socks5://127.0.0.1:1080 或 http://proxy:8080"
               />
-            </div>
+            </FormField>
           )}
         </div>
       )}
@@ -783,17 +831,12 @@ function ImportConfigModal({
             已选 {selected.size} / {hosts.length} 项
           </span>
           <div className="flex gap-2">
-            <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={onClose}>
               取消
-            </button>
-            <button
-              type="button"
-              className="vos-btn vos-btn-primary vos-btn-sm"
-              disabled={selected.size === 0}
-              onClick={handleImport}
-            >
+            </Button>
+            <Button variant="primary" size="sm" disabled={selected.size === 0} onClick={handleImport}>
               导入选中 ({selected.size})
-            </button>
+            </Button>
           </div>
         </div>
       }
@@ -857,17 +900,17 @@ function RenameGroupModal({
       width={360}
       footer={
         <div className="flex justify-end gap-2">
-          <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             取消
-          </button>
-          <button
-            type="button"
-            className="vos-btn vos-btn-primary vos-btn-sm"
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             disabled={!value.trim() || value.trim() === groupName}
             onClick={() => onConfirm(value.trim())}
           >
             确定
-          </button>
+          </Button>
         </div>
       }
     >
@@ -907,12 +950,12 @@ function DeleteConfirmModal({
       width={360}
       footer={
         <div className="flex justify-end gap-2">
-          <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             取消
-          </button>
-          <button type="button" className="vos-btn vos-btn-danger vos-btn-sm" onClick={onConfirm}>
+          </Button>
+          <Button variant="danger" size="sm" onClick={onConfirm}>
             删除
-          </button>
+          </Button>
         </div>
       }
     >
@@ -1459,32 +1502,31 @@ export default function SshServers() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
         <div className="flex items-center gap-2 py-2 px-4 border-b border-b-[#333] shrink-0">
-          <button
-            type="button"
-            className="vos-btn vos-btn-primary vos-btn-sm"
+          <Button
+            variant="primary"
+            size="sm"
+            leadingIcon={<Plus size={14} />}
             onClick={() => {
               setEditingServer(null)
               setFormOpen(true)
             }}
           >
-            <Plus size={14} className="mr-1" />
             新建服务器
-          </button>
-          <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={() => setImportOpen(true)}>
-            <Download size={14} className="mr-1" />
+          </Button>
+          <Button variant="ghost" size="sm" leadingIcon={<Download size={14} />} onClick={() => setImportOpen(true)}>
             导入 SSH 配置
-          </button>
+          </Button>
 
           {someChecked && (
             <>
               <div className="w-px h-5 bg-[#444] mx-1" />
-              <button type="button" className="vos-btn vos-btn-ghost vos-btn-sm" onClick={handleBatchConnect}>
-                <Link size={14} className="mr-1" />
+              <Button variant="ghost" size="sm" leadingIcon={<Link size={14} />} onClick={handleBatchConnect}>
                 批量连接 ({selectedIds.size})
-              </button>
-              <button
-                type="button"
-                className="vos-btn vos-btn-danger vos-btn-sm"
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                leadingIcon={<Trash2 size={14} />}
                 onClick={() => {
                   setDeleteConfirm({
                     open: true,
@@ -1496,9 +1538,8 @@ export default function SshServers() {
                   })
                 }}
               >
-                <Trash2 size={14} className="mr-1" />
                 批量删除 ({selectedIds.size})
-              </button>
+              </Button>
             </>
           )}
 
@@ -1513,17 +1554,17 @@ export default function SshServers() {
             title="暂无服务器"
             description={selectedGroup ? '当前分组无服务器' : '点击上方按钮新建或导入服务器'}
             action={
-              <button
-                type="button"
-                className="vos-btn vos-btn-primary vos-btn-sm"
+              <Button
+                variant="primary"
+                size="sm"
+                leadingIcon={<Plus size={14} />}
                 onClick={() => {
                   setEditingServer(null)
                   setFormOpen(true)
                 }}
               >
-                <Plus size={14} className="mr-1" />
                 新建服务器
-              </button>
+              </Button>
             }
           />
         ) : (

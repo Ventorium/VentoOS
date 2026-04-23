@@ -12,6 +12,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSuperTerminalStore } from '@/apps/super-terminal/store'
 import { terminalRegistry } from '@/apps/super-terminal/terminalRegistry'
+import { toast } from '@/components/Toast'
 
 const WebShell = lazy(() => import('@/shell/WebShell'))
 
@@ -513,7 +514,7 @@ export default function LocalTerminal() {
 
   const handleCopy = useCallback(() => {
     const sel = window.getSelection()?.toString() || ''
-    if (sel) navigator.clipboard.writeText(sel).catch(() => {})
+    if (sel) navigator.clipboard.writeText(sel).then(() => toast.success('已复制')).catch(() => {})
   }, [])
 
   const handlePaste = useCallback(() => {

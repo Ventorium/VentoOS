@@ -36,6 +36,8 @@ export interface ActivityItem {
 export interface AppSidebarProps {
   /** List of activity bar items */
   activities: ActivityItem[]
+  /** Optional bottom-aligned activities */
+  bottomActivities?: ActivityItem[]
   /** Currently active activity id */
   activeId: string | null
   /** Called when user clicks an activity item */
@@ -72,9 +74,13 @@ function ActivityButton({ item, isActive, onClick }: { item: ActivityItem; isAct
         type="button"
         className={`vos-activity-item relative ${isActive ? 'vos-activity-item-active' : ''}`}
         title={item.label}
+        aria-label={item.label}
+        aria-pressed={isActive}
         onClick={onClick}
         onContextMenu={handleContextMenu}
       >
+        <span className="flex items-center justify-center w-full h-full">{item.icon}</span>
+
         {/* Active indicator — left border */}
         {isActive && (
           <motion.div
@@ -98,6 +104,7 @@ function ActivityButton({ item, isActive, onClick }: { item: ActivityItem; isAct
 
 export function AppSidebar({
   activities,
+  bottomActivities = [],
   activeId,
   onSelect,
   panelContent,
@@ -125,6 +132,19 @@ export function AppSidebar({
             />
           ))}
         </div>
+
+        {bottomActivities.length > 0 && (
+          <div className="mt-1 flex flex-col gap-[2px]">
+            {bottomActivities.map(item => (
+              <ActivityButton
+                key={item.id}
+                item={item}
+                isActive={activeId === item.id}
+                onClick={() => onSelect(item.id)}
+              />
+            ))}
+          </div>
+        )}
 
         {activityBarFooter && <div className="mt-1">{activityBarFooter}</div>}
       </div>

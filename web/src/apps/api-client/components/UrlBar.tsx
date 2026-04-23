@@ -1,6 +1,8 @@
-import { Check, ChevronDown, Loader2, Save, Send, Terminal } from 'lucide-react'
+import { Check, Loader2, Send, Terminal } from 'lucide-react'
 import { useState } from 'react'
+import { DropdownSelect } from '@/components/ui'
 import { HTTP_METHODS, METHOD_COLORS } from '../constants'
+import { toast } from '@/components/Toast'
 import { useApiClientStore } from '../store'
 import type { HttpMethod } from '../types'
 import { parseCurl, toCurl } from '../utils/curl'
@@ -11,7 +13,6 @@ export default function UrlBar() {
   const updateTabRequest = useApiClientStore(s => s.updateTabRequest)
   const sendRequest = useApiClientStore(s => s.sendRequest)
   const isSending = useApiClientStore(s => s.isSending)
-  const [methodDropdownOpen, setMethodDropdownOpen] = useState(false)
 
   const activeTab = tabs.find(t => t.id === activeTabId)
   const [copied, setCopied] = useState(false)
@@ -23,46 +24,25 @@ export default function UrlBar() {
       style={{ borderBottom: '1px solid var(--vos-border-subtle)' }}
     >
       {/* Method selector */}
-      <div className="relative">
-        <button
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-bold uppercase"
-          style={{
-            color: METHOD_COLORS[activeTab.method],
-            background: 'var(--vos-bg-tertiary)',
-            border: '1px solid var(--vos-border-subtle)'
-          }}
-          onClick={() => setMethodDropdownOpen(!methodDropdownOpen)}
-        >
-          {activeTab.method}
-          <ChevronDown size={11} />
-        </button>
-        {methodDropdownOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setMethodDropdownOpen(false)} />
-            <div
-              className="absolute left-0 top-full mt-1 z-50 min-w-24 rounded-md shadow-lg py-1"
-              style={{
-                background: 'var(--vos-bg-elevated)',
-                border: '1px solid var(--vos-border-subtle)'
-              }}
-            >
-              {HTTP_METHODS.map(m => (
-                <div
-                  key={m}
-                  className="px-3 py-1.5 text-xs font-bold cursor-pointer hover:opacity-80"
-                  style={{ color: METHOD_COLORS[m] }}
-                  onClick={() => {
-                    updateTabRequest(activeTab.id, { method: m })
-                    setMethodDropdownOpen(false)
-                  }}
-                >
-                  {m}
-                </div>
-              ))}
-            </div>
-          </>
+      <DropdownSelect
+        className="w-[92px] shrink-0"
+        value={activeTab.method}
+        options={HTTP_METHODS.map(method => ({ value: method, label: method, color: METHOD_COLORS[method] }))}
+        onChange={value => updateTabRequest(activeTab.id, { method: value as HttpMethod })}
+        renderTriggerContent={option => (
+          <span className="text-xs font-bold uppercase" style={{ color: METHOD_COLORS[(option?.value ?? activeTab.method) as HttpMethod] }}>
+            {option?.label ?? activeTab.method}
+          </span>
         )}
-      </div>
+        renderOption={(option, selected) => (
+          <span
+            className="flex items-center justify-between min-w-0 flex-1 text-xs font-bold uppercase"
+            style={{ color: selected ? METHOD_COLORS[option.value as HttpMethod] : option.color }}
+          >
+            <span>{option.label}</span>
+          </span>
+        )}
+      />
 
       {/* URL input */}
       <input
@@ -116,7 +96,7 @@ export default function UrlBar() {
             body: activeTab.request.body,
             auth: activeTab.request.auth
           })
-          navigator.clipboard.writeText(curl)
+          navigator.clipboard.writeText(curl).then(() => toast.success('已复制'))
           setCopied(true)
           setTimeout(() => setCopied(false), 1500)
         }}

@@ -15,6 +15,7 @@ import {
   Wrench
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FormSelect } from '@/components/ui'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow, useAppStateSync, useAppStorage } from '@/kernel'
 import type { AgentConfig, AgentProfile, ChatSession, ProviderConfig, StreamEvent } from './api'
@@ -32,10 +33,12 @@ function SelectInput({
   placeholder?: string
 }) {
   return (
-    <select
+    <FormSelect
       value={value ?? ''}
       onChange={e => onChange(e.target.value)}
-      className="w-full text-xs rounded-lg px-2 py-1.5 border-none outline-none bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)]"
+      variant="toolbar"
+      className="w-full text-xs"
+      wrapperClassName="w-full"
     >
       <option value="">{placeholder ?? '请选择'}</option>
       {options.map(option => (
@@ -43,7 +46,7 @@ function SelectInput({
           {option.label}
         </option>
       ))}
-    </select>
+    </FormSelect>
   )
 }
 

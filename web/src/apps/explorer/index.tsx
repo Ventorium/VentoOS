@@ -4,8 +4,7 @@ import {
   Copy,
   Download,
   Eye,
-  EyeOff,
-  File,
+  File as FileIcon,
   FlipHorizontal2,
   FlipVertical2,
   Folder,
@@ -15,7 +14,6 @@ import {
   Key,
   Link,
   Monitor,
-  PanelRight,
   Pencil,
   Plus,
   RefreshCw,
@@ -28,14 +26,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AppLayout,
   AppSidebar,
-  EmptyState,
-  FormInput,
   FormSelect,
-  Modal,
   SectionHeader,
   ConfirmDialog as SharedConfirmDialog,
   Spinner
 } from '@/components'
+import {
+  AppPreferencesSheet,
+  PreferenceGroup as AppPreferenceGroup,
+  PreferenceRow,
+  PreferenceSection,
+  PreferenceToggle
+} from '@/components/AppPreferences'
+import { toast } from '@/components/Toast'
 import { type ApiResponse, request } from '@/infra/api'
 import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
 import {
@@ -416,8 +419,9 @@ function MountForm({
           />
           {nameError && <div className="text-xs mt-0.5 text-[var(--vos-accent-danger)]">{nameError}</div>}
         </div>
-        <select
-          className="vos-input vos-input-sm"
+        <FormSelect
+          className="vos-input-sm"
+          wrapperClassName="w-full"
           value={kind}
           onChange={e => setKind(e.target.value as VfsSourceKind)}
         >
@@ -427,7 +431,7 @@ function MountForm({
           <option value="smb">SMB 共享</option>
           <option value="s3">S3 对象存储</option>
           <option value="webdav">WebDAV</option>
-        </select>
+        </FormSelect>
 
         {/* ── Local disk ── */}
         {kind === 'local' && (
@@ -747,8 +751,9 @@ function MountForm({
                   <span className="text-[10px] shrink-0" style={{ color: 'var(--vos-text-secondary)' }}>
                     挂载方式
                   </span>
-                  <select
-                    className="vos-input vos-input-sm flex-1"
+                  <FormSelect
+                    className="vos-input-sm"
+                    wrapperClassName="flex-1"
                     style={{ fontSize: 11, padding: '1px 4px' }}
                     value={mountBackend}
                     onChange={e => setMountBackend(e.target.value as MountBackend)}
@@ -756,7 +761,7 @@ function MountForm({
                     <option value="fuse">FUSE（macFUSE / libfuse3）</option>
                     <option value="webdav">WebDAV（内置，无需额外依赖）</option>
                     <option value="fileprovider">FileProvider（macOS 原生）</option>
-                  </select>
+                  </FormSelect>
                 </div>
                 {fuseChecking && (
                   <div className="text-xs mb-1 flex items-center gap-1" style={{ color: 'var(--vos-text-secondary)' }}>
@@ -905,7 +910,7 @@ function MountForm({
                   title="复制错误信息"
                   onClick={e => {
                     e.stopPropagation()
-                    navigator.clipboard.writeText(testResult.message).catch(() => {})
+                    navigator.clipboard.writeText(testResult.message).then(() => toast.success('已复制')).catch(() => {})
                   }}
                 >
                   <Copy size={11} />
@@ -1463,43 +1468,56 @@ function tryFormatJson(content: string): string {
   }
 }
 
-// ─── Explorer Settings Dialog ────────────────────────────────────────────────
+// ─── Explorer Settings Sheet ────────────────────────────────────────────────
 
-function ExplorerSettingsDialog({
+function ExplorerSettingsSheet({
   mounts,
   showHidden,
-  onToggleHidden,
+  onShowHiddenChange,
   onClose
 }: {
   mounts: { id: string; name: string }[]
   showHidden: boolean
-  onToggleHidden: () => void
+  onShowHiddenChange: (value: boolean) => void
   onClose: () => void
 }) {
-  return (
-    <Modal open={true} onClose={onClose} title="偏好设置" width={420}>
-      {/* Hidden files toggle */}
-      <div className="flex items-center justify-between px-1">
-        <span className="text-xs text-[var(--vos-text-primary)]">显示隐藏文件</span>
-        <button
-          type="button"
-          className="w-[36px] h-[20px] rounded-[10px] relative transition-[background] duration-200 border-none cursor-pointer p-0"
-          style={{
-            background: showHidden ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)'
-          }}
-          onClick={onToggleHidden}
-        >
-          <span
-            className="absolute top-[2px] w-4 h-4 rounded-full bg-white transition-[left] duration-200"
-            style={{ left: showHidden ? 18 : 2 }}
-          />
-        </button>
-      </div>
+  const categories = [
+    {
+      id: 'general',
+      label: '通用',
+      icon: <Eye size={14} />,
+      content: (
+        <PreferenceSection title="通用">
+          <AppPreferenceGroup label="文件显示">
+            <PreferenceRow label="显示隐藏文件" description="控制文件列表是否显示隐藏项。">
+              <PreferenceToggle
+                checked={showHidden}
+                onChange={value => onShowHiddenChange(value)}
+                label="显示隐藏文件"
+              />
+            </PreferenceRow>
+          </AppPreferenceGroup>
+        </PreferenceSection>
+      )
+    },
+    {
+      id: 'webdav',
+      label: 'WebDAV',
+      icon: <Globe size={14} />,
+      content: (
+        <PreferenceSection title="WebDAV 服务器">
+          <AppPreferenceGroup label="共享设置">
+            <div className="rounded-xl border-[0.5px] border-solid border-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)] px-3 py-3">
+              <WebDavServerPanel mounts={mounts} onClose={onClose} embedded />
+            </div>
+          </AppPreferenceGroup>
+        </PreferenceSection>
+      )
+    }
+  ]
 
-      {/* WebDAV server settings */}
-      <div className="border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)] my-[4px]" />
-      <WebDavServerPanel mounts={mounts} onClose={onClose} embedded />
-    </Modal>
+  return (
+    <AppPreferencesSheet open={true} onClose={onClose} appName="Explorer" categories={categories} />
   )
 }
 
@@ -1833,7 +1851,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
       >
         {/* Toolbar */}
         <div className="flex items-center px-3 py-2 gap-2 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
-          <File size={13} className="text-[var(--vos-text-tertiary)] shrink-0" />
+          <FileIcon size={13} className="text-[var(--vos-text-tertiary)] shrink-0" />
           <span className="text-xs font-medium flex-1 truncate">{node.name}</span>
           {/* Image transform toolbar */}
           {isImage && blobUrl && canSaveImage && (
@@ -1943,7 +1961,7 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
               <button
                 type="button"
                 className="vos-btn text-xs self-start flex items-center gap-1 px-2 py-0.5"
-                onClick={() => navigator.clipboard.writeText(error)}
+                onClick={() => navigator.clipboard.writeText(error).then(() => toast.success('已复制'))}
               >
                 <Copy size={11} />
                 复制错误
@@ -2017,6 +2035,8 @@ function FileViewerModal({ mountId, node, onClose }: { mountId: string; node: Vf
   )
 }
 
+void FileViewerModal
+
 // ─── Main app ──────────────────────────────────────────────────────────────
 
 export default function ExplorerApp({ windowId, initialAppState }: AppComponentProps) {
@@ -2039,7 +2059,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
   const [columns, setColumns] = useState<ColumnData[]>([])
   const [preview, setPreview] = useState<VfsFileContent | null>(null)
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
-  const [scrollTrigger, setScrollTrigger] = useState(0)
+  const [scrollTrigger] = useState(0)
   const [showHidden, setShowHidden] = useState(true)
 
   // Load persisted preferences from storage SDK
@@ -2691,16 +2711,6 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
     })
   }
 
-  const handleShowProperties = (entry: VfsNode) => {
-    setSelectedNode(entry)
-    if (!entry.is_dir && selectedMount) {
-      vfsApi
-        .readVfsFile(selectedMount, entry.path)
-        .then(r => setPreview(r.data))
-        .catch(console.error)
-    }
-  }
-
   const handleItemDoubleClick = (colIdx: number, entry: VfsNode) => {
     void colIdx
     if (!selectedMount) return
@@ -2979,7 +2989,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
             id: 'copy-relative-path',
             label: '复制相对路径',
             action: () => {
-              navigator.clipboard.writeText(shellEscape(entry.path))
+              navigator.clipboard.writeText(shellEscape(entry.path)).then(() => toast.success('已复制'))
             }
           },
           ...(mounts.find(m => m.id === selectedMount)?.kind === 'local'
@@ -2991,7 +3001,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
                     const mount = mounts.find(m => m.id === selectedMount)
                     if (mount) {
                       const absPath = mount.root.replace(/\/+$/, '') + entry.path
-                      navigator.clipboard.writeText(shellEscape(absPath))
+                      navigator.clipboard.writeText(shellEscape(absPath)).then(() => toast.success('已复制'))
                     }
                   }
                 }
@@ -3003,7 +3013,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
             action: () => {
               const mount = mounts.find(m => m.id === selectedMount)
               const vfsPath = mount ? `${mount.kind}:${mount.name}${entry.path}` : entry.path
-              navigator.clipboard.writeText(shellEscape(vfsPath))
+              navigator.clipboard.writeText(shellEscape(vfsPath)).then(() => toast.success('已复制'))
             }
           }
         ]
@@ -3339,17 +3349,6 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
                         `x-apple.systempreferences://open?message=webdav:${encodeURIComponent(url)}`,
                         '_blank'
                       )
-                      // Fallback: copy URL and show instructions
-                      navigator.clipboard
-                        .writeText(url)
-                        .then(() => {
-                          alert(
-                            `WebDAV URL 已复制到剪贴板：\n${url}\n\n在 Finder 中选择"前往 > 连接服务器"并粘贴此地址`
-                          )
-                        })
-                        .catch(() => {
-                          alert(`WebDAV 地址：\n${url}\n\n在 Finder 中选择"前往 > 连接服务器"并输入此地址`)
-                        })
                     }
                   })
                 }
@@ -3520,21 +3519,18 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
             />
           )}
 
+
           {showExplorerSettings && (
-            <ExplorerSettingsDialog
+            <ExplorerSettingsSheet
               mounts={mounts.map(m => ({ id: m.id, name: m.name }))}
               showHidden={showHidden}
-              onToggleHidden={() =>
-                setShowHidden(v => {
-                  const next = !v
-                  storage.setJSON('preferences', { showHidden: next })
-                  return next
-                })
-              }
+              onShowHiddenChange={next => {
+                setShowHidden(next)
+                storage.setJSON('preferences', { showHidden: next })
+              }}
               onClose={() => setShowExplorerSettings(false)}
             />
           )}
-
           {/* New folder overlay */}
           {newFolderState.visible && (
             <div className="vos-modal-overlay">
@@ -3678,7 +3674,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
                         background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
                       }}
                     >
-                      <File size={14} className="text-white" />
+                      <FileIcon size={14} className="text-white" />
                     </div>
                     <span className="text-xs font-medium">文件查看器</span>
                   </button>
@@ -3792,15 +3788,16 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-[var(--vos-text-secondary)]">格式</label>
-                    <select
-                      className="vos-input text-xs"
+                    <FormSelect
+                      className="text-xs"
+                      wrapperClassName="w-full"
                       value={compressState.format}
                       onChange={e => setCompressState(s => ({ ...s, format: e.target.value }))}
                     >
                       <option value="zip">ZIP</option>
                       <option value="tar.gz">TAR.GZ</option>
                       <option value="7z">7Z</option>
-                    </select>
+                    </FormSelect>
                   </div>
                   <label className="flex items-center gap-2 text-xs text-[var(--vos-text-secondary)]">
                     <input
@@ -4147,7 +4144,6 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
                         type="button"
                         className="border-none bg-transparent cursor-pointer p-0 text-xs hover:underline text-[var(--vos-text-secondary)]"
                         onClick={() => {
-                          const colIdx = 0
                           if (columns.length > 1) {
                             setColumns(prev => {
                               const newCols = prev.slice(0, 1)

@@ -1,5 +1,6 @@
 import { RefreshCw, Search } from 'lucide-react'
 import { useState } from 'react'
+import { FormSelect } from '@/components/ui'
 import { useClusterStore } from '../../stores/cluster-store'
 import { useKubernetesStore } from '../../stores/kubernetes-store'
 import type { K8sResourceKind } from '../../types'
@@ -27,6 +28,7 @@ export function ResourceToolbar({
   onDeleteSelected
 }: Props) {
   const namespaces = useClusterStore(s => s.getClusterNamespaces(clusterId))
+  const setLastNamespace = useClusterStore(s => s.setLastNamespace)
   const openTab = useKubernetesStore(s => s.openTab)
   const def = getResourceDef(kind)
 
@@ -35,17 +37,23 @@ export function ResourceToolbar({
       <div className="flex items-center gap-2 h-[38px] px-3 border-b-[0.5px] border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]">
         {/* Namespace selector */}
         {def.namespaced && (
-          <select
-            className="text-xs border-none outline-none cursor-pointer rounded px-1 py-0.5 bg-[var(--vos-bg-input)] text-[var(--vos-text-primary)] border-[0.5px] border-[var(--vos-border-subtle)]"
+          <FormSelect
+            variant="toolbar"
+            className="text-xs"
+            wrapperClassName="w-[180px] shrink-0"
             value={namespace}
-            onChange={e => openTab(clusterId, e.target.value, kind)}
+            onChange={e => {
+              const ns = e.target.value
+              setLastNamespace(clusterId, ns)
+              openTab(clusterId, ns, kind)
+            }}
           >
             {namespaces.map(ns => (
               <option key={ns.name} value={ns.name}>
                 {ns.name}
               </option>
             ))}
-          </select>
+          </FormSelect>
         )}
 
         <span className="text-xs text-[var(--vos-text-tertiary)]">{def.pluralLabel}</span>

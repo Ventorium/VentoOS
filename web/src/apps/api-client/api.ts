@@ -5,17 +5,36 @@ import type {
   Collection,
   CollectionTree,
   Environment,
+  EnvironmentVariable,
   Folder,
   HistoryEntry,
   KeyValueItem,
+  MqttPublishRequest,
+  MqttSessionConnectRequest,
+  ProtocolSessionSnapshot,
   ProxyResponse
+  ,WebSocketSessionConnectRequest
 } from './types'
+import { mapCollectionTreeDto, mapEnvironmentDto, toEnvironmentPayload } from './utils/mappers'
 
 const BASE = '/api/api-client'
 
+function mapApiResponse<TInput, TOutput>(
+  promise: Promise<ApiResponse<TInput>>,
+  mapper: (value: TInput) => TOutput
+): Promise<ApiResponse<TOutput>> {
+  return promise.then(response => ({
+    ...response,
+    data: mapper(response.data)
+  }))
+}
+
 export const apiClientApi = {
   // Collections
-  getCollections: () => request<ApiResponse<CollectionTree[]>>('GET', `${BASE}/collections`),
+  getCollections: () =>
+    mapApiResponse(request<ApiResponse<unknown[]>>('GET', `${BASE}/collections`), data =>
+      (data ?? []).map(item => mapCollectionTreeDto(item))
+    ),
   createCollection: (data: { name: string; description?: string }) =>
     request<ApiResponse<Collection>>('POST', `${BASE}/collections`, data),
   updateCollection: (id: string, data: Partial<Collection>) =>
@@ -46,13 +65,44 @@ export const apiClientApi = {
     timeout_ms?: number
     follow_redirects?: boolean
   }) => request<ApiResponse<ProxyResponse>>('POST', `${BASE}/proxy/rest`, data),
+  connectWebSocketSession: (data: WebSocketSessionConnectRequest) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('POST', `${BASE}/proxy/websocket/sessions/connect`, data),
+  getWebSocketSession: (sessionId: string) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('GET', `${BASE}/proxy/websocket/sessions/${sessionId}`),
+  disconnectWebSocketSession: (sessionId: string) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('POST', `${BASE}/proxy/websocket/sessions/${sessionId}/disconnect`),
+  sendWebSocketFrame: (sessionId: string, data: { message: string }) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('POST', `${BASE}/proxy/websocket/sessions/${sessionId}/send`, data),
+  clearWebSocketSessionLogs: (sessionId: string) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('POST', `${BASE}/proxy/websocket/sessions/${sessionId}/clear-logs`),
+  connectMqttSession: (data: MqttSessionConnectRequest) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('POST', `${BASE}/proxy/mqtt/sessions/connect`, data),
+  getMqttSession: (sessionId: string) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('GET', `${BASE}/proxy/mqtt/sessions/${sessionId}`),
+  disconnectMqttSession: (sessionId: string) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('POST', `${BASE}/proxy/mqtt/sessions/${sessionId}/disconnect`),
+  publishMqttMessage: (sessionId: string, data: MqttPublishRequest) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('POST', `${BASE}/proxy/mqtt/sessions/${sessionId}/publish`, data),
+  syncMqttSubscriptions: (sessionId: string, data: { subscriptions: MqttSessionConnectRequest['subscriptions'] }) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('POST', `${BASE}/proxy/mqtt/sessions/${sessionId}/subscriptions`, data),
+  clearMqttSessionLogs: (sessionId: string) =>
+    request<ApiResponse<ProtocolSessionSnapshot>>('POST', `${BASE}/proxy/mqtt/sessions/${sessionId}/clear-logs`),
 
   // Environments
-  getEnvironments: () => request<ApiResponse<Environment[]>>('GET', `${BASE}/environments`),
-  createEnvironment: (data: { name: string; variables?: KeyValueItem[]; is_global?: boolean }) =>
-    request<ApiResponse<Environment>>('POST', `${BASE}/environments`, data),
+  getEnvironments: () =>
+    mapApiResponse(request<ApiResponse<unknown[]>>('GET', `${BASE}/environments`), data =>
+      (data ?? []).map(item => mapEnvironmentDto(item))
+    ),
+  createEnvironment: (data: { name: string; variables?: EnvironmentVariable[]; isGlobal?: boolean }) =>
+    mapApiResponse(
+      request<ApiResponse<unknown>>('POST', `${BASE}/environments`, toEnvironmentPayload(data)),
+      environment => mapEnvironmentDto(environment)
+    ),
   updateEnvironment: (id: string, data: Partial<Environment>) =>
-    request<ApiResponse<Environment>>('PUT', `${BASE}/environments/${id}`, data),
+    mapApiResponse(
+      request<ApiResponse<unknown>>('PUT', `${BASE}/environments/${id}`, toEnvironmentPayload(data)),
+      environment => mapEnvironmentDto(environment)
+    ),
   deleteEnvironment: (id: string) => request<ApiResponse<null>>('DELETE', `${BASE}/environments/${id}`),
 
   // History

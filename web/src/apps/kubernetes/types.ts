@@ -14,6 +14,7 @@ export interface K8sCluster {
   kubeconfig_inline?: string
   server_url?: string
   namespace?: string
+  group?: string
   source?: K8sClusterSource
   status?: 'connected' | 'connecting' | 'error' | 'disconnected'
 }

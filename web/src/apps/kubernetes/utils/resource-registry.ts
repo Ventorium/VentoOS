@@ -31,7 +31,7 @@ import {
   Users
 } from 'lucide-react'
 import { getColumnsForKind } from '../components/resource-list/table-columns'
-import type { K8sResourceKind, ResourceTypeDef } from '../types'
+import type { K8sResource, K8sResourceKind, ResourceColumn, ResourceTypeDef } from '../types'
 
 const kindToIcon: Record<string, LucideIcon> = {
   overview: Home,
@@ -248,6 +248,10 @@ function getCategory(kind: K8sResourceKind): ResourceTypeDef['category'] {
     default:
       return 'custom'
   }
+}
+
+export function getResourceColumns(kind: K8sResourceKind, onNameClick?: (r: K8sResource) => void): ResourceColumn[] {
+  return getColumnsForKind(kind, onNameClick)
 }
 
 function buildRegistry(): Record<K8sResourceKind, ResourceTypeDef> {

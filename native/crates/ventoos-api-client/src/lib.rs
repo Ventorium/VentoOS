@@ -6,6 +6,7 @@
 pub mod codegen;
 pub mod import;
 pub mod models;
+pub mod protocol_runtime;
 pub mod proxy;
 pub mod routes;
 pub mod store;

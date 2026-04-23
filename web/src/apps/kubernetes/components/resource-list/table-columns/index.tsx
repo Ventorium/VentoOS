@@ -47,12 +47,16 @@ const statusBadge = (status?: string) => {
   )
 }
 
-export function getColumnsForKind(kind: K8sResourceKind): ResourceColumn[] {
+export function getColumnsForKind(kind: K8sResourceKind, onNameClick?: (r: K8sResource) => void): ResourceColumn[] {
   const nameCol: ResourceColumn = {
     key: 'name',
     header: 'Name',
     render: r => (
-      <span className="font-mono text-[var(--vos-accent-primary)] truncate" title={r.name}>
+      <span
+        className="font-mono text-[var(--vos-accent-primary)] truncate cursor-pointer hover:underline"
+        title={r.name}
+        onClick={e => { e.stopPropagation(); onNameClick?.(r) }}
+      >
         {r.name}
       </span>
     )

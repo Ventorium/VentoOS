@@ -680,6 +680,83 @@ h6 {
   color: var(--vos-text-primary);
 }
 
+/* ─── Global Center Toast ─────────────────────────────────── */
+.vos-toast-center-container {
+  position: fixed;
+  top: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.vos-toast-center {
+  pointer-events: all;
+  display: flex;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--vos-bg-overlay);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 0.5px solid var(--vos-border-default);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  min-width: 160px;
+  max-width: 400px;
+}
+
+.vos-toast-center-bar {
+  width: 4px;
+  flex-shrink: 0;
+}
+
+.vos-toast-center-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.vos-toast-center-icon {
+  flex-shrink: 0;
+}
+
+.vos-toast-center-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vos-text-primary);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vos-toast-center-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--vos-text-tertiary);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.1s;
+  flex-shrink: 0;
+}
+
+.vos-toast-center-close:hover {
+  color: var(--vos-text-primary);
+}
+
 /* ─── Settings App ────────────────────────────────────────── */
 .vos-settings-sidebar {
   width: 200px;
@@ -1312,6 +1389,12 @@ h6 {
   background: var(--vos-bg-surface-hover);
 }
 
+.vos-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .vos-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -1344,6 +1427,13 @@ h6 {
   font-size: 11px;
 }
 
+.vos-btn.vos-btn-xs {
+  height: 22px;
+  padding: 2px 8px;
+  font-size: 11px;
+  gap: 4px;
+}
+
 .vos-btn.vos-btn-ghost {
   background: transparent;
   border: 0.5px solid var(--vos-border-default);
@@ -1354,6 +1444,35 @@ h6 {
   background: var(--vos-accent-primary);
   border-color: var(--vos-accent-primary);
   color: #fff;
+}
+
+.vos-btn.vos-btn-toolbar {
+  background: var(--vos-bg-elevated);
+  border-color: var(--vos-border-subtle);
+}
+
+.vos-btn.vos-btn-toolbar:hover:not(:disabled) {
+  background: var(--vos-bg-hover);
+}
+
+.vos-btn.vos-btn-toolbar-primary {
+  background: var(--vos-accent-primary);
+  border-color: var(--vos-accent-primary);
+  color: #fff;
+}
+
+.vos-btn.vos-btn-toolbar-primary:hover:not(:disabled) {
+  opacity: 0.82;
+}
+
+.vos-btn.vos-btn-toolbar-danger {
+  background: var(--vos-accent-danger);
+  border-color: var(--vos-accent-danger);
+  color: #fff;
+}
+
+.vos-btn.vos-btn-toolbar-danger:hover:not(:disabled) {
+  opacity: 0.85;
 }
 
 .vos-icon-btn {
@@ -1380,6 +1499,32 @@ h6 {
 .vos-icon-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.vos-icon-btn.vos-icon-btn-sm {
+  width: 22px;
+  height: 22px;
+}
+
+.vos-icon-btn.vos-icon-btn-ghost {
+  background: transparent;
+  border-color: var(--vos-border-subtle);
+}
+
+.vos-icon-btn.vos-icon-btn-toolbar {
+  background: var(--vos-bg-elevated);
+  border-color: var(--vos-border-subtle);
+}
+
+.vos-icon-btn.vos-icon-btn-danger {
+  background: var(--vos-accent-danger);
+  border-color: var(--vos-accent-danger);
+  color: #fff;
+}
+
+.vos-icon-btn.vos-icon-btn-danger:hover:not(:disabled) {
+  opacity: 0.85;
+  color: #fff;
 }
 
 /* Inputs */
@@ -1421,6 +1566,7 @@ select.vos-input {
 
 .vos-select-wrap {
   position: relative;
+  min-width: 0;
 }
 
 .vos-select-arrow {
@@ -1430,6 +1576,104 @@ select.vos-input {
   transform: translateY(-50%);
   pointer-events: none;
   color: var(--vos-text-tertiary);
+}
+
+.vos-select {
+  width: 100%;
+}
+
+.vos-select-toolbar {
+  background: var(--vos-bg-input, var(--vos-bg-tertiary));
+  border-color: var(--vos-border-subtle);
+}
+
+.vos-select-minimal {
+  min-height: 24px;
+  height: 24px;
+  padding: 0 18px 0 0;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.vos-select-minimal:focus {
+  background: var(--vos-bg-secondary);
+}
+
+.vos-select-wrap[data-variant='minimal'] .vos-select-arrow {
+  right: 2px;
+}
+
+.vos-dropdown {
+  position: relative;
+  min-width: 0;
+}
+
+.vos-dropdown-trigger {
+  width: 100%;
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 0.5px solid var(--vos-border-subtle);
+  background: var(--vos-bg-input, var(--vos-bg-tertiary));
+  color: var(--vos-text-primary);
+  font-size: 12px;
+  line-height: 1.2;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.vos-dropdown-trigger:hover,
+.vos-dropdown-trigger:focus-visible {
+  border-color: var(--vos-accent-primary);
+}
+
+.vos-dropdown-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  min-width: 100%;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--vos-bg-elevated);
+  border: 0.5px solid var(--vos-border-subtle);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+}
+
+.vos-dropdown-menu[data-align='right'] {
+  left: auto;
+  right: 0;
+}
+
+.vos-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vos-text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.vos-dropdown-item:hover,
+.vos-dropdown-item.active {
+  background: var(--vos-bg-item-hover);
+  color: var(--vos-text-primary);
+}
+
+.vos-dropdown-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Modal */
@@ -1502,6 +1746,25 @@ select.vos-input {
   font-size: 12px;
   font-weight: 500;
   color: var(--vos-text-secondary);
+}
+
+.vos-form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--vos-text-secondary);
+}
+
+.vos-form-required {
+  color: var(--vos-accent-danger);
+}
+
+.vos-form-field-content {
+  min-width: 0;
+}
+
+.vos-form-hint {
+  font-size: 11px;
+  color: var(--vos-text-tertiary);
 }
 
 .vos-form-error {

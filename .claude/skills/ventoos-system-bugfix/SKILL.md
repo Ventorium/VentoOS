@@ -9,6 +9,13 @@ description: Use when fixing bugs in VentoOS system-level components including s
 
 以 OS 级架构师视角诊断并修复系统级 Bug。核心原则：**先定位层级，再找根因，不打补丁，不跨层修复表象**。
 
+## 状态持久化硬约束
+
+- 只要 Bug 涉及系统状态、应用状态或跨层同步状态，必须核查该状态是否真正进入后端数据库持久化层
+- 页面、Shell 组件、前端临时 store 不能作为唯一状态源；刷新或重启后丢失状态，默认判定为修复不完整
+- 系统级恢复态优先复用现有持久化通道，如 `window appState -> SQLite`、系统 settings、任务/连接持久化表；不要新建只在内存里存在的状态分支
+- 修复时除了复现路径，还必须验证“刷新后是否恢复”与“跨窗口/跨层是否一致”
+
 ## Bug 定位框架
 
 ```
@@ -38,6 +45,7 @@ description: Use when fixing bugs in VentoOS system-level components including s
 - 是否有组件跨层直接调用（如 Shell 直接调 Rust API）
 - 是否有状态在多处维护导致不一致
 - 是否有事件/消息丢失（WebSocket 断连后未重订阅）
+- 是否有关键状态只保存在前端内存，刷新后无法从数据库恢复
 
 ### 3. 代码定位
 ```bash

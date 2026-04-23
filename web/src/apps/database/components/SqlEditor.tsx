@@ -1,6 +1,7 @@
 import { AlignLeft, Copy, Database, Play, Save, Square } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Spinner } from '@/components/ui'
+import { Button, Spinner } from '@/components/ui'
+import { toast } from '@/components/Toast'
 import { dbApi } from '../api'
 import { useDatabaseStore } from '../stores'
 import type { QueryResult } from '../types'
@@ -176,52 +177,36 @@ export function SqlEditor() {
     <div ref={containerRef} className="h-full flex flex-col overflow-hidden">
       {/* Toolbar */}
       <div className="h-10 shrink-0 flex items-center gap-1 px-3 border-b border-solid border-(--vos-border)">
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-primary) hover:opacity-80 text-white border-none cursor-pointer disabled:opacity-40"
+        <Button
+          variant="toolbar-primary"
+          size="sm"
+          leadingIcon={<Play size={14} />}
           onClick={handleRunAll}
           disabled={executing || !connId}
         >
-          <Play size={14} />
-          <span>运行</span>
-        </button>
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer disabled:opacity-40"
+          运行
+        </Button>
+        <Button
+          variant="toolbar"
+          size="sm"
+          leadingIcon={<Play size={14} />}
           onClick={handleRunSelected}
           disabled={executing || !connId}
         >
-          <Play size={14} />
-          <span>选中运行</span>
-        </button>
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer disabled:opacity-40"
-          onClick={handleStop}
-          disabled={!executing}
-        >
-          <Square size={14} />
-          <span>停止</span>
-        </button>
+          选中运行
+        </Button>
+        <Button variant="toolbar" size="sm" leadingIcon={<Square size={14} />} onClick={handleStop} disabled={!executing}>
+          停止
+        </Button>
 
         <div className="w-px h-5 bg-(--vos-border) mx-1" />
 
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={handleSave}
-        >
-          <Save size={14} />
-          <span>保存</span>
-        </button>
-        <button
-          type="button"
-          className="h-7 px-2 flex items-center gap-1 rounded text-xs bg-(--vos-bg-elevated) hover:bg-(--vos-bg-hover) text-(--vos-text) border border-solid border-(--vos-border) cursor-pointer"
-          onClick={handleBeautify}
-        >
-          <AlignLeft size={14} />
-          <span>美化</span>
-        </button>
+        <Button variant="toolbar" size="sm" leadingIcon={<Save size={14} />} onClick={handleSave}>
+          保存
+        </Button>
+        <Button variant="toolbar" size="sm" leadingIcon={<AlignLeft size={14} />} onClick={handleBeautify}>
+          美化
+        </Button>
 
         <div className="flex-1" />
 
@@ -322,7 +307,7 @@ function ResultTable({ result }: { result: QueryResult }) {
   const cellRef = useRef<HTMLDivElement>(null)
 
   const copyCell = useCallback((value: unknown) => {
-    navigator.clipboard.writeText(value == null ? 'NULL' : String(value))
+    navigator.clipboard.writeText(value == null ? 'NULL' : String(value)).then(() => toast.success('已复制'))
   }, [])
 
   return (

@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { superTerminalApi } from '@/apps/super-terminal/api'
 import { useSuperTerminalStore } from '@/apps/super-terminal/store'
 import type { CreatePortMappingReq, PortMapping as PortMappingType } from '@/apps/super-terminal/types'
+import { FormSelect } from '@/components/ui'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -234,8 +235,10 @@ function MappingFormModal({
         <label className="block text-xs text-[var(--vos-text-secondary)] mb-1">
           SSH 服务器 <span className="text-[#ff453a]">*</span>
         </label>
-        <select
-          className="w-full py-1.5 px-2.5 text-[13px] bg-[#1a1a1a] border border-[#333] rounded text-[var(--vos-text-primary)] outline-none box-border appearance-auto"
+        <FormSelect
+          variant="toolbar"
+          className="w-full text-[13px]"
+          wrapperClassName="w-full"
           value={form.ssh_server_id}
           onChange={e => updateField('ssh_server_id', e.target.value)}
         >
@@ -245,7 +248,7 @@ function MappingFormModal({
               {s.name} ({s.host}:{s.port})
             </option>
           ))}
-        </select>
+        </FormSelect>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Button } from './Button'
 import { Modal } from './Modal'
 
 export interface ConfirmDialogProps {
@@ -33,17 +34,12 @@ export function ConfirmDialog({
       width={380}
       footer={
         <>
-          <button type="button" className="vos-btn" onClick={onClose}>
+          <Button onClick={onClose}>
             取消
-          </button>
-          <button
-            type="button"
-            className={`vos-btn ${danger ? 'vos-btn-danger' : 'vos-btn-primary'}`}
-            onClick={onConfirm}
-            disabled={loading}
-          >
+          </Button>
+          <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={loading}>
             {loading ? '处理中…' : confirmText}
-          </button>
+          </Button>
         </>
       }
     >

@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { useCallback } from 'react'
+import { FormSelect } from '@/components/ui'
 import { useDatabaseStore } from '../stores'
 import type { FilterCondition, FilterOperator, SortRule } from '../types'
 
@@ -119,9 +120,11 @@ export function FilterPanel({ columns }: { columns: string[] }) {
               onChange={e => updateCondition(cond.id, { enabled: e.target.checked })}
               className="shrink-0"
             />
-            <select
+            <FormSelect
               value={cond.field}
               onChange={e => updateCondition(cond.id, { field: e.target.value })}
+              variant="toolbar"
+              wrapperClassName="flex-1"
               style={selectStyle}
             >
               {columns.map(col => (
@@ -129,10 +132,12 @@ export function FilterPanel({ columns }: { columns: string[] }) {
                   {col}
                 </option>
               ))}
-            </select>
-            <select
+            </FormSelect>
+            <FormSelect
               value={cond.operator}
               onChange={e => updateCondition(cond.id, { operator: e.target.value as FilterOperator })}
+              variant="toolbar"
+              wrapperClassName="w-[112px] shrink-0"
               style={selectStyle}
             >
               {FILTER_OPERATORS.map(op => (
@@ -140,7 +145,7 @@ export function FilterPanel({ columns }: { columns: string[] }) {
                   {op.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
             {!NO_VALUE_OPS.has(cond.operator) && (
               <input
                 value={cond.value}
@@ -149,14 +154,16 @@ export function FilterPanel({ columns }: { columns: string[] }) {
                 style={inputStyle}
               />
             )}
-            <select
+            <FormSelect
               value={cond.logic}
               onChange={e => updateCondition(cond.id, { logic: e.target.value as 'and' | 'or' })}
+              variant="toolbar"
+              wrapperClassName="w-[56px] shrink-0"
               style={{ ...selectStyle, width: 56 }}
             >
               <option value="and">AND</option>
               <option value="or">OR</option>
-            </select>
+            </FormSelect>
             <button className="shrink-0 p-1 rounded hover:bg-(--vos-bg-hover)" onClick={() => removeCondition(cond.id)}>
               <Trash2 size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
             </button>
@@ -179,9 +186,11 @@ export function FilterPanel({ columns }: { columns: string[] }) {
         </div>
         {sortRules.map(rule => (
           <div key={rule.id} className="flex items-center gap-1.5">
-            <select
+            <FormSelect
               value={rule.field}
               onChange={e => updateSortRule(rule.id, { field: e.target.value })}
+              variant="toolbar"
+              wrapperClassName="flex-1"
               style={{ ...selectStyle, flex: 1 }}
             >
               {columns.map(col => (
@@ -189,15 +198,17 @@ export function FilterPanel({ columns }: { columns: string[] }) {
                   {col}
                 </option>
               ))}
-            </select>
-            <select
+            </FormSelect>
+            <FormSelect
               value={rule.direction}
               onChange={e => updateSortRule(rule.id, { direction: e.target.value as 'asc' | 'desc' })}
+              variant="toolbar"
+              wrapperClassName="w-[92px] shrink-0"
               style={selectStyle}
             >
               <option value="asc">ASC ↑</option>
               <option value="desc">DESC ↓</option>
-            </select>
+            </FormSelect>
             <button className="shrink-0 p-1 rounded hover:bg-(--vos-bg-hover)" onClick={() => removeSortRule(rule.id)}>
               <Trash2 size={12} style={{ color: 'var(--vos-text-tertiary)' }} />
             </button>

@@ -87,7 +87,7 @@ function usageColor(pct: number): string {
 
 // ─── CSS class constants ───────────────────────────────────────────────────
 
-const monCard = 'bg-[var(--vos-bg-secondary)] rounded-lg p-3 border border-[var(--vos-border-primary)]'
+const monCard = 'bg-[var(--vos-bg-surface)] rounded-lg p-3 border border-[var(--vos-border-subtle)]'
 
 // ─── Tab Content Components ────────────────────────────────────────────────
 
@@ -202,7 +202,7 @@ function SystemTab({
                     {formatBytes(metrics.memory.swap_used_bytes)} / {formatBytes(metrics.memory.swap_total_bytes)}
                   </span>
                 </div>
-                <div className="h-1.5 rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden">
+                <div className="h-1.5 rounded-[3px] bg-[var(--vos-border-subtle)] overflow-hidden">
                   <div
                     className="h-full rounded-[3px]"
                     style={{
@@ -235,7 +235,7 @@ function SystemTab({
                     {formatBytes(d.used_bytes)} / {formatBytes(d.total_bytes)}
                   </span>
                 </div>
-                <div className="h-1.5 rounded-[3px] bg-[var(--vos-border-secondary)] overflow-hidden">
+                <div className="h-1.5 rounded-[3px] bg-[var(--vos-border-subtle)] overflow-hidden">
                   <div
                     className="h-full rounded-[3px]"
                     style={{
@@ -286,23 +286,23 @@ function VentosTab({
           <Server size={15} /> VentoOS 进程
         </div>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
-          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-subtle)]">
             <span className="text-[var(--vos-text-secondary)]">PID</span>
             <span className="font-medium tabular-nums">{proc.pid}</span>
           </div>
-          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-subtle)]">
             <span className="text-[var(--vos-text-secondary)]">运行时间</span>
             <span className="font-medium tabular-nums">{formatUptime(proc.uptime_seconds)}</span>
           </div>
-          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-subtle)]">
             <span className="text-[var(--vos-text-secondary)]">线程数</span>
             <span className="font-medium tabular-nums">{proc.thread_count}</span>
           </div>
-          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-subtle)]">
             <span className="text-[var(--vos-text-secondary)]">内存</span>
             <span className="font-medium tabular-nums">{formatBytes(proc.memory_bytes)}</span>
           </div>
-          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-secondary)]">
+          <div className="flex justify-between py-1.5 text-xs border-b border-[var(--vos-border-subtle)]">
             <span className="text-[var(--vos-text-secondary)]">虚拟内存</span>
             <span className="font-medium tabular-nums">{formatBytes(proc.virtual_memory_bytes)}</span>
           </div>
@@ -502,7 +502,7 @@ function WebTab() {
                 {/* Usage bar */}
                 {memInfo.limit > 0 && (
                   <div className={memInfo.breakdown?.length ? 'mb-3' : ''}>
-                    <div className="h-2 rounded-[4px] bg-[var(--vos-border-secondary)] overflow-hidden">
+                    <div className="h-2 rounded-[4px] bg-[var(--vos-border-subtle)] overflow-hidden">
                       <div
                         className="h-full rounded-[4px]"
                         style={{
@@ -813,9 +813,9 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="vos-flex-col h-full bg-[var(--vos-bg-primary)] text-[var(--vos-text-primary)] overflow-hidden">
+    <div className="vos-flex-col h-full relative bg-[var(--vos-bg-window)] text-[var(--vos-text-primary)] overflow-hidden">
       {/* Header */}
-      <div className="vos-flex-row gap-2 px-4 py-2 border-b border-[var(--vos-border-primary)] text-xs text-[var(--vos-text-secondary)] shrink-0">
+      <div className="vos-flex-row gap-2 px-4 py-2 border-b border-[var(--vos-border-subtle)] text-xs text-[var(--vos-text-secondary)] shrink-0">
         <Activity size={14} />
         {systemMetrics ? (
           <>
@@ -834,7 +834,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-[120px] shrink-0 border-r border-[var(--vos-border-primary)] vos-flex-col py-2 gap-[2px]">
+        <div className="w-[120px] shrink-0 border-r border-[var(--vos-border-subtle)] vos-flex-col py-2 gap-[2px]">
           {tabs.map(t => (
             <button
               key={t.id}

@@ -9,6 +9,13 @@ description: Use when fixing bugs in VentoOS built-in applications, diagnosing a
 
 以架构师视角评估应用问题，以产品经理视角细化用户描述，最终通过最小改动修复 Bug，全程复用系统能力，不重复造轮子。
 
+## 状态持久化硬约束
+
+- 只要问题涉及应用状态，就必须先确认该状态是否已经进入后端数据库持久化链路，禁止业务状态只停留在页面组件或临时内存里
+- 页面只是表现层，组件内 `useState` 只能承载临时 UI 状态；可恢复的业务状态必须放在 store/service，并同步到数据库
+- 修复状态类 Bug 时，必须同时检查刷新后的恢复行为；如果刷新会丢失状态，说明修复仍不完整
+- 单窗口应用优先检查是否可复用 `window appState -> SQLite`；领域数据或共享数据则必须进入对应 Rust/SQLite 持久化模块
+
 ## 第一步：了解与评估应用
 
 在动手之前，先建立对应用的基础认知：
@@ -41,6 +48,7 @@ description: Use when fixing bugs in VentoOS built-in applications, diagnosing a
 | 窗口大小异常 | manifest 尺寸配置 | `manifest.ts` |
 | 与系统功能不联动 | 未使用系统服务 API | 检查是否应使用 `@/services` |
 | 后端请求失败 | Rust 接口变更/权限缺失 | `native/crates/` 对应模块 |
+| 刷新后数据丢失 | 业务状态只在页面内存，未落库 | `store.ts`、`useAppStateSync`、Rust 持久化层 |
 
 ### 定位工具
 ```bash

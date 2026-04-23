@@ -1,4 +1,10 @@
-import { Box, ChevronDown, ChevronRight, Layers, Plus, Trash2 } from 'lucide-react'
+import {
+  Box,
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  Plus,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { SectionHeader, Spinner } from '@/components'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -21,6 +27,7 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
   const connectCluster = useClusterStore(s => s.connectCluster)
   const disconnectCluster = useClusterStore(s => s.disconnectCluster)
   const fetchNamespaces = useClusterStore(s => s.fetchNamespaces)
+  const getLastNamespace = useClusterStore(s => s.getLastNamespace)
   const toggleSidebarCluster = useKubernetesStore(s => s.toggleSidebarCluster)
   const expandSidebarCluster = useKubernetesStore(s => s.expandSidebarCluster)
   const expandedClusters = useKubernetesStore(s => s.sidebarExpandedClusters)
@@ -48,16 +55,20 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
   }
 
   const handleLeafClick = (clusterId: string, kind: K8sResourceKind) => {
+    const def = getResourceDef(kind)
     const conn = connections[clusterId]
-    const ns = conn?.namespaces[0]?.name ?? 'default'
-    const targetNs = kind === 'overview' || kind === 'namespace' || kind === 'node' || kind === 'event' ? '' : ns
+    const defaultNs = conn?.namespaces[0]?.name ?? 'default'
+    const lastNs = getLastNamespace(clusterId) || defaultNs
+    const targetNs = def.namespaced ? lastNs : ''
     openTab(clusterId, targetNs, kind, { isPreview: true })
   }
 
   const handleLeafDoubleClick = (clusterId: string, kind: K8sResourceKind) => {
+    const def = getResourceDef(kind)
     const conn = connections[clusterId]
-    const ns = conn?.namespaces[0]?.name ?? 'default'
-    const targetNs = kind === 'overview' || kind === 'namespace' || kind === 'node' || kind === 'event' ? '' : ns
+    const defaultNs = conn?.namespaces[0]?.name ?? 'default'
+    const lastNs = getLastNamespace(clusterId) || defaultNs
+    const targetNs = def.namespaced ? lastNs : ''
     openTab(clusterId, targetNs, kind, { isPreview: false })
   }
 
@@ -281,13 +292,6 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
                       {cluster.name}
                     </span>
                     {(nsLoading || conn?.connecting) && <Spinner size={10} />}
-                    <button
-                      type="button"
-                      className="hidden group-hover:block bg-transparent border-none p-0 cursor-pointer text-[var(--vos-text-tertiary)]"
-                      onClick={() => removeCluster(cluster.id)}
-                    >
-                      <Trash2 size={10} />
-                    </button>
                   </div>
 
                   {/* Expanded cluster resources */}
@@ -305,7 +309,13 @@ export function K8sSidebar({ onAddCluster, onEditCluster }: SidebarProps) {
                           </button>
                         </div>
                       )}
-                      {SIDEBAR_TREE.map(node => renderTreeNode(node, cluster.id))}
+                      {!conn?.connected && !conn?.namespaceError && (
+                        <div className="flex items-center justify-center py-3 gap-1">
+                          <Spinner size={12} />
+                          <span className="text-[10px] text-[var(--vos-text-tertiary)]">连接中...</span>
+                        </div>
+                      )}
+                      {conn?.connected && SIDEBAR_TREE.map(node => renderTreeNode(node, cluster.id))}
                     </div>
                   )}
                 </div>

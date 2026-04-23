@@ -17,6 +17,7 @@ import type { AppComponentProps } from '@/kernel'
 import { useAppStateSync, useWindowActions } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 import type { VfsNode } from '../explorer/api'
+import { toast } from '@/components/Toast'
 import { vfsApi } from '../explorer/api'
 // ── Components ──
 import ActivityBar from './components/ActivityBar'
@@ -360,7 +361,7 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
             hideCtxMenu()
           }}
           onCopyPath={path => {
-            navigator.clipboard?.writeText(path)
+            navigator.clipboard?.writeText(path).then(() => toast.success('已复制'))
             hideCtxMenu()
           }}
           onRefresh={() => {
