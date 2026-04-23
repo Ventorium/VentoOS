@@ -9,7 +9,7 @@ import {
   X
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AppLayout, EmptyState, Modal, SectionHeader, Spinner } from '@/components'
+import { AppLayout, ConfirmDialog, EmptyState, SectionHeader, Spinner } from '@/components'
 import { FormInput } from '@/components/ui'
 import type { AppComponentProps } from '@/kernel'
 import { notificationService } from '@/services'
@@ -463,39 +463,22 @@ export default function ProcessKillerApp({ win }: AppComponentProps) {
       )}
 
       {/* Confirm Kill Dialog */}
-      {confirmKill && (
-        <Modal onClose={() => setConfirmKill(null)}>
-          <div className="p-5 w-[360px]">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle size={18} className="text-[#f14c4c]" />
-              <span className="text-sm font-semibold text-[var(--vos-text-primary)]">
-                确认查杀进程
-              </span>
-            </div>
-            <p className="text-xs text-[var(--vos-text-secondary)] mb-4">
-              确定要查杀进程 <strong className="text-[var(--vos-text-primary)]">{confirmKill.name}</strong> (PID: {confirmKill.pid}) 吗？
-              <br />
-              此操作不可撤销。
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-3 py-1.5 text-xs rounded-md bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-primary)] hover:bg-[var(--vos-bg-item-active)] transition-colors"
-                onClick={() => setConfirmKill(null)}
-              >
-                取消
-              </button>
-              <button
-                className="px-3 py-1.5 text-xs rounded-md bg-[#f14c4c] text-white hover:bg-[#dc2626] transition-colors flex items-center gap-1"
-                onClick={() => handleKill(confirmKill)}
-                disabled={killing}
-              >
-                {killing ? <Spinner size={12} /> : <Swords size={12} />}
-                确认查杀
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <ConfirmDialog
+        open={!!confirmKill}
+        onClose={() => setConfirmKill(null)}
+        onConfirm={() => confirmKill && handleKill(confirmKill)}
+        title="确认查杀进程"
+        icon={<AlertTriangle size={18} className="text-[#f14c4c]" />}
+        confirmText="确认查杀"
+        danger
+        loading={killing}
+      >
+        <p className="text-xs text-[var(--vos-text-secondary)]">
+          确定要查杀进程 <strong className="text-[var(--vos-text-primary)]">{confirmKill?.name}</strong> (PID: {confirmKill?.pid}) 吗？
+          <br />
+          此操作不可撤销。
+        </p>
+      </ConfirmDialog>
     </AppLayout>
   )
 }

@@ -344,19 +344,24 @@ pub async fn kill_process(Path(pid): Path<u32>) -> impl IntoResponse {
                     Json(ApiResponse::ok(serde_json::json!({ "killed": true, "pid": pid }))).into_response()
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ApiResponse::<serde_json::Value>::err(format!(
-                            "Failed to kill process {pid}: {stderr}"
-                        ))),
-                    )
-                        .into_response()
+                    // If process no longer exists, it was likely already killed by the graceful SIGTERM above
+                    if stderr.contains("No such process") {
+                        Json(ApiResponse::ok(serde_json::json!({ "killed": true, "pid": pid }))).into_response()
+                    } else {
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ApiResponse::<serde_json::Value>::err(format!(
+                                "无法终止进程 {pid}: {stderr}"
+                            ))),
+                        )
+                            .into_response()
+                    }
                 }
             }
             Err(e) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<serde_json::Value>::err(format!(
-                    "Failed to execute kill command: {e}"
+                    "执行 kill 命令失败: {e}"
                 ))),
             )
                 .into_response(),
