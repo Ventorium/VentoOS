@@ -14,6 +14,7 @@ export interface ProcessInfo {
 export interface PortProcessInfo {
   pid: number
   name: string
+  args: string
   port: number
   protocol: string
 }

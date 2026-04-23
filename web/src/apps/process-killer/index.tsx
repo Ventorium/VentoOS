@@ -3,15 +3,16 @@ import {
   Crosshair,
   RefreshCw,
   Search,
-  Skull,
   SortAsc,
   SortDesc,
+  Swords,
   X
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AppLayout, EmptyState, Modal, SectionHeader, Spinner } from '@/components'
 import { FormInput } from '@/components/ui'
 import type { AppComponentProps } from '@/kernel'
+import { notificationService } from '@/services'
 import type { PortProcessInfo, ProcessInfo } from './api'
 import { processKillerApi } from './api'
 
@@ -71,7 +72,7 @@ function ContextMenu({
             onDismiss()
           }}
         >
-          {item.danger && <Skull size={12} />}
+          {item.danger && <Swords size={12} />}
           {item.label}
         </div>
       ))}
@@ -144,10 +145,17 @@ export default function ProcessKillerApp({ win }: AppComponentProps) {
   const handleKill = useCallback(async (process: ProcessInfo) => {
     setKilling(true)
     try {
-      await processKillerApi.killProcess(process.pid)
-      setProcesses(prev => prev.filter(p => p.pid !== process.pid))
-      setPortResults(prev => prev?.filter(p => p.pid !== process.pid) ?? null)
-    } catch (e) {
+      const res = await processKillerApi.killProcess(process.pid)
+      if (res.data?.killed) {
+        notificationService.success('进程查杀成功', `已终止 ${process.name} (PID: ${process.pid})`)
+        setProcesses(prev => prev.filter(p => p.pid !== process.pid))
+        setPortResults(prev => prev?.filter(p => p.pid !== process.pid) ?? null)
+      } else {
+        notificationService.error('进程查杀失败', res.message || `无法终止 ${process.name} (PID: ${process.pid})`)
+      }
+    } catch (e: any) {
+      const msg = e?.message || '未知错误'
+      notificationService.error('进程查杀失败', `终止 ${process.name} (PID: ${process.pid}) 时出错: ${msg}`)
       console.error('Failed to kill process', e)
     } finally {
       setKilling(false)
@@ -306,18 +314,32 @@ export default function ProcessKillerApp({ win }: AppComponentProps) {
                   <div
                     key={p.pid}
                     className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-[var(--vos-bg-item-hover)] border border-[var(--vos-border-subtle)]"
+                    title={p.args || p.name}
                   >
-                    <span className="text-xs font-mono text-[var(--vos-text-primary)]">{p.name}</span>
+                    <span className="text-xs font-mono text-[var(--vos-text-primary)] truncate max-w-[160px]" title={p.name}>{p.name}</span>
                     <span className="text-[10px] text-[var(--vos-text-secondary)]">PID {p.pid}</span>
                     <span className="text-[10px] text-[var(--vos-text-secondary)]">{p.protocol}</span>
                     <button
                       className="ml-1 p-0.5 rounded hover:bg-[#f14c4c]/20 text-[#f14c4c]"
                       onClick={() => {
                         const proc = processes.find(x => x.pid === p.pid)
-                        if (proc) setConfirmKill(proc)
+                        if (proc) {
+                          setConfirmKill(proc)
+                        } else {
+                          // Process not in current list — kill by PID directly
+                          setConfirmKill({
+                            pid: p.pid,
+                            name: p.name,
+                            args: p.args || '',
+                            cpu_percent: 0,
+                            mem_percent: 0,
+                            rss_bytes: 0,
+                            vsz_bytes: 0
+                          })
+                        }
                       }}
                     >
-                      <Skull size={11} />
+                      <Swords size={11} />
                     </button>
                   </div>
                 ))}
@@ -379,7 +401,12 @@ export default function ProcessKillerApp({ win }: AppComponentProps) {
                 >
                   <td className="px-4 py-2 font-mono text-[var(--vos-text-primary)]">{p.pid}</td>
                   <td className="px-4 py-2">
-                    <span className="font-medium text-[var(--vos-text-primary)]">{p.name}</span>
+                    <span
+                      className="font-medium text-[var(--vos-text-primary)] truncate block max-w-[140px]"
+                      title={p.name}
+                    >
+                      {p.name}
+                    </span>
                   </td>
                   <td
                     className="px-4 py-2 font-mono"
@@ -462,7 +489,7 @@ export default function ProcessKillerApp({ win }: AppComponentProps) {
                 onClick={() => handleKill(confirmKill)}
                 disabled={killing}
               >
-                {killing ? <Spinner size={12} /> : <Skull size={12} />}
+                {killing ? <Spinner size={12} /> : <Swords size={12} />}
                 确认查杀
               </button>
             </div>

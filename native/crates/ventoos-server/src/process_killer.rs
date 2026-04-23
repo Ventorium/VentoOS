@@ -27,6 +27,7 @@ pub struct ProcessInfo {
 pub struct PortProcessInfo {
     pub pid: u32,
     pub name: String,
+    pub args: String,
     pub port: u16,
     pub protocol: String,
 }
@@ -180,6 +181,7 @@ pub async fn find_processes_by_port(
 
 async fn collect_port_processes(port: u16) -> Vec<PortProcessInfo> {
     let mut results = Vec::new();
+    let all_processes = collect_all_processes().await;
 
     #[cfg(target_os = "macos")]
     {
@@ -206,6 +208,7 @@ async fn collect_port_processes(port: u16) -> Vec<PortProcessInfo> {
             results.push(PortProcessInfo {
                 pid,
                 name,
+                args: String::new(),
                 port,
                 protocol: proto,
             });
@@ -266,6 +269,7 @@ async fn collect_port_processes(port: u16) -> Vec<PortProcessInfo> {
                     results.push(PortProcessInfo {
                         pid,
                         name,
+                        args: String::new(),
                         port,
                         protocol: "TCP".to_string(),
                     });
@@ -303,6 +307,7 @@ async fn collect_port_processes(port: u16) -> Vec<PortProcessInfo> {
             results.push(PortProcessInfo {
                 pid,
                 name,
+                args: String::new(),
                 port,
                 protocol: proto,
             });
@@ -312,6 +317,14 @@ async fn collect_port_processes(port: u16) -> Vec<PortProcessInfo> {
     // Deduplicate by pid
     let mut seen = std::collections::HashSet::new();
     results.retain(|p| seen.insert(p.pid));
+
+    // Fill in args from the full process list
+    for result in &mut results {
+        if let Some(proc) = all_processes.iter().find(|p| p.pid == result.pid) {
+            result.args = proc.args.clone();
+        }
+    }
+
     results
 }
 
