@@ -10,7 +10,6 @@ import { Download, Type } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
-import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
@@ -58,7 +57,7 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
       return
     }
 
-    const rawUrl = `${apiClient.defaults.baseURL ?? ''}/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
+    const rawUrl = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
     const familyName = `preview-${node.name.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`
 
     const fontFace = new FontFace(familyName, `url(${rawUrl})`)
@@ -85,7 +84,7 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
 
   const handleDownload = useCallback(() => {
     if (!mountId || !node) return
-    const url = `${apiClient.defaults.baseURL ?? ''}/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
+    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
     const a = document.createElement('a')
     a.href = url
     a.download = node.name

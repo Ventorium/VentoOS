@@ -32,7 +32,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
-import { apiClient } from '@/infra/api'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
 import { cn } from '@/lib/utils'
@@ -144,7 +143,7 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
       return
     }
 
-    const url = `${apiClient.defaults.baseURL ?? ''}/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
+    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
