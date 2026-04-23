@@ -12,6 +12,7 @@ use tokio::sync::Mutex;
 use crate::auth;
 use crate::deps;
 use crate::monitor;
+use crate::process_killer;
 use crate::shell;
 use crate::state::AppState;
 use crate::webdav;
@@ -167,6 +168,10 @@ pub fn create_router(state: &AppState) -> Router {
         .route("/api/monitor/system", get(monitor::get_system_metrics))
         .route("/api/monitor/process", get(monitor::get_process_metrics))
         .route("/api/monitor/network", get(monitor::get_network_info))
+        // Process Killer routes
+        .route("/api/process-killer/processes", get(process_killer::list_processes))
+        .route("/api/process-killer/processes/by-port", get(process_killer::find_processes_by_port))
+        .route("/api/process-killer/processes/{pid}/kill", post(process_killer::kill_process))
         // Local FUSE mount routes
         .route(
             "/api/vfs/mounts/{id}/local-mount",

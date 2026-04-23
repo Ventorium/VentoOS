@@ -19,6 +19,7 @@ import { logCenterManifest } from './log-center/manifest'
 import { monacoEditorManifest } from './monaco-editor/manifest'
 import { monitorManifest } from './monitor/manifest'
 import { officeEditorManifest } from './office-editor/manifest'
+import { processKillerManifest } from './process-killer/manifest'
 import { redisManifest } from './redis/manifest'
 import { settingsManifest } from './settings/manifest'
 import { superTerminalManifest } from './super-terminal/manifest'
@@ -42,7 +43,8 @@ export const builtinManifests: AppManifest[] = [
   archiveEditorManifest,
   monacoEditorManifest,
   fontPreviewManifest,
-  apiClientManifest
+  apiClientManifest,
+  processKillerManifest
 ]
 
 export {
@@ -60,6 +62,7 @@ export {
   monacoEditorManifest,
   monitorManifest,
   officeEditorManifest,
+  processKillerManifest,
   redisManifest,
   settingsManifest,
   superTerminalManifest,
