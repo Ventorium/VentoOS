@@ -72,8 +72,9 @@ async fn test_sftp_list_root() {
             kind: VfsSourceKind::Sftp,
             root: format!("sftp://root:{}@{}", sftp_pass(), sftp_host()),
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await;
 
     let result = manager
@@ -97,8 +98,9 @@ async fn test_sftp_test_connection() {
         kind: VfsSourceKind::Sftp,
         root: format!("sftp://root:{}@{}", sftp_pass(), sftp_host()),
         connection_id: None,
-        group: None,
-    };
+        group: None,            local_mount: None,
+        }
+;
     let result = manager.test_connection(&req).await;
     assert!(
         result.is_ok(),
@@ -117,8 +119,9 @@ async fn test_sftp_mkdir_and_list() {
             kind: VfsSourceKind::Sftp,
             root: format!("sftp://root:{}@{}", sftp_pass(), sftp_host()),
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await;
 
     let dir_name = format!("/tmp/vfs_test_{}", uuid::Uuid::new_v4());
@@ -177,8 +180,9 @@ async fn test_s3_test_connection() {
                 .trim_start_matches("https://")
         ),
         connection_id: None,
-        group: None,
-    };
+        group: None,            local_mount: None,
+        }
+;
     let result = manager.test_connection(&req).await;
     assert!(
         result.is_ok(),
@@ -205,8 +209,9 @@ async fn test_s3_list_root() {
                     .trim_start_matches("https://")
             ),
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await;
 
     let result = manager
@@ -242,8 +247,9 @@ async fn create_smb_mount(manager: &VfsManager, name: &str, root: String) -> Str
             kind: VfsSourceKind::Smb,
             root,
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await
         .id
 }
@@ -314,8 +320,9 @@ async fn test_smb_test_connection() {
         kind: VfsSourceKind::Smb,
         root: smb_share_root_uri(),
         connection_id: None,
-        group: None,
-    };
+        group: None,            local_mount: None,
+        }
+;
     let result = manager.test_connection(&req).await;
     assert!(
         result.is_ok(),
@@ -333,8 +340,9 @@ async fn test_smb_server_root_list() {
         kind: VfsSourceKind::Smb,
         root: smb_server_root_uri(),
         connection_id: None,
-        group: None,
-    };
+        group: None,            local_mount: None,
+        }
+;
     let mount = manager.create_mount(req).await;
 
     let result = manager
@@ -562,8 +570,9 @@ async fn test_ftp_test_connection() {
         kind: VfsSourceKind::Ftp,
         root: format!("ftp://{}:{}@{}", ftp_user(), ftp_pass(), ftp_host()),
         connection_id: None,
-        group: None,
-    };
+        group: None,            local_mount: None,
+        }
+;
     let result = manager.test_connection(&req).await;
     assert!(
         result.is_ok(),
@@ -582,8 +591,9 @@ async fn test_ftp_list_root() {
             kind: VfsSourceKind::Ftp,
             root: format!("ftp://{}:{}@{}", ftp_user(), ftp_pass(), ftp_host()),
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await;
 
     let result = manager
@@ -607,8 +617,9 @@ async fn test_create_and_get_mount() {
             kind: VfsSourceKind::Local,
             root: "/tmp".to_string(),
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await;
 
     assert_eq!(mount.name, "local-test");
@@ -628,8 +639,9 @@ async fn test_update_mount() {
             kind: VfsSourceKind::Local,
             root: "/tmp".to_string(),
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await;
 
     let updated = manager
@@ -640,8 +652,9 @@ async fn test_update_mount() {
                 kind: VfsSourceKind::Local,
                 root: "/var/tmp".to_string(),
                 connection_id: None,
-                group: None,
-            },
+                group: None,                local_mount: None,
+            }
+,
         )
         .await;
 
@@ -661,8 +674,9 @@ async fn test_delete_mount() {
             kind: VfsSourceKind::Local,
             root: "/tmp".to_string(),
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await;
 
     manager.delete_mount(&mount.id).await;
@@ -751,8 +765,9 @@ async fn test_webdav_list_root() {
             kind: VfsSourceKind::WebDav,
             root: webdav_host(),
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await;
 
     let result = manager
@@ -774,8 +789,9 @@ async fn test_webdav_test_connection() {
         kind: VfsSourceKind::WebDav,
         root: webdav_host(),
         connection_id: None,
-        group: None,
-    };
+        group: None,            local_mount: None,
+        }
+;
     let result = manager.test_connection(&req).await;
     assert!(
         result.is_ok(),
@@ -801,8 +817,9 @@ async fn test_local_archive_7z_roundtrip() {
             kind: VfsSourceKind::Local,
             root: root.to_string_lossy().to_string(),
             connection_id: None,
-            group: None,
-        })
+            group: None,                local_mount: None,
+            }
+)
         .await;
 
     manager

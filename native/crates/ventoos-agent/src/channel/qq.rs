@@ -30,6 +30,7 @@ impl QqAdapter {
     }
 
     /// Parse and validate a Qq robot callback body.
+    #[allow(clippy::unused_self)]
     fn parse_callback(&self, raw_body: &str) -> Result<QqCallback, AgentError> {
         serde_json::from_str(raw_body).map_err(|e| AgentError::ChannelError {
             channel: "qq".into(),
@@ -107,10 +108,10 @@ impl ChannelAdapter for QqAdapter {
         })
     }
 
-    fn send<'a>(
-        &'a self,
+    fn send(
+        &self,
         outbound: crate::channel::ChannelOutboundMessage,
-    ) -> crate::channel::BoxFuture<'a, Result<ChannelSendResult, AgentError>> {
+    ) -> crate::channel::BoxFuture<'_, Result<ChannelSendResult, AgentError>> {
         Box::pin(async move {
             // First get an access token
             let token = self.get_access_token().await?;
@@ -155,7 +156,7 @@ impl ChannelAdapter for QqAdapter {
 }
 
 impl QqAdapter {
-    /// Obtain an access token using client_id + client_secret.
+    /// Obtain an access token using `client_id` + `client_secret`.
     async fn get_access_token(&self) -> Result<String, AgentError> {
         let url = "https://api.qq.com/v1.0/oauth2/access_token";
         let body = serde_json::json!({

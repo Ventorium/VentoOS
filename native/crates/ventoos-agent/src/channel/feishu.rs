@@ -43,6 +43,7 @@ impl FeishuAdapter {
     }
 
     /// Parse Feishu callback JSON (event or challenge).
+    #[allow(clippy::unused_self)]
     fn parse_callback(&self, raw_body: &str) -> Result<FeishuCallback, AgentError> {
         serde_json::from_str(raw_body).map_err(|e| AgentError::ChannelError {
             channel: "feishu".into(),
@@ -197,10 +198,10 @@ impl ChannelAdapter for FeishuAdapter {
         })
     }
 
-    fn send<'a>(
-        &'a self,
+    fn send(
+        &self,
         outbound: crate::channel::ChannelOutboundMessage,
-    ) -> crate::channel::BoxFuture<'a, Result<ChannelSendResult, AgentError>> {
+    ) -> crate::channel::BoxFuture<'_, Result<ChannelSendResult, AgentError>> {
         Box::pin(async move {
             let token = self.get_tenant_access_token().await?;
 

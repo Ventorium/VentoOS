@@ -410,8 +410,8 @@ impl LocalMountManager {
         vfs: Arc<VfsManager>,
     ) {
         for mount in mounts {
-            if let Some(cfg) = &mount.local_mount {
-                if cfg.enabled {
+            if let Some(cfg) = &mount.local_mount
+                && cfg.enabled {
                     if let Err(e) = self.mount(&mount.id, &mount.name, cfg, Arc::clone(&vfs)).await
                     {
                         tracing::warn!(
@@ -427,7 +427,6 @@ impl LocalMountManager {
                         );
                     }
                 }
-            }
         }
     }
 }

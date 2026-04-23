@@ -238,7 +238,11 @@ impl Kubeconfig {
                             c_name = yaml_value(trimmed, "- name:");
                         }
                     } else if trimmed.starts_with("name:") {
-                        c_name = yaml_value(trimmed, "name:");
+                        // Only accept name: at shallow indentation as cluster entry name.
+                        let indent = line.len() - line.trim_start().len();
+                        if indent <= 4 {
+                            c_name = yaml_value(trimmed, "name:");
+                        }
                     } else if trimmed.starts_with("server:") {
                         c_server = yaml_value(trimmed, "server:");
                     } else if trimmed.starts_with("certificate-authority-data:") {
@@ -291,8 +295,17 @@ impl Kubeconfig {
                             &mut ctx_ns,
                         );
                     } else if trimmed.starts_with("name:") {
-                        // Could be context name (if using alternate format)
-                        if ctx_name.is_empty() {
+                        // Only accept name: at shallow indentation (≤ 4 spaces) as the
+                        // context entry name.  Deeply-nested name: fields (e.g. inside
+                        // extensions) must be ignored — Teleport kubeconfigs have:
+                        //   contexts:
+                        //   - context:
+                        //       extensions:
+                        //       - extension: ...
+                        //         name: <nested>        ← indent 6, ignore
+                        //     name: <correct-context>   ← indent 2, accept
+                        let indent = line.len() - line.trim_start().len();
+                        if ctx_name.is_empty() && indent <= 4 {
                             ctx_name = yaml_value(trimmed, "name:");
                         }
                     } else if trimmed.starts_with("cluster:") {
@@ -500,6 +513,11 @@ impl K8sClient {
 
             parse_http_response(&buf)
         }
+    }
+
+    /// Execute an HTTP DELETE request and return the JSON response.
+    pub async fn delete(&self, path: &str) -> Result<Value, String> {
+        self.send_json_body("DELETE", path, "", "application/json").await
     }
 
     /// Execute an HTTP PUT request with a JSON body and return the JSON response.
@@ -949,10 +967,29 @@ impl K8sResourceKind {
 // ---------------------------------------------------------------------------
 
 /// Extract a human-readable age string from a creation timestamp.
+/// Formats as relative duration: "just now", "3 mins", "2 hours", "5 days", etc.
 pub fn compute_age(creation_timestamp: Option<&str>) -> Option<String> {
-    // Return the raw timestamp as age if present; a full time parser would
-    // require the chrono crate. Callers can enhance this later.
-    creation_timestamp.map(ToString::to_string)
+    let ts = creation_timestamp?;
+    let created = chrono::DateTime::parse_from_rfc3339(ts).ok()?;
+    let now = chrono::Utc::now();
+    let dur = now.signed_duration_since(created.with_timezone(&chrono::Utc));
+
+    if dur.num_seconds() < 60 {
+        Some("just now".into())
+    } else if dur.num_minutes() < 60 {
+        Some(format!("{} mins", dur.num_minutes()))
+    } else if dur.num_hours() < 24 {
+        let h = dur.num_hours();
+        let m = (dur.num_minutes() - h * 60).max(0);
+        if m > 0 {
+            Some(format!("{h}h {m}m"))
+        } else {
+            Some(format!("{h} hours"))
+        }
+    } else {
+        let d = dur.num_days();
+        Some(format!("{d} days"))
+    }
 }
 
 /// Extract status from a pod-like resource's `.status.phase`.
@@ -1448,5 +1485,73 @@ users:
             kc.users[0].client_key_file.as_deref(),
             Some("/path/to/key.pem")
         );
+    }
+
+    /// Teleport kubeconfigs nest `name:` inside `extensions:` blocks at deep
+    /// indentation.  The parser must only capture the context/cluster entry
+    /// name at shallow indentation.
+    #[test]
+    fn test_parse_teleport_kubeconfig() {
+        let yaml = r#"
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTi0tLS0t
+    extensions:
+    - extension: teleport.example.com
+      name: kubeconfig.teleport.dev/profile-name
+    - extension: k8s-aliyun
+      name: teleport.kube.name
+    server: https://teleport.example.com:443
+    tls-server-name: kube-teleport-proxy-alpn.teleport.example.com
+  name: teleport.example.com-k8s-aliyun
+contexts:
+- context:
+    cluster: teleport.example.com-k8s-aliyun
+    extensions:
+    - extension: teleport.example.com
+      name: kubeconfig.teleport.dev/profile-name
+    - extension: k8s-aliyun
+      name: teleport.kube.name
+    user: teleport.example.com-k8s-aliyun
+  name: teleport.example.com-k8s-aliyun
+current-context: teleport.example.com-k8s-aliyun
+users:
+- name: teleport.example.com-k8s-aliyun
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: /usr/local/bin/tsh
+"#;
+        let kc = Kubeconfig::parse(yaml).unwrap();
+
+        // Cluster name must be the correct entry name, not a nested extension name
+        assert_eq!(kc.clusters.len(), 1);
+        assert_eq!(kc.clusters[0].name, "teleport.example.com-k8s-aliyun");
+        assert_eq!(
+            kc.clusters[0].server,
+            "https://teleport.example.com:443"
+        );
+
+        // Context name must be the correct entry name
+        assert_eq!(kc.contexts.len(), 1);
+        assert_eq!(
+            kc.contexts[0].name,
+            "teleport.example.com-k8s-aliyun"
+        );
+        assert_eq!(
+            kc.contexts[0].cluster,
+            "teleport.example.com-k8s-aliyun"
+        );
+        assert_eq!(
+            kc.contexts[0].user,
+            "teleport.example.com-k8s-aliyun"
+        );
+
+        // resolve_context must succeed
+        let (cluster, _user, _ns) = kc
+            .resolve_context("teleport.example.com-k8s-aliyun")
+            .unwrap();
+        assert_eq!(cluster.server, "https://teleport.example.com:443");
     }
 }

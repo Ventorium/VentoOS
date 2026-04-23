@@ -371,9 +371,9 @@ struct SshConfigHost {
     user: Option<String>,
     port: Option<u16>,
     identity_file: Option<String>,
-    /// Auto-detected default key when no IdentityFile is set in config.
+    /// Auto-detected default key when no `IdentityFile` is set in config.
     auto_detected_key: Option<String>,
-    /// ProxyJump host alias (if configured).
+    /// `ProxyJump` host alias (if configured).
     proxy_jump: Option<String>,
 }
 
@@ -567,11 +567,10 @@ async fn detect_shells() -> impl IntoResponse {
     }
 
     // Ensure the default shell is marked
-    if !shells.iter().any(|s| s.is_default) {
-        if let Some(first) = shells.first_mut() {
+    if !shells.iter().any(|s| s.is_default)
+        && let Some(first) = shells.first_mut() {
             first.is_default = true;
         }
-    }
 
     Json(ApiResponse::ok(shells))
 }

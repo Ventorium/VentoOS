@@ -24,7 +24,7 @@ pub struct AuthManager {
 /// Token validity duration in seconds (24 hours).
 const TOKEN_TTL: u64 = 86400;
 
-/// FileProvider internal token validity: 10 years.
+/// `FileProvider` internal token validity: 10 years.
 const FILEPROVIDER_TOKEN_TTL: u64 = 10 * 365 * 86400;
 
 impl AuthManager {
@@ -32,7 +32,7 @@ impl AuthManager {
         Self { db }
     }
 
-    /// Ensure a long-lived internal token exists for the FileProvider extension.
+    /// Ensure a long-lived internal token exists for the `FileProvider` extension.
     /// Returns the token string. Creates one if not already present.
     pub fn ensure_fileprovider_token(&self) -> Result<String, String> {
         // Check if a FileProvider token already exists and is still valid
@@ -47,7 +47,7 @@ impl AuthManager {
                 Ok(conn
                     .query_row(
                         "SELECT token FROM auth_tokens WHERE token LIKE 'fp_%' AND expires_at > ?1 LIMIT 1",
-                        rusqlite::params![now as i64],
+                        rusqlite::params![i64::try_from(now).unwrap_or(i64::MAX)],
                         |row| row.get(0),
                     )
                     .ok())
@@ -67,7 +67,7 @@ impl AuthManager {
             .with_conn(|conn| {
                 conn.execute(
                     "INSERT INTO auth_tokens (token, expires_at, created_at) VALUES (?1, ?2, ?3)",
-                    rusqlite::params![&token, expires_at as i64, now as i64],
+                    rusqlite::params![&token, i64::try_from(expires_at).unwrap_or(i64::MAX), i64::try_from(now).unwrap_or(i64::MAX)],
                 )
             })
             .map_err(|e| e.to_string())?;
@@ -75,9 +75,9 @@ impl AuthManager {
         Ok(token)
     }
 
-    /// Ensure the FileProvider token file exists at `~/Library/VentoOS/.fp-token`
+    /// Ensure the `FileProvider` token file exists at `~/Library/VentoOS/.fp-token`
     /// AND inside the extension's sandbox container so the sandboxed extension can read it.
-    /// Called during server startup so the FileProvider extension can authenticate.
+    /// Called during server startup so the `FileProvider` extension can authenticate.
     pub fn ensure_fileprovider_token_file(&self) {
         let token = match self.ensure_fileprovider_token() {
             Ok(t) => t,
@@ -152,7 +152,7 @@ impl AuthManager {
     }
 
     /// Verify password and return a token.
-    pub async fn login(&self, password: &str) -> Result<String, String> {
+    pub fn login(&self, password: &str) -> Result<String, String> {
         let hash: String = self
             .db
             .with_conn(|conn| {
@@ -182,7 +182,7 @@ impl AuthManager {
             .with_conn(|conn| {
                 conn.execute(
                     "INSERT INTO auth_tokens (token, expires_at, created_at) VALUES (?1, ?2, ?3)",
-                    rusqlite::params![&token, expires_at as i64, now as i64],
+                    rusqlite::params![&token, i64::try_from(expires_at).unwrap_or(i64::MAX), i64::try_from(now).unwrap_or(i64::MAX)],
                 )
             })
             .map_err(|e| e.to_string())?;
@@ -191,7 +191,7 @@ impl AuthManager {
     }
 
     /// Change password.
-    pub async fn change_password(&self, current: &str, new_password: &str) -> Result<(), String> {
+    pub fn change_password(&self, current: &str, new_password: &str) -> Result<(), String> {
         let hash: String = self
             .db
             .with_conn(|conn| {
@@ -226,7 +226,7 @@ impl AuthManager {
     }
 
     /// Validate a token.
-    pub async fn validate_token(&self, token: &str) -> bool {
+    pub fn validate_token(&self, token: &str) -> bool {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -236,7 +236,7 @@ impl AuthManager {
             .with_conn(|conn| {
                 let count: i64 = conn.query_row(
                     "SELECT COUNT(*) FROM auth_tokens WHERE token = ?1 AND expires_at > ?2",
-                    rusqlite::params![token, now as i64],
+                    rusqlite::params![token, i64::try_from(now).unwrap_or(i64::MAX)],
                     |row| row.get(0),
                 )?;
                 Ok(count > 0)
@@ -245,7 +245,7 @@ impl AuthManager {
     }
 
     /// Logout — remove a token.
-    pub async fn logout(&self, token: &str) {
+    pub fn logout(&self, token: &str) {
         let _ = self.db.with_conn(|conn| {
             conn.execute("DELETE FROM auth_tokens WHERE token = ?1", [token])
         });
@@ -258,7 +258,7 @@ impl AuthManager {
             .unwrap()
             .as_secs();
         let _ = self.db.with_conn(|conn| {
-            conn.execute("DELETE FROM auth_tokens WHERE expires_at <= ?1", [now as i64])
+            conn.execute("DELETE FROM auth_tokens WHERE expires_at <= ?1", [i64::try_from(now).unwrap_or(i64::MAX)])
         });
     }
 
@@ -299,7 +299,7 @@ pub async fn auth_login(
     State(auth): State<AuthManager>,
     Json(req): Json<LoginRequest>,
 ) -> impl IntoResponse {
-    match auth.login(&req.password).await {
+    match auth.login(&req.password) {
         Ok(token) => Json(ApiResponse::ok(LoginResponse { token })).into_response(),
         Err(e) => (StatusCode::UNAUTHORIZED, Json(ApiResponse::<()>::err(e))).into_response(),
     }
@@ -307,7 +307,7 @@ pub async fn auth_login(
 
 pub async fn auth_logout(State(auth): State<AuthManager>, req: Request<Body>) -> impl IntoResponse {
     if let Some(token) = extract_token(&req) {
-        auth.logout(&token).await;
+        auth.logout(&token);
     }
     Json(ApiResponse::ok(serde_json::json!({"logged_out": true})))
 }
@@ -318,7 +318,6 @@ pub async fn auth_change_password(
 ) -> impl IntoResponse {
     match auth
         .change_password(&req.current_password, &req.new_password)
-        .await
     {
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"changed": true}))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(e))).into_response(),
@@ -343,7 +342,7 @@ pub async fn auth_middleware(
 
     let token = extract_token(&req);
     match token {
-        Some(t) if auth.validate_token(&t).await => next.run(req).await,
+        Some(t) if auth.validate_token(&t) => next.run(req).await,
         _ => {
             warn!("Unauthorized request to {}", req.uri().path());
             (
@@ -396,21 +395,21 @@ mod tests {
         assert!(auth.setup_password("other").is_err());
 
         // Login with wrong password
-        assert!(auth.login("wrong").await.is_err());
+        assert!(auth.login("wrong").is_err());
 
         // Login with correct password
-        let token = auth.login("test123").await.unwrap();
+        let token = auth.login("test123").unwrap();
         assert!(!token.is_empty());
 
         // Validate token
-        assert!(auth.validate_token(&token).await);
+        assert!(auth.validate_token(&token));
 
         // Invalid token
-        assert!(!auth.validate_token("garbage").await);
+        assert!(!auth.validate_token("garbage"));
 
         // Logout
-        auth.logout(&token).await;
-        assert!(!auth.validate_token(&token).await);
+        auth.logout(&token);
+        assert!(!auth.validate_token(&token));
     }
 
     #[tokio::test]
@@ -419,19 +418,19 @@ mod tests {
         let auth = AuthManager::new(db);
 
         auth.setup_password("old_pass").unwrap();
-        let token = auth.login("old_pass").await.unwrap();
+        let token = auth.login("old_pass").unwrap();
 
         // Change password
-        auth.change_password("old_pass", "new_pass").await.unwrap();
+        auth.change_password("old_pass", "new_pass").unwrap();
 
         // Old token invalidated
-        assert!(!auth.validate_token(&token).await);
+        assert!(!auth.validate_token(&token));
 
         // Old password doesn't work
-        assert!(auth.login("old_pass").await.is_err());
+        assert!(auth.login("old_pass").is_err());
 
         // New password works
-        let new_token = auth.login("new_pass").await.unwrap();
-        assert!(auth.validate_token(&new_token).await);
+        let new_token = auth.login("new_pass").unwrap();
+        assert!(auth.validate_token(&new_token));
     }
 }

@@ -5,7 +5,7 @@ use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{delete, get, post, put};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 
 use ventoos_core::plugin::AppPlugin;
@@ -25,7 +25,7 @@ pub struct K8sState {
     pub manager: Arc<K8sManager>,
     pub port_forwards: Arc<PortForwardManager>,
     pub teleport: Arc<TeleportManager>,
-    /// Directory where VentoOS stores kubeconfig files (e.g. `<data_dir>/k8s/`).
+    /// Directory where `VentoOS` stores kubeconfig files (e.g. `<data_dir>/k8s/`).
     pub k8s_config_dir: PathBuf,
 }
 
@@ -66,7 +66,7 @@ impl AppPlugin for K8sPlugin {
             .route("/api/k8s/clusters/{id}/resources", get(list_resources))
             .route(
                 "/api/k8s/clusters/{id}/resources/{kind}/{name}",
-                get(get_resource_detail),
+                get(get_resource_detail).delete(delete_resource),
             )
             .route(
                 "/api/k8s/clusters/{id}/resources/{kind}/{name}/yaml",
@@ -263,6 +263,24 @@ async fn get_resource_detail(
         .await
     {
         Ok(detail) => Json(ApiResponse::ok(detail)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+async fn delete_resource(
+    State(st): State<K8sState>,
+    Path(ResourcePathParams { id, kind, name }): Path<ResourcePathParams>,
+    Query(q): Query<NsQuery>,
+) -> impl IntoResponse {
+    let kind: K8sResourceKind =
+        serde_json::from_value(serde_json::Value::String(kind.to_lowercase()))
+            .unwrap_or(K8sResourceKind::Pod);
+    match st
+        .manager
+        .delete_resource(&id, kind, q.namespace.as_deref(), &name)
+        .await
+    {
+        Ok(_) => Json(ApiResponse::ok(serde_json::json!({"deleted": true}))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
     }
 }

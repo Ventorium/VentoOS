@@ -4,7 +4,7 @@ use ventoos_core::window::{WindowState, WindowStatus};
 
 use crate::Database;
 
-/// Manager for persisting window states in the system SQLite database.
+/// Manager for persisting window states in the system `SQLite` database.
 pub struct WindowStateManager {
     db: Arc<Database>,
 }
@@ -54,10 +54,10 @@ impl WindowStateManager {
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             )?;
             for state in states {
-                let tab_states_json = state.tab_states.as_ref().map(|v| v.to_string());
-                let app_state_json = state.app_state.as_ref().map(|v| v.to_string());
+                let tab_states_json = state.tab_states.as_ref().map(std::string::ToString::to_string);
+                let app_state_json = state.app_state.as_ref().map(std::string::ToString::to_string);
                 stmt.execute(rusqlite::params![
-                    state.id.to_string(),
+                    state.id.clone(),
                     state.app_id,
                     state.title,
                     state.x,
@@ -78,13 +78,13 @@ impl WindowStateManager {
     /// Save a single window state (INSERT OR REPLACE).
     pub fn save_one(&self, state: &WindowState) -> Result<(), rusqlite::Error> {
         self.db.with_conn(|conn| {
-            let tab_states_json = state.tab_states.as_ref().map(|v| v.to_string());
-            let app_state_json = state.app_state.as_ref().map(|v| v.to_string());
+            let tab_states_json = state.tab_states.as_ref().map(std::string::ToString::to_string);
+            let app_state_json = state.app_state.as_ref().map(std::string::ToString::to_string);
             conn.execute(
                 "INSERT OR REPLACE INTO window_states (id, app_id, title, x, y, width, height, z_index, status, is_maximized, tab_states, app_state)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                 rusqlite::params![
-                    state.id.to_string(),
+                    state.id.clone(),
                     state.app_id,
                     state.title,
                     state.x,
@@ -105,8 +105,8 @@ impl WindowStateManager {
     /// Update a single window state by id.
     pub fn update_one(&self, id: &str, state: &WindowState) -> Result<(), rusqlite::Error> {
         self.db.with_conn(|conn| {
-            let tab_states_json = state.tab_states.as_ref().map(|v| v.to_string());
-            let app_state_json = state.app_state.as_ref().map(|v| v.to_string());
+            let tab_states_json = state.tab_states.as_ref().map(std::string::ToString::to_string);
+            let app_state_json = state.app_state.as_ref().map(std::string::ToString::to_string);
             let rows = conn.execute(
                 "UPDATE window_states SET app_id=?2, title=?3, x=?4, y=?5, width=?6, height=?7, z_index=?8, status=?9, is_maximized=?10, tab_states=?11, app_state=?12
                  WHERE id=?1",
@@ -153,7 +153,6 @@ fn parse_window_status(s: &str) -> WindowStatus {
     match s {
         "created" => WindowStatus::Created,
         "opening" => WindowStatus::Opening,
-        "active" => WindowStatus::Active,
         "blurred" => WindowStatus::Blurred,
         "minimized" => WindowStatus::Minimized,
         "restored" => WindowStatus::Restored,

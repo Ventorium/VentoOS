@@ -1,7 +1,7 @@
-//! WeCom (钉钉) Enterprise Wechat bot adapter.
+//! `WeCom` (钉钉) Enterprise Wechat bot adapter.
 //!
-//! Inbound: accepts the callback JSON from WeCom robot webhook/stream.
-//! Outbound: sends replies via the WeCom robot message API.
+//! Inbound: accepts the callback JSON from `WeCom` robot webhook/stream.
+//! Outbound: sends replies via the `WeCom` robot message API.
 //!
 //! Reference: <https://open.wecom.com/document/orgapp/the-creation-and-installation-of-the-bot>
 
@@ -12,7 +12,7 @@ use crate::channel::{
 };
 use crate::types::{AgentError, ChannelIdentity, ChannelMessageEvent};
 
-/// WeCom robot adapter.
+/// `WeCom` robot adapter.
 pub struct WeComAdapter {
     channel_id: String,
     client_id: String,
@@ -29,7 +29,8 @@ impl WeComAdapter {
         }
     }
 
-    /// Parse and validate a WeCom robot callback body.
+    /// Parse and validate a `WeCom` robot callback body.
+    #[allow(clippy::unused_self)]
     fn parse_callback(&self, raw_body: &str) -> Result<WeComCallback, AgentError> {
         serde_json::from_str(raw_body).map_err(|e| AgentError::ChannelError {
             channel: "wecom".into(),
@@ -107,10 +108,10 @@ impl ChannelAdapter for WeComAdapter {
         })
     }
 
-    fn send<'a>(
-        &'a self,
+    fn send(
+        &self,
         outbound: crate::channel::ChannelOutboundMessage,
-    ) -> crate::channel::BoxFuture<'a, Result<ChannelSendResult, AgentError>> {
+    ) -> crate::channel::BoxFuture<'_, Result<ChannelSendResult, AgentError>> {
         Box::pin(async move {
             // First get an access token
             let token = self.get_access_token().await?;
@@ -153,7 +154,7 @@ impl ChannelAdapter for WeComAdapter {
 }
 
 impl WeComAdapter {
-    /// Obtain an access token using client_id + client_secret.
+    /// Obtain an access token using `client_id` + `client_secret`.
     async fn get_access_token(&self) -> Result<String, AgentError> {
         let url = "https://api.wecom.com/v1.0/oauth2/access_token";
         let body = serde_json::json!({

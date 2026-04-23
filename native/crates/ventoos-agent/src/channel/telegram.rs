@@ -27,6 +27,7 @@ impl TelegramAdapter {
     }
 
     /// Verify a Telegram update by checking required fields in the JSON body.
+    #[allow(clippy::unused_self)]
     fn verify_update(&self, raw_body: &str) -> Result<TelegramUpdate, AgentError> {
         let update: TelegramUpdate =
             serde_json::from_str(raw_body).map_err(|e| AgentError::ChannelError {
@@ -132,10 +133,10 @@ impl ChannelAdapter for TelegramAdapter {
         })
     }
 
-    fn send<'a>(
-        &'a self,
+    fn send(
+        &self,
         outbound: crate::channel::ChannelOutboundMessage,
-    ) -> crate::channel::BoxFuture<'a, Result<ChannelSendResult, AgentError>> {
+    ) -> crate::channel::BoxFuture<'_, Result<ChannelSendResult, AgentError>> {
         Box::pin(async move {
             let url = format!("{}/sendMessage", self.api_base());
             let mut body = serde_json::json!({
@@ -180,7 +181,7 @@ impl ChannelAdapter for TelegramAdapter {
                 external_message_id: result
                     .get("result")
                     .and_then(|r| r.get("message_id"))
-                    .and_then(|m| m.as_i64())
+                    .and_then(serde_json::Value::as_i64)
                     .map(|m| m.to_string()),
             })
         })

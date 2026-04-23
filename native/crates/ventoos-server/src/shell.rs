@@ -67,6 +67,7 @@ async fn handle_shell(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16, cwd: Option<String>, shell_override: Option<String>) {
     info!("Starting local shell session ({}x{})", cols, rows);
 
@@ -97,9 +98,15 @@ async fn handle_local_shell(socket: &mut WebSocket, cols: u16, rows: u16, cwd: O
     cmd.env("TERM", "xterm-256color");
     // Set initial working directory if specified
     if let Some(ref dir) = cwd {
-        let expanded = if dir.starts_with('~') {
+        let expanded = if let Some(rest) = dir.strip_prefix("~/") {
             if let Ok(home) = std::env::var("HOME") {
-                std::path::PathBuf::from(home).join(dir.strip_prefix("~/").unwrap_or(&dir[1..]))
+                std::path::PathBuf::from(home).join(rest)
+            } else {
+                std::path::PathBuf::from(dir)
+            }
+        } else if let Some(rest) = dir.strip_prefix('~') {
+            if let Ok(home) = std::env::var("HOME") {
+                std::path::PathBuf::from(home).join(rest)
             } else {
                 std::path::PathBuf::from(dir)
             }
@@ -214,6 +221,7 @@ impl russh::client::Handler for ShellSshHandler {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 async fn handle_ssh_shell(
     socket: &mut WebSocket,
     server_id: uuid::Uuid,
@@ -385,7 +393,7 @@ async fn handle_ssh_shell(
                             break;
                         }
                     }
-                    Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
+                    Some(Ok(Message::Close(_)) | Err(_)) | None => break,
                     _ => {}
                 }
             }

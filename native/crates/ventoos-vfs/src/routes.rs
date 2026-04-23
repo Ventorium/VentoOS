@@ -167,6 +167,7 @@ async fn test_connection_handler(
 struct PathQuery {
     path: Option<String>,
     show_hidden: Option<bool>,
+    #[allow(dead_code)]
     token: Option<String>,
 }
 
@@ -200,6 +201,7 @@ async fn list_dir(
 struct ReadQuery {
     path: String,
     max_bytes: Option<u64>,
+    #[allow(dead_code)]
     token: Option<String>,
 }
 

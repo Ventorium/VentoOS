@@ -5,7 +5,7 @@ use crate::Database;
 
 /// System-level settings manager.
 ///
-/// Reads/writes to the `settings` table in the system SQLite database.
+/// Reads/writes to the `settings` table in the system `SQLite` database.
 pub struct SettingsManager {
     db: Arc<Database>,
 }

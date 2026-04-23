@@ -23,7 +23,7 @@ use crate::state::AppState;
 
 // ── Public Axum handler ────────────────────────────────────────────────────
 
-/// Entry point for all WebDAV requests under `/dav/{mount_id}/{*path}`.
+/// Entry point for all `WebDAV` requests under `/dav/{mount_id}/{*path}`.
 pub async fn webdav_handler(
     method: Method,
     State(state): State<AppState>,
@@ -34,7 +34,7 @@ pub async fn webdav_handler(
     handle(method, Arc::clone(&state.vfs), mount_id, tail, headers, req).await
 }
 
-/// Entry point for WebDAV requests under `/dav/{mount_id}` (no trailing path).
+/// Entry point for `WebDAV` requests under `/dav/{mount_id}` (no trailing path).
 pub async fn webdav_root_handler(
     method: Method,
     State(state): State<AppState>,
@@ -106,7 +106,7 @@ async fn propfind(
 
     // Stat the requested path to determine if it's file or dir
     match vfs.stat(mount_id, path).await {
-        Err(_) => return status_response(StatusCode::NOT_FOUND, "Not found"),
+        Err(_) => status_response(StatusCode::NOT_FOUND, "Not found"),
         Ok(node) => {
             let base_href = format!("/dav/{mount_id}{}", encode_path(path));
             let mut responses = String::new();
@@ -163,12 +163,12 @@ fn prop_response(href: &str, node: &ventoos_vfs::VfsNode) -> String {
         String::new()
     };
     let modified_line = if let Some(ref m) = node.modified {
-        format!("<D:getlastmodified>{}</D:getlastmodified>", m)
+        format!("<D:getlastmodified>{m}</D:getlastmodified>")
     } else {
         String::new()
     };
     let content_type = if node.is_dir {
-        r#"<D:getcontenttype>httpd/unix-directory</D:getcontenttype>"#.to_string()
+        r"<D:getcontenttype>httpd/unix-directory</D:getcontenttype>".to_string()
     } else {
         let mime = mime_guess::from_path(&node.name)
             .first_or_octet_stream()
@@ -177,7 +177,7 @@ fn prop_response(href: &str, node: &ventoos_vfs::VfsNode) -> String {
     };
 
     format!(
-        r#"  <D:response>
+        r"  <D:response>
     <D:href>{href_escaped}</D:href>
     <D:propstat>
       <D:prop>
@@ -190,7 +190,7 @@ fn prop_response(href: &str, node: &ventoos_vfs::VfsNode) -> String {
       <D:status>HTTP/1.1 200 OK</D:status>
     </D:propstat>
   </D:response>
-"#
+"
     )
 }
 
@@ -241,6 +241,7 @@ async fn head_file(vfs: &VfsManager, mount_id: &str, path: &str) -> Response<Bod
 }
 
 async fn directory_listing(vfs: &VfsManager, mount_id: &str, path: &str) -> Response<Body> {
+    use std::fmt::Write;
     let list_req = VfsListReq {
         mount_id: mount_id.to_string(),
         path: path.to_string(),
@@ -252,9 +253,10 @@ async fn directory_listing(vfs: &VfsManager, mount_id: &str, path: &str) -> Resp
         let href = format!("/dav/{}/{}", mount_id, child.path.trim_start_matches('/'));
         let name = &child.name;
         let kind = if child.is_dir { "📁" } else { "📄" };
-        rows.push_str(&format!(
-            "<tr><td>{kind}</td><td><a href=\"{href}\">{name}</a></td></tr>\n"
-        ));
+        let _ = writeln!(
+            rows,
+            "<tr><td>{kind}</td><td><a href=\"{href}\">{name}</a></td></tr>"
+        );
     }
     let html = format!(
         "<html><head><title>{path}</title></head><body><h2>{path}</h2><table>{rows}</table></body></html>"
@@ -269,6 +271,7 @@ async fn directory_listing(vfs: &VfsManager, mount_id: &str, path: &str) -> Resp
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 fn encode_path(path: &str) -> String {
+    use std::fmt::Write;
     path.split('/')
         .map(|segment| {
             let mut out = String::new();
@@ -276,7 +279,7 @@ fn encode_path(path: &str) -> String {
                 if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'~' {
                     out.push(b as char);
                 } else {
-                    out.push_str(&format!("%{b:02X}"));
+                    let _ = write!(out, "%{b:02X}");
                 }
             }
             out

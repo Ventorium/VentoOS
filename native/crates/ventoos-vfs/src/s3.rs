@@ -97,7 +97,7 @@ impl S3Config {
                         } else if let Some(s) = v.strip_prefix("https://") {
                             (s.to_string(), false)
                         } else {
-                            (v.to_string(), false)
+                            (v.clone(), false)
                         };
                         let ep = ep.trim_end_matches('/');
                         let (ep_host, ep_port) = ep.split_once(':').unwrap_or((ep, ""));
@@ -356,6 +356,7 @@ struct HttpResponse {
 }
 
 /// Make a single HTTPS/HTTP request and return the status + body bytes.
+#[allow(clippy::too_many_arguments)]
 async fn https_request(
     connect_host: &str,
     http_host: &str,
@@ -516,7 +517,7 @@ fn xml_first(xml: &str, tag: &str) -> Option<String> {
 
 // ─── S3 operations ───────────────────────────────────────────────────────────
 
-/// Sort query string parameters alphabetically (required by AWS SigV4 canonical query).
+/// Sort query string parameters alphabetically (required by AWS `SigV4` canonical query).
 fn sort_query_params(query: &str) -> String {
     if query.is_empty() {
         return String::new();

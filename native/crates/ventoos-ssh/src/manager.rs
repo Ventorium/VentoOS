@@ -34,9 +34,12 @@ pub struct SshManager {
     port_forward_handles: Arc<RwLock<HashMap<Id, tokio::task::AbortHandle>>>,
     /// Active service exposure process handles.
     exposure_handles: Arc<RwLock<HashMap<Id, tokio::task::AbortHandle>>>,
-    /// Optional SQLite database for persistence.
+    /// Optional `SQLite` database for persistence.
     db: Option<Arc<Database>>,
 }
+
+/// Database load result: (servers, credentials, `port_mappings`, `service_exposures`).
+type DbLoadResult = Result<(Vec<(String, String)>, Vec<(String, String, String)>, Vec<(String, String)>, Vec<(String, String)>), rusqlite::Error>;
 
 impl SshManager {
     /// Create an in-memory manager without persistence (for tests).
@@ -52,7 +55,7 @@ impl SshManager {
         }
     }
 
-    /// Create a manager backed by SQLite; loads existing data on construction.
+    /// Create a manager backed by `SQLite`; loads existing data on construction.
     pub async fn new_with_db(db: Arc<Database>) -> Self {
         let mgr = Self {
             servers: Arc::new(RwLock::new(HashMap::new())),
@@ -70,7 +73,7 @@ impl SshManager {
     /// Load all persisted data from the database into memory.
     async fn load_from_db(&self, db: &Arc<Database>) {
         let db = Arc::clone(db);
-        let result = tokio::task::spawn_blocking(move || -> Result<(Vec<(String, String)>, Vec<(String, String, String)>, Vec<(String, String)>, Vec<(String, String)>), rusqlite::Error> {
+        let result = tokio::task::spawn_blocking(move || -> DbLoadResult {
             db.with_conn(|conn| {
                 // Load servers
                 let servers = conn
@@ -118,7 +121,7 @@ impl SshManager {
                                 if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&cred_value) {
                                     Some(StoredCredential::PrivateKey {
                                         key_pem: obj["key_pem"].as_str().unwrap_or("").to_string(),
-                                        passphrase: obj["passphrase"].as_str().map(|s| s.to_string()),
+                                        passphrase: obj["passphrase"].as_str().map(std::string::ToString::to_string),
                                     })
                                 } else {
                                     None
@@ -167,11 +170,11 @@ impl SshManager {
     }
 
     /// Persist a server to the database.
-    fn persist_server(&self, server: SshServer) {
+    fn persist_server(&self, server: &SshServer) {
         if let Some(db) = &self.db {
             let db = Arc::clone(db);
             let id_str = server.id.to_string();
-            let data = serde_json::to_string(&server).unwrap_or_default();
+            let data = serde_json::to_string(server).unwrap_or_default();
             let created_at = server.created_at.to_rfc3339();
             tokio::task::spawn_blocking(move || {
                 let _ = db.with_conn(|conn| {
@@ -225,11 +228,11 @@ impl SshManager {
     }
 
     /// Persist a port mapping to the database.
-    fn persist_port_mapping(&self, mapping: PortMapping) {
+    fn persist_port_mapping(&self, mapping: &PortMapping) {
         if let Some(db) = &self.db {
             let db = Arc::clone(db);
             let id_str = mapping.id.to_string();
-            let data = serde_json::to_string(&mapping).unwrap_or_default();
+            let data = serde_json::to_string(mapping).unwrap_or_default();
             let created_at = mapping.created_at.to_rfc3339();
             tokio::task::spawn_blocking(move || {
                 let _ = db.with_conn(|conn| {
@@ -256,11 +259,11 @@ impl SshManager {
     }
 
     /// Persist a service exposure to the database.
-    fn persist_service_exposure(&self, exposure: ServiceExposure) {
+    fn persist_service_exposure(&self, exposure: &ServiceExposure) {
         if let Some(db) = &self.db {
             let db = Arc::clone(db);
             let id_str = exposure.id.to_string();
-            let data = serde_json::to_string(&exposure).unwrap_or_default();
+            let data = serde_json::to_string(exposure).unwrap_or_default();
             let created_at = exposure.created_at.to_rfc3339();
             tokio::task::spawn_blocking(move || {
                 let _ = db.with_conn(|conn| {
@@ -325,7 +328,7 @@ impl SshManager {
             self.credentials.write().await.insert(id, cred);
         }
 
-        self.persist_server(server.clone());
+        self.persist_server(&server);
         self.servers.write().await.insert(id, server.clone());
         server
     }
@@ -401,7 +404,7 @@ impl SshManager {
             }
 
             let updated = server.clone();
-            self.persist_server(updated.clone());
+            self.persist_server(&updated);
             Some(updated)
         } else {
             None
@@ -435,7 +438,7 @@ impl SshManager {
                 server.last_connected_at = Some(Utc::now());
             }
             let updated = server.clone();
-            self.persist_server(updated.clone());
+            self.persist_server(&updated);
             Some(updated)
         } else {
             None
@@ -457,7 +460,7 @@ impl SshManager {
             status: PortMappingStatus::Stopped,
             created_at: Utc::now(),
         };
-        self.persist_port_mapping(mapping.clone());
+        self.persist_port_mapping(&mapping);
         let mut mappings = self.port_mappings.write().await;
         mappings.insert(mapping.id, mapping.clone());
         mapping
@@ -530,9 +533,8 @@ impl SshManager {
         let mappings_ref_for_task = Arc::clone(&self.port_mappings);
         let task = tokio::spawn(async move {
             loop {
-                let (stream, _peer) = match listener.accept().await {
-                    Ok(s) => s,
-                    Err(_) => break,
+                let Ok((stream, _peer)) = listener.accept().await else {
+                    break;
                 };
 
                 let conn_info = conn_info.clone();
@@ -617,7 +619,7 @@ impl SshManager {
             ssh_command: req.ssh_command,
             created_at: Utc::now(),
         };
-        self.persist_service_exposure(exposure.clone());
+        self.persist_service_exposure(&exposure);
         let mut exposures = self.service_exposures.write().await;
         exposures.insert(exposure.id, exposure.clone());
         exposure
@@ -674,32 +676,6 @@ impl SshManager {
                 let stderr = child.stderr.take().map(tokio::io::BufReader::new);
                 let stdout = child.stdout.take().map(tokio::io::BufReader::new);
 
-                async fn scan_for_urls(
-                    mut reader: impl tokio::io::AsyncBufRead + Unpin,
-                    id: Id,
-                    exposures: Arc<RwLock<HashMap<Id, ServiceExposure>>>,
-                    re: regex::Regex,
-                ) {
-                    use tokio::io::AsyncBufReadExt;
-                    let mut line = String::new();
-                    loop {
-                        line.clear();
-                        match reader.read_line(&mut line).await {
-                            Ok(0) | Err(_) => break,
-                            Ok(_) => {
-                                if let Some(m) = re.find(&line) {
-                                    let url = m.as_str().trim_end_matches('/').to_string();
-                                    tracing::info!("Tunnel URL detected: {url}");
-                                    let mut exp = exposures.write().await;
-                                    if let Some(e) = exp.get_mut(&id) {
-                                        e.public_url = Some(url);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
                 if let (Some(out), Some(err)) = (stdout, stderr) {
                     tokio::join!(
                         scan_for_urls(out, id, Arc::clone(&exposures_ref), url_re.clone()),
@@ -711,11 +687,10 @@ impl SshManager {
 
                 // Mark stopped when process exits
                 let mut exp = exposures_ref.write().await;
-                if let Some(e) = exp.get_mut(&id) {
-                    if e.status != ServiceExposureStatus::Error {
+                if let Some(e) = exp.get_mut(&id)
+                    && e.status != ServiceExposureStatus::Error {
                         e.status = ServiceExposureStatus::Stopped;
                     }
-                }
             });
 
             self.exposure_handles
@@ -1006,6 +981,34 @@ mod tests {
     }
 }
 
+// ── Service exposure URL scanner ─────────────────────────────────────────────
+
+async fn scan_for_urls(
+    mut reader: impl tokio::io::AsyncBufRead + Unpin,
+    id: Id,
+    exposures: Arc<RwLock<HashMap<Id, ServiceExposure>>>,
+    re: regex::Regex,
+) {
+    use tokio::io::AsyncBufReadExt;
+    let mut line = String::new();
+    loop {
+        line.clear();
+        match reader.read_line(&mut line).await {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {
+                if let Some(m) = re.find(&line) {
+                    let url = m.as_str().trim_end_matches('/').to_string();
+                    tracing::info!("Tunnel URL detected: {url}");
+                    let mut exp = exposures.write().await;
+                    if let Some(e) = exp.get_mut(&id) {
+                        e.public_url = Some(url);
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ── SSH port-forward helper ──────────────────────────────────────────────────
 
 struct PortFwdHandler;
@@ -1060,7 +1063,7 @@ async fn forward_tcp_via_ssh(
 
     // Open direct-tcpip channel
     let channel = session
-        .channel_open_direct_tcpip(&remote_host, remote_port as u32, "127.0.0.1", local_port as u32)
+        .channel_open_direct_tcpip(&remote_host, u32::from(remote_port), "127.0.0.1", u32::from(local_port))
         .await?;
 
     // Bidirectional bridge: TCP stream <-> SSH channel stream

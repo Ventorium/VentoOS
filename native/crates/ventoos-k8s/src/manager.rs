@@ -41,8 +41,8 @@ impl K8sManager {
     }
 
     /// Create a manager with VFS support and DB persistence, loading existing clusters.
-    pub async fn new_with_vfs_and_db(vfs: Arc<VfsManager>, db: Arc<Database>) -> Self {
-        let store = K8sClusterStore::new(Arc::clone(&db));
+    pub fn new_with_vfs_and_db(vfs: Arc<VfsManager>, db: &Arc<Database>) -> Self {
+        let store = K8sClusterStore::new(Arc::clone(db));
         let mut clusters = HashMap::new();
 
         match store.load_all() {
@@ -148,13 +148,11 @@ impl K8sManager {
 
     pub async fn delete_cluster(&self, id: &str) -> bool {
         let removed = self.clusters.write().await.remove(id).is_some();
-        if removed {
-            if let Some(ref store) = self.store {
-                if let Err(e) = store.delete(id) {
+        if removed
+            && let Some(ref store) = self.store
+                && let Err(e) = store.delete(id) {
                     error!("Failed to delete K8s cluster '{id}' from DB: {e}");
                 }
-            }
-        }
         removed
     }
 
@@ -451,7 +449,7 @@ impl K8sManager {
         serde_json::to_string_pretty(&json).map_err(|e| format!("JSON serialise: {e}"))
     }
 
-    /// Update a resource by PUTing the full YAML/JSON body.
+    /// Update a resource by `PUTing` the full YAML/JSON body.
     pub async fn update_resource_yaml(
         &self,
         cluster_id: &str,
@@ -464,6 +462,20 @@ impl K8sManager {
         let url = kind.get_url(namespace, name);
         info!("Updating {kind:?}/{name} in ns {namespace:?}");
         client.put_json(&url, body).await
+    }
+
+    /// Delete a specific resource.
+    pub async fn delete_resource(
+        &self,
+        cluster_id: &str,
+        kind: K8sResourceKind,
+        namespace: Option<&str>,
+        name: &str,
+    ) -> Result<serde_json::Value, String> {
+        let client = self.build_client(cluster_id).await?;
+        let url = kind.get_url(namespace, name);
+        info!("Deleting {kind:?}/{name} in ns {namespace:?}");
+        client.delete(&url).await
     }
 
     /// Get events associated with a resource.
@@ -499,7 +511,7 @@ impl K8sManager {
                     .and_then(|v| v.as_str())
                     .map(String::from),
                 event_type: item.get("type").and_then(|v| v.as_str()).map(String::from),
-                count: item.get("count").and_then(|v| v.as_u64()).map(|n| n as u32),
+                count: item.get("count").and_then(serde_json::Value::as_u64).map(|n| n.try_into().unwrap_or(0)),
                 first_timestamp: item
                     .get("firstTimestamp")
                     .and_then(|v| v.as_str())

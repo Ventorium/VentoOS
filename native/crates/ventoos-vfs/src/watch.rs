@@ -1,7 +1,7 @@
 //! File change watching with event streaming.
 //!
 //! - Local Provider: uses filesystem polling (avoids large `notify` dependency).
-//! - Other Providers: periodic polling via list_dir comparisons.
+//! - Other Providers: periodic polling via `list_dir` comparisons.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -44,7 +44,7 @@ impl WatchHandle {
 /// Snapshot of a directory listing for change detection.
 #[derive(Debug, Clone)]
 struct DirSnapshot {
-    /// Map of name -> (is_dir, size, modified)
+    /// Map of name -> (`is_dir`, size, modified)
     entries: HashMap<String, (bool, Option<u64>, Option<String>)>,
 }
 
@@ -113,7 +113,7 @@ impl DirSnapshot {
 }
 
 /// Start watching a directory for changes via polling.
-/// Returns a WatchHandle to cancel and a receiver for events.
+/// Returns a `WatchHandle` to cancel and a receiver for events.
 pub fn start_watch(
     mgr: Arc<VfsManager>,
     mount_id: String,

@@ -16,7 +16,9 @@ async fn manager_with_local_mount(root: &str) -> (VfsManager, String) {
             root: root.into(),
             connection_id: None,
             group: None,
-        })
+                local_mount: None,
+            }
+)
         .await;
     (mgr, mount.id)
 }
@@ -35,7 +37,9 @@ async fn mount_create_local() {
             root: "/tmp".into(),
             connection_id: None,
             group: None,
-        })
+                local_mount: None,
+            }
+)
         .await;
     assert_eq!(mount.name, "local-home");
     assert!(matches!(mount.kind, VfsSourceKind::Local));
@@ -53,7 +57,9 @@ async fn mount_create_sftp() {
             root: "/home/user".into(),
             connection_id: Some("ssh-conn-1".into()),
             group: None,
-        })
+                local_mount: None,
+            }
+)
         .await;
     assert_eq!(mount.name, "remote-server");
     assert!(matches!(mount.kind, VfsSourceKind::Sftp));
@@ -70,7 +76,9 @@ async fn mount_create_s3() {
             root: "s3://my-bucket".into(),
             connection_id: None,
             group: None,
-        })
+                local_mount: None,
+            }
+)
         .await;
     assert_eq!(mount.name, "bucket-data");
     assert!(matches!(mount.kind, VfsSourceKind::S3));
@@ -86,6 +94,7 @@ async fn mount_create_with_all_optional_fields() {
             root: "ftp://server/data".into(),
             connection_id: Some("ftp-conn-42".into()),
             group: Some("infrastructure".into()),
+            local_mount: None,
         })
         .await;
     assert_eq!(mount.connection_id, Some("ftp-conn-42".into()));
@@ -102,7 +111,9 @@ async fn mount_get_existing() {
             root: "/tmp".into(),
             connection_id: None,
             group: None,
-        })
+                local_mount: None,
+            }
+)
         .await;
     let found = mgr.get_mount(&mount.id).await;
     assert!(found.is_some());
@@ -124,7 +135,9 @@ async fn mount_list() {
         root: "/tmp".into(),
         connection_id: None,
         group: None,
-    })
+            local_mount: None,
+        }
+)
     .await;
     mgr.create_mount(CreateVfsMountReq {
         name: "beta".into(),
@@ -132,7 +145,9 @@ async fn mount_list() {
         root: "/tmp".into(),
         connection_id: None,
         group: None,
-    })
+            local_mount: None,
+        }
+)
     .await;
     let list = mgr.list_mounts().await;
     assert_eq!(list.len(), 2);
@@ -151,7 +166,9 @@ async fn mount_delete() {
             root: "/tmp".into(),
             connection_id: None,
             group: None,
-        })
+                local_mount: None,
+            }
+)
         .await;
     assert!(mgr.delete_mount(&mount.id).await);
     assert!(mgr.get_mount(&mount.id).await.is_none());
@@ -173,7 +190,9 @@ async fn mount_update_name() {
             root: "/tmp".into(),
             connection_id: None,
             group: None,
-        })
+                local_mount: None,
+            }
+)
         .await;
     let updated = mgr
         .update_mount(
@@ -184,7 +203,9 @@ async fn mount_update_name() {
                 root: "/tmp".into(),
                 connection_id: None,
                 group: None,
-            },
+                    local_mount: None,
+                }
+,
         )
         .await;
     assert!(updated.is_some());
@@ -201,7 +222,9 @@ async fn mount_update_kind() {
             root: "/tmp".into(),
             connection_id: None,
             group: None,
-        })
+                local_mount: None,
+            }
+)
         .await;
     let updated = mgr
         .update_mount(
@@ -212,7 +235,9 @@ async fn mount_update_kind() {
                 root: "https://webdav.example.com".into(),
                 connection_id: None,
                 group: None,
-            },
+                    local_mount: None,
+                }
+,
         )
         .await;
     assert!(updated.is_some());
@@ -231,7 +256,9 @@ async fn mount_update_nonexisting_returns_none() {
                 root: "/tmp".into(),
                 connection_id: None,
                 group: None,
-            },
+                    local_mount: None,
+                }
+,
         )
         .await;
     assert!(result.is_none());
@@ -1049,7 +1076,9 @@ async fn concurrent_mount_operations() {
                 root: "/tmp".into(),
                 connection_id: None,
                 group: None,
-            })
+                    local_mount: None,
+                }
+)
             .await
         }));
     }
@@ -1073,7 +1102,9 @@ async fn mount_with_very_long_root_path() {
             root: long_path.clone(),
             connection_id: None,
             group: None,
-        })
+                local_mount: None,
+            }
+)
         .await;
     assert_eq!(mount.root, long_path);
 }
@@ -1196,6 +1227,7 @@ fn create_vfs_mount_req_serialization() {
         root: "/data".into(),
         connection_id: Some("conn-1".into()),
         group: Some("dev".into()),
+            local_mount: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: CreateVfsMountReq = serde_json::from_str(&json).unwrap();
@@ -1213,6 +1245,7 @@ fn vfs_mount_serialization_roundtrip() {
         root: "s3://bucket".into(),
         connection_id: None,
         group: Some("storage".into()),
+            local_mount: None,
     };
     let json = serde_json::to_string(&mount).unwrap();
     let back: VfsMount = serde_json::from_str(&json).unwrap();

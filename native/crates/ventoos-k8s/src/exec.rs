@@ -21,6 +21,7 @@ use crate::types::{ExecMessage, PodExecReq};
 /// - `{"type":"stdout","data":"..."}` for output
 /// - `{"type":"error","data":"..."}` for errors
 /// - `{"type":"close"}` when done
+#[allow(clippy::too_many_lines)]
 pub async fn handle_exec(
     mut socket: WebSocket,
     client: Arc<K8sClient>,
@@ -185,6 +186,7 @@ pub async fn handle_exec(
 
 /// Simple URL encoding for command arguments.
 fn urlencoding_simple(s: &str) -> String {
+    use std::fmt::Write;
     let mut result = String::with_capacity(s.len() * 3);
     for b in s.bytes() {
         match b {
@@ -193,7 +195,7 @@ fn urlencoding_simple(s: &str) -> String {
             }
             _ => {
                 result.push('%');
-                result.push_str(&format!("{b:02X}"));
+                let _ = write!(result, "{b:02X}");
             }
         }
     }

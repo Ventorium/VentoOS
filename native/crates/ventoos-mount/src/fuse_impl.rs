@@ -161,7 +161,7 @@ impl VfsFuse {
         FileAttr {
             ino: INodeNo(ino),
             size,
-            blocks: (size + 511) / 512,
+            blocks: size.div_ceil(512),
             atime: mtime,
             mtime,
             ctime: mtime,
@@ -326,8 +326,8 @@ impl Filesystem for VfsFuse {
 
     fn release(&self, _req: &Request, _ino: INodeNo, fh: fuser::FileHandle, _flags: fuser::OpenFlags, _lock_owner: Option<fuser::LockOwner>, _flush: bool, reply: ReplyEmpty) {
         let file = self.open_files.lock().unwrap().remove(&fh.0);
-        if let Some(file) = file {
-            if file.dirty {
+        if let Some(file) = file
+            && file.dirty {
                 let content = String::from_utf8_lossy(&file.data).to_string();
                 // Invalidate cache for the written file
                 self.node_cache.lock().unwrap().invalidate(&file.path);
@@ -337,7 +337,6 @@ impl Filesystem for VfsFuse {
                     tracing::warn!("FUSE release write-back failed: {e}");
                 }
             }
-        }
         reply.ok();
     }
 

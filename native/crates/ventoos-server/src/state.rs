@@ -31,7 +31,7 @@ pub struct AppState {
     pub notification_mgr: Arc<NotificationStore>,
     /// Application plugins (K8s, DB, Redis, VFS, Agent, SSH).
     pub plugins: Arc<Vec<Box<dyn AppPlugin>>>,
-    /// VFS source manager (shared with VfsPlugin).
+    /// VFS source manager (shared with `VfsPlugin`).
     pub vfs: Arc<VfsManager>,
     /// Local FUSE mount manager.
     pub mount_mgr: Arc<LocalMountManager>,
@@ -50,7 +50,7 @@ impl AppState {
         let vfs_manager = Arc::new(
             VfsManager::with_db_and_ssh_provider(Arc::clone(&db), Arc::clone(&ssh) as _).await,
         );
-        let k8s_manager = Arc::new(K8sManager::new_with_vfs_and_db(Arc::clone(&vfs_manager), Arc::clone(&db)).await);
+        let k8s_manager = Arc::new(K8sManager::new_with_vfs_and_db(Arc::clone(&vfs_manager), &db));
         let agent_manager = Arc::new(AgentManager::new());
 
         let k8s_config_dir = data_dir.join("k8s");

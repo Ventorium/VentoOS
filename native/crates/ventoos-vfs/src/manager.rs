@@ -14,7 +14,7 @@ use crate::types::{
 };
 
 /// Virtual file system manager.
-/// Supports local, SFTP, FTP, S3, SMB (pure Rust client), and WebDAV file systems.
+/// Supports local, SFTP, FTP, S3, SMB (pure Rust client), and `WebDAV` file systems.
 pub struct VfsManager {
     mounts: Arc<RwLock<HashMap<String, VfsMount>>>,
     mount_store: Option<VfsMountStore>,
@@ -40,7 +40,7 @@ impl VfsManager {
         }
     }
 
-    /// Create a VfsManager with an SSH info provider for SFTP support.
+    /// Create a `VfsManager` with an SSH info provider for SFTP support.
     pub fn with_ssh_provider(provider: Arc<dyn SshInfoProvider>) -> Self {
         Self {
             mounts: Arc::new(RwLock::new(HashMap::new())),
@@ -54,7 +54,7 @@ impl VfsManager {
         }
     }
 
-    /// Create a VfsManager with both an SSH provider and a database for mount persistence.
+    /// Create a `VfsManager` with both an SSH provider and a database for mount persistence.
     pub async fn with_db_and_ssh_provider(
         db: Arc<Database>,
         provider: Arc<dyn SshInfoProvider>,
@@ -138,13 +138,11 @@ impl VfsManager {
     pub async fn update_webdav_server_settings(&self, settings: WebDavServerSettings) {
         *self.webdav_server_settings.write().await = settings.clone();
         // Persist to database
-        if let Some(mgr) = &self.settings_mgr {
-            if let Ok(json) = serde_json::to_string(&settings) {
-                if let Err(e) = mgr.set("webdav_server_settings", &json) {
+        if let Some(mgr) = &self.settings_mgr
+            && let Ok(json) = serde_json::to_string(&settings)
+                && let Err(e) = mgr.set("webdav_server_settings", &json) {
                     tracing::error!("Failed to persist WebDAV server settings: {e}");
                 }
-            }
-        }
     }
 
     /// Expand `~` to the user's home directory in a path string.
@@ -207,8 +205,7 @@ impl VfsManager {
                     }
                     Err(e) => {
                         return Err(format!(
-                            "Failed to read private key file '{}': {}",
-                            expanded, e
+                            "Failed to read private key file '{expanded}': {e}"
                         ));
                     }
                 }
@@ -218,7 +215,7 @@ impl VfsManager {
         self.sftp_pool.get_or_connect(&mount.id, &provider).await
     }
 
-    /// Determine the SFTP remote root: if connection_id is set the root is in mount.root;
+    /// Determine the SFTP remote root: if `connection_id` is set the root is in mount.root;
     /// if URL-based, the root path is embedded in the URL.
     fn sftp_root(mount: &VfsMount) -> Result<String, String> {
         if mount.connection_id.is_some() {
@@ -242,11 +239,10 @@ impl VfsManager {
         };
 
         // Register SMB connections in the pool for lazy connect
-        if matches!(mount.kind, VfsSourceKind::Smb) {
-            if let Err(e) = self.smb_pool.register(&id, &root).await {
+        if matches!(mount.kind, VfsSourceKind::Smb)
+            && let Err(e) = self.smb_pool.register(&id, &root).await {
                 tracing::warn!("SMB pool register failed: {e}");
             }
-        }
 
         self.mounts.write().await.insert(id, mount.clone());
         // Persist to database
@@ -285,13 +281,11 @@ impl VfsManager {
     pub async fn delete_mount(&self, id: &str) -> bool {
         self.smb_pool.remove(id).await;
         let removed = self.mounts.write().await.remove(id).is_some();
-        if removed {
-            if let Some(store) = &self.mount_store {
-                if let Err(e) = store.delete(id) {
+        if removed
+            && let Some(store) = &self.mount_store
+                && let Err(e) = store.delete(id) {
                     tracing::error!("Failed to delete VFS mount '{}' from DB: {e}", id);
                 }
-            }
-        }
         removed
     }
 
@@ -306,16 +300,15 @@ impl VfsManager {
             if let Some(mount) = mounts.get_mut(id) {
                 mount.name = req.name;
                 mount.kind = req.kind;
-                mount.root = root.clone();
+                mount.root.clone_from(&root);
                 mount.connection_id = req.connection_id;
                 mount.group = req.group;
                 mount.local_mount = req.local_mount;
 
-                if matches!(mount.kind, VfsSourceKind::Smb) {
-                    if let Err(e) = self.smb_pool.register(id, &root).await {
+                if matches!(mount.kind, VfsSourceKind::Smb)
+                    && let Err(e) = self.smb_pool.register(id, &root).await {
                         tracing::warn!("SMB pool register failed: {e}");
                     }
-                }
 
                 Some(mount.clone())
             } else {
@@ -360,7 +353,7 @@ impl VfsManager {
                 VfsMount {
                     id: temp_id.clone(),
                     name: "test".to_string(),
-                    kind: req.kind.clone(),
+                    kind: req.kind,
                     root: root.clone(),
                     connection_id: req.connection_id.clone(),
                     group: None,
@@ -475,7 +468,7 @@ impl VfsManager {
             )
             .await
             .ok()
-            .and_then(|r| r.ok());
+            .and_then(std::result::Result::ok);
             let is_dir = metadata.as_ref().is_some_and(std::fs::Metadata::is_dir);
             let size = metadata
                 .as_ref()
@@ -535,12 +528,12 @@ impl VfsManager {
                 let raw =
                     crate::ftp::ftp_read_raw(&self.ftp_pool, &mount.id, &mount.root, &req.path)
                         .await?;
-                Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
+                Ok(bytes_to_file_content(&req.path, &raw, req.max_bytes))
             }
             VfsSourceKind::S3 => {
                 let client = crate::s3::S3Client::new(crate::s3::S3Config::parse(&mount.root)?);
                 let raw = client.get_object(&req.path).await?;
-                Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
+                Ok(bytes_to_file_content(&req.path, &raw, req.max_bytes))
             }
             VfsSourceKind::Smb => {
                 crate::smb::read_file(&self.smb_pool, &mount.id, &req.path, req.max_bytes).await
@@ -550,7 +543,7 @@ impl VfsManager {
                     &mount.root,
                 )?);
                 let raw = client.read_file(&req.path, req.max_bytes).await?;
-                Ok(bytes_to_file_content(&req.path, raw, req.max_bytes))
+                Ok(bytes_to_file_content(&req.path, &raw, req.max_bytes))
             }
         }
     }
@@ -838,7 +831,7 @@ impl VfsManager {
             VfsSourceKind::Sftp => {
                 let sftp = self.get_sftp_for_mount(&mount).await?;
                 let root = Self::sftp_root(&mount)?;
-                crate::sftp::search(&sftp, &root, &req.path, &req.query, req.max_results).await
+                crate::sftp::search(&sftp, &root, &req.path, &req.query, req.max_results)
             }
             VfsSourceKind::Ftp => {
                 crate::ftp::ftp_search(
@@ -1680,14 +1673,14 @@ impl Default for VfsManager {
 
 /// Convert raw bytes into a `VfsFileContent` response, applying the same
 /// binary-detection and max-bytes truncation logic as the local file reader.
-fn bytes_to_file_content(path: &str, raw: Vec<u8>, max_bytes: Option<u64>) -> VfsFileContent {
+fn bytes_to_file_content(path: &str, raw: &[u8], max_bytes: Option<u64>) -> VfsFileContent {
     let file_size = raw.len() as u64;
     let limit = max_bytes.unwrap_or(1_048_576);
     let truncated = file_size > limit;
     let slice = if truncated {
         &raw[..usize::try_from(limit).unwrap_or(usize::MAX)]
     } else {
-        &raw
+        raw
     };
     let check_len = slice.len().min(8192);
     let is_binary = slice[..check_len].contains(&0);
@@ -1719,7 +1712,9 @@ mod tests {
                 root: "/tmp".into(),
                 connection_id: None,
                 group: None,
-            })
+                    local_mount: None,
+                }
+)
             .await;
         assert_eq!(mount.name, "home");
         let list = mgr.list_mounts().await;
@@ -1736,7 +1731,9 @@ mod tests {
                 root: "/tmp".into(),
                 connection_id: None,
                 group: None,
-            })
+                    local_mount: None,
+                }
+)
             .await;
         // Should be able to list /tmp without error
         let result = mgr
@@ -1759,7 +1756,9 @@ mod tests {
                 root: "/tmp".into(),
                 connection_id: None,
                 group: None,
-            })
+                    local_mount: None,
+                }
+)
             .await;
         let result = mgr
             .list_dir(&VfsListReq {
@@ -1787,7 +1786,9 @@ mod tests {
                 root: root.clone(),
                 connection_id: None,
                 group: None,
-            })
+                    local_mount: None,
+                }
+)
             .await;
 
         let result = mgr
@@ -1821,7 +1822,9 @@ mod tests {
                 root: root.clone(),
                 connection_id: None,
                 group: None,
-            })
+                    local_mount: None,
+                }
+)
             .await;
 
         let result = mgr
@@ -1855,7 +1858,9 @@ mod tests {
                 root: root.clone(),
                 connection_id: None,
                 group: None,
-            })
+                    local_mount: None,
+                }
+)
             .await;
 
         // Attempt to move outside root
@@ -1885,7 +1890,9 @@ mod tests {
                 root,
                 connection_id: None,
                 group: None,
-            })
+                    local_mount: None,
+                }
+)
             .await;
 
         let result = mgr

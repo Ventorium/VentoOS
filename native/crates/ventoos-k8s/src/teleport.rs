@@ -74,7 +74,7 @@ pub struct TeleportProbeResult {
     pub reachable: bool,
     /// Whether OTP/2FA is required for login.
     pub needs_otp: bool,
-    /// The second_factor value from webapi/ping.
+    /// The `second_factor` value from webapi/ping.
     pub second_factor: String,
     pub message: String,
 }
@@ -284,8 +284,8 @@ impl TeleportManager {
         let kubeconfig_file_path = kubeconfig_path.unwrap_or(&default_path).to_string();
 
         // Ensure parent directory exists
-        if let Some(parent) = std::path::Path::new(&kubeconfig_file_path).parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
+        if let Some(parent) = std::path::Path::new(&kubeconfig_file_path).parent()
+            && let Err(e) = std::fs::create_dir_all(parent) {
                 return TeleportKubeConfigResult {
                     success: false,
                     message: format!("Failed to create kubeconfig dir: {e}"),
@@ -294,7 +294,6 @@ impl TeleportManager {
                     kubeconfig_path: None,
                 };
             }
-        }
 
         // First, login to the kube cluster, directing output to our dedicated path
         // tsh uses KUBECONFIG env var instead of --kubeconfig flag
@@ -391,7 +390,7 @@ impl TeleportManager {
     /// Logout from a Teleport proxy.
     pub async fn logout(&self, proxy: &str) -> Result<(), String> {
         let safe_proxy = proxy.trim_end_matches('/');
-        let output = Command::new("tsh")
+        let _output = Command::new("tsh")
             .args(["logout", &format!("--proxy={safe_proxy}")])
             .output()
             .await
@@ -425,6 +424,7 @@ fn dirs_path() -> String {
 /// if no prompt is detected within 10 seconds (slow server).
 ///
 /// Returns `(exit_success, combined_output_string)`.
+#[allow(clippy::too_many_lines)]
 fn login_with_pty(
     program: &str,
     args: &[String],
@@ -440,8 +440,8 @@ fn login_with_pty(
     let mut slave_fd: RawFd = -1;
     let rc = unsafe {
         libc::openpty(
-            &mut master_fd,
-            &mut slave_fd,
+            &raw mut master_fd,
+            &raw mut slave_fd,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
             std::ptr::null_mut(),
@@ -484,12 +484,12 @@ fn login_with_pty(
             libc::setsid();
             // Make slave the controlling terminal of this session.
             let fd = libc::open(
-                b"/dev/tty\0".as_ptr() as *const libc::c_char,
+                c"/dev/tty".as_ptr().cast::<libc::c_char>(),
                 libc::O_RDWR | libc::O_NOCTTY,
             );
             if fd < 0 {
                 // Try TIOCSCTTY directly on stdin (fd 0)
-                libc::ioctl(0, libc::TIOCSCTTY as _, 0i32);
+                libc::ioctl(0, libc::TIOCSCTTY.into(), 0i32);
             } else {
                 libc::close(fd);
             }
@@ -545,8 +545,8 @@ fn login_with_pty(
         }
 
         // Write OTP when prompted (only if OTP was provided)
-        if password_sent && !otp_sent {
-            if let Some(otp_code) = otp {
+        if password_sent && !otp_sent
+            && let Some(otp_code) = otp {
                 let needs_otp_now = current_text.contains("otp")
                     || current_text.contains("mfa")
                     || current_text.contains("second factor")
@@ -557,7 +557,6 @@ fn login_with_pty(
                     let _ = master_file.write_all(format!("{otp_code}\n").as_bytes());
                 }
             }
-        }
 
         match child.try_wait() {
             Ok(Some(status)) => {
@@ -645,15 +644,14 @@ fn parse_kube_ls_text(text: &str) -> Vec<TeleportKubeCluster> {
         }
         // Format: "cluster_name   labels   selected"
         let parts: Vec<&str> = line.splitn(3, char::is_whitespace).collect();
-        if let Some(name) = parts.first() {
-            if !name.is_empty() && *name != "-" {
+        if let Some(name) = parts.first()
+            && !name.is_empty() && *name != "-" {
                 clusters.push(TeleportKubeCluster {
                     name: name.to_string(),
                     labels: HashMap::new(),
                     selected: line.contains('*'),
                 });
             }
-        }
     }
     clusters
 }

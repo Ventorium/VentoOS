@@ -1,7 +1,7 @@
-/// VentoOS SSH management plugin.
+/// `VentoOS` SSH management plugin.
 ///
 /// Provides SSH server management, port mapping, and service exposure
-/// as an independent AppPlugin crate.
+/// as an independent `AppPlugin` crate.
 pub mod manager;
 pub mod routes;
 pub mod types;

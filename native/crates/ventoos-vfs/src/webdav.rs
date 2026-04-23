@@ -1,4 +1,4 @@
-//! WebDAV client adapter for VFS.
+//! `WebDAV` client adapter for VFS.
 //!
 //! URI format:
 //!   webdav://[user:pass@]host[:port][/basePath]   — plain HTTP
@@ -12,7 +12,7 @@ use crate::types::VfsNode;
 
 #[derive(Clone, Debug)]
 pub(crate) struct WebDavConfig {
-    /// Full base URL (e.g. "https://demo.nextcloud.com/remote.php/dav/files/admin/")
+    /// Full base URL (e.g. "<https://demo.nextcloud.com/remote.php/dav/files/admin>/")
     pub base_url: String,
     pub username: Option<String>,
     pub password: Option<String>,
@@ -67,7 +67,7 @@ impl WebDavConfig {
             self.base_url.clone()
         } else {
             // Percent-encode each path segment
-            let encoded: Vec<String> = path.split('/').map(|seg| percent_encode(seg)).collect();
+            let encoded: Vec<String> = path.split('/').map(percent_encode).collect();
             format!("{}{}", self.base_url, encoded.join("/"))
         }
     }
@@ -320,12 +320,12 @@ impl WebDavClient {
 
 // ─── PROPFIND XML parser ──────────────────────────────────────────────────────
 
-/// Parse a WebDAV PROPFIND response body into `VfsNode` items.
+/// Parse a `WebDAV` PROPFIND response body into `VfsNode` items.
 /// Skips the entry matching `request_path` itself (i.e. only returns children
 /// when called with Depth:1).
-/// Parse a WebDAV PROPFIND response body into `VfsNode` items.
+/// Parse a `WebDAV` PROPFIND response body into `VfsNode` items.
 /// `is_stat` should be `true` when called with Depth:0 (stat) so the
-/// requested item itself is included; `false` for Depth:1 (list_dir)
+/// requested item itself is included; `false` for Depth:1 (`list_dir`)
 /// where the directory itself is skipped.
 fn parse_propfind_response(
     xml: &str,
@@ -443,7 +443,8 @@ fn local_name(qname: &[u8]) -> &str {
 
 /// Convert an `href` from a PROPFIND response into a `VfsNode` with a VFS-relative path.
 /// Returns `None` for the root entry when `is_stat` is `false` (i.e. the path
-/// matching `request_path` is skipped during list_dir but kept during stat).
+/// matching `request_path` is skipped during `list_dir` but kept during stat).
+#[allow(clippy::too_many_arguments)]
 fn href_to_vfs_node(
     href: &str,
     displayname: &str,
@@ -457,12 +458,10 @@ fn href_to_vfs_node(
     // href may be absolute (http://host/path) or relative (/path)
     let href_path = if href.starts_with("http://") || href.starts_with("https://") {
         // Strip scheme://host
-        let no_scheme = href
+        
+        href
             .splitn(3, '/')
-            .nth(2)
-            .map(|s| format!("/{s}"))
-            .unwrap_or_else(|| href.to_string());
-        no_scheme
+            .nth(2).map_or_else(|| href.to_string(), |s| format!("/{s}"))
     } else {
         href.to_string()
     };
@@ -484,15 +483,15 @@ fn href_to_vfs_node(
         }
     }
 
-    let name = if !displayname.is_empty() {
-        displayname.to_string()
-    } else {
+    let name = if displayname.is_empty() {
         vfs_path
             .trim_end_matches('/')
             .rsplit('/')
             .next()
             .unwrap_or(&vfs_path)
             .to_string()
+    } else {
+        displayname.to_string()
     };
 
     Some(VfsNode {
@@ -528,13 +527,12 @@ fn percent_decode(s: &str) -> String {
     let mut raw: Vec<u8> = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let (Some(h), Some(l)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+        if bytes[i] == b'%' && i + 2 < bytes.len()
+            && let (Some(h), Some(l)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
                 raw.push((h << 4) | l);
                 i += 3;
                 continue;
             }
-        }
         raw.push(bytes[i]);
         i += 1;
     }
@@ -573,8 +571,8 @@ fn percent_encode(s: &str) -> String {
             }
             _ => {
                 out.push('%');
-                out.push(char::from_digit((b >> 4) as u32, 16).unwrap_or('0'));
-                out.push(char::from_digit((b & 0xf) as u32, 16).unwrap_or('0'));
+                out.push(char::from_digit(u32::from(b >> 4), 16).unwrap_or('0'));
+                out.push(char::from_digit(u32::from(b & 0xf), 16).unwrap_or('0'));
             }
         }
     }

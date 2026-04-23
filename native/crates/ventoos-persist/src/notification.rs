@@ -27,7 +27,7 @@ impl NotificationStore {
                 "SELECT id, title, message, level, source, read, action_url, task_id, created_at \
                  FROM notifications ORDER BY created_at DESC LIMIT ?1",
             )?;
-            let rows = stmt.query_map([MAX_NOTIFICATIONS as i64], |row| {
+            let rows = stmt.query_map([i64::try_from(MAX_NOTIFICATIONS).unwrap_or(i64::MAX)], |row| {
                 Ok(row_to_notification(row))
             })?;
             rows.collect()
@@ -57,8 +57,8 @@ impl NotificationStore {
         &self,
         title: &str,
         message: &str,
-        level: NotificationLevel,
-        source: NotificationSource,
+        level: &NotificationLevel,
+        source: &NotificationSource,
         dedup_key: Option<&str>,
     ) -> Result<Id, rusqlite::Error> {
         self.db.with_conn(|conn| {
@@ -79,9 +79,9 @@ impl NotificationStore {
                     id.to_string(),
                     title,
                     message,
-                    level_to_str(&level),
-                    source_to_str(&source),
-                    dedup_key.map(|k| format!("dedup:{}", k)),
+                    level_to_str(level),
+                    source_to_str(source),
+                    dedup_key.map(|k| format!("dedup:{k}")),
                 ],
             )?;
 
@@ -90,7 +90,7 @@ impl NotificationStore {
                 "DELETE FROM notifications WHERE id NOT IN (\
                     SELECT id FROM notifications ORDER BY created_at DESC LIMIT ?1\
                 )",
-                [MAX_NOTIFICATIONS as i64],
+                [i64::try_from(MAX_NOTIFICATIONS).unwrap_or(i64::MAX)],
             )?;
 
             Ok(id)
@@ -143,7 +143,7 @@ impl NotificationStore {
                 [],
                 |row| row.get(0),
             )?;
-            Ok(count as usize)
+            Ok(usize::try_from(count).unwrap_or(0))
         })
     }
 }
@@ -191,9 +191,7 @@ fn row_to_notification(row: &rusqlite::Row) -> Notification {
     let id_str: String = row.get(0).unwrap_or_default();
     let id: Id = id_str.parse().unwrap_or_else(|_| Uuid::nil());
     let created_at_str: String = row.get(8).unwrap_or_default();
-    let created_at = NaiveDateTime::parse_from_str(&created_at_str, "%Y-%m-%d %H:%M:%S")
-        .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
-        .unwrap_or_else(|_| Utc::now());
+    let created_at = NaiveDateTime::parse_from_str(&created_at_str, "%Y-%m-%d %H:%M:%S").map_or_else(|_| Utc::now(), |dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc));
 
     Notification {
         id,
@@ -221,7 +219,7 @@ mod tests {
     fn test_create_and_list() {
         let store = make_store();
         let id = store
-            .create("Test", "Hello", NotificationLevel::Info, NotificationSource::System, None)
+            .create("Test", "Hello", &NotificationLevel::Info, &NotificationSource::System, None)
             .unwrap();
 
         let list = store.list().unwrap();
@@ -235,7 +233,7 @@ mod tests {
     fn test_mark_read() {
         let store = make_store();
         let id = store
-            .create("Test", "Msg", NotificationLevel::Info, NotificationSource::System, None)
+            .create("Test", "Msg", &NotificationLevel::Info, &NotificationSource::System, None)
             .unwrap();
 
         assert!(store.mark_read(&id).unwrap());
@@ -246,8 +244,8 @@ mod tests {
     #[test]
     fn test_mark_all_read() {
         let store = make_store();
-        store.create("A", "a", NotificationLevel::Info, NotificationSource::System, None).unwrap();
-        store.create("B", "b", NotificationLevel::Warning, NotificationSource::Task, None).unwrap();
+        store.create("A", "a", &NotificationLevel::Info, &NotificationSource::System, None).unwrap();
+        store.create("B", "b", &NotificationLevel::Warning, &NotificationSource::Task, None).unwrap();
 
         assert_eq!(store.mark_all_read().unwrap(), 2);
         let list = store.list().unwrap();
@@ -258,7 +256,7 @@ mod tests {
     fn test_delete() {
         let store = make_store();
         let id = store
-            .create("Test", "Msg", NotificationLevel::Info, NotificationSource::System, None)
+            .create("Test", "Msg", &NotificationLevel::Info, &NotificationSource::System, None)
             .unwrap();
         assert!(store.delete(&id).unwrap());
         assert!(store.list().unwrap().is_empty());
@@ -267,8 +265,8 @@ mod tests {
     #[test]
     fn test_clear_all() {
         let store = make_store();
-        store.create("A", "a", NotificationLevel::Info, NotificationSource::System, None).unwrap();
-        store.create("B", "b", NotificationLevel::Error, NotificationSource::Agent, None).unwrap();
+        store.create("A", "a", &NotificationLevel::Info, &NotificationSource::System, None).unwrap();
+        store.create("B", "b", &NotificationLevel::Error, &NotificationSource::Agent, None).unwrap();
         assert_eq!(store.clear_all().unwrap(), 2);
         assert!(store.list().unwrap().is_empty());
     }
@@ -277,9 +275,9 @@ mod tests {
     fn test_unread_count() {
         let store = make_store();
         let id = store
-            .create("A", "a", NotificationLevel::Info, NotificationSource::System, None)
+            .create("A", "a", &NotificationLevel::Info, &NotificationSource::System, None)
             .unwrap();
-        store.create("B", "b", NotificationLevel::Warning, NotificationSource::Task, None).unwrap();
+        store.create("B", "b", &NotificationLevel::Warning, &NotificationSource::Task, None).unwrap();
         assert_eq!(store.unread_count().unwrap(), 2);
         store.mark_read(&id).unwrap();
         assert_eq!(store.unread_count().unwrap(), 1);
@@ -288,8 +286,8 @@ mod tests {
     #[test]
     fn test_dedup_replaces() {
         let store = make_store();
-        store.create("Old", "old msg", NotificationLevel::Info, NotificationSource::System, Some("key1")).unwrap();
-        store.create("New", "new msg", NotificationLevel::Warning, NotificationSource::System, Some("key1")).unwrap();
+        store.create("Old", "old msg", &NotificationLevel::Info, &NotificationSource::System, Some("key1")).unwrap();
+        store.create("New", "new msg", &NotificationLevel::Warning, &NotificationSource::System, Some("key1")).unwrap();
         let list = store.list().unwrap();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].title, "New");
@@ -302,8 +300,8 @@ mod tests {
             store.create(
                 &format!("Notif {}", i),
                 "msg",
-                NotificationLevel::Info,
-                NotificationSource::System,
+                &NotificationLevel::Info,
+                &NotificationSource::System,
                 None,
             ).unwrap();
         }

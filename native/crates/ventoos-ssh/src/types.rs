@@ -30,7 +30,7 @@ pub struct SshServer {
     pub default_path: Option<String>,
     /// Script to run after connection is established.
     pub init_script: Option<String>,
-    /// Jump host (ProxyJump) configuration.
+    /// Jump host (`ProxyJump`) configuration.
     pub jump_host: Option<JumpHost>,
     /// Proxy configuration.
     pub proxy: Option<ProxyConfig>,
@@ -46,7 +46,7 @@ fn default_heartbeat() -> u32 {
     30000
 }
 
-/// Jump host (ProxyJump) configuration.
+/// Jump host (`ProxyJump`) configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum JumpHost {
@@ -69,7 +69,7 @@ pub enum JumpHost {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
     pub enabled: bool,
-    /// Proxy address, e.g. "socks5://127.0.0.1:1080" or "http://proxy:8080"
+    /// Proxy address, e.g. "<socks5://127.0.0.1:1080>" or "<http://proxy:8080>"
     pub address: String,
 }
 
@@ -91,7 +91,7 @@ pub enum SshAuthMethod {
         #[serde(default)]
         passphrase_credential_id: Option<Id>,
     },
-    /// Use system SSH behavior: try default key files (~/.ssh/id_ed25519, id_rsa, etc.)
+    /// Use system SSH behavior: try default key files (~/.`ssh/id_ed25519`, `id_rsa`, etc.)
     /// and ssh-agent. Used when no explicit key is configured.
     Agent,
 }

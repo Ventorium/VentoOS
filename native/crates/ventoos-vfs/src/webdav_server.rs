@@ -1,9 +1,9 @@
-//! Built-in WebDAV server that exposes VFS mounts to external WebDAV clients.
+//! Built-in `WebDAV` server that exposes VFS mounts to external `WebDAV` clients.
 //!
 //! The server is mounted at `/webdav/` on the same HTTP port as the main API.
 //! Each exposed mount is accessible as a top-level "directory":
 //!
-//!   /webdav/{mount_name}/{file_path...}
+//!   /`webdav/{mount_name}/{file_path`...}
 //!
 //! Access is protected by HTTP Basic Auth.
 
@@ -21,7 +21,7 @@ use crate::types::{
     VfsCopyReq, VfsDeleteReq, VfsMkdirReq, VfsMoveReq, VfsWriteReq, WebDavServerSettings,
 };
 
-/// Build the WebDAV sub-router.  All requests to `/webdav/*path` pass through
+/// Build the `WebDAV` sub-router.  All requests to `/webdav/*path` pass through
 /// `webdav_handler`, which enforces Basic Auth and dispatches by HTTP method.
 /// The returned router has state `Arc<VfsManager>` — the caller must apply
 /// `.with_state(...)` after merging.
@@ -121,6 +121,7 @@ async fn webdav_handler(
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+#[allow(clippy::result_large_err)]
 fn check_auth(req: &Request, settings: &WebDavServerSettings) -> Result<(), Response> {
     // If no password is set, skip auth
     if settings.password.is_empty() {
@@ -199,9 +200,8 @@ async fn handle_propfind(
 ) -> Response {
     use crate::types::VfsListReq;
 
-    let mount = match mgr.get_mount(mount_id).await {
-        Some(m) => m,
-        None => return (StatusCode::NOT_FOUND, "Mount not found").into_response(),
+    let Some(mount) = mgr.get_mount(mount_id).await else {
+        return (StatusCode::NOT_FOUND, "Mount not found").into_response();
     };
 
     // stat the item first
@@ -213,8 +213,8 @@ async fn handle_propfind(
     let mut entries = vec![stat.clone()];
 
     // If it's a directory and depth != 0, also list children
-    if stat.is_dir && depth != "0" {
-        if let Ok(children) = mgr
+    if stat.is_dir && depth != "0"
+        && let Ok(children) = mgr
             .list_dir(&VfsListReq {
                 mount_id: mount_id.to_string(),
                 path: file_path.to_string(),
@@ -224,7 +224,6 @@ async fn handle_propfind(
         {
             entries.extend(children);
         }
-    }
 
     let prefix = format!("/webdav/{}", percent_encode_segment(&mount.name));
     let xml = build_multistatus_xml(&entries, &prefix, file_path);
@@ -358,7 +357,7 @@ async fn handle_move(
     destination: &str,
     settings: &WebDavServerSettings,
 ) -> Response {
-    let dest_path = match webdav_dest_to_vfs_path(destination, settings, mgr).await {
+    let dest_path = match webdav_dest_to_vfs_path(destination, settings, mgr) {
         Ok(p) => p,
         Err(e) => return (StatusCode::BAD_REQUEST, e).into_response(),
     };
@@ -385,7 +384,7 @@ async fn handle_copy(
     destination: &str,
     settings: &WebDavServerSettings,
 ) -> Response {
-    let dest_path = match webdav_dest_to_vfs_path(destination, settings, mgr).await {
+    let dest_path = match webdav_dest_to_vfs_path(destination, settings, mgr) {
         Ok(p) => p,
         Err(e) => return (StatusCode::BAD_REQUEST, e).into_response(),
     };
@@ -403,8 +402,9 @@ async fn handle_copy(
     }
 }
 
-/// Convert a WebDAV `Destination` header value to a VFS path within the same mount.
-async fn webdav_dest_to_vfs_path(
+/// Convert a `WebDAV` `Destination` header value to a VFS path within the same mount.
+#[allow(clippy::unnecessary_wraps)]
+fn webdav_dest_to_vfs_path(
     destination: &str,
     _settings: &WebDavServerSettings,
     _mgr: &VfsManager,
@@ -461,19 +461,22 @@ fn build_multistatus_xml(
     for node in nodes {
         let href = if node.path == "/" || node.path == request_path {
             // This is the root/requested directory itself
-            let p = if node.is_dir {
+            
+            if node.is_dir {
                 format!("{mount_prefix}/")
             } else {
                 mount_prefix.to_string()
-            };
-            p
+            }
         } else {
-            let segs: String = node
+            let segs = node
                 .path
                 .split('/')
                 .filter(|s| !s.is_empty())
-                .map(|s| format!("/{}", percent_encode_segment(s)))
-                .collect();
+                .fold(String::new(), |mut acc, s| {
+                    use std::fmt::Write;
+                    let _ = write!(acc, "/{}", percent_encode_segment(s));
+                    acc
+                });
             if node.is_dir {
                 format!("{mount_prefix}{segs}/")
             } else {
@@ -516,7 +519,7 @@ fn build_response_xml(
         .unwrap_or_default();
 
     format!(
-        r#"<D:response><D:href>{escaped_href}</D:href><D:propstat><D:prop>{resource_type}<D:displayname>{escaped_name}</D:displayname>{content_length}{last_modified}</D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>"#
+        r"<D:response><D:href>{escaped_href}</D:href><D:propstat><D:prop>{resource_type}<D:displayname>{escaped_name}</D:displayname>{content_length}{last_modified}</D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>"
     )
 }
 
@@ -549,12 +552,12 @@ fn percent_encode_segment(s: &str) -> String {
             _ => {
                 out.push('%');
                 out.push(
-                    char::from_digit((b >> 4) as u32, 16)
+                    char::from_digit(u32::from(b >> 4), 16)
                         .unwrap_or('0')
                         .to_ascii_uppercase(),
                 );
                 out.push(
-                    char::from_digit((b & 0xf) as u32, 16)
+                    char::from_digit(u32::from(b & 0xf), 16)
                         .unwrap_or('0')
                         .to_ascii_uppercase(),
                 );

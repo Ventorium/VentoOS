@@ -1,9 +1,9 @@
 //! Channel runtime for external chat platforms.
 //!
 //! Provides:
-//! - **ChannelAdapter** trait — unified interface for verify / normalize / send
-//! - **Concrete adapters** — Telegram, DingTalk, Feishu, WeCom, QQ
-//! - **ChannelRegistry** — runtime adapter registry keyed by channel config ID
+//! - **`ChannelAdapter`** trait — unified interface for verify / normalize / send
+//! - **Concrete adapters** — Telegram, `DingTalk`, Feishu, `WeCom`, QQ
+//! - **`ChannelRegistry`** — runtime adapter registry keyed by channel config ID
 
 pub mod dingtalk;
 pub mod feishu;
@@ -66,10 +66,10 @@ pub trait ChannelAdapter: Send + Sync {
     -> Result<VerifiedChannelRequest, AgentError>;
     fn normalize(&self, inbound: VerifiedChannelRequest)
     -> Result<ChannelMessageEvent, AgentError>;
-    fn send<'a>(
-        &'a self,
+    fn send(
+        &self,
         outbound: ChannelOutboundMessage,
-    ) -> BoxFuture<'a, Result<ChannelSendResult, AgentError>>;
+    ) -> BoxFuture<'_, Result<ChannelSendResult, AgentError>>;
 }
 
 // ─── Registry ───────────────────────────────────────────────────────────────

@@ -27,6 +27,7 @@ impl ArchiveFormat {
     /// Detect format from file extension.
     pub fn from_path(path: &str) -> Option<Self> {
         let lower = path.to_lowercase();
+        #[allow(clippy::case_sensitive_file_extension_comparisons)]
         if lower.ends_with(".tar.gz") || lower.ends_with(".tgz") {
             Some(Self::TarGz)
         } else if lower.ends_with(".zip") {
@@ -123,7 +124,7 @@ pub fn list_archive(
     }
 
     // For unsupported formats, return error
-    Err(format!("Unsupported archive format: {}", path_str))
+    Err(format!("Unsupported archive format: {path_str}"))
 }
 
 fn list_tar_gz(archive_path: &Path) -> Result<ArchiveListResult, String> {
@@ -258,8 +259,8 @@ fn list_rar(archive_path: &Path, _password: Option<&str>) -> Result<ArchiveListR
         .args(["l", "-slt", path_str.as_ref()])
         .output();
 
-    if let Ok(out) = output7z {
-        if out.status.success() {
+    if let Ok(out) = output7z
+        && out.status.success() {
             let stdout = String::from_utf8_lossy(&out.stdout);
             let entries = parse_sevenz_list_output(&stdout);
             return Ok(ArchiveListResult {
@@ -268,12 +269,11 @@ fn list_rar(archive_path: &Path, _password: Option<&str>) -> Result<ArchiveListR
                 error: None,
             });
         }
-    }
 
     Err("RAR support requires `unrar` or `7z` (p7zip) to be installed on the system. Install with: brew install unrar  or  brew install p7zip".to_string())
 }
 
-/// Parse the output of `7z l -slt` into ArchiveEntry list.
+/// Parse the output of `7z l -slt` into `ArchiveEntry` list.
 fn parse_sevenz_list_output(output: &str) -> Vec<ArchiveEntry> {
     let mut entries = Vec::new();
     let mut current: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
@@ -281,12 +281,12 @@ fn parse_sevenz_list_output(output: &str) -> Vec<ArchiveEntry> {
     for line in output.lines() {
         if line.starts_with("----------") {
             // Block separator — flush current entry
-            if let Some(path) = current.get("Path") {
-                if !path.is_empty() {
-                    let is_dir = current.get("Attributes").map(|a| a.starts_with('D')).unwrap_or(false);
+            if let Some(path) = current.get("Path")
+                && !path.is_empty() {
+                    let is_dir = current.get("Attributes").is_some_and(|a| a.starts_with('D'));
                     let size = current.get("Size").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
                     let compressed_size = current.get("Packed Size").and_then(|s| s.parse::<u64>().ok());
-                    let modified = current.get("Modified").map(|s| s.to_string());
+                    let modified = current.get("Modified").map(std::string::ToString::to_string);
                     entries.push(ArchiveEntry {
                         path: path.to_string(),
                         size,
@@ -296,7 +296,6 @@ fn parse_sevenz_list_output(output: &str) -> Vec<ArchiveEntry> {
                         encrypted: None,
                     });
                 }
-            }
             current.clear();
         } else if let Some((key, value)) = line.split_once(" = ") {
             current.insert(key.trim(), value.trim());
@@ -651,7 +650,7 @@ pub fn extract_rar(
     // Try `unrar x` first
     let mut args = vec!["x".to_string(), "-o+".to_string()];
     if let Some(pwd) = password {
-        args.push(format!("-p{}", pwd));
+        args.push(format!("-p{pwd}"));
     }
     args.push(path_str.to_string());
     args.push(dest_str.to_string());
@@ -671,7 +670,7 @@ pub fn extract_rar(
     // Fallback: try `7z x`
     let mut args7z = vec!["x".to_string(), path_str.to_string(), format!("-o{}", dest_str), "-y".to_string()];
     if let Some(pwd) = password {
-        args7z.push(format!("-p{}", pwd));
+        args7z.push(format!("-p{pwd}"));
     }
     let out7z = Command::new("7z").args(&args7z).output();
 
@@ -698,7 +697,7 @@ pub fn create_rar(
     let dest_str = dest.to_string_lossy();
     let mut args = vec!["a".to_string(), dest_str.to_string()];
     if let Some(pwd) = password {
-        args.push(format!("-hp{}", pwd));
+        args.push(format!("-hp{pwd}"));
     }
     for path in paths {
         let abs = root.join(path);
@@ -711,12 +710,11 @@ pub fn create_rar(
         Ok(o) => {
             let stderr = String::from_utf8_lossy(&o.stderr);
             let stdout = String::from_utf8_lossy(&o.stdout);
-            let msg = if !stderr.is_empty() { stderr.to_string() } else { stdout.to_string() };
+            let msg = if stderr.is_empty() { stdout.to_string() } else { stderr.to_string() };
             Err(format!("rar compression error: {msg}"))
         }
         Err(e) => Err(format!(
-            "Failed to run `rar`: {}. Install with: brew install rar  or  apt install rar",
-            e
+            "Failed to run `rar`: {e}. Install with: brew install rar  or  apt install rar"
         )),
     }
 }

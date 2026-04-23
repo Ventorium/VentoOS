@@ -72,11 +72,10 @@ async fn get_bing_wallpapers() -> impl IntoResponse {
     let mut guard = cache.lock().await;
     let today = chrono::Local::now().date_naive();
 
-    if let Some(cached) = guard.as_ref() {
-        if cached.date == today {
+    if let Some(cached) = guard.as_ref()
+        && cached.date == today {
             return Json(ApiResponse::ok(cached.urls.clone())).into_response();
         }
-    }
 
     match fetch_bing_wallpapers_from_api().await {
         Ok(urls) => {
@@ -203,9 +202,9 @@ pub fn create_router(state: &AppState) -> Router {
         .fallback(frontend_handler)
 }
 
-/// WebDAV routes — returned separately so callers can apply layers selectively.
+/// `WebDAV` routes — returned separately so callers can apply layers selectively.
 /// These routes must NOT go through the CORS layer (CORS intercepts OPTIONS,
-/// which breaks the DAV: header required by mount_webdav).
+/// which breaks the DAV: header required by `mount_webdav`).
 pub fn create_webdav_router(state: &AppState) -> Router {
     Router::new()
         // exact /dav/{id}  — no trailing slash
@@ -279,7 +278,7 @@ async fn cancel_task(State(state): State<AppState>, Path(id): Path<Id>) -> impl 
 async fn list_notifications(State(state): State<AppState>) -> Json<ApiResponse<Vec<ventoos_core::notification::Notification>>> {
     match state.notification_mgr.list() {
         Ok(list) => Json(ApiResponse::ok(list)),
-        Err(e) => Json(ApiResponse::err(&format!("Failed to list notifications: {}", e))),
+        Err(e) => Json(ApiResponse::err(format!("Failed to list notifications: {e}"))),
     }
 }
 
@@ -296,7 +295,7 @@ async fn get_notification(
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::err(&format!("Failed to get notification: {}", e))),
+            Json(ApiResponse::<()>::err(format!("Failed to get notification: {e}"))),
         )
             .into_response(),
     }
@@ -328,11 +327,11 @@ async fn create_notification(
         Some("app") => ventoos_core::notification::NotificationSource::App,
         _ => ventoos_core::notification::NotificationSource::System,
     };
-    match state.notification_mgr.create(&body.title, &body.message, level, source, body.dedup_key.as_deref()) {
+    match state.notification_mgr.create(&body.title, &body.message, &level, &source, body.dedup_key.as_deref()) {
         Ok(id) => Json(ApiResponse::ok(serde_json::json!({ "id": id.to_string() }))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::err(&format!("Failed to create notification: {}", e))),
+            Json(ApiResponse::<()>::err(format!("Failed to create notification: {e}"))),
         )
             .into_response(),
     }
@@ -351,7 +350,7 @@ async fn mark_notification_read(
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::err(&format!("Failed to mark as read: {}", e))),
+            Json(ApiResponse::<()>::err(format!("Failed to mark as read: {e}"))),
         )
             .into_response(),
     }
@@ -360,7 +359,7 @@ async fn mark_notification_read(
 async fn mark_all_notifications_read(State(state): State<AppState>) -> Json<ApiResponse<serde_json::Value>> {
     match state.notification_mgr.mark_all_read() {
         Ok(count) => Json(ApiResponse::ok(serde_json::json!({ "count": count }))),
-        Err(e) => Json(ApiResponse::err(&format!("Failed to mark all as read: {}", e))),
+        Err(e) => Json(ApiResponse::err(format!("Failed to mark all as read: {e}"))),
     }
 }
 
@@ -377,7 +376,7 @@ async fn delete_notification(
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::err(&format!("Failed to delete notification: {}", e))),
+            Json(ApiResponse::<()>::err(format!("Failed to delete notification: {e}"))),
         )
             .into_response(),
     }
@@ -386,7 +385,7 @@ async fn delete_notification(
 async fn clear_all_notifications(State(state): State<AppState>) -> Json<ApiResponse<serde_json::Value>> {
     match state.notification_mgr.clear_all() {
         Ok(count) => Json(ApiResponse::ok(serde_json::json!({ "count": count }))),
-        Err(e) => Json(ApiResponse::err(&format!("Failed to clear notifications: {}", e))),
+        Err(e) => Json(ApiResponse::err(format!("Failed to clear notifications: {e}"))),
     }
 }
 
@@ -408,8 +407,8 @@ async fn get_desktop_state(State(state): State<AppState>) -> Json<ApiResponse<se
                 "theme_mode": settings.get("theme_mode").unwrap_or(&"dark".to_string()),
                 "dock_icon_size": settings.get("dock_icon_size").and_then(|s| s.parse::<u32>().ok()).unwrap_or(48),
                 "dock_position": settings.get("dock_position").unwrap_or(&"bottom".to_string()),
-                "dock_magnification": settings.get("dock_magnification").map_or(true, |s| s == "true"),
-                "dock_auto_hide": settings.get("dock_auto_hide").map_or(false, |s| s == "true"),
+                "dock_magnification": settings.get("dock_magnification").is_none_or(|s| s == "true"),
+                "dock_auto_hide": settings.get("dock_auto_hide").is_some_and(|s| s == "true"),
             });
             Json(ApiResponse::ok(result))
         }
@@ -437,7 +436,7 @@ async fn save_desktop_state(
         (
             "dock_icon_size",
             body.get("dock_icon_size")
-                .and_then(|v| v.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .map(|v| v.to_string()),
         ),
         (
@@ -449,24 +448,23 @@ async fn save_desktop_state(
         (
             "dock_magnification",
             body.get("dock_magnification")
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .map(|v| v.to_string()),
         ),
         (
             "dock_auto_hide",
             body.get("dock_auto_hide")
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .map(|v| v.to_string()),
         ),
     ];
     for (key, value) in kv_pairs {
-        if let Some(val) = value {
-            if let Err(e) = state.settings_mgr.set(key, &val) {
+        if let Some(val) = value
+            && let Err(e) = state.settings_mgr.set(key, &val) {
                 return Json(ApiResponse::err(format!(
                     "Failed to save setting '{key}': {e}"
                 )));
             }
-        }
     }
     Json(ApiResponse::ok(serde_json::json!({"saved": true})))
 }
@@ -543,8 +541,7 @@ async fn get_system_settings(State(state): State<AppState>) -> Json<ApiResponse<
             let get_bool = |key: &str, default: bool| -> bool {
                 settings
                     .get(key)
-                    .map(|s| s == "true")
-                    .unwrap_or(default)
+                    .map_or(default, |s| s == "true")
             };
             let get_num = |key: &str, default: i64| -> i64 {
                 settings
@@ -842,7 +839,7 @@ async fn fuse_mount_handler(
         .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::err(&e.to_string())),
+            Json(ApiResponse::<()>::err(e.to_string())),
         )
             .into_response(),
     }
@@ -856,7 +853,7 @@ async fn fuse_unmount_handler(
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"unmounted": true}))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::err(&e.to_string())),
+            Json(ApiResponse::<()>::err(e.to_string())),
         )
             .into_response(),
     }

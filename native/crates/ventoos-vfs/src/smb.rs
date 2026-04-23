@@ -42,9 +42,11 @@ enum SmbTarget {
 
 /// Pool of SMB connections keyed by mount ID.
 /// Each mount keeps a reusable SMB client plus per-share pooled sessions.
+type SharePool = HashMap<String, Arc<Mutex<Option<Share>>>>;
+
 pub(crate) struct SmbClientPool {
     clients: Mutex<HashMap<String, Arc<Client>>>,
-    shares: Mutex<HashMap<String, HashMap<String, Arc<Mutex<Option<Share>>>>>>,
+    shares: Mutex<HashMap<String, SharePool>>,
     conn_infos: Mutex<HashMap<String, SmbConnInfo>>,
 }
 
@@ -395,24 +397,24 @@ fn resolve_server_target(vfs_path: &str) -> Option<(String, String)> {
     }
 
     let share_path = match parts.next() {
-        Some(rest) if !rest.is_empty() => format!("/{}", rest),
+        Some(rest) if !rest.is_empty() => format!("/{rest}"),
         _ => "/".to_string(),
     };
 
     Some((share.to_string(), share_path))
 }
 
-fn resolve_target(info: &SmbConnInfo, vfs_path: &str) -> Result<SmbTarget, String> {
+fn resolve_target(info: &SmbConnInfo, vfs_path: &str) -> SmbTarget {
     if let Some(share) = &info.share {
-        return Ok(SmbTarget::Share {
+        return SmbTarget::Share {
             share: share.clone(),
             share_path: to_share_path(&info.base_path, vfs_path),
-        });
+        };
     }
 
     match resolve_server_target(vfs_path) {
-        None => Ok(SmbTarget::ServerRoot),
-        Some((share, share_path)) => Ok(SmbTarget::Share { share, share_path }),
+        None => SmbTarget::ServerRoot,
+        Some((share, share_path)) => SmbTarget::Share { share, share_path },
     }
 }
 
@@ -565,7 +567,7 @@ pub(crate) async fn list_dir(
     show_hidden: bool,
 ) -> Result<Vec<VfsNode>, String> {
     let info = pool.get_info(mount_id).await?;
-    let target = resolve_target(&info, vfs_path)?;
+    let target = resolve_target(&info, vfs_path);
 
     match target {
         SmbTarget::ServerRoot => list_server_root(pool, mount_id, show_hidden).await,
@@ -590,14 +592,14 @@ pub(crate) async fn read_file(
 ) -> Result<VfsFileContent, String> {
     let raw = read_file_raw(pool, mount_id, vfs_path).await?;
     let size = raw.len();
-    let truncated = max_bytes.is_some_and(|m| (m as usize) < size);
+    let truncated = max_bytes.is_some_and(|m| usize::try_from(m).unwrap_or(usize::MAX) < size);
 
     let content = String::from_utf8_lossy(&raw).to_string();
     let is_binary = content.contains('\u{FFFD}');
 
     Ok(VfsFileContent {
         path: vfs_path.to_string(),
-        size: size as u64,
+        size: u64::try_from(size).unwrap_or(u64::MAX),
         content,
         is_binary,
         truncated,
@@ -611,7 +613,7 @@ pub(crate) async fn read_file_raw(
     vfs_path: &str,
 ) -> Result<Vec<u8>, String> {
     let info = pool.get_info(mount_id).await?;
-    let target = resolve_target(&info, vfs_path)?;
+    let target = resolve_target(&info, vfs_path);
     let (share_name, share_path) = match target {
         SmbTarget::ServerRoot => {
             return Err("Cannot read the SMB server root; select a share first".to_string());
@@ -650,7 +652,7 @@ pub(crate) async fn upload_file(
     data: &[u8],
 ) -> Result<(), String> {
     let info = pool.get_info(mount_id).await?;
-    let target = resolve_target(&info, vfs_path)?;
+    let target = resolve_target(&info, vfs_path);
     let (share_name, share_path) = match target {
         SmbTarget::ServerRoot => {
             return Err("Cannot write into the SMB server root; select a share first".to_string());
@@ -678,7 +680,7 @@ pub(crate) async fn mkdir(
     vfs_path: &str,
 ) -> Result<(), String> {
     let info = pool.get_info(mount_id).await?;
-    let target = resolve_target(&info, vfs_path)?;
+    let target = resolve_target(&info, vfs_path);
     let (share_name, share_path) = match target {
         SmbTarget::ServerRoot => {
             return Err(
@@ -709,7 +711,7 @@ pub(crate) async fn delete(
     vfs_path: &str,
 ) -> Result<(), String> {
     let info = pool.get_info(mount_id).await?;
-    let target = resolve_target(&info, vfs_path)?;
+    let target = resolve_target(&info, vfs_path);
     let (share_name, share_path) = match target {
         SmbTarget::ServerRoot => {
             return Err("Cannot delete the SMB server root; select a share first".to_string());
@@ -738,8 +740,8 @@ pub(crate) async fn move_file(
     dest_vfs_path: &str,
 ) -> Result<(), String> {
     let info = pool.get_info(mount_id).await?;
-    let src_target = resolve_target(&info, src_vfs_path)?;
-    let dest_target = resolve_target(&info, dest_vfs_path)?;
+    let src_target = resolve_target(&info, src_vfs_path);
+    let dest_target = resolve_target(&info, dest_vfs_path);
 
     match (src_target, dest_target) {
         (
@@ -782,8 +784,8 @@ pub(crate) async fn copy_file(
     dest_vfs_path: &str,
 ) -> Result<(), String> {
     let info = pool.get_info(mount_id).await?;
-    let src_target = resolve_target(&info, src_vfs_path)?;
-    let dest_target = resolve_target(&info, dest_vfs_path)?;
+    let src_target = resolve_target(&info, src_vfs_path);
+    let dest_target = resolve_target(&info, dest_vfs_path);
 
     match (src_target, dest_target) {
         (SmbTarget::Share { .. }, SmbTarget::Share { .. }) => {
@@ -832,7 +834,7 @@ pub(crate) async fn stat(
     vfs_path: &str,
 ) -> Result<VfsNode, String> {
     let info = pool.get_info(mount_id).await?;
-    let target = resolve_target(&info, vfs_path)?;
+    let target = resolve_target(&info, vfs_path);
 
     match target {
         SmbTarget::ServerRoot => Ok(VfsNode {
@@ -905,7 +907,7 @@ pub(crate) async fn search(
     max_results: Option<usize>,
 ) -> Result<Vec<VfsNode>, String> {
     let info = pool.get_info(mount_id).await?;
-    let target = resolve_target(&info, vfs_path)?;
+    let target = resolve_target(&info, vfs_path);
     let query_lower = query.to_lowercase();
     let max = max_results.unwrap_or(100);
 

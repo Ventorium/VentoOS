@@ -112,7 +112,8 @@ fn urlencoding(s: &str) -> String {
                 result.push(b as char);
             }
             _ => {
-                result.push_str(&format!("%{b:02X}"));
+                use std::fmt::Write;
+                let _ = write!(result, "%{b:02X}");
             }
         }
     }
@@ -129,7 +130,7 @@ pub async fn list_dir(config: &K8sPodConfig, path: &str) -> Result<Vec<VfsNode>,
     Ok(parse_ls_output(&output, path))
 }
 
-/// Parse `ls -la` output into VfsNode entries.
+/// Parse `ls -la` output into `VfsNode` entries.
 fn parse_ls_output(output: &str, base_path: &str) -> Vec<VfsNode> {
     let mut nodes = Vec::new();
     for line in output.lines().skip(1) {

@@ -65,11 +65,7 @@ pub async fn handle_log_stream(
     }
 
     // Compile regex filter if provided
-    let filter_regex = req.filter.as_ref().and_then(|pattern| {
-        // Simple substring matching — we avoid pulling in the `regex` crate.
-        // The pattern is used as a case-insensitive substring match.
-        Some(pattern.to_lowercase())
-    });
+    let filter_regex = req.filter.as_ref().map(|pattern| pattern.to_lowercase());
 
     let tail = req.tail_lines.unwrap_or(100);
     let container = req.container.clone().unwrap_or_default();
@@ -131,11 +127,10 @@ async fn stream_pod_logs(
         }
 
         // Apply filter
-        if let Some(ref pattern) = filter {
-            if !line.to_lowercase().contains(pattern) {
+        if let Some(ref pattern) = filter
+            && !line.to_lowercase().contains(pattern) {
                 continue;
             }
-        }
 
         // Parse timestamp (K8s log lines are: "2024-01-01T00:00:00.000Z message...")
         let (timestamp, message) = if let Some(idx) = line.find(' ') {

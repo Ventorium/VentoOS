@@ -1,6 +1,6 @@
 //! Dependency detection and installation for system-level requirements.
 //!
-//! This module checks whether platform-specific dependencies (e.g. macFUSE, libfuse3, WinFSP)
+//! This module checks whether platform-specific dependencies (e.g. macFUSE, libfuse3, `WinFSP`)
 //! are installed and provides installation scripts via API routes.
 
 use axum::extract::Query;
@@ -105,7 +105,7 @@ fn check_libfuse3_installed() -> bool {
         })
 }
 
-/// Check if WinFSP is installed on Windows.
+/// Check if `WinFSP` is installed on Windows.
 fn check_winfsp_installed() -> bool {
     // WinFSP installs to Program Files
     if std::path::Path::new(r"C:\Program Files (x86)\WinFsp").exists()
@@ -129,12 +129,7 @@ fn tsh_install_command() -> String {
     if cfg!(target_os = "macos") {
         "brew install teleport".into()
     } else if cfg!(target_os = "linux") {
-        // Detect package manager
-        if Command::new("apt-get").arg("--version").output().is_ok_and(|o| o.status.success()) {
-            "curl https://goteleport.com/static/install.sh | bash -s latest".into()
-        } else {
-            "curl https://goteleport.com/static/install.sh | bash -s latest".into()
-        }
+        "curl https://goteleport.com/static/install.sh | bash -s latest".into()
     } else {
         "https://goteleport.com/docs/installation/".into()
     }
@@ -432,11 +427,11 @@ async fn install_fileprovider_handler() -> impl IntoResponse {
     .into_response()
 }
 
-/// Find the `build.sh` for the FileProvider companion app.
+/// Find the `build.sh` for the `FileProvider` companion app.
 fn find_fileprovider_build_sh() -> Option<PathBuf> {
     // 1. Dev layout: exe is at native/target/debug/ventoos, source is native/fileprovider/
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(exe_dir) = exe.parent() {
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(exe_dir) = exe.parent() {
             // native/target/debug/ -> ../../fileprovider/
             let candidate = exe_dir.join("../../fileprovider/build.sh");
             if candidate.exists() {
@@ -448,7 +443,6 @@ fn find_fileprovider_build_sh() -> Option<PathBuf> {
                 return Some(candidate.canonicalize().unwrap_or(candidate));
             }
         }
-    }
 
     // 3. Explicit source dir env var
     if let Ok(source_dir) = std::env::var("VENTOOS_SOURCE_DIR") {

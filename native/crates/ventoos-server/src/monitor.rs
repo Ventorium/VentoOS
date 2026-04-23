@@ -223,7 +223,7 @@ async fn collect_cpu() -> CpuInfo {
             .iter()
             .enumerate()
             .map(|(i, &usage)| CpuCoreInfo {
-                core_id: i as u32,
+                core_id: i.try_into().unwrap_or(0),
                 usage_percent: usage,
             })
             .collect()
@@ -863,6 +863,7 @@ async fn collect_network_info() -> Vec<NetworkInterfaceInfo> {
 }
 
 #[cfg(target_os = "macos")]
+#[allow(clippy::too_many_lines)]
 async fn collect_network_info_macos() -> Vec<NetworkInterfaceInfo> {
     let ifconfig_out = run_cmd("ifconfig", &[]).await;
     let route_out = run_cmd("route", &["-n", "get", "default"]).await;
@@ -949,8 +950,6 @@ async fn collect_network_info_macos() -> Vec<NetworkInterfaceInfo> {
             };
             current_if_type = if current_name.starts_with("lo") {
                 "loopback".to_string()
-            } else if current_name.starts_with("en") {
-                "ethernet".to_string()
             } else {
                 "ethernet".to_string()
             };

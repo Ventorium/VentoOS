@@ -7,7 +7,7 @@ use tracing::info;
 
 /// Per-app key-value storage manager.
 ///
-/// Each application gets its own SQLite database under `$DATA_DIR/apps/{app_id}/store.db`.
+/// Each application gets its own `SQLite` database under `$DATA_DIR/apps/{app_id}/store.db`.
 pub struct StorageManager {
     data_dir: PathBuf,
     dbs: RwLock<HashMap<String, Arc<Mutex<Connection>>>>,
@@ -21,7 +21,7 @@ impl StorageManager {
         }
     }
 
-    /// Get or create the per-app SQLite database connection.
+    /// Get or create the per-app `SQLite` database connection.
     fn get_db(&self, app_id: &str) -> Result<Arc<Mutex<Connection>>, rusqlite::Error> {
         // Fast path: check if already opened
         {

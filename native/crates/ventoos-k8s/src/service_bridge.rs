@@ -57,12 +57,16 @@ pub async fn detect_service(
 
     // Check port numbers
     for port_entry in &spec_ports {
-        let port_num = port_entry.get("port").and_then(Value::as_u64).unwrap_or(0) as u16;
+        let port_num = port_entry
+            .get("port")
+            .and_then(Value::as_u64)
+            .and_then(|n| n.try_into().ok())
+            .unwrap_or(0);
         let target = port_entry
             .get("targetPort")
             .and_then(|v| {
                 v.as_u64()
-                    .map(|n| n as u16)
+                    .and_then(|n| n.try_into().ok())
                     .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
             })
             .unwrap_or(port_num);
@@ -175,17 +179,20 @@ fn detect_from_component_name(name: &str) -> Option<DetectedServiceType> {
 fn extract_first_port(ports: &[Value]) -> (u16, u16) {
     ports
         .first()
-        .map(|p| {
-            let port = p.get("port").and_then(Value::as_u64).unwrap_or(0) as u16;
+        .map_or((0, 0), |p| {
+            let port = p
+                .get("port")
+                .and_then(Value::as_u64)
+                .and_then(|n| n.try_into().ok())
+                .unwrap_or(0);
             let target = p
                 .get("targetPort")
                 .and_then(|v| {
                     v.as_u64()
-                        .map(|n| n as u16)
+                        .and_then(|n| n.try_into().ok())
                         .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
                 })
                 .unwrap_or(port);
             (port, target)
         })
-        .unwrap_or((0, 0))
 }

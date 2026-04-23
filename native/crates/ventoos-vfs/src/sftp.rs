@@ -117,14 +117,13 @@ fn urldecode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(byte) = u8::from_str_radix(&String::from_utf8_lossy(&bytes[i + 1..i + 3]), 16)
+        if bytes[i] == b'%' && i + 2 < bytes.len()
+            && let Ok(byte) = u8::from_str_radix(&String::from_utf8_lossy(&bytes[i + 1..i + 3]), 16)
             {
                 result.push(byte as char);
                 i += 3;
                 continue;
             }
-        }
         result.push(bytes[i] as char);
         i += 1;
     }
@@ -349,7 +348,7 @@ pub async fn read_file(
         .await
         .map_err(|e| format!("SFTP open failed: {e}"))?;
 
-    let read_size = std::cmp::min(file_size, limit) as usize;
+    let read_size = usize::try_from(std::cmp::min(file_size, limit)).unwrap_or(usize::MAX);
     let mut buf = vec![0u8; read_size];
     let bytes_read = file
         .read(&mut buf)
@@ -557,7 +556,7 @@ pub async fn stat(sftp: &SftpSession, root: &str, rel_path: &str) -> Result<VfsN
         let dt: chrono::DateTime<chrono::Utc> = t.into();
         dt.to_rfc3339()
     });
-    let permissions = metadata.permissions.map(|p| format!("{:o}", p));
+    let permissions = metadata.permissions.map(|p| format!("{p:o}"));
 
     Ok(VfsNode {
         name,
@@ -571,7 +570,7 @@ pub async fn stat(sftp: &SftpSession, root: &str, rel_path: &str) -> Result<VfsN
 
 /// Search for files matching a query string via SFTP.
 /// Currently returns empty — recursive SFTP search is expensive over slow connections.
-pub async fn search(
+pub fn search(
     _sftp: &SftpSession,
     _root: &str,
     _rel_path: &str,

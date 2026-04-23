@@ -385,7 +385,7 @@ fn test_19_db_test_result_success_and_failure() {
 #[test]
 fn test_20_ssh_tunnel_config_password_auth() {
     // serde internally-tagged newtype variant cannot be serialized, so test via deserialization
-    let json_str = r#"{
+    let _json_str = r#"{
         "host": "bastion.local",
         "port": 22,
         "username": "deploy",

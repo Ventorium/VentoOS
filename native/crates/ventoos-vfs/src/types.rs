@@ -13,7 +13,7 @@ pub enum VfsSourceKind {
 }
 
 impl VfsSourceKind {
-    /// Serialize as a lowercase string for DB storage (matches serde rename_all).
+    /// Serialize as a lowercase string for DB storage (matches serde `rename_all`).
     pub fn as_db_str(self) -> &'static str {
         match self {
             VfsSourceKind::Local => "local",
@@ -41,16 +41,16 @@ impl std::str::FromStr for VfsSourceKind {
     }
 }
 
-/// Settings for the built-in WebDAV server that exposes mounts to external clients.
+/// Settings for the built-in `WebDAV` server that exposes mounts to external clients.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebDavServerSettings {
-    /// Whether the WebDAV server is enabled.
+    /// Whether the `WebDAV` server is enabled.
     pub enabled: bool,
-    /// HTTP Basic Auth username for the WebDAV server.
+    /// HTTP Basic Auth username for the `WebDAV` server.
     pub username: String,
-    /// HTTP Basic Auth password for the WebDAV server.
+    /// HTTP Basic Auth password for the `WebDAV` server.
     pub password: String,
-    /// List of mount IDs to expose through the WebDAV server.
+    /// List of mount IDs to expose through the `WebDAV` server.
     pub exposed_mounts: Vec<String>,
 }
 
@@ -65,7 +65,7 @@ impl Default for WebDavServerSettings {
     }
 }
 
-/// Validates that a mount name is safe to use as a WebDAV directory path segment.
+/// Validates that a mount name is safe to use as a `WebDAV` directory path segment.
 /// Returns `None` if valid, or an error message if invalid.
 pub fn validate_mount_name(name: &str) -> Option<String> {
     if name.is_empty() {
@@ -91,9 +91,9 @@ pub enum MountBackend {
     /// FUSE-based mounting (macFUSE on macOS, libfuse3 on Linux).
     #[default]
     Fuse,
-    /// Apple FileProvider framework (macOS 12+ only).
+    /// Apple `FileProvider` framework (macOS 12+ only).
     FileProvider,
-    /// WebDAV mounting via the built-in VentoOS WebDAV server.
+    /// `WebDAV` mounting via the built-in `VentoOS` `WebDAV` server.
     /// Uses `mount_webdav` on macOS (no extra dependencies required).
     WebDav,
 }

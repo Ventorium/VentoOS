@@ -1,7 +1,7 @@
-//! DingTalk (钉钉) Stream-mode bot adapter.
+//! `DingTalk` (钉钉) Stream-mode bot adapter.
 //!
-//! Inbound: accepts the callback JSON from DingTalk robot webhook/stream.
-//! Outbound: sends replies via the DingTalk robot message API.
+//! Inbound: accepts the callback JSON from `DingTalk` robot webhook/stream.
+//! Outbound: sends replies via the `DingTalk` robot message API.
 //!
 //! Reference: <https://open.dingtalk.com/document/orgapp/the-creation-and-installation-of-the-bot>
 
@@ -12,7 +12,7 @@ use crate::channel::{
 };
 use crate::types::{AgentError, ChannelIdentity, ChannelMessageEvent};
 
-/// DingTalk robot adapter.
+/// `DingTalk` robot adapter.
 pub struct DingTalkAdapter {
     channel_id: String,
     client_id: String,
@@ -29,7 +29,8 @@ impl DingTalkAdapter {
         }
     }
 
-    /// Parse and validate a DingTalk robot callback body.
+    /// Parse and validate a `DingTalk` robot callback body.
+    #[allow(clippy::unused_self)]
     fn parse_callback(&self, raw_body: &str) -> Result<DingTalkCallback, AgentError> {
         serde_json::from_str(raw_body).map_err(|e| AgentError::ChannelError {
             channel: "dingtalk".into(),
@@ -107,10 +108,10 @@ impl ChannelAdapter for DingTalkAdapter {
         })
     }
 
-    fn send<'a>(
-        &'a self,
+    fn send(
+        &self,
         outbound: crate::channel::ChannelOutboundMessage,
-    ) -> crate::channel::BoxFuture<'a, Result<ChannelSendResult, AgentError>> {
+    ) -> crate::channel::BoxFuture<'_, Result<ChannelSendResult, AgentError>> {
         Box::pin(async move {
             // First get an access token
             let token = self.get_access_token().await?;
@@ -155,7 +156,7 @@ impl ChannelAdapter for DingTalkAdapter {
 }
 
 impl DingTalkAdapter {
-    /// Obtain an access token using client_id + client_secret.
+    /// Obtain an access token using `client_id` + `client_secret`.
     async fn get_access_token(&self) -> Result<String, AgentError> {
         let url = "https://api.dingtalk.com/v1.0/oauth2/accessToken";
         let body = serde_json::json!({

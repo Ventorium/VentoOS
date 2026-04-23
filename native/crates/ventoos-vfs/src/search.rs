@@ -18,7 +18,7 @@ fn glob_match(name: &[u8], pattern: &[u8]) -> bool {
     while ni < name.len() {
         if pi < pattern.len()
             && (pattern[pi] == b'?'
-                || pattern[pi].to_ascii_lowercase() == name[ni].to_ascii_lowercase())
+                || pattern[pi].eq_ignore_ascii_case(&name[ni]))
         {
             ni += 1;
             pi += 1;
@@ -83,7 +83,7 @@ fn match_char_class(pattern: &[u8], ch: u8) -> Option<(bool, usize)> {
             }
             i += 3;
         } else {
-            if pattern[i].to_ascii_lowercase() == ch.to_ascii_lowercase() {
+            if pattern[i].eq_ignore_ascii_case(&ch) {
                 matched = true;
             }
             i += 1;

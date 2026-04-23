@@ -642,7 +642,7 @@ fn window_status_all_variants() {
 #[test]
 fn window_state_full_roundtrip() {
     let state = WindowState {
-        id: new_id(),
+        id: new_id().to_string(),
         app_id: "database".to_string(),
         title: "Database — prod-pg / public".to_string(),
         x: 150.5,
@@ -823,7 +823,7 @@ fn edge_case_task_with_zero_progress() {
 #[test]
 fn edge_case_window_at_origin() {
     let state = WindowState {
-        id: new_id(),
+        id: new_id().to_string(),
         app_id: "explorer".to_string(),
         title: String::new(),
         x: 0.0,
