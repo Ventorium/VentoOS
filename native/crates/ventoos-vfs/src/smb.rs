@@ -515,6 +515,9 @@ async fn list_share_directory(
             if entry.file_name == "." || entry.file_name == ".." {
                 continue;
             }
+            if entry.file_name.starts_with("._") {
+                continue;
+            }
             if !show_hidden && entry.file_name.starts_with('.') {
                 continue;
             }

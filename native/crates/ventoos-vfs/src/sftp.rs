@@ -283,6 +283,10 @@ pub async fn list_dir(
 
     for entry in entries {
         let name = entry.file_name();
+        // Skip macOS Apple Double files (._*) always
+        if name.starts_with("._") {
+            continue;
+        }
         // Skip hidden files unless explicitly requested
         if !show_hidden && name.starts_with('.') {
             continue;

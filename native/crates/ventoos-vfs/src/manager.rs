@@ -457,6 +457,10 @@ impl VfsManager {
 
         while let Ok(Some(entry)) = read_dir.next_entry().await {
             let name = entry.file_name().to_string_lossy().to_string();
+            // Skip macOS Apple Double files (._*) always — they are internal metadata
+            if name.starts_with("._") {
+                continue;
+            }
             // Skip hidden files unless explicitly requested
             if !show_hidden && name.starts_with('.') {
                 continue;
