@@ -12,6 +12,7 @@ import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
+import { useAuthStore } from '@/services/auth'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 const SAMPLE_TEXT_EN = 'The quick brown fox jumps over the lazy dog'
@@ -57,7 +58,8 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
       return
     }
 
-    const rawUrl = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
+    const token = useAuthStore.getState().token
+    const rawUrl = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}${token ? `&token=${encodeURIComponent(token)}` : ''}`
     const familyName = `preview-${node.name.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`
 
     const fontFace = new FontFace(familyName, `url(${rawUrl})`)
@@ -84,7 +86,8 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
 
   const handleDownload = useCallback(() => {
     if (!mountId || !node) return
-    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
+    const token = useAuthStore.getState().token
+    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}${token ? `&token=${encodeURIComponent(token)}` : ''}`
     const a = document.createElement('a')
     a.href = url
     a.download = node.name

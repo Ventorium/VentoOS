@@ -35,6 +35,7 @@ import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/services/auth'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 type Tool = 'move' | 'brush' | 'eraser' | 'crop'
@@ -143,7 +144,8 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
       return
     }
 
-    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
+    const token = useAuthStore.getState().token
+    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}${token ? `&token=${encodeURIComponent(token)}` : ''}`
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
