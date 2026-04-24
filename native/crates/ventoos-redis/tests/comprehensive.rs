@@ -142,8 +142,8 @@ async fn resp3_parse_boolean_false() {
 
 #[tokio::test]
 async fn resp3_parse_double() {
-    let val = parse(b",3.14\r\n").await.unwrap();
-    assert_eq!(val, RespValue::Double(3.14));
+    let val = parse(b",3.5\r\n").await.unwrap();
+    assert_eq!(val, RespValue::Double(3.5));
 }
 
 #[tokio::test]
@@ -282,7 +282,7 @@ fn resp_value_is_null_variants() {
     assert!(RespValue::Array(None).is_null());
     // Non-null should return false:
     assert!(!RespValue::Integer(0).is_null());
-    assert!(!RespValue::SimpleString("".into()).is_null());
+    assert!(!RespValue::SimpleString(String::new()).is_null());
 }
 
 #[test]
@@ -382,8 +382,8 @@ fn to_string_lossy_boolean() {
 
 #[test]
 fn to_string_lossy_double() {
-    let s = RespValue::Double(3.14).to_string_lossy();
-    assert!(s.starts_with("3.14"), "got: {s}");
+    let s = RespValue::Double(3.5).to_string_lossy();
+    assert!(s.starts_with("3.5"), "got: {s}");
 }
 
 #[test]
@@ -417,7 +417,7 @@ fn to_string_lossy_map() {
         RespValue::Integer(9),
     )]);
     let s = v.to_string_lossy();
-    assert!(s.contains("k") && s.contains("9"));
+    assert!(s.contains('k') && s.contains('9'));
 }
 
 // ── to_json ─────────────────────────────────────────────────
@@ -1062,9 +1062,9 @@ async fn resp_parse_double_zero() {
 
 #[tokio::test]
 async fn resp_parse_double_negative() {
-    let val = parse(b",-2.718\r\n").await.unwrap();
+    let val = parse(b",-2.5\r\n").await.unwrap();
     if let RespValue::Double(f) = val {
-        assert!((f - (-2.718)).abs() < 1e-10);
+        assert!((f - (-2.5)).abs() < 1e-10);
     } else {
         panic!("expected Double");
     }

@@ -182,7 +182,7 @@ mod tests {
             cores: (0..8)
                 .map(|i| CpuCoreInfo {
                     core_id: i,
-                    usage_percent: 40.0 + i as f64,
+                    usage_percent: 40.0 + f64::from(i),
                 })
                 .collect(),
             model_name: "Apple M1".to_string(),
@@ -205,7 +205,7 @@ mod tests {
         };
         let json = serde_json::to_string(&mem).expect("serialize");
         let deserialized: MemoryInfo = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(deserialized.usage_percent, 50.0);
+        assert!((deserialized.usage_percent - 50.0).abs() < f64::EPSILON);
         assert_eq!(deserialized.swap_used_bytes, 0);
     }
 

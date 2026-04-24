@@ -11,7 +11,7 @@ use ventoos_k8s::*;
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn single_context_kubeconfig() -> &'static str {
-    r#"apiVersion: v1
+    r"apiVersion: v1
 kind: Config
 clusters:
 - name: my-cluster
@@ -29,11 +29,11 @@ contexts:
     user: my-user
     namespace: default
 current-context: my-context
-"#
+"
 }
 
 fn multi_context_kubeconfig() -> &'static str {
-    r#"apiVersion: v1
+    r"apiVersion: v1
 kind: Config
 clusters:
 - name: dev-cluster
@@ -61,11 +61,11 @@ contexts:
     user: prod-user
     namespace: prod-ns
 current-context: dev
-"#
+"
 }
 
 fn cert_auth_kubeconfig() -> &'static str {
-    r#"apiVersion: v1
+    r"apiVersion: v1
 kind: Config
 clusters:
 - name: cert-cluster
@@ -83,11 +83,11 @@ contexts:
     cluster: cert-cluster
     user: cert-user
 current-context: cert-context
-"#
+"
 }
 
 fn ca_file_kubeconfig() -> &'static str {
-    r#"apiVersion: v1
+    r"apiVersion: v1
 kind: Config
 clusters:
 - name: file-cluster
@@ -104,11 +104,11 @@ contexts:
   context:
     cluster: file-cluster
     user: file-user
-"#
+"
 }
 
 fn no_namespace_kubeconfig() -> &'static str {
-    r#"apiVersion: v1
+    r"apiVersion: v1
 kind: Config
 clusters:
 - name: simple-cluster
@@ -124,7 +124,7 @@ contexts:
     cluster: simple-cluster
     user: simple-user
 current-context: simple-context
-"#
+"
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -234,7 +234,7 @@ fn test_10_parse_kubeconfig_with_namespace_in_context() {
 
 #[test]
 fn test_11_parse_kubeconfig_with_all_optional_fields() {
-    let yaml = r#"apiVersion: v1
+    let yaml = r"apiVersion: v1
 kind: Config
 clusters:
 - name: full-cluster
@@ -257,7 +257,7 @@ contexts:
     user: full-user
     namespace: kube-system
 current-context: full-context
-"#;
+";
     let kc = Kubeconfig::parse(yaml).unwrap();
     assert_eq!(kc.clusters.len(), 1);
     assert_eq!(kc.users.len(), 1);
@@ -809,7 +809,7 @@ fn test_34b_port_forward_status_serde_lowercase() {
 
 #[test]
 fn test_35_pod_log_stream_req_with_defaults() {
-    let json_str = r#"{}"#;
+    let json_str = r"{}";
     let req: PodLogStreamReq = serde_json::from_str(json_str).unwrap();
     assert!(req.container.is_none());
     assert!(req.tail_lines.is_none());
@@ -894,7 +894,7 @@ fn test_38_pod_exec_req_construction() {
 
 #[test]
 fn test_38b_pod_exec_req_minimal() {
-    let json_str = r#"{}"#;
+    let json_str = r"{}";
     let req: PodExecReq = serde_json::from_str(json_str).unwrap();
     assert!(req.container.is_none());
     assert!(req.command.is_none());
@@ -1311,7 +1311,7 @@ async fn test_42_concurrent_cluster_operations() {
 #[test]
 fn test_43_kubeconfig_with_extra_unknown_fields() {
     // Parser should gracefully skip unknown fields
-    let yaml = r#"apiVersion: v1
+        let yaml = r"apiVersion: v1
 kind: Config
 preferences:
   colors: true
@@ -1334,7 +1334,7 @@ contexts:
     user: extra-user
     namespace: extra-ns
 current-context: extra-context
-"#;
+";
     let kc = Kubeconfig::parse(yaml).unwrap();
     assert_eq!(kc.clusters.len(), 1);
     assert_eq!(kc.clusters[0].name, "extra-cluster");
@@ -1577,7 +1577,7 @@ current-context: "quoted-context"
 
 #[test]
 fn test_kubeconfig_with_comments() {
-    let yaml = r#"# This is a kubeconfig file
+    let yaml = r"# This is a kubeconfig file
 apiVersion: v1
 kind: Config
 # Cluster definitions
@@ -1595,7 +1595,7 @@ contexts:
   context:
     cluster: comment-cluster
     user: comment-user
-"#;
+";
     let kc = Kubeconfig::parse(yaml).unwrap();
     assert_eq!(kc.clusters.len(), 1);
     assert_eq!(kc.clusters[0].name, "comment-cluster");

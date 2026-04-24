@@ -487,7 +487,7 @@ impl RedisManager {
             .into_array()
             .unwrap_or_default()
             .iter()
-            .filter_map(|k| k.as_str().map(|s| s.to_string()))
+            .filter_map(|k| k.as_str().map(std::string::ToString::to_string))
             .collect();
 
         // Fetch TYPE and TTL for each key (fast O(1) commands)

@@ -149,7 +149,7 @@ mod tests {
         let result = sample_result();
         let bytes = export_json(&result, &ExportFormat::JsonLines).unwrap();
         let text = String::from_utf8(bytes).unwrap();
-        let lines: Vec<&str> = text.trim().split('\n').collect();
+        let lines: Vec<&str> = text.lines().collect();
         assert_eq!(lines.len(), 3);
     }
 }

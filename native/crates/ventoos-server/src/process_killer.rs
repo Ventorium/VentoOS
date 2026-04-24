@@ -179,6 +179,7 @@ pub async fn find_processes_by_port(
     Json(ApiResponse::ok(processes))
 }
 
+#[allow(clippy::too_many_lines)]
 async fn collect_port_processes(port: u16) -> Vec<PortProcessInfo> {
     let mut results = Vec::new();
     let all_processes = collect_all_processes().await;
@@ -404,17 +405,17 @@ mod tests {
 
     #[test]
     fn test_parse_ps_output_macos_sample() {
-        let sample = r#"  PID  %CPU %MEM   RSS    VSZ COMM             ARGS
+                let sample = r"  PID  %CPU %MEM   RSS    VSZ COMM             ARGS
     1   0.0  0.1  2564  12345 launchd          /sbin/launchd
   123   5.5  2.3  45678 789012 node             node server.js --port 8080
-"#;
+";
         let processes = parse_ps_output(sample);
         assert_eq!(processes.len(), 2);
         assert_eq!(processes[0].pid, 1);
         assert_eq!(processes[0].name, "launchd");
         assert_eq!(processes[1].pid, 123);
-        assert_eq!(processes[1].cpu_percent, 5.5);
-        assert_eq!(processes[1].mem_percent, 2.3);
+                assert!((processes[1].cpu_percent - 5.5).abs() < f64::EPSILON);
+                assert!((processes[1].mem_percent - 2.3).abs() < f64::EPSILON);
         assert_eq!(processes[1].rss_bytes, 45678 * 1024);
         assert_eq!(processes[1].args, "node server.js --port 8080");
     }

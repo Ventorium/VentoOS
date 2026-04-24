@@ -298,7 +298,7 @@ mod tests {
         let store = make_store();
         for i in 0..110 {
             store.create(
-                &format!("Notif {}", i),
+                &format!("Notif {i}"),
                 "msg",
                 &NotificationLevel::Info,
                 &NotificationSource::System,

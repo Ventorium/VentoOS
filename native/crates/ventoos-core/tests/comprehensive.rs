@@ -162,7 +162,7 @@ fn error_response_serialization() {
 #[test]
 fn vento_result_ok_and_err() {
     let ok: VentoResult<u32> = Ok(42);
-    assert_eq!(ok.unwrap(), 42);
+    assert!(matches!(ok, Ok(42)));
 
     let err: VentoResult<u32> = Err(VentoError::Validation("bad input".into()));
     assert!(err.is_err());
@@ -452,7 +452,7 @@ fn task_with_result_and_error() {
         parent_task_id: None,
         connection_id: None,
         resource_id: None,
-        result: Some(json!({"bytes_written": 1048576})),
+        result: Some(json!({"bytes_written": 1_048_576})),
         error: Some("Disk full: /var/backups has 0 bytes remaining".to_string()),
         created_at: now,
         updated_at: now,
@@ -463,7 +463,7 @@ fn task_with_result_and_error() {
     let de: Task = serde_json::from_str(&json).unwrap();
     assert_eq!(de.status, TaskStatus::Failed);
     assert!(de.error.unwrap().contains("Disk full"));
-    assert_eq!(de.result.unwrap()["bytes_written"], 1048576);
+    assert_eq!(de.result.unwrap()["bytes_written"], 1_048_576);
 }
 
 #[test]
@@ -565,7 +565,7 @@ fn paginated_response_with_tasks() {
     let items: Vec<Task> = (0..3)
         .map(|i| Task {
             id: new_id(),
-            name: format!("task-{}", i),
+            name: format!("task-{i}"),
             description: None,
             status: if i == 0 {
                 TaskStatus::Success
@@ -662,7 +662,7 @@ fn window_state_full_roundtrip() {
     let de: WindowState = serde_json::from_str(&json).unwrap();
     assert_eq!(de.app_id, "database");
     assert_eq!(de.title, "Database — prod-pg / public");
-    assert_eq!(de.x, 150.5);
+    assert!((de.x - 150.5).abs() < f64::EPSILON);
     assert_eq!(de.z_index, u32::MAX);
     assert!(de.is_maximized);
     assert!(de.tab_states.is_some());
@@ -838,8 +838,8 @@ fn edge_case_window_at_origin() {
     };
     let json = serde_json::to_string(&state).unwrap();
     let de: WindowState = serde_json::from_str(&json).unwrap();
-    assert_eq!(de.x, 0.0);
-    assert_eq!(de.width, 0.0);
+    assert!(de.x.abs() < f64::EPSILON);
+    assert!(de.width.abs() < f64::EPSILON);
     assert_eq!(de.z_index, 0);
 }
 
@@ -851,7 +851,7 @@ fn api_response_with_paginated_tasks() {
     let tasks: Vec<Task> = (0..2)
         .map(|i| Task {
             id: new_id(),
-            name: format!("task-{}", i),
+            name: format!("task-{i}"),
             description: None,
             status: if i == 0 {
                 TaskStatus::Success

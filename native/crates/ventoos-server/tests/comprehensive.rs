@@ -67,7 +67,8 @@ fn authed_request(method: Method, uri: &str, token: &str) -> Request<Body> {
 }
 
 /// Build a request with Authorization header and JSON body.
-fn authed_json_request(method: Method, uri: &str, token: &str, body: Value) -> Request<Body> {
+fn authed_json_request(method: Method, uri: &str, token: &str, body: impl Into<Value>) -> Request<Body> {
+    let body: Value = body.into();
     Request::builder()
         .method(method)
         .uri(uri)
@@ -267,13 +268,13 @@ async fn test_auth_logout_invalidates_token() {
 #[tokio::test]
 async fn test_auth_change_password_valid() {
     let app = build_app();
-    let _token = setup_auth(&app).await;
+    let token = setup_auth(&app).await;
 
     // Change password
     let req = Request::builder()
         .method(Method::POST)
         .uri("/api/auth/change-password")
-        .header("authorization", format!("Bearer {_token}"))
+        .header("authorization", format!("Bearer {token}"))
         .header("content-type", "application/json")
         .body(Body::from(
             json!({"current_password": "test1234", "new_password": "newpass"}).to_string(),
@@ -286,7 +287,7 @@ async fn test_auth_change_password_valid() {
     assert_eq!(json["success"], true);
 
     // Old token should be invalidated
-    let req = authed_request(Method::GET, "/api/tasks", &_token);
+    let req = authed_request(Method::GET, "/api/tasks", &token);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 

@@ -1,7 +1,7 @@
 //! Comprehensive tests for the `ventoos-agent` crate.
 //!
-//! Covers: AgentManager (providers, profiles, channels, config),
-//! SessionStore, ToolRegistry, GuardChain, and serialization of core types.
+//! Covers: `AgentManager` (providers, profiles, channels, config),
+//! `SessionStore`, `ToolRegistry`, `GuardChain`, and serialization of core types.
 
 use std::sync::Arc;
 
@@ -814,12 +814,12 @@ fn t64_mask_api_key() {
 fn t65_provider_config_normalized() {
     let cfg = ProviderConfig {
         id: "p1".into(),
-        name: "".into(),                               // empty -> filled from vendor
+        name: String::new(),                           // empty -> filled from vendor
         provider_type: ProviderType::OpenAiCompatible, // will be corrected
         vendor: ProviderVendor::Anthropic,
         api_key: "key".into(),
-        base_url: "".into(),      // empty -> filled from vendor
-        default_model: "".into(), // empty -> filled from vendor
+        base_url: String::new(),   // empty -> filled from vendor
+        default_model: String::new(), // empty -> filled from vendor
         enabled: true,
         capabilities: None,
     };

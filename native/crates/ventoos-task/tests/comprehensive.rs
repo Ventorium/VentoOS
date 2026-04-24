@@ -2,7 +2,7 @@ use ventoos_core::task::{CreateTaskRequest, RiskLevel, TaskPriority, TaskSource,
 use ventoos_core::types::new_id;
 use ventoos_task::TaskEngine;
 
-/// Helper to build a minimal CreateTaskRequest.
+/// Helper to build a minimal `CreateTaskRequest`.
 fn minimal_request(name: &str) -> CreateTaskRequest {
     CreateTaskRequest {
         name: name.to_string(),

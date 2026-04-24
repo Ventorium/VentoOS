@@ -412,7 +412,7 @@ fn window_save_and_load_roundtrip() {
     let mgr = WindowStateManager::new(db);
 
     let state = make_window("k8s", 1, WindowStatus::Active);
-    mgr.save_all(&[state.clone()]).unwrap();
+    mgr.save_all(std::slice::from_ref(&state)).unwrap();
 
     let loaded = mgr.load_all().unwrap();
     assert_eq!(loaded.len(), 1);
@@ -435,7 +435,7 @@ fn window_save_multiple_states() {
     assert_eq!(loaded.len(), 5);
     // Should be ordered by z_index
     for (i, w) in loaded.iter().enumerate() {
-        assert_eq!(w.z_index, i as u32);
+        assert_eq!(w.z_index, u32::try_from(i).unwrap());
     }
 }
 
@@ -497,7 +497,7 @@ fn window_all_status_variants() {
     let states: Vec<_> = statuses
         .iter()
         .enumerate()
-        .map(|(i, s)| make_window(&format!("status_{i}"), i as u32, s.clone()))
+        .map(|(i, s)| make_window(&format!("status_{i}"), u32::try_from(i).unwrap(), s.clone()))
         .collect();
 
     mgr.save_all(&states).unwrap();
@@ -559,8 +559,8 @@ fn window_negative_coordinates() {
     mgr.save_all(&[state]).unwrap();
     let loaded = mgr.load_all().unwrap();
 
-    assert_eq!(loaded[0].x, -200.0);
-    assert_eq!(loaded[0].y, -100.0);
+    assert!((loaded[0].x - (-200.0)).abs() < f64::EPSILON);
+    assert!((loaded[0].y - (-100.0)).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -576,8 +576,8 @@ fn window_maximum_dimensions() {
     mgr.save_all(&[state]).unwrap();
     let loaded = mgr.load_all().unwrap();
 
-    assert_eq!(loaded[0].width, 7680.0);
-    assert_eq!(loaded[0].height, 4320.0);
+    assert!((loaded[0].width - 7680.0).abs() < f64::EPSILON);
+    assert!((loaded[0].height - 4320.0).abs() < f64::EPSILON);
     assert_eq!(loaded[0].z_index, u32::MAX);
 }
 

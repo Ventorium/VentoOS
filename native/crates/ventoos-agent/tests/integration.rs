@@ -131,7 +131,7 @@ async fn test_platform_stubs_return_not_connected() {
         "system_notify",
     ] {
         let result = executor.execute(tool_name, &serde_json::json!({})).await;
-        assert!(result.is_ok(), "Stub for '{}' should succeed", tool_name);
+        assert!(result.is_ok(), "Stub for '{tool_name}' should succeed");
         let val = result.unwrap();
         assert_eq!(val["status"], "not_connected");
     }
@@ -153,8 +153,7 @@ fn test_high_risk_tools_identified() {
     for name in &high_risk_names {
         assert!(
             RiskGuard::is_high_risk(name),
-            "'{}' should be identified as high-risk",
-            name
+            "'{name}' should be identified as high-risk"
         );
     }
 }
@@ -172,8 +171,7 @@ fn test_low_risk_tools_not_flagged() {
     for name in &low_risk_names {
         assert!(
             !RiskGuard::is_high_risk(name),
-            "'{}' should NOT be high-risk",
-            name
+            "'{name}' should NOT be high-risk"
         );
     }
 }

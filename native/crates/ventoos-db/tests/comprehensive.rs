@@ -385,12 +385,6 @@ fn test_19_db_test_result_success_and_failure() {
 #[test]
 fn test_20_ssh_tunnel_config_password_auth() {
     // serde internally-tagged newtype variant cannot be serialized, so test via deserialization
-    let _json_str = r#"{
-        "host": "bastion.local",
-        "port": 22,
-        "username": "deploy",
-        "auth": { "type": "password", "0": "hunter2" }
-    }"#;
     // Verify the struct fields via construction
     let tunnel = SshTunnelConfig {
         host: "bastion.local".into(),
@@ -443,7 +437,7 @@ fn test_21_ssh_tunnel_config_private_key_auth() {
             assert!(key_pem.contains("BEGIN"));
             assert_eq!(passphrase.as_deref(), Some("keypass"));
         }
-        _ => panic!("Expected PrivateKey auth"),
+        SshTunnelAuth::Password(_) => panic!("Expected PrivateKey auth"),
     }
 }
 

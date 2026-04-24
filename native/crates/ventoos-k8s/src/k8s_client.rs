@@ -1492,7 +1492,7 @@ users:
     /// name at shallow indentation.
     #[test]
     fn test_parse_teleport_kubeconfig() {
-        let yaml = r#"
+        let yaml = r"
 apiVersion: v1
 clusters:
 - cluster:
@@ -1522,7 +1522,7 @@ users:
     exec:
       apiVersion: client.authentication.k8s.io/v1beta1
       command: /usr/local/bin/tsh
-"#;
+";
         let kc = Kubeconfig::parse(yaml).unwrap();
 
         // Cluster name must be the correct entry name, not a nested extension name

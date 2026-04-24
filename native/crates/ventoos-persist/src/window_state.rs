@@ -257,7 +257,7 @@ mod tests {
         let loaded = mgr.load_all().unwrap();
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].title, "updated title");
-        assert_eq!(loaded[0].x, 200.0);
+        assert!((loaded[0].x - 200.0).abs() < f64::EPSILON);
     }
 
     #[test]
