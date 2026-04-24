@@ -242,16 +242,41 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
   const [initialized, setInitialized] = useState(false)
   const dragRef = useRef({ dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 })
 
+  const centerPosition = useCallback(() => {
+    const parentEl = panelRef.current?.parentElement
+    const parentW = parentEl?.clientWidth ?? 800
+    const panelW = Math.min(760, parentW - 8)
+    return { x: Math.max(0, (parentW - panelW) / 2), y: 16 }
+  }, [])
+
   // Center panel on first open
   useEffect(() => {
     if (open && !initialized) {
       setInitialized(true)
-      // Center horizontally, offset from top
-      const parentW = panelRef.current?.parentElement?.clientWidth ?? 800
-      setPos({ x: Math.max(0, (parentW - 760) / 2), y: 16 })
+      setPos(centerPosition())
     }
     if (!open) setInitialized(false)
-  }, [open, initialized])
+  }, [open, initialized, centerPosition])
+
+  // Auto-restore when panel is completely out of its parent bounds
+  useEffect(() => {
+    if (!open) return
+    const check = () => {
+      const panel = panelRef.current
+      const parent = panel?.parentElement
+      if (!panel || !parent) return
+      const pr = parent.getBoundingClientRect()
+      const nr = panel.getBoundingClientRect()
+      // If no part of the panel is visible within the parent
+      if (nr.right <= pr.left || nr.left >= pr.right || nr.bottom <= pr.top || nr.top >= pr.bottom) {
+        setPos(centerPosition())
+      }
+    }
+    // Check on resize and after drag
+    const observer = new ResizeObserver(check)
+    if (panelRef.current?.parentElement) observer.observe(panelRef.current.parentElement)
+    return () => observer.disconnect()
+  }, [open, centerPosition])
 
   const onDragStart = useCallback((e: React.MouseEvent) => {
     // Only drag from title area, not from close button
@@ -279,11 +304,22 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
       dragRef.current.dragging = false
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      // Check visibility after drag ends
+      setTimeout(() => {
+        const panel = panelRef.current
+        const parent = panel?.parentElement
+        if (!panel || !parent) return
+        const pr = parent.getBoundingClientRect()
+        const nr = panel.getBoundingClientRect()
+        if (nr.right <= pr.left || nr.left >= pr.right || nr.bottom <= pr.top || nr.top >= pr.bottom) {
+          setPos(centerPosition())
+        }
+      }, 0)
     }
 
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [pos.x, pos.y])
+  }, [pos.x, pos.y, centerPosition])
 
   // Close on Escape key
   useEffect(() => {
