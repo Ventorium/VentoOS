@@ -426,6 +426,7 @@ async fn test_settings_desktop_get_defaults() {
     // Should have default values
     assert!(json["data"]["wallpaper"].is_string());
     assert!(json["data"]["theme_mode"].is_string());
+    assert!(json["data"]["accent_color"].is_null());
 }
 
 #[tokio::test]
@@ -436,6 +437,7 @@ async fn test_settings_desktop_update() {
     let body = json!({
         "wallpaper": "/wallpapers/custom.jpg",
         "theme_mode": "light",
+        "accent_color": "#FF9500",
         "dock_icon_size": 64,
         "dock_auto_hide": true
     });
@@ -449,6 +451,7 @@ async fn test_settings_desktop_update() {
     let json = body_json(resp).await;
     assert_eq!(json["data"]["wallpaper"], "/wallpapers/custom.jpg");
     assert_eq!(json["data"]["theme_mode"], "light");
+    assert_eq!(json["data"]["accent_color"], "#FF9500");
     assert_eq!(json["data"]["dock_icon_size"], 64);
     assert_eq!(json["data"]["dock_auto_hide"], true);
 }

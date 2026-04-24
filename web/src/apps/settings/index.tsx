@@ -47,6 +47,7 @@ import { useWindowStore } from '@/kernel'
 import { authService, useAuthStore } from '@/services/auth'
 import { notificationService, useNotificationStore } from '@/services/notification'
 import { type ThemeMode, useSettingsStore } from '@/services/settings'
+import { darkTheme, lightTheme } from '@/theme'
 
 type Category =
   | 'appearance'
@@ -77,7 +78,8 @@ const CATEGORIES = [
 
 /* ---- Appearance Settings ---- */
 function AppearancePanel() {
-  const { themeMode, setThemeMode, wallpaper, setWallpaper } = useSettingsStore()
+  const { themeMode, setThemeMode, accentColor, setAccentColor, resolvedTheme, wallpaper, setWallpaper } =
+    useSettingsStore()
   const [bingWallpapers, setBingWallpapers] = useState<string[]>([])
   const [bingLoading, setBingLoading] = useState(false)
 
@@ -100,7 +102,8 @@ function AppearancePanel() {
     { value: 'auto', label: '自动', desc: '随日出日落自动切换' }
   ]
 
-  const accentColors = ['#007AFF', '#FF3B30', '#FF9500', '#30D158', '#5AC8FA', '#BF5AF2', '#FF2D55', '#A2845E']
+  const accentColors = ['#0A84FF', '#007AFF', '#FF3B30', '#FF9500', '#30D158', '#5AC8FA', '#BF5AF2', '#FF2D55', '#A2845E']
+  const currentAccent = accentColor ?? (resolvedTheme === 'dark' ? darkTheme.accent.primary : lightTheme.accent.primary)
 
   const gradientWallpapers = [
     '/wallpapers/dark-mountain.jpg',
@@ -143,10 +146,12 @@ function AppearancePanel() {
               type="button"
               aria-label={`强调色 ${color}`}
               className="w-[24px] h-[24px] rounded-full border-2 border-solid border-transparent cursor-pointer flex items-center justify-center transition-transform duration-100"
-              style={{ background: color }}
-              onClick={() => {
-                document.documentElement.style.setProperty('--vos-accent-primary', color)
+              style={{
+                background: color,
+                borderColor: color === currentAccent ? 'var(--vos-text-primary)' : 'transparent',
+                transform: color === currentAccent ? 'scale(1.08)' : undefined
               }}
+              onClick={() => setAccentColor(color)}
             />
           ))}
         </div>

@@ -63,6 +63,19 @@ function syncWindowToBackend(win: WindowInstance) {
   )
 }
 
+function getWindowStatus(win: WindowInstance): WindowStateDTO['status'] {
+  return win.isMinimized ? 'minimized' : win.isFocused ? 'active' : 'blurred'
+}
+
+function didPersistenceRelevantStateChange(prev: WindowInstance, next: WindowInstance): boolean {
+  return (
+    prev.zIndex !== next.zIndex ||
+    prev.isFocused !== next.isFocused ||
+    prev.isMinimized !== next.isMinimized ||
+    getWindowStatus(prev) !== getWindowStatus(next)
+  )
+}
+
 interface WindowStore {
   windows: WindowInstance[]
   nextZIndex: number
@@ -144,16 +157,21 @@ export const useWindowStore = create<WindowStore>()((set, get) => ({
   },
 
   _focusWindow(id, nextZ) {
+    const prevWindows = get().windows
+    let nextWindows: WindowInstance[] = prevWindows
+
     set(state => {
-      const windows = state.windows.map(w =>
+      nextWindows = state.windows.map(w =>
         w.id === id ? { ...w, isFocused: true, zIndex: nextZ, isMinimized: false } : { ...w, isFocused: false }
       )
-      return { windows, nextZIndex: nextZ + 1 }
+      return { windows: nextWindows, nextZIndex: nextZ + 1 }
     })
-    // Sync focused window and previously focused window
-    const wins = get().windows
-    for (const w of wins) {
-      syncWindowToBackend(w)
+
+    for (const nextWindow of nextWindows) {
+      const prevWindow = prevWindows.find(window => window.id === nextWindow.id)
+      if (prevWindow && didPersistenceRelevantStateChange(prevWindow, nextWindow)) {
+        syncWindowToBackend(nextWindow)
+      }
     }
   },
 

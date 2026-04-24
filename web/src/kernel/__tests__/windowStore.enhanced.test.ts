@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { apiClient } from '@/infra/api'
 import { useWindowStore } from '../window/store'
 import type { WindowInstance } from '../window/types'
 
@@ -6,7 +7,10 @@ import type { WindowInstance } from '../window/types'
 vi.mock('@/infra/api', () => ({
   apiClient: {
     saveWindowSettings: vi.fn().mockResolvedValue({}),
-    getWindowSettings: vi.fn().mockResolvedValue({ data: [] })
+    getWindowSettings: vi.fn().mockResolvedValue({ data: [] }),
+    createWindowState: vi.fn().mockResolvedValue({ data: { id: 'mock-window' } }),
+    updateWindowState: vi.fn().mockResolvedValue({}),
+    deleteWindowState: vi.fn().mockResolvedValue({})
   }
 }))
 
@@ -39,7 +43,13 @@ function makeWin(overrides: Partial<WindowInstance> = {}): WindowInstance {
 
 describe('WindowStore — Enhanced Tests', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     useWindowStore.setState({ windows: [], nextZIndex: 1 })
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   // ── Basic CRUD ──────────────────────────────────────────────────
@@ -107,6 +117,28 @@ describe('WindowStore — Enhanced Tests', () => {
     const w3z = state.getWindow('w3')!.zIndex
     expect(w1z).toBeGreaterThan(w2z)
     expect(w1z).toBeGreaterThan(w3z)
+  })
+
+  it('should only sync windows whose focus state changed', async () => {
+    useWindowStore.setState({
+      windows: [
+        makeWin({ id: 'w1', zIndex: 1, isFocused: false }),
+        makeWin({ id: 'w2', zIndex: 2, isFocused: true }),
+        makeWin({ id: 'w3', zIndex: 3, isFocused: false })
+      ],
+      nextZIndex: 4
+    })
+
+    vi.mocked(apiClient.updateWindowState).mockClear()
+
+    useWindowStore.getState()._focusWindow('w1', 4)
+
+    vi.advanceTimersByTime(500)
+    await Promise.resolve()
+
+    expect(apiClient.updateWindowState).toHaveBeenCalledTimes(2)
+    expect(apiClient.updateWindowState).toHaveBeenCalledWith('w1', expect.objectContaining({ z_index: 4, status: 'active' }))
+    expect(apiClient.updateWindowState).toHaveBeenCalledWith('w2', expect.objectContaining({ status: 'blurred' }))
   })
 
   // ── Minimize/Restore ────────────────────────────────────────────

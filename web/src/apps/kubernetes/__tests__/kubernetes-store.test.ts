@@ -81,4 +81,66 @@ describe('KubernetesStore', () => {
     expandSidebarCluster('c1')
     expect(useKubernetesStore.getState().sidebarExpandedClusters.has('c1')).toBe(true)
   })
+
+  it('hydrates persisted workspace tabs and active tab', () => {
+    const restored = useKubernetesStore.getState().hydrateAppState(
+      {
+        tabs: [
+          {
+            id: 'tab-overview',
+            clusterId: 'c1',
+            namespace: '',
+            kind: 'overview',
+            title: 'Overview'
+          },
+          {
+            id: 'tab-pods',
+            clusterId: 'c1',
+            namespace: 'default',
+            kind: 'pod',
+            title: 'Pods'
+          }
+        ],
+        activeTabId: 'tab-pods'
+      },
+      ['c1']
+    )
+
+    const state = useKubernetesStore.getState()
+    expect(restored).toBe(true)
+    expect(state.tabs).toHaveLength(2)
+    expect(state.activeTabId).toBe('tab-pods')
+    expect(state.sidebarExpandedClusters.has('c1')).toBe(true)
+  })
+
+  it('filters persisted tabs for clusters that no longer exist', () => {
+    const restored = useKubernetesStore.getState().hydrateAppState(
+      {
+        tabs: [
+          {
+            id: 'tab-missing',
+            clusterId: 'missing',
+            namespace: 'default',
+            kind: 'deployment',
+            title: 'Deployments'
+          },
+          {
+            id: 'tab-services',
+            clusterId: 'c1',
+            namespace: 'default',
+            kind: 'service',
+            title: 'Services'
+          }
+        ],
+        activeTabId: 'tab-missing'
+      },
+      ['c1']
+    )
+
+    const state = useKubernetesStore.getState()
+    expect(restored).toBe(true)
+    expect(state.tabs).toHaveLength(1)
+    expect(state.tabs[0].id).toBe('tab-services')
+    expect(state.activeTabId).toBe('tab-services')
+  })
 })

@@ -128,6 +128,7 @@ pub fn tail_local_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     #[tokio::test]
     async fn test_read_last_lines() {
@@ -163,7 +164,6 @@ mod tests {
         assert!(first.is_ok());
 
         // Append new content
-        use std::io::Write;
         let mut f = std::fs::OpenOptions::new()
             .append(true)
             .open(&file_path)

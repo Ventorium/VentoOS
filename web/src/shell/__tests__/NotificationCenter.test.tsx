@@ -3,6 +3,25 @@ import type React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type NotificationItem, useNotificationStore } from '@/services/notification'
 
+vi.mock('@/infra/api', () => ({
+  apiClient: {
+    getNotifications: vi.fn().mockResolvedValue({ data: [] }),
+    markNotificationRead: vi.fn().mockResolvedValue({}),
+    markAllNotificationsRead: vi.fn().mockResolvedValue({}),
+    deleteNotification: vi.fn().mockResolvedValue({}),
+    clearAllNotifications: vi.fn().mockResolvedValue({})
+  }
+}))
+
+vi.mock('@/infra/logger', () => ({
+  createLogger: () => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn()
+  })
+}))
+
 // Mock framer-motion
 vi.mock('framer-motion', () => {
   const actual = {

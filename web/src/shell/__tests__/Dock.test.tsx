@@ -5,6 +5,7 @@ import type { AppManifest } from '@/kernel/apps/manifest'
 import { useAppStore } from '@/kernel/apps/store'
 import { useWindowStore } from '@/kernel/window/store'
 import { useAIStatusStore } from '@/shell/Dock/aiStatusStore'
+import { useDockLayoutStore } from '@/shell/Dock/dockLayoutStore'
 import { useDockPositionStore } from '@/shell/Dock/dockPositionStore'
 
 // Mock framer-motion
@@ -69,6 +70,7 @@ describe('Dock Component', () => {
     useWindowStore.setState({ windows: [], nextZIndex: 1 })
     useAppStore.setState({ apps: new Map() })
     useAIStatusStore.setState({ status: 'idle' })
+    useDockLayoutStore.setState({ items: [], loaded: true })
   })
 
   afterEach(() => {
@@ -76,6 +78,11 @@ describe('Dock Component', () => {
   })
 
   async function renderDock() {
+    const appIds = Array.from(useAppStore.getState().apps.keys())
+    useDockLayoutStore.setState({
+      items: appIds.map(appId => ({ type: 'app' as const, appId })),
+      loaded: true
+    })
     const Dock = (await import('@/shell/Dock/index')).default
     return render(<Dock />)
   }

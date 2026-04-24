@@ -13,12 +13,39 @@ import {
   MIN_DRAWER_WIDTH
 } from '../constants'
 import type { K8sResource, K8sResourceKind, K8sTab } from '../types'
-import { getResourceDef } from '../utils/resource-registry'
+import { getResourceDef, resourceRegistry } from '../utils/resource-registry'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isValidResourceKind(value: unknown): value is K8sResourceKind {
+  return typeof value === 'string' && value in resourceRegistry
+}
+
+function isPersistedTab(value: unknown, validClusterIds?: Set<string>): value is K8sTab {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  if (
+    typeof value.id !== 'string' ||
+    typeof value.clusterId !== 'string' ||
+    typeof value.namespace !== 'string' ||
+    typeof value.title !== 'string' ||
+    !isValidResourceKind(value.kind)
+  ) {
+    return false
+  }
+
+  return !validClusterIds || validClusterIds.has(value.clusterId)
+}
 
 interface KubernetesStore {
   // Tabs
   tabs: K8sTab[]
   activeTabId: string | null
+  hydrateAppState: (state: unknown, availableClusterIds?: string[]) => boolean
   openTab: (
     clusterId: string,
     namespace: string,
@@ -70,6 +97,46 @@ function makeTabTitle(kind: K8sResourceKind, clusterName?: string): string {
 export const useKubernetesStore = create<KubernetesStore>((set, get) => ({
   tabs: [],
   activeTabId: null,
+
+  hydrateAppState(state, availableClusterIds = []) {
+    if (!isRecord(state) || !Array.isArray(state.tabs)) {
+      return false
+    }
+
+    const clusterIds = availableClusterIds.length > 0 ? new Set(availableClusterIds) : undefined
+    const tabs = state.tabs.flatMap(tab => {
+      if (!isPersistedTab(tab, clusterIds)) {
+        return []
+      }
+
+      return [
+        {
+          id: tab.id,
+          clusterId: tab.clusterId,
+          namespace: tab.namespace,
+          kind: tab.kind,
+          title: tab.title,
+          ...(tab.isPreview === true ? { isPreview: true } : {})
+        } satisfies K8sTab
+      ]
+    })
+
+    if (tabs.length === 0) {
+      set({ tabs: [], activeTabId: null, sidebarExpandedClusters: new Set() })
+      return false
+    }
+
+    const requestedActiveTabId = typeof state.activeTabId === 'string' ? state.activeTabId : null
+    const activeTabId = tabs.some(tab => tab.id === requestedActiveTabId) ? requestedActiveTabId : tabs[0]?.id ?? null
+
+    set({
+      tabs,
+      activeTabId,
+      sidebarExpandedClusters: new Set(tabs.map(tab => tab.clusterId))
+    })
+
+    return true
+  },
 
   openTab(clusterId, namespace, kind, options = {}) {
     const { reuse = true, isPreview = false } = options

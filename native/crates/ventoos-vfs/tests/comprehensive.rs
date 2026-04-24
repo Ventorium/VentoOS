@@ -6,7 +6,7 @@ use ventoos_vfs::*;
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
-/// Create a VfsManager with a Local mount pointing at `root`, returning (manager, mount_id).
+/// Create a `VfsManager` with a Local mount pointing at `root`, returning `(manager, mount_id)`.
 async fn manager_with_local_mount(root: &str) -> (VfsManager, String) {
     let mgr = VfsManager::new();
     let mount = mgr
@@ -600,7 +600,7 @@ async fn local_search_with_max_results() {
 async fn local_read_binary_file_detection() {
     let dir = tempdir().unwrap();
     // Write bytes that are not valid UTF-8 text
-    std::fs::write(dir.path().join("data.bin"), &[0x00, 0xFF, 0xFE, 0x89, 0x50]).unwrap();
+    std::fs::write(dir.path().join("data.bin"), [0x00, 0xFF, 0xFE, 0x89, 0x50]).unwrap();
 
     let (mgr, mid) = manager_with_local_mount(dir.path().to_str().unwrap()).await;
 
@@ -653,7 +653,7 @@ fn vfs_source_kind_all_variants_serialization() {
     ];
     for (kind, expected_json) in &variants {
         let json = serde_json::to_string(kind).unwrap();
-        assert_eq!(&json, expected_json, "Failed for {:?}", kind);
+        assert_eq!(&json, expected_json, "Failed for {kind:?}");
         let deser: VfsSourceKind = serde_json::from_str(&json).unwrap();
         assert_eq!(&deser, kind);
     }
@@ -726,7 +726,7 @@ fn vfs_file_content_truncated_flag() {
         truncated: true,
     };
     assert!(content.truncated);
-    assert!(content.content.len() < content.size as usize);
+    assert!(usize::try_from(content.size).is_ok_and(|size| content.content.len() < size));
 }
 
 #[test]

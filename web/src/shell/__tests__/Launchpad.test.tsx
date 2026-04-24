@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppManifest } from '@/kernel/apps/manifest'
 import { useAppStore } from '@/kernel/apps/store'
 import { useWindowStore } from '@/kernel/window/store'
+import { useLaunchpadLayoutStore } from '@/shell/Launchpad/launchpadLayoutStore'
 import { useLaunchpadStore } from '@/shell/Launchpad/store'
 
 vi.mock('framer-motion', () => {
@@ -107,6 +108,7 @@ describe('Launchpad Component', () => {
     useWindowStore.setState({ windows: [], nextZIndex: 1 })
     useAppStore.setState({ apps: new Map() })
     useLaunchpadStore.setState({ isOpen: false, searchQuery: '' })
+    useLaunchpadLayoutStore.setState({ items: [], loaded: true })
   })
 
   afterEach(() => {
@@ -116,6 +118,13 @@ describe('Launchpad Component', () => {
   async function renderLaunchpad() {
     const Launchpad = (await import('@/shell/Launchpad/index')).default
     return render(<Launchpad />)
+  }
+
+  function seedLayout(apps: Map<string, AppManifest>) {
+    useLaunchpadLayoutStore.setState({
+      loaded: true,
+      items: Array.from(apps.keys()).map(appId => ({ type: 'app' as const, appId }))
+    })
   }
 
   it('should not render when closed', async () => {
@@ -136,6 +145,7 @@ describe('Launchpad Component', () => {
     apps.set('db', mockApp('db', 'Database'))
     apps.set('redis', mockApp('redis', 'Redis'))
     useAppStore.setState({ apps })
+    seedLayout(apps)
     useLaunchpadStore.setState({ isOpen: true })
 
     await renderLaunchpad()
@@ -150,6 +160,7 @@ describe('Launchpad Component', () => {
     apps.set('db', mockApp('db', 'Database'))
     apps.set('redis', mockApp('redis', 'Redis'))
     useAppStore.setState({ apps })
+    seedLayout(apps)
     useLaunchpadStore.setState({ isOpen: true, searchQuery: 'kube' })
 
     await renderLaunchpad()
@@ -163,6 +174,7 @@ describe('Launchpad Component', () => {
     apps.set('k8s', mockApp('k8s', 'Kubernetes', 'Container orchestration'))
     apps.set('db', mockApp('db', 'Database', 'SQL management'))
     useAppStore.setState({ apps })
+    seedLayout(apps)
     useLaunchpadStore.setState({ isOpen: true, searchQuery: 'container' })
 
     await renderLaunchpad()
@@ -174,6 +186,7 @@ describe('Launchpad Component', () => {
     const apps = new Map<string, AppManifest>()
     apps.set('k8s', mockApp('k8s', 'Kubernetes'))
     useAppStore.setState({ apps })
+    seedLayout(apps)
     useLaunchpadStore.setState({ isOpen: true, searchQuery: 'zzzzzzz' })
 
     await renderLaunchpad()

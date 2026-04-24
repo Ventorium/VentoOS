@@ -141,7 +141,9 @@ pub fn create_router(state: &AppState) -> Router {
         )
         .route(
             "/api/settings/windows",
-            get(get_window_states).post(create_window_state),
+            get(get_window_states)
+                .post(create_window_state)
+                .put(save_window_states),
         )
         .route(
             "/api/settings/windows/{id}",
@@ -395,6 +397,7 @@ async fn get_desktop_state(State(state): State<AppState>) -> Json<ApiResponse<se
     let keys = &[
         "wallpaper",
         "theme_mode",
+        "accent_color",
         "dock_icon_size",
         "dock_position",
         "dock_magnification",
@@ -405,6 +408,7 @@ async fn get_desktop_state(State(state): State<AppState>) -> Json<ApiResponse<se
             let result = serde_json::json!({
                 "wallpaper": settings.get("wallpaper").unwrap_or(&"/wallpapers/dark-mountain.jpg".to_string()),
                 "theme_mode": settings.get("theme_mode").unwrap_or(&"dark".to_string()),
+                "accent_color": settings.get("accent_color").cloned(),
                 "dock_icon_size": settings.get("dock_icon_size").and_then(|s| s.parse::<u32>().ok()).unwrap_or(48),
                 "dock_position": settings.get("dock_position").unwrap_or(&"bottom".to_string()),
                 "dock_magnification": settings.get("dock_magnification").is_none_or(|s| s == "true"),
@@ -430,6 +434,12 @@ async fn save_desktop_state(
         (
             "theme_mode",
             body.get("theme_mode")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+        ),
+        (
+            "accent_color",
+            body.get("accent_color")
                 .and_then(|v| v.as_str())
                 .map(String::from),
         ),
@@ -488,6 +498,18 @@ async fn create_window_state(
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"id": body.id}))),
         Err(e) => Json(ApiResponse::err(format!(
             "Failed to create window state: {e}"
+        ))),
+    }
+}
+
+async fn save_window_states(
+    State(state): State<AppState>,
+    Json(body): Json<Vec<ventoos_core::window::WindowState>>,
+) -> Json<ApiResponse<serde_json::Value>> {
+    match state.window_states.save_all(&body) {
+        Ok(()) => Json(ApiResponse::ok(serde_json::json!({"saved": body.len()}))),
+        Err(e) => Json(ApiResponse::err(format!(
+            "Failed to save window states: {e}"
         ))),
     }
 }

@@ -882,21 +882,15 @@ mod tests {
         let listed = list_archive(&archive_path, None).unwrap();
         let paths: Vec<&str> = listed.entries.iter().map(|e| e.path.as_str()).collect();
         // File should be stored as "deep.txt", NOT "a/b/deep.txt"
-        assert!(
-            paths.iter().any(|p| *p == "deep.txt"),
-            "Expected 'deep.txt' in archive, got: {paths:?}"
-        );
+        assert!(paths.contains(&"deep.txt"), "Expected 'deep.txt' in archive, got: {paths:?}");
         assert!(
             !paths.iter().any(|p| p.contains("a/b/deep.txt")),
             "Should NOT contain full path 'a/b/deep.txt', got: {paths:?}"
         );
         // Directory entries should start with "mydir/", NOT "a/b/mydir/"
+        assert!(paths.contains(&"mydir/"), "Expected 'mydir/' in archive, got: {paths:?}");
         assert!(
-            paths.iter().any(|p| *p == "mydir/"),
-            "Expected 'mydir/' in archive, got: {paths:?}"
-        );
-        assert!(
-            paths.iter().any(|p| *p == "mydir/inner.txt"),
+            paths.contains(&"mydir/inner.txt"),
             "Expected 'mydir/inner.txt' in archive, got: {paths:?}"
         );
 

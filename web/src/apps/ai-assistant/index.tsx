@@ -18,8 +18,49 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FormSelect } from '@/components/ui'
 import type { AppComponentProps } from '@/kernel'
 import { openWindow, useAppStateSync, useAppStorage } from '@/kernel'
-import type { AgentConfig, AgentProfile, ChatSession, ProviderConfig, StreamEvent } from './api'
+import type { AgentConfig, AgentProfile, ChatSession, ProviderConfig, ProviderTemplate, StreamEvent } from './api'
 import { agentApi } from './api'
+
+export function draftFromTemplate(template: ProviderTemplate): ProviderConfig {
+  return {
+    id: `provider-${template.vendor}`,
+    name: template.name,
+    provider_type: template.provider_type,
+    vendor: template.vendor,
+    api_key: '',
+    base_url: template.base_url,
+    default_model: template.default_model,
+    enabled: true,
+    capabilities: template.capabilities
+  }
+}
+
+export function createEmptyCustomProfile(): AgentProfile {
+  return {
+    id: 'custom-profile',
+    name: '自定义 Agent',
+    description: '可编辑的自定义 Agent 配置。',
+    preset_kind: 'custom',
+    is_builtin: false,
+    system_prompt: '',
+    behavior: {
+      require_impact_for_destructive: true,
+      read_only_mode: false,
+      concise_output: true,
+      extra_rules: []
+    },
+    tool_config: {
+      mode: 'all',
+      enabled_tools: ['read', 'write', 'edit', 'bash'],
+      allow_bash: true
+    },
+    default_provider_id: undefined,
+    default_model: undefined,
+    temperature: 0.2,
+    max_tokens: 2048,
+    reasoning_mode: 'off'
+  }
+}
 
 function SelectInput({
   value,

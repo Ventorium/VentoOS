@@ -20,12 +20,13 @@ const SYNC_DEBOUNCE_MS = 500
 function scheduleSyncToBackend() {
   if (_syncTimer) clearTimeout(_syncTimer)
   _syncTimer = setTimeout(() => {
-    const { wallpaper, themeMode, dockIconSize, dockPosition, dockMagnification, dockAutoHide } =
+    const { wallpaper, themeMode, accentColor, dockIconSize, dockPosition, dockMagnification, dockAutoHide } =
       useSettingsStore.getState()
     apiClient
       .saveDesktopSettings({
         wallpaper,
         theme_mode: themeMode,
+        ...(accentColor !== null ? { accent_color: accentColor } : {}),
         dock_icon_size: dockIconSize,
         dock_position: dockPosition,
         dock_magnification: dockMagnification,
@@ -40,6 +41,7 @@ function scheduleSyncToBackend() {
 interface SettingsStore {
   wallpaper: string
   themeMode: ThemeMode
+  accentColor: string | null
   resolvedTheme: 'light' | 'dark'
 
   // Dock settings
@@ -50,6 +52,7 @@ interface SettingsStore {
 
   setWallpaper: (url: string) => void
   setThemeMode: (mode: ThemeMode) => void
+  setAccentColor: (color: string) => void
   setResolvedTheme: (theme: 'light' | 'dark') => void
   setDockIconSize: (size: number) => void
   setDockPosition: (pos: DockPosition) => void
@@ -63,6 +66,7 @@ interface SettingsStore {
 export const useSettingsStore = create<SettingsStore>()(set => ({
   wallpaper: '/wallpapers/dark-mountain.jpg',
   themeMode: 'dark',
+  accentColor: null,
   resolvedTheme: 'dark',
 
   dockIconSize: 48,
@@ -77,6 +81,11 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
 
   setThemeMode(mode) {
     set({ themeMode: mode })
+    scheduleSyncToBackend()
+  },
+
+  setAccentColor(color) {
+    set({ accentColor: color })
     scheduleSyncToBackend()
   },
 
@@ -112,6 +121,7 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
       set({
         ...(data.wallpaper ? { wallpaper: data.wallpaper } : {}),
         ...(data.theme_mode ? { themeMode: data.theme_mode as ThemeMode } : {}),
+        ...(data.accent_color !== undefined ? { accentColor: data.accent_color ?? null } : {}),
         ...(data.dock_icon_size ? { dockIconSize: data.dock_icon_size } : {}),
         ...(data.dock_position ? { dockPosition: data.dock_position as DockPosition } : {}),
         ...(data.dock_magnification !== undefined ? { dockMagnification: data.dock_magnification } : {}),

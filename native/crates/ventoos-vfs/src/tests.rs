@@ -6,10 +6,10 @@
 //!   cargo test -p ventoos-vfs -- --ignored --test-threads=1
 //!
 //! Required environment (edit constants below or set env vars):
-//!   - SFTP: root@<SFTP_HOST>:22 with password SFTP_PASS
-//!   - S3 (MinIO): http://<S3_ENDPOINT> with S3_ACCESS_KEY / S3_SECRET_KEY
-//!   - SMB: smb://<SMB_HOST> 或 smb://<SMB_HOST>/<SMB_SHARE>，user/pass SMB_USER / SMB_PASS
-//!   - FTP: ftp://<FTP_HOST> user/pass FTP_USER / FTP_PASS
+//!   - SFTP: `root@<SFTP_HOST>:22` with password `SFTP_PASS`
+//!   - S3 (MinIO): `http://<S3_ENDPOINT>` with `S3_ACCESS_KEY` / `S3_SECRET_KEY`
+//!   - SMB: `smb://<SMB_HOST>` 或 `smb://<SMB_HOST>/<SMB_SHARE>`，user/pass `SMB_USER` / `SMB_PASS`
+//!   - FTP: `ftp://<FTP_HOST>` user/pass `FTP_USER` / `FTP_PASS`
 
 #![cfg(test)]
 
@@ -153,7 +153,7 @@ async fn test_sftp_mkdir_and_list() {
     let short_name = dir_name
         .trim_start_matches('/')
         .split('/')
-        .last()
+        .next_back()
         .unwrap_or("");
     assert!(
         entries.iter().any(|e| e.name == short_name),

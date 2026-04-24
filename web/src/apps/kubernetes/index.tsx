@@ -1,8 +1,8 @@
 import { AlertCircle, Box, CheckCircle2, Loader2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EmptyState, FormInput, FormSelect, Modal } from '@/components'
 import type { AppComponentProps } from '@/kernel'
-import { useAppStorage } from '@/kernel'
+import { useAppStateSync } from '@/kernel'
 import type { VfsPickerResult } from '@/shell/FilePicker'
 import { VfsPathPickerInput } from '@/shell/FilePicker'
 import type { CreateK8sClusterReq, K8sCluster, TeleportKubeCluster, UpdateK8sClusterReq } from './api'
@@ -12,6 +12,17 @@ import { ClusterOverview } from './components/overview/ClusterOverview'
 import { ResourceList } from './components/resource-list/ResourceList'
 import { useClusterStore } from './stores/cluster-store'
 import { useKubernetesStore } from './stores/kubernetes-store'
+
+function KubernetesWorkspaceStateSync({
+  windowId,
+  state
+}: {
+  windowId: string
+  state: { tabs: ReturnType<typeof useKubernetesStore.getState>['tabs']; activeTabId: string | null }
+}) {
+  useAppStateSync(windowId, state, [state])
+  return null
+}
 
 // ─── Add cluster form ──────────────────────────────────────────────────────
 
@@ -636,10 +647,10 @@ function EditClusterModal({ cluster, onClose, onUpdated }: { cluster: K8sCluster
 
 // ─── Main app ──────────────────────────────────────────────────────────────
 
-export default function KubernetesApp({ initialAppState }: AppComponentProps) {
-  const storage = useAppStorage('kubernetes')
+export default function KubernetesApp({ windowId, initialAppState }: AppComponentProps) {
   const [showForm, setShowForm] = useState(false)
   const [editingCluster, setEditingCluster] = useState<K8sCluster | null>(null)
+  const [workspaceReady, setWorkspaceReady] = useState(false)
 
   const loadClusters = useClusterStore(s => s.loadClusters)
   const addCluster = useClusterStore(s => s.addCluster)
@@ -647,36 +658,48 @@ export default function KubernetesApp({ initialAppState }: AppComponentProps) {
   const clusters = useClusterStore(s => s.clusters)
   const clustersLoading = useClusterStore(s => s.loading)
 
+  const tabs = useKubernetesStore(s => s.tabs)
+  const activeTabId = useKubernetesStore(s => s.activeTabId)
+  const hydrateAppState = useKubernetesStore(s => s.hydrateAppState)
   const activeTab = useKubernetesStore(s => s.getActiveTab())
   const openTab = useKubernetesStore(s => s.openTab)
 
-  // Load persisted preferences and clusters on mount
+  const persistedAppState = useMemo(
+    () => ({
+      tabs,
+      activeTabId
+    }),
+    [tabs, activeTabId]
+  )
+
+  // Load clusters first, then restore persisted window appState for refresh recovery.
   useEffect(() => {
     let active = true
     const init = async () => {
-      if (!active) return
       await loadClusters()
       if (!active) return
 
-      const prefs = await storage.getJSON<{ cluster?: string; ns?: string; kind?: string }>('preferences')
-      // Read clusters from store directly after loading, not from closure
       const latestClusters = useClusterStore.getState().clusters
-      if (prefs?.cluster) {
-        const cluster = latestClusters.find(c => c.id === prefs.cluster)
-        if (cluster) {
-          openTab(cluster.id, prefs.ns ?? '', (prefs.kind as any) ?? 'overview')
-        }
-      } else if (latestClusters.length > 0) {
+      const restored = hydrateAppState(
+        initialAppState,
+        latestClusters.length > 0 ? latestClusters.map(cluster => cluster.id) : undefined
+      )
+
+      if (!restored && latestClusters.length > 0) {
         // Auto-open overview for first cluster
         openTab(latestClusters[0].id, '', 'overview')
       }
+
+      if (active) {
+        setWorkspaceReady(true)
+      }
     }
+
     init()
     return () => {
       active = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only run on mount
+  }, [hydrateAppState, initialAppState, loadClusters, openTab])
 
   const handleCreated = useCallback(
     (c: K8sCluster) => {
@@ -721,6 +744,7 @@ export default function KubernetesApp({ initialAppState }: AppComponentProps) {
         ) : undefined
       }
     >
+      {workspaceReady && <KubernetesWorkspaceStateSync windowId={windowId} state={persistedAppState} />}
       {activeTab ? (
         activeTab.kind === 'overview' ? (
           <ClusterOverview clusterId={activeTab.clusterId} />

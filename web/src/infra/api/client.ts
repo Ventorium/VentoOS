@@ -59,7 +59,11 @@ export async function request<T>(
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(path, {
+  const requestUrl = /^https?:\/\//.test(path)
+    ? path
+    : new URL(path, globalThis.location?.origin ?? 'http://localhost').toString()
+
+  const res = await fetch(requestUrl, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,

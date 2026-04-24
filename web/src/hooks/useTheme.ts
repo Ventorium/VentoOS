@@ -51,6 +51,7 @@ function applyThemeVars(theme: ThemeColors) {
  */
 export function useThemeSync() {
   const themeMode = useSettingsStore(s => s.themeMode)
+  const accentColor = useSettingsStore(s => s.accentColor)
   const setResolvedTheme = useSettingsStore(s => s.setResolvedTheme)
 
   useEffect(() => {
@@ -60,9 +61,11 @@ export function useThemeSync() {
       const prefersDark = mediaQuery.matches
       const resolved = themeMode === 'auto' ? (prefersDark ? 'dark' : 'light') : themeMode
       const colors = resolved === 'dark' ? darkTheme : lightTheme
+      const accentPrimary = accentColor ?? colors.accent.primary
 
       document.documentElement.classList.toggle('dark', resolved === 'dark')
       applyThemeVars(colors)
+      document.documentElement.style.setProperty('--vos-accent-primary', accentPrimary)
       setResolvedTheme(resolved)
       // Broadcast theme change to all subscribers (apps, components)
       systemChannel.notify('theme:changed', { mode: resolved as 'light' | 'dark' })
@@ -71,5 +74,5 @@ export function useThemeSync() {
     update()
     mediaQuery.addEventListener('change', update)
     return () => mediaQuery.removeEventListener('change', update)
-  }, [themeMode, setResolvedTheme])
+  }, [themeMode, accentColor, setResolvedTheme])
 }

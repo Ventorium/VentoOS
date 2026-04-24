@@ -102,6 +102,8 @@ pub fn parse_mode(s: &str) -> Result<u32, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
 
     #[test]
     fn test_mode_to_string() {
@@ -130,7 +132,6 @@ mod tests {
             let result = chmod_local(root.to_str().unwrap(), "/test.txt", 0o644).await;
             assert!(result.is_ok());
 
-            use std::os::unix::fs::PermissionsExt;
             let perms = std::fs::metadata(&file_path).unwrap().permissions();
             assert_eq!(perms.mode() & 0o777, 0o644);
         }

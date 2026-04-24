@@ -46,6 +46,7 @@ export interface CreateProcessReq {
 export interface DesktopSettings {
   wallpaper: string
   theme_mode: string
+  accent_color?: string | null
   dock_icon_size: number
   dock_position: string
   dock_magnification: boolean

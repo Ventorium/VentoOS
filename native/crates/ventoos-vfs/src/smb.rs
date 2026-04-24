@@ -985,6 +985,15 @@ fn format_system_time(t: &std::time::SystemTime) -> String {
     format!("{year}-??-??T??:??:??Z")
 }
 
+fn smb_client_dialects() -> Vec<Dialect> {
+    vec![
+        Dialect::Smb202,
+        Dialect::Smb210,
+        Dialect::Smb300,
+        Dialect::Smb302,
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1071,13 +1080,4 @@ mod tests {
         assert_eq!(to_share_path("/data", "/"), "/data");
         assert_eq!(to_share_path("/data", "file.txt"), "/data/file.txt");
     }
-}
-
-fn smb_client_dialects() -> Vec<Dialect> {
-    vec![
-        Dialect::Smb202,
-        Dialect::Smb210,
-        Dialect::Smb300,
-        Dialect::Smb302,
-    ]
 }

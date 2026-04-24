@@ -1,6 +1,24 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWindowStore } from '../window/store'
 import type { WindowInstance } from '../window/types'
+
+vi.mock('@/infra/api', () => ({
+  apiClient: {
+    getWindowSettings: vi.fn().mockResolvedValue({ data: [] }),
+    createWindowState: vi.fn().mockResolvedValue({ data: { id: 'mock-window' } }),
+    updateWindowState: vi.fn().mockResolvedValue({}),
+    deleteWindowState: vi.fn().mockResolvedValue({})
+  }
+}))
+
+vi.mock('@/infra/logger', () => ({
+  createLogger: () => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn()
+  })
+}))
 
 function makeWin(overrides: Partial<WindowInstance> = {}): WindowInstance {
   const id = overrides.id ?? crypto.randomUUID()
