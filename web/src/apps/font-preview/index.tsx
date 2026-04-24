@@ -167,7 +167,7 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
           disabled={installing || installed}
           className={`flex items-center gap-1 px-[10px] py-1 text-xs rounded-md border-none cursor-pointer transition-colors ${
             installed
-              ? 'bg-[var(--vos-accent-primary)]/20 text-[var(--vos-accent-primary)]'
+              ? 'bg-emerald-500/15 text-emerald-400'
               : 'bg-transparent text-[var(--vos-text-secondary)] hover:text-[var(--vos-text-primary)]'
           }`}
         >
