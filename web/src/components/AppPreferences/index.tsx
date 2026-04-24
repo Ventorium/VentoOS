@@ -16,7 +16,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { FormSelect } from '@/components/ui'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export function AppPreferences({ appName, categories, defaultCategory }: AppPref
   }, [activeId, categories, defaultCategory])
 
   return (
-    <div className="flex h-full bg-[var(--vos-bg-window-active)] overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
       <div className="w-[180px] shrink-0 border-r-[0.5px] border-r-solid border-r-[var(--vos-border-subtle)] flex flex-col p-2 overflow-y-auto">
         <div className="text-[11px] font-bold text-[var(--vos-text-tertiary)] uppercase tracking-[0.06em] px-2 pt-1 pb-2">
@@ -233,10 +233,57 @@ export interface AppPreferencesSheetProps extends AppPreferencesProps {
 
 /**
  * Full overlay "popup window" style preferences sheet.
- * Renders centered with a backdrop, keyboard-dismissable.
+ * Renders as a draggable floating panel within the app window.
  */
 export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPreferencesSheetProps) {
   const title = `${prefsProps.appName}偏好设置`
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+  const [initialized, setInitialized] = useState(false)
+  const dragRef = useRef({ dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 })
+
+  // Center panel on first open
+  useEffect(() => {
+    if (open && !initialized) {
+      setInitialized(true)
+      // Center horizontally, offset from top
+      const parentW = panelRef.current?.parentElement?.clientWidth ?? 800
+      setPos({ x: Math.max(0, (parentW - 760) / 2), y: 16 })
+    }
+    if (!open) setInitialized(false)
+  }, [open, initialized])
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    // Only drag from title area, not from close button
+    if ((e.target as HTMLElement).closest('button')) return
+    e.preventDefault()
+    dragRef.current = {
+      dragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: pos.x,
+      originY: pos.y
+    }
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current.dragging) return
+      const dx = ev.clientX - dragRef.current.startX
+      const dy = ev.clientY - dragRef.current.startY
+      setPos({
+        x: dragRef.current.originX + dx,
+        y: Math.max(0, dragRef.current.originY + dy)
+      })
+    }
+
+    const onUp = () => {
+      dragRef.current.dragging = false
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [pos.x, pos.y])
 
   // Close on Escape key
   useEffect(() => {
@@ -258,49 +305,52 @@ export function AppPreferencesSheet({ open, onClose, ...prefsProps }: AppPrefere
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 bg-[rgba(10,14,22,0.18)] backdrop-blur-[6px] pointer-events-auto"
+            className="absolute inset-0 bg-[rgba(10,14,22,0.18)] backdrop-blur-[1px] pointer-events-auto"
             onClick={onClose}
           />
 
-          <div className="absolute inset-x-0 top-0 flex justify-center px-4 pt-4 pb-4 pointer-events-none">
-            <motion.div
-              role="dialog"
-              aria-modal="true"
-              aria-label={title}
-              data-sheet-position="top"
-              initial={{ opacity: 0, y: -18, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -18, scale: 0.98 }}
-              transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
-              className="rounded-xl overflow-hidden bg-[var(--vos-bg-overlay)] border-[0.5px] border-solid border-[var(--vos-border-subtle)] shadow-[0_24px_72px_rgba(0,0,0,.24),0_6px_20px_rgba(0,0,0,.16)] flex flex-col pointer-events-auto"
-              style={{
-                width: 'min(760px, calc(100% - 8px))',
-                height: 'min(520px, calc(100% - 8px))',
-                backdropFilter: 'blur(48px) saturate(200%)',
-                WebkitBackdropFilter: 'blur(48px) saturate(200%)'
-              }}
+          <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
+            className="absolute rounded-xl overflow-hidden border-[0.5px] border-solid border-[var(--vos-border-subtle)] shadow-[0_24px_72px_rgba(0,0,0,.24),0_6px_20px_rgba(0,0,0,.16)] flex flex-col pointer-events-auto"
+            style={{
+              left: pos.x,
+              top: pos.y,
+              width: 'min(760px, calc(100% - 8px))',
+              height: 'min(520px, calc(100% - 8px))',
+              backdropFilter: 'blur(48px) saturate(200%)',
+              WebkitBackdropFilter: 'blur(48px) saturate(200%)'
+            }}
+          >
+            {/* Mini title bar — draggable */}
+            <div
+              className="h-[40px] flex items-center justify-between px-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] shrink-0 cursor-grab active:cursor-grabbing select-none"
+              onMouseDown={onDragStart}
             >
-              {/* Mini title bar */}
-              <div className="h-[40px] flex items-center justify-between px-3 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)] shrink-0 bg-[var(--vos-bg-window-title)]">
-                <span className="text-[13px] font-semibold text-[var(--vos-text-primary)]">
-                  {title}
-                </span>
-                <button
-                  type="button"
-                  className="vos-btn-icon w-[22px] h-[22px] rounded-[6px] text-[var(--vos-text-tertiary)]"
-                  onClick={onClose}
-                  aria-label="关闭偏好设置"
-                >
-                  <X size={13} />
-                </button>
-              </div>
+              <span className="text-[13px] font-semibold text-[var(--vos-text-primary)]">
+                {title}
+              </span>
+              <button
+                type="button"
+                className="vos-btn-icon w-[22px] h-[22px] rounded-[6px] text-[var(--vos-text-tertiary)]"
+                onClick={onClose}
+                aria-label="关闭偏好设置"
+              >
+                <X size={13} />
+              </button>
+            </div>
 
-              {/* Preferences content */}
-              <div className="flex-1 overflow-hidden min-h-0">
-                <AppPreferences {...prefsProps} />
-              </div>
-            </motion.div>
-          </div>
+            {/* Preferences content */}
+            <div className="flex-1 overflow-hidden min-h-0">
+              <AppPreferences {...prefsProps} />
+            </div>
+          </motion.div>
         </div>
       )}
     </AnimatePresence>

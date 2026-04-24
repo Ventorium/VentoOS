@@ -44,7 +44,7 @@ function AboutDialog({ app, onClose }: { app: AboutAppInfo; onClose: () => void 
   return (
     <div className="vos-modal-overlay" onClick={onClose}>
       <motion.div
-        className="vos-modal w-[320px] p-0 rounded-xl"
+        className="vos-modal !w-[320px] p-0 rounded-xl"
         initial={{ scale: 0.93, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         onClick={e => e.stopPropagation()}
