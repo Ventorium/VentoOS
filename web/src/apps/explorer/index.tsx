@@ -2060,7 +2060,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
   const [preview, setPreview] = useState<VfsFileContent | null>(null)
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
   const [scrollTrigger] = useState(0)
-  const [showHidden, setShowHidden] = useState(true)
+  const [showHidden, setShowHidden] = useState(false)
 
   // Load persisted preferences from storage SDK
   useEffect(() => {
