@@ -6,12 +6,13 @@
  */
 
 import { AnimatePresence } from 'framer-motion'
-import { Download, Type } from 'lucide-react'
+import { CheckCircle2, Download, Type } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import type { AppComponentProps } from '@/kernel'
 import { useWindowActions } from '@/kernel'
+import { notificationService } from '@/services'
 import { useAuthStore } from '@/services/auth'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
@@ -21,6 +22,11 @@ const SAMPLE_TEXT_NUM = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0
 const SAMPLE_CHARS = '!"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
 
 const PREVIEW_SIZES = [12, 14, 16, 20, 24, 32, 48, 64, 72]
+
+function rawUrl(mountId: string, path: string): string {
+  const token = useAuthStore.getState().token
+  return `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(path)}${token ? `&token=${encodeURIComponent(token)}` : ''}`
+}
 
 export default function FontPreview({ windowId, initialAppState }: AppComponentProps) {
   const [mountId, setMountId] = useState((initialAppState?.mountId as string) ?? '')
@@ -49,6 +55,8 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
   const [error, setError] = useState('')
   const [customText, setCustomText] = useState('')
   const [activeTab, setActiveTab] = useState<'preview' | 'grid'>('preview')
+  const [installing, setInstalling] = useState(false)
+  const [installed, setInstalled] = useState(false)
   const fontFaceRef = useRef<FontFace | null>(null)
 
   // Load font via FontFace API
@@ -58,11 +66,10 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
       return
     }
 
-    const token = useAuthStore.getState().token
-    const rawUrl = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}${token ? `&token=${encodeURIComponent(token)}` : ''}`
+    const url = rawUrl(mountId, node.path)
     const familyName = `preview-${node.name.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`
 
-    const fontFace = new FontFace(familyName, `url(${rawUrl})`)
+    const fontFace = new FontFace(familyName, `url(${url})`)
     fontFaceRef.current = fontFace
 
     fontFace
@@ -84,15 +91,33 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
     }
   }, [mountId, node])
 
-  const handleDownload = useCallback(() => {
-    if (!mountId || !node) return
-    const token = useAuthStore.getState().token
-    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}${token ? `&token=${encodeURIComponent(token)}` : ''}`
-    const a = document.createElement('a')
-    a.href = url
-    a.download = node.name
-    a.click()
-  }, [mountId, node])
+  const handleInstall = useCallback(async () => {
+    if (!mountId || !node || installing) return
+    setInstalling(true)
+    try {
+      const token = useAuthStore.getState().token
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      const res = await fetch(`/api/vfs/mounts/${encodeURIComponent(mountId)}/install-font`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: node.path })
+      })
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        setInstalled(true)
+        notificationService.success('字体安装', `${node.name} 已安装到系统字体目录`, 'font-preview')
+      } else {
+        notificationService.error('字体安装', data.error || '安装失败', 'font-preview')
+      }
+    } catch (e) {
+      notificationService.error('字体安装', String(e), 'font-preview')
+    } finally {
+      setInstalling(false)
+    }
+  }, [mountId, node, installing])
 
   if (error) {
     return (
@@ -138,25 +163,46 @@ export default function FontPreview({ windowId, initialAppState }: AppComponentP
 
         <button
           type="button"
-          onClick={handleDownload}
-          className="flex items-center gap-1 px-[10px] py-1 text-xs rounded-md border-none cursor-pointer bg-transparent text-[var(--vos-text-secondary)]"
+          onClick={handleInstall}
+          disabled={installing || installed}
+          className={`flex items-center gap-1 px-[10px] py-1 text-xs rounded-md border-none cursor-pointer transition-colors ${
+            installed
+              ? 'bg-[var(--vos-accent-primary)]/20 text-[var(--vos-accent-primary)]'
+              : 'bg-transparent text-[var(--vos-text-secondary)] hover:text-[var(--vos-text-primary)]'
+          }`}
         >
-          <Download size={14} />
-          下载
+          {installed ? (
+            <>
+              <CheckCircle2 size={14} />
+              已安装
+            </>
+          ) : installing ? (
+            <>
+              <span className="inline-block w-[14px] h-[14px] border-2 border-current border-t-transparent rounded-full animate-spin" />
+              安装中…
+            </>
+          ) : (
+            <>
+              <Download size={14} />
+              安装
+            </>
+          )}
         </button>
       </div>
 
-      {/* Custom text input */}
-      <div className="px-3 py-1.5 border-b border-b-solid border-b-[var(--vos-border-subtle)] shrink-0">
-        <input
-          type="text"
-          placeholder="输入自定义预览文本…"
-          value={customText}
-          onChange={e => setCustomText(e.target.value)}
-          className="w-full px-2 py-1.5 text-sm rounded-md border border-solid border-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] text-[var(--vos-text-primary)] outline-none"
-          style={fontStyle}
-        />
-      </div>
+      {/* Custom text input — only in preview tab */}
+      {activeTab === 'preview' && (
+        <div className="px-3 py-1.5 border-b border-b-solid border-b-[var(--vos-border-subtle)] shrink-0">
+          <input
+            type="text"
+            placeholder="输入自定义预览文本…"
+            value={customText}
+            onChange={e => setCustomText(e.target.value)}
+            className="w-full px-2 py-1.5 text-sm rounded-md border border-solid border-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] text-[var(--vos-text-primary)] outline-none"
+            style={fontStyle}
+          />
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">

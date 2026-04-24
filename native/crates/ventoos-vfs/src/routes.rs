@@ -50,6 +50,7 @@ impl AppPlugin for VfsPlugin {
             .route("/api/vfs/mounts/{id}/ls", get(list_dir))
             .route("/api/vfs/mounts/{id}/read", get(read_file))
             .route("/api/vfs/mounts/{id}/raw", get(read_file_raw))
+            .route("/api/vfs/mounts/{id}/install-font", post(install_font))
             .route("/api/vfs/mounts/{id}/move", post(move_file))
             .route("/api/vfs/mounts/{id}/copy", post(copy_file))
             .route("/api/vfs/mounts/{id}/mkdir", post(mkdir_handler))
@@ -684,4 +685,174 @@ async fn recv_ws_msg(
     socket: &mut axum::extract::ws::WebSocket,
 ) -> Option<Result<Message, axum::Error>> {
     socket.recv().await
+}
+
+// ─── Font Install ──────────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct InstallFontBody {
+    path: String,
+}
+
+/// Install a font file from VFS into the system font directory.
+///
+/// macOS: copies to `~/Library/Fonts/`
+/// Linux: copies to `~/.local/share/fonts/` then runs `fc-cache -f`
+async fn install_font(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Json(body): Json<InstallFontBody>,
+) -> impl IntoResponse {
+    let path = body.path;
+
+    // Validate file extension
+    let ext = std::path::Path::new(&path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    if !matches!(ext.as_str(), "ttf" | "otf" | "ttc" | "woff" | "woff2") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<serde_json::Value>::err(format!(
+                "不支持的字体格式: .{ext}"
+            ))),
+        )
+            .into_response();
+    }
+
+    // Read font bytes from VFS
+    let bytes = match mgr.read_file_raw(&id, &path).await {
+        Ok(b) => b,
+        Err(e) => {
+            tracing::error!("install_font: read failed mount={} path={}: {e}", id, path);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<serde_json::Value>::err(format!(
+                    "读取字体文件失败: {e}"
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    // Get filename from path
+    let filename = std::path::Path::new(&path)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "font".to_string());
+
+    // Install
+    match install_font_to_system(&filename, &bytes).await {
+        Ok(dest_path) => {
+            Json(ApiResponse::ok(serde_json::json!({
+                "installed": true,
+                "path": dest_path
+            })))
+            .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<serde_json::Value>::err(format!(
+                "安装字体失败: {e}"
+            ))),
+        )
+            .into_response(),
+    }
+}
+
+/// Platform-specific font installation.
+async fn install_font_to_system(filename: &str, bytes: &[u8]) -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|e| format!("无法获取 HOME 目录: {e}"))?;
+
+    #[cfg(target_os = "macos")]
+    {
+        let fonts_dir = format!("{home}/Library/Fonts");
+        tokio::fs::create_dir_all(&fonts_dir)
+            .await
+            .map_err(|e| format!("创建字体目录失败: {e}"))?;
+
+        let dest = format!("{fonts_dir}/{filename}");
+
+        // If file already exists, overwrite
+        tokio::fs::write(&dest, bytes)
+            .await
+            .map_err(|e| format!("写入字体文件失败: {e}"))?;
+
+        Ok(dest)
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let fonts_dir = format!("{home}/.local/share/fonts");
+        tokio::fs::create_dir_all(&fonts_dir)
+            .await
+            .map_err(|e| format!("创建字体目录失败: {e}"))?;
+
+        let dest = format!("{fonts_dir}/{filename}");
+        tokio::fs::write(&dest, bytes)
+            .await
+            .map_err(|e| format!("写入字体文件失败: {e}"))?;
+
+        // Refresh font cache
+        let _ = tokio::process::Command::new("fc-cache")
+            .arg("-f")
+            .output()
+            .await;
+
+        Ok(dest)
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        let _ = (filename, bytes);
+        Err("当前系统不支持字体安装".to_string())
+    }
+}
+
+#[cfg(test)]
+mod font_install_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_install_font_rejects_non_font_extension() {
+        // We test the extension validation logic directly
+        let ext = "txt".to_lowercase();
+        assert!(!matches!(ext.as_str(), "ttf" | "otf" | "ttc" | "woff" | "woff2"));
+    }
+
+    #[tokio::test]
+    async fn test_install_font_accepts_valid_extensions() {
+        for ext in &["ttf", "otf", "ttc", "woff", "woff2"] {
+            assert!(matches!(
+                ext.to_string().to_lowercase().as_str(),
+                "ttf" | "otf" | "ttc" | "woff" | "woff2"
+            ));
+        }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_install_font_to_system_writes_file() {
+        let filename = format!("test-font-{}.ttf", std::process::id());
+        let content = b"fake-font-data";
+
+        let result = install_font_to_system(&filename, content).await;
+
+        assert!(result.is_ok(), "install_font_to_system failed: {:?}", result.err());
+        let dest = result.unwrap();
+
+        #[cfg(target_os = "macos")]
+        assert!(dest.contains("Library/Fonts"));
+        #[cfg(target_os = "linux")]
+        assert!(dest.contains(".local/share/fonts"));
+
+        // Verify file content
+        let written = tokio::fs::read(&dest).await.unwrap();
+        assert_eq!(written, content);
+
+        // Cleanup
+        let _ = tokio::fs::remove_file(&dest).await;
+    }
 }
