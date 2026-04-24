@@ -26,6 +26,21 @@ pub struct VfsManager {
     webdav_server_settings: Arc<RwLock<WebDavServerSettings>>,
 }
 
+/// Check if a filename is a macOS metadata/temp file that should always be hidden.
+fn is_macos_junk(name: &str) -> bool {
+    // ._  — Apple Double files (extended attributes / resource forks)
+    // .~  — SMB spark temp files (e.g. .~lock.docx# or .~文字文稿1.docx)
+    // .DS_Store — macOS folder settings
+    // .TemporaryItems / .Trashes / .fseventsd / .Spotlight-V100 — macOS volume metadata
+    name.starts_with("._")
+        || name.starts_with(".~")
+        || name == ".DS_Store"
+        || name == ".TemporaryItems"
+        || name == ".Trashes"
+        || name == ".fseventsd"
+        || name == ".Spotlight-V100"
+}
+
 impl VfsManager {
     pub fn new() -> Self {
         Self {
@@ -396,7 +411,7 @@ impl VfsManager {
             .cloned()
             .ok_or("Mount not found")?;
 
-        match mount.kind {
+        let mut nodes = match mount.kind {
             VfsSourceKind::Local => {
                 self.list_local_dir(&mount.root, &req.path, req.show_hidden)
                     .await
@@ -422,7 +437,11 @@ impl VfsManager {
                 )?);
                 client.list_dir(&req.path).await
             }
-        }
+        }?;
+
+        // VFS-level filter: always hide macOS metadata/temp files regardless of backend or show_hidden
+        nodes.retain(|n| !is_macos_junk(&n.name));
+        Ok(nodes)
     }
 
     async fn list_local_dir(
@@ -457,10 +476,6 @@ impl VfsManager {
 
         while let Ok(Some(entry)) = read_dir.next_entry().await {
             let name = entry.file_name().to_string_lossy().to_string();
-            // Skip macOS Apple Double files (._*) always — they are internal metadata
-            if name.starts_with("._") {
-                continue;
-            }
             // Skip hidden files unless explicitly requested
             if !show_hidden && name.starts_with('.') {
                 continue;
