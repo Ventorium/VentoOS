@@ -311,9 +311,11 @@ impl LocalMountManager {
             let webdav_url = format!("http://localhost:5454/dav/{mount_id}/");
 
             // Use AppleScript to tell Finder to mount the WebDAV volume.
-            // This is equivalent to "Connect to Server" in Finder — no root needed.
-            let script =
-                format!("tell application \"Finder\" to mount volume \"{webdav_url}\"");
+            // Pass guest credentials to suppress the authentication dialog —
+            // our WebDAV server has no auth middleware so any credentials are accepted.
+            let script = format!(
+                "tell application \"Finder\" to mount volume \"{webdav_url}\" as user name \"guest\" with password \"guest\""
+            );
             let output = tokio::process::Command::new("osascript")
                 .args(["-e", &script])
                 .output()
