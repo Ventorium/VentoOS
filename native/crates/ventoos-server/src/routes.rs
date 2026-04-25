@@ -941,7 +941,16 @@ async fn fuse_open_in_finder_handler(
             .status_with_config(&id, &mount.name, mount.local_mount.as_ref())
             .await;
         match status {
-            ventoos_mount::MountStatus::Mounted { mount_point } => mount_point,
+            ventoos_mount::MountStatus::Mounted { ref mount_point } => {
+                // FileProvider mount points are virtual — resolve to real CloudStorage path
+                if let Some(display_name) = mount_point.strip_prefix("FileProvider:") {
+                    ventoos_mount::validate::expand_home(&format!(
+                        "~/Library/CloudStorage/VentoFS-{display_name}"
+                    ))
+                } else {
+                    mount_point.clone()
+                }
+            }
             _ => {
                 return (
                     StatusCode::BAD_REQUEST,
