@@ -2061,11 +2061,17 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
   const [selectedNode, setSelectedNode] = useState<VfsNode | null>(null)
   const [scrollTrigger] = useState(0)
   const [showHidden, setShowHidden] = useState(false)
+  const showHiddenRef = useRef(false)
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
 
-  // Load persisted preferences from storage SDK
+  // Load persisted preferences from storage SDK BEFORE initial data load
   useEffect(() => {
     storage.getJSON<{ showHidden?: boolean }>('preferences').then(prefs => {
-      if (prefs?.showHidden !== undefined) setShowHidden(prefs.showHidden)
+      if (prefs?.showHidden !== undefined) {
+        setShowHidden(prefs.showHidden)
+        showHiddenRef.current = prefs.showHidden
+      }
+      setPrefsLoaded(true)
     })
   }, [storage])
 
@@ -2257,12 +2263,12 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
   }, [])
 
   useEffect(() => {
-    reload()
-  }, [reload])
+    if (prefsLoaded) reload()
+  }, [reload, prefsLoaded])
 
   // Re-load all visible columns when hidden files setting changes
   useEffect(() => {
-    if (!selectedMount || columns.length === 0) return
+    if (!prefsLoaded || !selectedMount || columns.length === 0) return
     ;(async () => {
       const updated = await Promise.all(
         columns.map(async col => {
@@ -2277,7 +2283,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
 
   const loadColumn = async (mountId: string, path: string): Promise<VfsNode[]> => {
     try {
-      const r = await vfsApi.listVfsDir(mountId, path, showHidden)
+      const r = await vfsApi.listVfsDir(mountId, path, showHiddenRef.current)
       return r.data
     } catch (e) {
       console.error(e)
@@ -3338,17 +3344,46 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
                     action: handleFuseToggle
                   })
                 }
-                // WebDAV "Mount in Finder" for non-local sources
-                if (m.kind !== 'local') {
+                // "Open in Finder" — available for local mounts or remotely mounted sources
+                if (m.kind === 'local' || m.local_mount?.enabled) {
                   items.push({
-                    id: 'mount-webdav-finder',
-                    label: '在 Finder 中打开（WebDAV）',
-                    action: () => {
-                      const url = vfsApi.getWebDavMountUrl(m.id)
-                      window.open(
-                        `x-apple.systempreferences://open?message=webdav:${encodeURIComponent(url)}`,
-                        '_blank'
-                      )
+                    id: 'mount-open-finder',
+                    label: '在 Finder 中打开',
+                    action: async () => {
+                      // If not yet mounted, mount first
+                      if (m.kind !== 'local' && !isFuseMounted) {
+                        setMountOpLoading(prev => ({ ...prev, [m.id]: true }))
+                        try {
+                          const res = await vfsApi.localMountVfs(m.id)
+                          if (res.data?.error) {
+                            if (
+                              res.data.error.includes('FUSE') ||
+                              res.data.error.includes('macFUSE') ||
+                              res.data.error.includes('libfuse')
+                            ) {
+                              openWindow('dependency-manager')
+                              return
+                            }
+                            return
+                          }
+                          setLocalMountStatuses(prev => ({ ...prev, [m.id]: res.data }))
+                        } catch (err) {
+                          const msg = err instanceof Error ? err.message : '挂载失败'
+                          if (msg.includes('FUSE') || msg.includes('macFUSE') || msg.includes('libfuse')) {
+                            openWindow('dependency-manager')
+                            return
+                          }
+                          return
+                        } finally {
+                          setMountOpLoading(prev => ({ ...prev, [m.id]: false }))
+                        }
+                      }
+                      // Open in Finder
+                      try {
+                        await vfsApi.openInFinder(m.id)
+                      } catch (e) {
+                        console.error('Open in Finder failed:', e)
+                      }
                     }
                   })
                 }
@@ -3526,6 +3561,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
               showHidden={showHidden}
               onShowHiddenChange={next => {
                 setShowHidden(next)
+                showHiddenRef.current = next
                 storage.setJSON('preferences', { showHidden: next })
               }}
               onClose={() => setShowExplorerSettings(false)}

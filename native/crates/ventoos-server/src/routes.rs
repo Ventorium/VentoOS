@@ -178,6 +178,10 @@ pub fn create_router(state: &AppState) -> Router {
             "/api/vfs/mounts/{id}/local-mount",
             post(fuse_mount_handler).delete(fuse_unmount_handler).get(fuse_status_handler),
         )
+        .route(
+            "/api/vfs/mounts/{id}/open-in-finder",
+            post(fuse_open_in_finder_handler),
+        )
         // WebSocket (task events)
         .route("/ws", get(websocket::ws_handler))
         // WebShell WebSocket
@@ -885,7 +889,19 @@ async fn fuse_status_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<serde_json::Value>> {
-    let payload = match state.mount_mgr.status(&id).await {
+    // Look up mount config so we can do platform-level checks for FileProvider/WebDAV
+    let mount = state.vfs.get_mount(&id).await;
+    let (mount_name, local_cfg) = match &mount {
+        Some(m) => (m.name.clone(), m.local_mount.as_ref()),
+        None => (String::new(), None),
+    };
+
+    let status = state
+        .mount_mgr
+        .status_with_config(&id, &mount_name, local_cfg)
+        .await;
+
+    let payload = match status {
         ventoos_mount::MountStatus::Unmounted => {
             serde_json::json!({"mounted": false, "mount_point": null, "error": null})
         }
@@ -897,6 +913,80 @@ async fn fuse_status_handler(
         }
     };
     Json(ApiResponse::ok(payload))
+}
+
+/// Open a mounted source's mount point in the system file manager (Finder).
+/// For local mounts, opens the VFS root directly.
+/// For remote mounts, requires the source to be locally mounted first.
+async fn fuse_open_in_finder_handler(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let mount = state.vfs.get_mount(&id).await;
+    let Some(mount) = mount else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err("VFS mount not found")),
+        )
+            .into_response();
+    };
+
+    let path_to_open = if mount.kind == ventoos_vfs::types::VfsSourceKind::Local {
+        // For local mounts, expand the root path
+        ventoos_mount::validate::expand_home(&mount.root)
+    } else {
+        // For remote mounts, check if locally mounted
+        let status = state
+            .mount_mgr
+            .status_with_config(&id, &mount.name, mount.local_mount.as_ref())
+            .await;
+        match status {
+            ventoos_mount::MountStatus::Mounted { mount_point } => mount_point,
+            _ => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ApiResponse::<()>::err("该存储源未挂载到本机，请先挂载")),
+                )
+                    .into_response();
+            }
+        }
+    };
+
+    // Open in system file manager
+    #[cfg(target_os = "macos")]
+    let cmd = "open";
+    #[cfg(target_os = "linux")]
+    let cmd = "xdg-open";
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    let cmd = "explorer";
+
+    let result = tokio::process::Command::new(cmd)
+        .arg(&path_to_open)
+        .output()
+        .await;
+
+    match result {
+        Ok(output) if output.status.success() => Json(ApiResponse::ok(serde_json::json!({
+            "opened": true,
+            "path": path_to_open
+        })))
+        .into_response(),
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::err(format!(
+                    "打开文件管理器失败: {stderr}"
+                ))),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::err(format!("无法执行打开命令: {e}"))),
+        )
+            .into_response(),
+    }
 }
 
 #[cfg(test)]

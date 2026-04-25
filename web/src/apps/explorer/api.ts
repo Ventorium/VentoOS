@@ -207,5 +207,12 @@ export const vfsApi = {
   getWebDavMountUrl: (mountId: string) => {
     const base = window.location.hostname === 'localhost' ? 'http://localhost:5454' : window.location.origin
     return `${base}/dav/${mountId}/`
-  }
+  },
+
+  // Open a mount's local path in system file manager (Finder)
+  openInFinder: (id: string) =>
+    request<ApiResponse<{ opened: boolean; path: string }>>(
+      'POST',
+      `/api/vfs/mounts/${id}/open-in-finder`
+    ),
 }

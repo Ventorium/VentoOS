@@ -402,6 +402,75 @@ impl LocalMountManager {
         }
     }
 
+    /// Query mount status, falling back to real platform checks for FileProvider
+    /// when the in-memory state is empty (e.g. after a server restart).
+    pub async fn status_with_config(
+        &self,
+        mount_id: &str,
+        mount_name: &str,
+        config: Option<&LocalMountConfig>,
+    ) -> MountStatus {
+        let in_memory = self.status(mount_id).await;
+        if !matches!(in_memory, MountStatus::Unmounted) {
+            return in_memory;
+        }
+
+        // In-memory state is empty — check if the platform actually has a live mount.
+        if let Some(cfg) = config {
+            match cfg.backend {
+                MountBackend::FileProvider => {
+                    #[cfg(target_os = "macos")]
+                    {
+                        if let Ok(true) = crate::fileprovider_impl::domain_status(mount_id).await {
+                            // Domain is registered at macOS level but not tracked in memory.
+                            // Re-register in memory so future calls are fast.
+                            self.state.write().await.insert(
+                                mount_id.to_string(),
+                                MountState::MountedFileProvider {
+                                    display_name: mount_name.to_string(),
+                                },
+                            );
+                            return MountStatus::Mounted {
+                                mount_point: format!("FileProvider:{mount_name}"),
+                            };
+                        }
+                    }
+                }
+                MountBackend::WebDav => {
+                    // Check if the mount point directory is actually a WebDAV mount.
+                    #[cfg(target_os = "macos")]
+                    {
+                        let mp = crate::validate::expand_home(&cfg.mount_point);
+                        if std::path::Path::new(&mp).exists() {
+                            // Check if it's actually mounted via mount_webdav
+                            if let Ok(output) = std::process::Command::new("mount")
+                                .output()
+                            {
+                                let stdout = String::from_utf8_lossy(&output.stdout);
+                                if stdout.contains(&mp) {
+                                    self.state.write().await.insert(
+                                        mount_id.to_string(),
+                                        MountState::MountedWebDav {
+                                            mount_point: mp.clone(),
+                                        },
+                                    );
+                                    return MountStatus::Mounted {
+                                        mount_point: mp,
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+                MountBackend::Fuse => {
+                    // FUSE mounts don't survive process restart — nothing to recover.
+                }
+            }
+        }
+
+        MountStatus::Unmounted
+    }
+
     /// Mount all VFS sources that have `local_mount.enabled = true`.
     /// Errors are logged but not propagated.
     pub async fn mount_all_enabled(
