@@ -297,8 +297,7 @@ impl LocalMountManager {
     }
 
     /// Mount using the built-in VentoOS WebDAV server (macOS).
-    /// Uses Finder via `open` to mount the WebDAV share — this avoids needing
-    /// root privileges (mount_webdav requires root for arbitrary paths).
+    /// Uses AppleScript `mount volume` via Finder — no root privileges needed.
     /// Finder mounts appear under `/Volumes/<name>`.
     async fn mount_webdav_server(
         &self,
@@ -311,24 +310,24 @@ impl LocalMountManager {
             // Build the WebDAV URL pointing to our built-in server.
             let webdav_url = format!("http://localhost:5454/dav/{mount_id}/");
 
-            // Use Finder to mount the WebDAV share — no root needed.
-            // `open` with a WebDAV URL triggers Finder's "Connect to Server".
-            let output = tokio::process::Command::new("open")
-                .arg(&webdav_url)
+            // Use AppleScript to tell Finder to mount the WebDAV volume.
+            // This is equivalent to "Connect to Server" in Finder — no root needed.
+            let script =
+                format!("tell application \"Finder\" to mount volume \"{webdav_url}\"");
+            let output = tokio::process::Command::new("osascript")
+                .args(["-e", &script])
                 .output()
                 .await
-                .map_err(|e| MountError::WebDav(format!("无法执行 open: {e}")))?;
+                .map_err(|e| MountError::WebDav(format!("无法执行 osascript: {e}")))?;
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 return Err(MountError::WebDav(format!(
-                    "打开 WebDAV 失败 (exit {}): {stderr}",
-                    output.status.code().unwrap_or(-1)
+                    "Finder 挂载 WebDAV 失败: {stderr}"
                 )));
             }
 
-            // Finder mounts to /Volumes/<name> — give it a moment then locate
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            // Finder mounts to /Volumes/<name>
             let mount_point = format!("/Volumes/{mount_name}");
 
             self.state.write().await.insert(
