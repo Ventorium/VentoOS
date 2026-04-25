@@ -196,6 +196,13 @@ export const vfsApi = {
   // Check FileProvider availability
   checkFileProvider: () => request<ApiResponse<FileProviderDiagnostics>>('GET', '/api/dependencies/check-fileprovider'),
 
+  // Check FUSE availability
+  checkFuse: () =>
+    request<ApiResponse<{ available: boolean }>>(
+      'GET',
+      '/api/dependencies/check-fuse'
+    ),
+
   // Install FileProvider (VentoFS.app)
   installFileProvider: () =>
     request<ApiResponse<{ success: boolean; message: string; output: string; diagnostics: FileProviderDiagnostics }>>(

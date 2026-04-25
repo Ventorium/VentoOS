@@ -3350,29 +3350,35 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
                     id: 'mount-open-finder',
                     label: '在 Finder 中打开',
                     action: async () => {
-                      // If not yet mounted, mount first
+                      // Local mounts can always be opened
                       if (m.kind !== 'local' && !isFuseMounted) {
+                        const backend = m.local_mount?.backend || 'fuse'
                         setMountOpLoading(prev => ({ ...prev, [m.id]: true }))
                         try {
-                          const res = await vfsApi.localMountVfs(m.id)
-                          if (res.data?.error) {
-                            if (
-                              res.data.error.includes('FUSE') ||
-                              res.data.error.includes('macFUSE') ||
-                              res.data.error.includes('libfuse')
-                            ) {
+                          // Pre-check dependencies per backend
+                          if (backend === 'fuse') {
+                            const checkRes = await vfsApi.checkFuse()
+                            if (!checkRes.data?.available) {
                               openWindow('dependency-manager')
                               return
                             }
+                          } else if (backend === 'fileprovider') {
+                            const checkRes = await vfsApi.checkFileProvider()
+                            if (!checkRes.data?.available) {
+                              openWindow('dependency-manager')
+                              return
+                            }
+                          }
+                          // webdav needs no external dependency
+
+                          // Mount
+                          const res = await vfsApi.localMountVfs(m.id)
+                          if (res.data?.error) {
                             return
                           }
                           setLocalMountStatuses(prev => ({ ...prev, [m.id]: res.data }))
                         } catch (err) {
-                          const msg = err instanceof Error ? err.message : '挂载失败'
-                          if (msg.includes('FUSE') || msg.includes('macFUSE') || msg.includes('libfuse')) {
-                            openWindow('dependency-manager')
-                            return
-                          }
+                          console.error('Mount failed:', err)
                           return
                         } finally {
                           setMountOpLoading(prev => ({ ...prev, [m.id]: false }))
