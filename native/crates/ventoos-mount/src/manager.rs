@@ -297,40 +297,42 @@ impl LocalMountManager {
     }
 
     /// Mount using the built-in VentoOS WebDAV server (macOS).
-    /// Uses AppleScript `mount volume` via Finder — no root privileges needed.
-    /// Finder mounts appear under `/Volumes/<name>`.
+    /// Uses `mount_webdav -S` to suppress UI dialogs — our WebDAV server has
+    /// no auth so no credential prompt is needed. Mounts at the user-configured path.
     async fn mount_webdav_server(
         &self,
         mount_id: &str,
         mount_name: &str,
-        _config: &LocalMountConfig,
+        config: &LocalMountConfig,
     ) -> Result<(), MountError> {
         #[cfg(target_os = "macos")]
         {
+            use crate::validate::expand_home;
+            let mount_point = expand_home(&config.mount_point);
+            std::fs::create_dir_all(&mount_point).map_err(|e| {
+                MountError::WebDav(format!("无法创建挂载目录 {mount_point}: {e}"))
+            })?;
+
             // Build the WebDAV URL pointing to our built-in server.
             let webdav_url = format!("http://localhost:5454/dav/{mount_id}/");
 
-            // Use AppleScript to tell Finder to mount the WebDAV volume.
-            // Pass guest credentials to suppress the authentication dialog —
-            // our WebDAV server has no auth middleware so any credentials are accepted.
-            let script = format!(
-                "tell application \"Finder\" to mount volume \"{webdav_url}\" as user name \"guest\" with password \"guest\""
-            );
-            let output = tokio::process::Command::new("osascript")
-                .args(["-e", &script])
+            // Use mount_webdav with -S (suppress all UI dialogs).
+            // Previous exit-22 was caused by mount_webdav trying to show an auth
+            // dialog in a background process without GUI context.
+            // -S skips dialogs entirely — our server needs no auth.
+            let output = tokio::process::Command::new("mount_webdav")
+                .args(["-S", &webdav_url, &mount_point])
                 .output()
                 .await
-                .map_err(|e| MountError::WebDav(format!("无法执行 osascript: {e}")))?;
+                .map_err(|e| MountError::WebDav(format!("无法执行 mount_webdav: {e}")))?;
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 return Err(MountError::WebDav(format!(
-                    "Finder 挂载 WebDAV 失败: {stderr}"
+                    "mount_webdav 失败 (exit {}): {stderr}",
+                    output.status.code().unwrap_or(-1)
                 )));
             }
-
-            // Finder mounts to /Volumes/<name>
-            let mount_point = format!("/Volumes/{mount_name}");
 
             self.state.write().await.insert(
                 mount_id.to_string(),
@@ -338,12 +340,12 @@ impl LocalMountManager {
                     mount_point: mount_point.clone(),
                 },
             );
-            tracing::info!("WebDAV mounted '{mount_name}' at '{mount_point}' via Finder");
+            tracing::info!("WebDAV mounted '{mount_name}' at '{mount_point}' via {webdav_url}");
             Ok(())
         }
         #[cfg(not(target_os = "macos"))]
         {
-            let _ = (mount_id, mount_name, _config);
+            let _ = (mount_id, mount_name, config);
             Err(MountError::Unsupported)
         }
     }
