@@ -1143,7 +1143,7 @@ const kindMeta: Record<VfsSourceKind, { icon: typeof Monitor; label: string }> =
   local: { icon: Monitor, label: '本机' },
   sftp: { icon: HardDrive, label: 'SFTP' },
   ftp: { icon: HardDrive, label: 'FTP' },
-  smb: { icon: HardDrive, label: 'SMB' },
+  smb: { icon: Globe, label: 'SMB' },
   s3: { icon: HardDrive, label: 'S3' },
   webdav: { icon: Globe, label: 'WebDAV' }
 }
@@ -3353,29 +3353,27 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
                       // Local mounts can always be opened
                       if (m.kind !== 'local' && !isFuseMounted) {
                         const backend = m.local_mount?.backend || 'fuse'
-                        setMountOpLoading(prev => ({ ...prev, [m.id]: true }))
-                        try {
-                          // Pre-check dependencies per backend
-                          if (backend === 'fuse') {
+                        // Only FUSE requires external dependency pre-check
+                        if (backend === 'fuse') {
+                          try {
                             const checkRes = await vfsApi.checkFuse()
                             if (!checkRes.data?.available) {
                               openWindow('dependency-manager')
                               return
                             }
-                          } else if (backend === 'fileprovider') {
-                            const checkRes = await vfsApi.checkFileProvider()
-                            if (!checkRes.data?.available) {
-                              openWindow('dependency-manager')
-                              return
-                            }
-                          }
-                          // webdav needs no external dependency
-
-                          // Mount
-                          const res = await vfsApi.localMountVfs(m.id)
-                          if (res.data?.error) {
+                          } catch (_) {
+                            openWindow('dependency-manager')
                             return
                           }
+                        }
+                        // fileprovider auto-installs VentoFS.app during mount
+                        // webdav has no external dependency
+
+                        // Mount
+                        setMountOpLoading(prev => ({ ...prev, [m.id]: true }))
+                        try {
+                          const res = await vfsApi.localMountVfs(m.id)
+                          if (res.data?.error) return
                           setLocalMountStatuses(prev => ({ ...prev, [m.id]: res.data }))
                         } catch (err) {
                           console.error('Mount failed:', err)
