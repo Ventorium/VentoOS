@@ -51,6 +51,9 @@ pub enum MountError {
     #[error("FileProvider error: {0}")]
     FileProvider(String),
 
+    #[error("WebDAV error: {0}")]
+    WebDav(String),
+
     #[error("Unsupported platform")]
     Unsupported,
 
