@@ -10,6 +10,8 @@
 
 use std::path::PathBuf;
 
+use sha2::{Digest, Sha256};
+
 use crate::types::{FileProviderAvailability, MountError};
 
 // ---------------------------------------------------------------------------
@@ -63,6 +65,8 @@ fn is_macos_version_supported(version: &str) -> bool {
 
 /// Remote download URL for VentoFS.app.
 const VENTOFS_DOWNLOAD_URL: &str = "https://ventoos.erguotou.me/VentoFS/0.1.0/VentoFS.zip";
+/// Expected SHA-256 for VentoFS.zip version 0.1.0.
+const VENTOFS_DOWNLOAD_SHA256: &str = "804d74f01a9e06491d3a373b632533e9fa8c2d1f2569ef8ce9b86b50a28ef047";
 
 /// Locate the `VentoFS.app` bundle that contains the FileProvider extension.
 ///
@@ -168,6 +172,7 @@ pub async fn ensure_extension_installed() -> Result<(), MountError> {
             dest = %install_dir.display(),
             "VentoFS.app not found — extracting embedded bundle"
         );
+        verify_zip_checksum(VENTOFS_APP_ZIP, VENTOFS_DOWNLOAD_SHA256)?;
         tokio::fs::write(&zip_path, VENTOFS_APP_ZIP)
             .await
             .map_err(|e| {
@@ -205,6 +210,14 @@ pub async fn ensure_extension_installed() -> Result<(), MountError> {
                 stderr.trim()
             )));
         }
+
+        let zip_bytes = tokio::fs::read(&zip_path).await.map_err(|e| {
+            MountError::FileProvider(format!(
+                "Failed to read downloaded VentoFS.zip at {}: {e}",
+                zip_path.display()
+            ))
+        })?;
+        verify_zip_checksum(&zip_bytes, VENTOFS_DOWNLOAD_SHA256)?;
     }
 
     tracing::info!("Extracting VentoFS.zip …");
@@ -257,6 +270,22 @@ pub async fn ensure_extension_installed() -> Result<(), MountError> {
 
     tracing::info!("VentoFS.app installed at {}", app_path.display());
     Ok(())
+}
+
+fn verify_zip_checksum(bytes: &[u8], expected_sha256: &str) -> Result<(), MountError> {
+    let actual = sha256_hex(bytes);
+    if actual == expected_sha256 {
+        return Ok(());
+    }
+
+    Err(MountError::FileProvider(format!(
+        "VentoFS.zip checksum mismatch: expected {expected_sha256}, got {actual}"
+    )))
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn pluginkit_output_has_bundle(output: &str, bundle_id: &str) -> bool {
@@ -585,5 +614,12 @@ io.ventoos.VentoFS.FileProvider(1.0)
 
         assert!(pluginkit_output_has_bundle(output, "io.ventoos.VentoFS.FileProvider"));
         assert!(!pluginkit_output_has_bundle(output, "io.ventoos.OtherProvider"));
+    }
+
+    #[test]
+    fn rejects_mismatched_zip_checksum() {
+        let error = verify_zip_checksum(b"vento", "deadbeef")
+            .expect_err("checksum mismatch should be rejected");
+        assert!(error.to_string().contains("checksum mismatch"));
     }
 }

@@ -13,6 +13,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
+sha2 = "0.10"
 
 # FUSE for Linux and macOS
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
