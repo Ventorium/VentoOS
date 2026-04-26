@@ -1,4 +1,10 @@
 use axum::Router;
+use std::future::Future;
+use std::pin::Pin;
+
+pub type PluginMessageFuture<'a> = Pin<
+    Box<dyn Future<Output = Result<Option<serde_json::Value>, String>> + Send + 'a>,
+>;
 
 /// Application plugin trait.
 ///
@@ -27,5 +33,13 @@ pub trait AppPlugin: Send + Sync {
     /// Called once when the server shuts down.
     fn shutdown(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
+    }
+
+    /// Handle application-specific WebSocket messages.
+    ///
+    /// Returning `Ok(Some(payload))` means handled; `Ok(None)` means ignored.
+    /// Returning `Err(message)` means handled with error.
+    fn handle_ws_message<'a>(&'a self, _payload: &'a serde_json::Value) -> PluginMessageFuture<'a> {
+        Box::pin(async { Ok(None) })
     }
 }

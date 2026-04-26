@@ -15,6 +15,7 @@ use crate::models::{
     ProtocolLogEntry, ProtocolLogKind, ProtocolSessionSnapshot, WebSocketSendFrameReq,
     WebSocketSessionConnectReq,
 };
+use crate::target_guard::validate_host;
 
 const LOG_LIMIT: usize = 200;
 
@@ -29,6 +30,7 @@ impl ProtocolRuntime {
         &self,
         req: WebSocketSessionConnectReq,
     ) -> Result<ProtocolSessionSnapshot, String> {
+        validate_host(&req.host).map_err(|error| error.to_string())?;
         let session = self.websocket_slot(&req.session_id).await;
         let (generation, previous_tx) = session.begin_connect().await;
         if let Some(tx) = previous_tx {
@@ -87,6 +89,7 @@ impl ProtocolRuntime {
         &self,
         req: MqttSessionConnectReq,
     ) -> Result<ProtocolSessionSnapshot, String> {
+        validate_host(&req.host).map_err(|error| error.to_string())?;
         let session = self.mqtt_slot(&req.session_id).await;
         let (generation, previous_tx) = session.begin_connect().await;
         if let Some(tx) = previous_tx {
@@ -810,7 +813,7 @@ fn trim_logs(logs: &mut Vec<ProtocolLogEntry>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{mqtt_endpoint, normalize_path, websocket_endpoint};
+    use super::{ProtocolRuntime, mqtt_endpoint, normalize_path, websocket_endpoint};
     use crate::models::{MqttSessionConnectReq, WebSocketSessionConnectReq};
 
     #[test]
@@ -858,5 +861,55 @@ mod tests {
 
         assert_eq!(mqtt_endpoint(&raw_request), "mqtts://broker.example.com:8883");
         assert_eq!(mqtt_endpoint(&ws_request), "wss://broker.example.com:8883/mqtt");
+    }
+
+    #[tokio::test]
+    async fn connect_websocket_rejects_localhost_targets() {
+        let runtime = ProtocolRuntime::default();
+        let request = WebSocketSessionConnectReq {
+            session_id: "ws-guard".into(),
+            scheme: "ws".into(),
+            host: "localhost".into(),
+            port: 9000,
+            path: "/socket".into(),
+            protocols: String::new(),
+            connect_timeout_ms: 500,
+            auto_reconnect: false,
+            reconnect_period_ms: 100,
+        };
+
+        let error = runtime
+            .connect_websocket(request)
+            .await
+            .expect_err("localhost websocket target should be rejected");
+        assert!(error.contains("not allowed"));
+    }
+
+    #[tokio::test]
+    async fn connect_mqtt_rejects_private_targets() {
+        let runtime = ProtocolRuntime::default();
+        let request = MqttSessionConnectReq {
+            session_id: "mqtt-guard".into(),
+            scheme: "mqtt".into(),
+            host: "10.0.0.15".into(),
+            port: 1883,
+            path: String::new(),
+            username: String::new(),
+            password: String::new(),
+            client_id: "client-1".into(),
+            mqtt_version: "5.0".into(),
+            connect_timeout_seconds: 1,
+            keep_alive_seconds: 30,
+            auto_reconnect: false,
+            reconnect_period_ms: 100,
+            clean_start: true,
+            subscriptions: Vec::new(),
+        };
+
+        let error = runtime
+            .connect_mqtt(request)
+            .await
+            .expect_err("private mqtt target should be rejected");
+        assert!(error.contains("not allowed"));
     }
 }

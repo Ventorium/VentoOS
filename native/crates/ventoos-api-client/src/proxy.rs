@@ -5,6 +5,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 
 use crate::models::KeyValue;
+use crate::target_guard::validate_host;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,6 +71,8 @@ pub enum ProxyError {
     InvalidHeaderValue(String),
     #[error("Invalid base64 body: {0}")]
     InvalidBase64(String),
+    #[error("Target is not allowed: {0}")]
+    ForbiddenTarget(String),
 }
 
 // ---------------------------------------------------------------------------
@@ -77,6 +80,12 @@ pub enum ProxyError {
 // ---------------------------------------------------------------------------
 
 pub async fn execute_proxy(req: ProxyRequest) -> Result<ProxyResponse, ProxyError> {
+    let parsed_url = reqwest::Url::parse(&req.url).map_err(|error| ProxyError::InvalidUrl(error.to_string()))?;
+    let host = parsed_url
+        .host_str()
+        .ok_or_else(|| ProxyError::ForbiddenTarget("target host is required".to_string()))?;
+    validate_host(host).map_err(|error| ProxyError::ForbiddenTarget(error.to_string()))?;
+
     let method: reqwest::Method = req
         .method
         .parse()
@@ -95,7 +104,7 @@ pub async fn execute_proxy(req: ProxyRequest) -> Result<ProxyResponse, ProxyErro
         .build()
         .map_err(|e| ProxyError::InvalidUrl(e.to_string()))?;
 
-    let mut request = client.request(method, &req.url);
+    let mut request = client.request(method, parsed_url);
 
     // Headers
     if let Some(headers) = &req.headers {
@@ -184,4 +193,24 @@ pub async fn execute_proxy(req: ProxyRequest) -> Result<ProxyResponse, ProxyErro
         duration_ms,
         size_bytes,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ProxyError, ProxyRequest, execute_proxy};
+
+    #[tokio::test]
+    async fn execute_proxy_rejects_loopback_targets() {
+        let request = ProxyRequest {
+            method: "GET".into(),
+            url: "http://127.0.0.1:8080/health".into(),
+            headers: None,
+            body: None,
+            timeout_ms: Some(500),
+            follow_redirects: Some(false),
+        };
+
+        let error = execute_proxy(request).await.expect_err("loopback target should be rejected");
+        assert!(matches!(error, ProxyError::ForbiddenTarget(_)));
+    }
 }

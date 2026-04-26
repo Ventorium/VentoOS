@@ -101,11 +101,8 @@ final class VentoAPIClient {
     /// List directory contents.
     func listDir(mountId: String, path: String) async throws -> [VfsNode] {
         let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? path
-        var apiPath = "/api/vfs/mounts/\(mountId)/ls?path=\(encoded)&show_hidden=true"
-        if let token = authToken {
-            apiPath += "&token=\(token)"
-        }
-        NSLog("[VentoFS] listDir: %@", apiPath)
+        let apiPath = "/api/vfs/mounts/\(mountId)/ls?path=\(encoded)&show_hidden=true"
+        NSLog("[VentoFS] listDir: %@", sanitizedLogPath(apiPath))
         let response: VentoResponse<[VfsNode]> = try await requestJSON(.GET, apiPath: apiPath)
         NSLog("[VentoFS] listDir done: %d items", response.data?.count ?? 0)
         return response.data ?? []
@@ -114,11 +111,8 @@ final class VentoAPIClient {
     /// Stat a single item.
     func stat(mountId: String, path: String) async throws -> VfsNode {
         let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? path
-        var apiPath = "/api/vfs/mounts/\(mountId)/stat?path=\(encoded)"
-        if let token = authToken {
-            apiPath += "&token=\(token)"
-        }
-        NSLog("[VentoFS] stat: %@", apiPath)
+        let apiPath = "/api/vfs/mounts/\(mountId)/stat?path=\(encoded)"
+        NSLog("[VentoFS] stat: %@", sanitizedLogPath(apiPath))
         let response: VentoResponse<VfsNode> = try await requestJSON(.GET, apiPath: apiPath)
         NSLog("[VentoFS] stat done: success=%@", response.success ? "true" : "false")
         guard let node = response.data else {
@@ -130,10 +124,7 @@ final class VentoAPIClient {
     /// Download raw file bytes.
     func readFile(mountId: String, path: String) async throws -> Data {
         let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? path
-        var apiPath = "/api/vfs/mounts/\(mountId)/raw?path=\(encoded)"
-        if let token = authToken {
-            apiPath += "&token=\(token)"
-        }
+        let apiPath = "/api/vfs/mounts/\(mountId)/raw?path=\(encoded)"
         return try await requestRaw(.GET, apiPath: apiPath)
     }
 
@@ -246,7 +237,7 @@ final class VentoAPIClient {
         body: Data?
     ) async throws -> Data {
         let urlString = serverURL + apiPath
-        NSLog("[VentoFS] performRequest: %@ %@", method.rawValue, urlString)
+        NSLog("[VentoFS] performRequest: %@ %@", method.rawValue, sanitizedLogPath(apiPath))
         guard let url = URL(string: urlString) else {
             throw VentoAPIError.invalidURL(urlString)
         }
@@ -276,5 +267,21 @@ final class VentoAPIClient {
             throw VentoAPIError.httpError(statusCode: httpResponse.statusCode, message: msg)
         }
         return data
+    }
+
+    private func sanitizedLogPath(_ apiPath: String) -> String {
+        guard var components = URLComponents(string: "http://vento.invalid\(apiPath)") else {
+            return apiPath.replacingOccurrences(of: "token=", with: "token=<redacted>")
+        }
+
+        components.queryItems = components.queryItems?.map { item in
+            if item.name.caseInsensitiveCompare("token") == .orderedSame {
+                return URLQueryItem(name: item.name, value: "<redacted>")
+            }
+            return item
+        }
+
+        let query = components.percentEncodedQuery.map { "?\($0)" } ?? ""
+        return "\(components.percentEncodedPath)\(query)"
     }
 }
