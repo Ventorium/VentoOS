@@ -6,7 +6,7 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 
-use ventoos_core::plugin::AppPlugin;
+use ventoos_core::plugin::{AppPlugin, PluginMessageFuture};
 use ventoos_core::types::{ApiResponse, Id};
 
 use crate::manager::SshManager;
@@ -90,6 +90,41 @@ impl AppPlugin for SshPlugin {
             .route("/api/ssh/detect-shells", get(detect_shells))
             .with_state(self.state.clone())
     }
+
+    fn handle_ws_message<'a>(&'a self, payload: &'a serde_json::Value) -> PluginMessageFuture<'a> {
+        Box::pin(async move {
+            match payload.get("action").and_then(serde_json::Value::as_str) {
+                Some("ping") => Ok(Some(serde_json::json!({
+                    "action": "pong",
+                    "ts": chrono::Utc::now().timestamp_millis(),
+                }))),
+                Some("server_status") => {
+                    let server_id = payload
+                        .get("server_id")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or_else(|| "missing server_id".to_string())?;
+                    let id = server_id
+                        .parse::<Id>()
+                        .map_err(|_| "invalid server_id".to_string())?;
+
+                    let server = self
+                        .state
+                        .manager
+                        .get_server(id)
+                        .await
+                        .ok_or_else(|| "server not found".to_string())?;
+
+                    Ok(Some(serde_json::json!({
+                        "action": "server_status",
+                        "server_id": server.id,
+                        "status": server.status,
+                        "name": server.name,
+                    })))
+                }
+                _ => Ok(None),
+            }
+        })
+    }
 }
 
 // --- SSH Server Routes ---
@@ -160,18 +195,13 @@ async fn get_server_metrics(
     State(state): State<SshState>,
     Path(id): Path<Id>,
 ) -> impl IntoResponse {
-    match state.manager.get_server(id).await {
-        Some(_server) => {
-            // In a real implementation, this would SSH into the server
-            // and run system commands to collect metrics.
-            // For now, return a stub response indicating the feature is available
-            // but requires an active SSH connection.
-            Json(ApiResponse::ok(serde_json::json!({
-                "status": "not_connected",
-                "message": "Connect to the server first to view metrics"
-            })))
-            .into_response()
-        }
+    match state.manager.collect_server_metrics(id).await {
+        Some(Ok(metrics)) => Json(ApiResponse::ok(metrics)).into_response(),
+        Some(Err(error)) => (
+            StatusCode::BAD_GATEWAY,
+            Json(ApiResponse::<()>::err(error)),
+        )
+            .into_response(),
         None => (
             StatusCode::NOT_FOUND,
             Json(ApiResponse::<()>::err("SSH server not found")),

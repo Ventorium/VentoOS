@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use chrono::Utc;
 use tokio::sync::RwLock;
@@ -9,8 +10,8 @@ use ventoos_vfs::sftp::{SshAuth, SshConnInfo, SshInfoProvider};
 
 use crate::types::{
     CreatePortMappingRequest, CreateServiceExposureRequest, CreateSshServerRequest, PortMapping,
-    PortMappingStatus, ServiceExposure, ServiceExposureStatus, SshAuthMethod, SshServer,
-    SshServerStatus, UpdateSshServerRequest,
+    DiskMetric, PortMappingStatus, ServiceExposure, ServiceExposureStatus, SshAuthMethod,
+    SshServer, SshServerMetrics, SshServerStatus, UpdateSshServerRequest,
 };
 
 /// Stored credential for an SSH server.
@@ -419,13 +420,81 @@ impl SshManager {
     }
 
     pub async fn test_server(&self, id: Id) -> Option<SshServerTestResult> {
-        let servers = self.servers.read().await;
-        let _server = servers.get(&id)?;
-        // TODO: Actual SSH connection test via russh
-        Some(SshServerTestResult {
-            success: true,
-            message: "Connection test passed (stub)".to_string(),
-            latency_ms: Some(35),
+        let server = {
+            let servers = self.servers.read().await;
+            servers.get(&id)?.clone()
+        };
+
+        let conn_info = match self.resolve(&id.to_string()).await {
+            Ok(info) => info,
+            Err(message) => {
+                return Some(SshServerTestResult {
+                    success: false,
+                    message,
+                    latency_ms: None,
+                });
+            }
+        };
+
+        let started_at = tokio::time::Instant::now();
+        let timeout = Duration::from_millis(u64::from(server.connect_timeout_ms.max(1)));
+
+        let result = tokio::time::timeout(timeout, async {
+            let mut session = connect_ssh_session(&conn_info).await?;
+            authenticate_ssh_session(&mut session, &conn_info).await?;
+            anyhow::Ok(())
+        })
+        .await;
+
+        Some(match result {
+            Ok(Ok(())) => SshServerTestResult {
+                success: true,
+                message: "SSH 连接测试成功".to_string(),
+                latency_ms: Some(elapsed_millis_u64(started_at.elapsed())),
+            },
+            Ok(Err(err)) => SshServerTestResult {
+                success: false,
+                message: format_ssh_test_error(&err),
+                latency_ms: None,
+            },
+            Err(_) => SshServerTestResult {
+                success: false,
+                message: format!(
+                    "SSH 连接超时：在 {}ms 内未能完成连接或认证",
+                    server.connect_timeout_ms
+                ),
+                latency_ms: None,
+            },
+        })
+    }
+
+    pub async fn collect_server_metrics(&self, id: Id) -> Option<Result<SshServerMetrics, String>> {
+        let server = {
+            let servers = self.servers.read().await;
+            servers.get(&id)?.clone()
+        };
+
+        let conn_info = match self.resolve(&id.to_string()).await {
+            Ok(info) => info,
+            Err(message) => return Some(Err(message)),
+        };
+
+        let timeout = Duration::from_millis(u64::from(server.connect_timeout_ms.max(1)));
+
+        let result = tokio::time::timeout(timeout, async {
+            let mut session = connect_ssh_session(&conn_info).await?;
+            authenticate_ssh_session(&mut session, &conn_info).await?;
+            collect_metrics_over_ssh(&mut session).await
+        })
+        .await;
+
+        Some(match result {
+            Ok(Ok(metrics)) => Ok(metrics),
+            Ok(Err(error)) => Err(error.to_string()),
+            Err(_) => Err(format!(
+                "SSH 指标采集超时：在 {}ms 内未完成远程命令执行",
+                server.connect_timeout_ms
+            )),
         })
     }
 
@@ -923,6 +992,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_test_server_returns_failure_for_unreachable_port() {
+        let mgr = SshManager::new();
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let closed_port = listener.local_addr().unwrap().port();
+        drop(listener);
+
+        let mut req = test_server_req("unreachable");
+        req.host = "127.0.0.1".to_string();
+        req.port = Some(closed_port);
+        req.password = Some("placeholder".to_string());
+        req.connect_timeout_ms = Some(300);
+
+        let server = mgr.create_server(req).await;
+        let result = mgr.test_server(server.id).await.unwrap();
+
+        assert!(!result.success);
+        assert!(result.latency_ms.is_none());
+        assert!(!result.message.is_empty());
+    }
+
+    #[tokio::test]
     async fn test_port_mapping_lifecycle() {
         let mgr = SshManager::new();
         // Provide a password so resolve() can succeed without a real SSH agent
@@ -980,6 +1072,27 @@ mod tests {
 
         assert!(mgr.delete_service_exposure(exposure.id).await);
     }
+
+    #[test]
+    fn test_parse_cpu_usage() {
+        let parsed = parse_cpu_usage("17.25\n").unwrap();
+        assert!((parsed - 17.25).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_memory_pair() {
+        assert_eq!(parse_memory_pair("4000 8000"), Some((4000, 8000)));
+    }
+
+    #[test]
+    fn test_parse_df_disks() {
+        let output = "/dev/disk1s1 1000 250 750 25% /\n/dev/disk1s2 2000 500 1500 25% /System";
+        let disks = parse_df_disks(output);
+        assert_eq!(disks.len(), 2);
+        assert_eq!(disks[0].name, "/");
+        assert_eq!(disks[0].used, 250 * 1024);
+        assert_eq!(disks[0].total, 1000 * 1024);
+    }
 }
 
 // ── Service exposure URL scanner ─────────────────────────────────────────────
@@ -1033,34 +1146,8 @@ async fn forward_tcp_via_ssh(
     remote_port: u16,
     local_port: u16,
 ) -> anyhow::Result<()> {
-
-    let config = Arc::new(russh::client::Config::default());
-    let handler = PortFwdHandler;
-    let mut session =
-        russh::client::connect(config, (conn_info.host.as_str(), conn_info.port), handler).await?;
-
-    // Authenticate
-    let auth_ok = match &conn_info.auth {
-        SshAuth::Password(pw) => session
-            .authenticate_password(&conn_info.username, pw)
-            .await
-            .map(|r| r.success())
-            .unwrap_or(false),
-        SshAuth::PrivateKey { key_pem, passphrase } => {
-            let key = russh::keys::decode_secret_key(key_pem, passphrase.as_deref())?;
-            let key_with_alg =
-                russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), None);
-            session
-                .authenticate_publickey(&conn_info.username, key_with_alg)
-                .await
-                .map(|r| r.success())
-                .unwrap_or(false)
-        }
-    };
-
-    if !auth_ok {
-        anyhow::bail!("SSH authentication failed");
-    }
+    let mut session = connect_ssh_session(&conn_info).await?;
+    authenticate_ssh_session(&mut session, &conn_info).await?;
 
     // Open direct-tcpip channel
     let channel = session
@@ -1072,4 +1159,224 @@ async fn forward_tcp_via_ssh(
     tokio::io::copy_bidirectional(&mut stream, &mut channel_stream).await?;
 
     Ok(())
+}
+
+async fn connect_ssh_session(
+    conn_info: &SshConnInfo,
+) -> anyhow::Result<russh::client::Handle<PortFwdHandler>> {
+    let config = Arc::new(russh::client::Config::default());
+    let handler = PortFwdHandler;
+    let session = russh::client::connect(
+        config,
+        (conn_info.host.as_str(), conn_info.port),
+        handler,
+    )
+    .await
+    .map_err(|err| anyhow::anyhow!("SSH 连接失败: {err}"))?;
+    Ok(session)
+}
+
+async fn authenticate_ssh_session(
+    session: &mut russh::client::Handle<PortFwdHandler>,
+    conn_info: &SshConnInfo,
+) -> anyhow::Result<()> {
+    let auth_ok = match &conn_info.auth {
+        SshAuth::Password(pw) => session
+            .authenticate_password(&conn_info.username, pw)
+            .await
+            .map(|result| result.success())
+            .map_err(|err| anyhow::anyhow!("SSH 密码认证失败: {err}"))?,
+        SshAuth::PrivateKey { key_pem, passphrase } => {
+            let key = russh::keys::decode_secret_key(key_pem, passphrase.as_deref())
+                .map_err(|err| anyhow::anyhow!("SSH 私钥解析失败: {err}"))?;
+            let key_with_alg =
+                russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), None);
+            session
+                .authenticate_publickey(&conn_info.username, key_with_alg)
+                .await
+                .map(|result| result.success())
+                .map_err(|err| anyhow::anyhow!("SSH 公钥认证失败: {err}"))?
+        }
+    };
+
+    if !auth_ok {
+        anyhow::bail!("SSH 认证失败：用户名或凭据无效");
+    }
+
+    Ok(())
+}
+
+async fn collect_metrics_over_ssh(
+    session: &mut russh::client::Handle<PortFwdHandler>,
+) -> anyhow::Result<SshServerMetrics> {
+    let cpu_usage = collect_cpu_usage(session).await?;
+    let (memory_used, memory_total) = collect_memory_usage(session).await?;
+    let disks = collect_disk_usage(session).await?;
+
+    Ok(SshServerMetrics {
+        cpu_usage,
+        memory_used,
+        memory_total,
+        disks,
+    })
+}
+
+async fn collect_cpu_usage(
+    session: &mut russh::client::Handle<PortFwdHandler>,
+) -> anyhow::Result<f64> {
+    let output = match exec_ssh_command(
+        session,
+        "top -bn1 2>/dev/null | awk '/Cpu\\(s\\)/ {print 100-$8; exit}'",
+    )
+    .await
+    {
+        Ok(text) if !text.trim().is_empty() => text,
+        _ => exec_ssh_command(
+            session,
+            "top -l 1 2>/dev/null | awk -F '[:,%]' '/CPU usage/ {print $3+$5; exit}'",
+        )
+        .await?,
+    };
+
+    parse_cpu_usage(&output)
+        .ok_or_else(|| anyhow::anyhow!("无法解析 CPU 使用率输出: {output}"))
+}
+
+async fn collect_memory_usage(
+    session: &mut russh::client::Handle<PortFwdHandler>,
+) -> anyhow::Result<(u64, u64)> {
+    if let Ok(output) = exec_ssh_command(
+        session,
+        "free -b 2>/dev/null | awk '/Mem:/ {print $3 \" \" $2; exit}'",
+    )
+    .await
+        && let Some(parsed) = parse_memory_pair(&output)
+    {
+        return Ok(parsed);
+    }
+
+    let vm_stat = exec_ssh_command(session, "vm_stat").await?;
+    let mem_total = exec_ssh_command(session, "sysctl -n hw.memsize 2>/dev/null || echo 0").await?;
+    let page_size = exec_ssh_command(session, "sysctl -n hw.pagesize 2>/dev/null || echo 4096").await?;
+
+    parse_vm_stat_memory(&vm_stat, &mem_total, &page_size)
+        .ok_or_else(|| anyhow::anyhow!("无法解析内存使用率输出"))
+}
+
+async fn collect_disk_usage(
+    session: &mut russh::client::Handle<PortFwdHandler>,
+) -> anyhow::Result<Vec<DiskMetric>> {
+    let output = exec_ssh_command(session, "df -kP | tail -n +2").await?;
+    let disks = parse_df_disks(&output);
+    if disks.is_empty() {
+        anyhow::bail!("无法解析磁盘使用率输出");
+    }
+    Ok(disks)
+}
+
+async fn exec_ssh_command(
+    session: &mut russh::client::Handle<PortFwdHandler>,
+    command: &str,
+) -> anyhow::Result<String> {
+    let mut channel = session
+        .channel_open_session()
+        .await
+        .map_err(|err| anyhow::anyhow!("SSH 打开会话失败: {err}"))?;
+
+    channel
+        .exec(true, command)
+        .await
+        .map_err(|err| anyhow::anyhow!("SSH 执行命令失败: {err}"))?;
+
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let mut exit_status = None;
+
+    while let Some(msg) = channel.wait().await {
+        match msg {
+            russh::ChannelMsg::Data { data } => stdout.extend_from_slice(&data),
+            russh::ChannelMsg::ExtendedData { data, .. } => stderr.extend_from_slice(&data),
+            russh::ChannelMsg::ExitStatus { exit_status: code } => exit_status = Some(code),
+            _ => {}
+        }
+    }
+
+    if let Some(code) = exit_status
+        && code != 0
+    {
+        let err_text = String::from_utf8_lossy(&stderr).trim().to_string();
+        anyhow::bail!("SSH 命令返回非零状态码 {code}: {err_text}");
+    }
+
+    Ok(String::from_utf8_lossy(&stdout).trim().to_string())
+}
+
+fn parse_cpu_usage(output: &str) -> Option<f64> {
+    output
+        .lines()
+        .find_map(|line| line.trim().parse::<f64>().ok())
+        .map(|value| value.clamp(0.0, 100.0))
+}
+
+fn parse_memory_pair(output: &str) -> Option<(u64, u64)> {
+    let mut parts = output.split_whitespace();
+    let used = parts.next()?.parse::<u64>().ok()?;
+    let total = parts.next()?.parse::<u64>().ok()?;
+    Some((used, total))
+}
+
+fn parse_vm_stat_memory(vm_stat: &str, mem_total: &str, page_size: &str) -> Option<(u64, u64)> {
+    let total = mem_total.trim().parse::<u64>().ok()?;
+    let page_size = page_size.trim().parse::<u64>().ok()?;
+
+    let used_pages = vm_stat
+        .lines()
+        .filter(|line| {
+            line.contains("Pages active")
+                || line.contains("Pages wired down")
+                || line.contains("Pages occupied by compressor")
+                || line.contains("Pages inactive")
+        })
+        .filter_map(|line| {
+            line.split(':')
+                .nth(1)
+                .map(str::trim)
+                .map(|raw| raw.trim_end_matches('.').replace('.', ""))
+                .and_then(|raw| raw.parse::<u64>().ok())
+        })
+        .sum::<u64>();
+
+    Some((used_pages.saturating_mul(page_size), total))
+}
+
+fn parse_df_disks(output: &str) -> Vec<DiskMetric> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let cols: Vec<&str> = line.split_whitespace().collect();
+            if cols.len() < 6 {
+                return None;
+            }
+
+            let total_k = cols.get(cols.len().saturating_sub(5))?.parse::<u64>().ok()?;
+            let used_k = cols.get(cols.len().saturating_sub(4))?.parse::<u64>().ok()?;
+            let mount = (*cols.last()?).to_string();
+
+            Some(DiskMetric {
+                name: mount,
+                used: used_k.saturating_mul(1024),
+                total: total_k.saturating_mul(1024),
+            })
+        })
+        .collect()
+}
+
+fn format_ssh_test_error(err: &anyhow::Error) -> String {
+    err.chain()
+        .next()
+        .map_or_else(|| "SSH 测试失败".to_string(), std::string::ToString::to_string)
+}
+
+fn elapsed_millis_u64(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis().min(u128::from(u64::MAX))).unwrap_or(u64::MAX)
 }

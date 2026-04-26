@@ -267,6 +267,23 @@ pub enum WebShellTarget {
     Ssh { server_id: Id },
 }
 
+/// Live resource metrics for an SSH server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SshServerMetrics {
+    pub cpu_usage: f64,
+    pub memory_used: u64,
+    pub memory_total: u64,
+    pub disks: Vec<DiskMetric>,
+}
+
+/// Disk usage snapshot (bytes).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskMetric {
+    pub name: String,
+    pub used: u64,
+    pub total: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

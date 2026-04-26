@@ -8,13 +8,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ventoos_test
-      POSTGRES_PASSWORD: ventoos_test_pass
-      POSTGRES_DB: ventoos_test
+      POSTGRES_USER: ${POSTGRES_USER:-ventoos_test}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ventoos_test_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-ventoos_test}
     ports:
       - "15432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ventoos_test"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ventoos_test}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,10 +23,10 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root_pass
-      MYSQL_USER: ventoos_test
-      MYSQL_PASSWORD: ventoos_test_pass
-      MYSQL_DATABASE: ventoos_test
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass}
+      MYSQL_USER: ${MYSQL_USER:-ventoos_test}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ventoos_test_pass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ventoos_test}
     ports:
       - "13306:3306"
     healthcheck:
@@ -40,9 +40,9 @@ services:
     image: redis:7-alpine
     ports:
       - "16379:6379"
-    command: redis-server --requirepass ventoos_test_pass
+    command: redis-server --requirepass ${REDIS_PASSWORD:-ventoos_test_pass}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "ventoos_test_pass", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-ventoos_test_pass}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -52,7 +52,7 @@ services:
     image: redis:7-alpine
     ports:
       - "16380:6379"
-    command: redis-server --requirepass sentinel_pass
+    command: redis-server --requirepass ${SENTINEL_PASSWORD:-sentinel_pass}
 
   # Redis Sentinel - sentinel process
   redis-sentinel:
@@ -64,7 +64,7 @@ services:
     command: >
       sh -c 'cat > /tmp/sentinel.conf <<EOF
       sentinel monitor mymaster redis-sentinel-master 6379 1
-      sentinel auth-pass mymaster sentinel_pass
+      sentinel auth-pass mymaster ${SENTINEL_PASSWORD:-sentinel_pass}
       sentinel down-after-milliseconds mymaster 5000
       sentinel failover-timeout mymaster 10000
       EOF
@@ -74,8 +74,8 @@ services:
   minio:
     image: minio/minio:latest
     environment:
-      MINIO_ROOT_USER: ventoos_test
-      MINIO_ROOT_PASSWORD: ventoos_test_pass
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-ventoos_test}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-ventoos_test_pass}
     ports:
       - "19000:9000"
       - "19001:9001"
@@ -91,16 +91,16 @@ services:
     image: atmoz/sftp
     ports:
       - "12222:22"
-    command: ventoos_test:ventoos_test_pass:1001:100:upload
+    command: ${SFTP_USER:-ventoos_test}:${SFTP_PASSWORD:-ventoos_test_pass}:1001:100:upload
 
   # FTP server for ventoos-vfs tests
   ftp:
     image: stilliard/pure-ftpd
     environment:
       PUBLICHOST: "127.0.0.1"
-      FTP_USER_NAME: ventoos_test
-      FTP_USER_PASS: ventoos_test_pass
-      FTP_USER_HOME: /home/ventoos_test
+      FTP_USER_NAME: ${FTP_USER_NAME:-ventoos_test}
+      FTP_USER_PASS: ${FTP_USER_PASS:-ventoos_test_pass}
+      FTP_USER_HOME: /home/${FTP_USER_NAME:-ventoos_test}
     ports:
       - "12121:21"
       - "30000-30009:30000-30009"
@@ -110,7 +110,7 @@ services:
     image: bytemark/webdav
     environment:
       AUTH_TYPE: Basic
-      USERNAME: ventoos_test
-      PASSWORD: ventoos_test_pass
+      USERNAME: ${WEBDAV_USERNAME:-ventoos_test}
+      PASSWORD: ${WEBDAV_PASSWORD:-ventoos_test_pass}
     ports:
       - "18080:80"
