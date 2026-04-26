@@ -15,8 +15,14 @@ VFS 系统已支持 Local、SFTP、FTP、SMB、S3 五种存储协议，本次补
 
 ### 1.2 连接 URI 格式
 
-- HTTP：`webdav://user:pass@host:port/basePath`
-- HTTPS：`webdavs://user:pass@host:port/basePath`
+- 推荐：`webdavs://host:port/basePath`
+- 仅限本地开发/测试：`webdav://host:port/basePath`
+
+安全约束：
+
+- 默认使用 `webdavs://`，只有在本机开发或临时测试时才允许 `webdav://`
+- 用户名和密码不应写入 URI，而应通过独立表单字段或客户端凭据配置提供
+- 前端默认提示应优先展示 `webdavs://host:port/basePath`，不得再展示 `user:pass@host` 形式
 
 ### 1.3 支持操作
 
@@ -40,7 +46,7 @@ VFS 系统已支持 Local、SFTP、FTP、SMB、S3 五种存储协议，本次补
 | Box.com WebDAV | `webdavs://dav.box.com/dav` | 账号密码 | 需注册 Box 账号 |
 | Nextcloud 演示 | `webdavs://demo.nextcloud.com/remote.php/dav/files/admin/` | admin/admin | 公开演示实例（可能不稳定） |
 | ownCloud 演示 | `webdavs://demo.owncloud.com/remote.php/dav/files/admin/` | admin/admin | 公开演示实例 |
-| SabreDAV 测试 | `webdav://demo.sabre.io/` | 无认证 | 开源 WebDAV 库演示 |
+| SabreDAV 测试 | `webdav://demo.sabre.io/` | 无认证 | 仅用于兼容性测试，不作为默认接入示例 |
 | CloudMe | `webdavs://webdav.cloudme.com/v1/xdav/{username}/` | 账号密码 | 需注册账号 |
 
 > 建议使用 Nextcloud/ownCloud 的本地 Docker 实例进行完整集成测试。
@@ -48,8 +54,9 @@ VFS 系统已支持 Local、SFTP、FTP、SMB、S3 五种存储协议，本次补
 > 快速启动 Nextcloud 本地测试实例：
 > ```bash
 > docker run -d -p 8080:80 --name nextcloud nextcloud
-> # WebDAV 地址: webdav://admin:admin@localhost:8080/remote.php/dav/files/admin/
+> # WebDAV 地址: webdav://localhost:8080/remote.php/dav/files/admin/
 > ```
+> 认证信息请在客户端单独填写 `admin / admin`，不要拼进 URI。
 
 ### 1.5 名称格式限制
 
@@ -75,6 +82,7 @@ Explorer 右上角（或设置面板）提供 **WebDAV 服务** 设置入口，�
 - 开启/关闭 WebDAV 服务器
 - 选择要暴露的存储源（多选，以存储源 `name` 作为第一级目录）
 - 设置访问用户名和密码（HTTP Basic Auth）
+- 默认建议仅在本机或受信任内网使用；如需跨主机访问，应通过 TLS 终止层或反向代理提供 HTTPS
 
 ### 2.2 访问路径结构
 
@@ -91,7 +99,8 @@ http://localhost:5454/webdav/我的文档/hello.txt
 ```
 
 客户端连接信息：
-- **地址**：`http://localhost:5454/webdav/`
+- **推荐地址**：`https://<your-host>/webdav/`（通过 TLS 终止层或反向代理暴露）
+- **本机开发地址**：`http://localhost:5454/webdav/`
 - **用户名**：设置的用户名
 - **密码**：设置的密码
 
