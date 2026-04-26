@@ -1,6 +1,20 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import PreferencesPanel from '../PreferencesPanel'
 
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+})
+
+afterAll(() => {
+  vi.unstubAllGlobals()
+})
+
 describe('PreferencesPanel', () => {
   it('uses grouped navigation inside the unified preferences sheet', () => {
     render(
@@ -41,7 +55,7 @@ describe('PreferencesPanel', () => {
     )
 
     const dialog = screen.getByRole('dialog', { name: '测试应用偏好设置' })
-    expect(dialog).toHaveAttribute('data-sheet-position', 'top')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
 
     expect(screen.getByRole('button', { name: '通用' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '高级' })).toBeInTheDocument()

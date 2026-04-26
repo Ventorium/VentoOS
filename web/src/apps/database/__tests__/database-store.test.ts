@@ -5,7 +5,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useDatabaseStore } from '../stores'
-import type { DbConnectionConfig, FilterCondition, QueryResult, SortRule, TabItem } from '../types'
+import type { DbConnectionConfig, FilterCondition, QueryResult, SavedQuery, SortRule, TabItem } from '../types'
 
 const mockMysqlConn: DbConnectionConfig = {
   id: 'conn-1',
@@ -51,6 +51,7 @@ function resetStore() {
     sqlText: '',
     sqlResults: [],
     sqlActiveResultIndex: 0,
+    savedQueries: [],
     infoPanelVisible: false,
     infoPanelData: null,
     filterPanelVisible: false,
@@ -266,6 +267,15 @@ describe('DatabaseStore – Data View', () => {
 describe('DatabaseStore – SQL Editor', () => {
   beforeEach(resetStore)
 
+  const savedQuery: SavedQuery = {
+    id: 'saved-query-1',
+    name: 'Recent users',
+    sql: 'SELECT * FROM users ORDER BY created_at DESC',
+    connId: 'conn-1',
+    database: 'testdb',
+    updatedAt: 1
+  }
+
   it('sets SQL text', () => {
     useDatabaseStore.getState().setSqlText('SELECT * FROM users')
     expect(useDatabaseStore.getState().sqlText).toBe('SELECT * FROM users')
@@ -280,6 +290,31 @@ describe('DatabaseStore – SQL Editor', () => {
   it('sets active result index', () => {
     useDatabaseStore.getState().setSqlActiveResultIndex(2)
     expect(useDatabaseStore.getState().sqlActiveResultIndex).toBe(2)
+  })
+
+  it('upserts saved queries and keeps newest first', () => {
+    useDatabaseStore.getState().upsertSavedQuery(savedQuery)
+    useDatabaseStore.getState().upsertSavedQuery({
+      ...savedQuery,
+      id: 'saved-query-2',
+      name: 'Audit log',
+      updatedAt: 2
+    })
+
+    expect(useDatabaseStore.getState().savedQueries.map(query => query.id)).toEqual(['saved-query-2', 'saved-query-1'])
+  })
+
+  it('replaces an existing saved query by id', () => {
+    useDatabaseStore.getState().upsertSavedQuery(savedQuery)
+    useDatabaseStore.getState().upsertSavedQuery({
+      ...savedQuery,
+      sql: 'SELECT id FROM users',
+      updatedAt: 3
+    })
+
+    const [query] = useDatabaseStore.getState().savedQueries
+    expect(query.sql).toBe('SELECT id FROM users')
+    expect(useDatabaseStore.getState().savedQueries).toHaveLength(1)
   })
 })
 

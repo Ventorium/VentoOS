@@ -12,6 +12,7 @@ import type { TaskItem } from './store'
 import { useTaskStore } from './store'
 
 const logger = createLogger('services/task')
+const TASK_EVENTS_CHANNEL = 'task_events'
 
 let _taskCounter = 0
 
@@ -65,7 +66,8 @@ export const taskService = {
    * Returns cleanup function.
    */
   listenToTaskUpdates(): () => void {
-    return wsClient.on('TaskUpdate', (data: TaskUpdatePayload) => {
+    const unsubscribeChannel = wsClient.subscribeChannel(TASK_EVENTS_CHANNEL)
+    const unsubscribeHandler = wsClient.on('TaskUpdate', (data: TaskUpdatePayload) => {
       useTaskStore.getState()._updateTask(data.id, {
         status: data.status,
         ...(data.progress !== undefined ? { progress: data.progress } : {}),
@@ -79,5 +81,10 @@ export const taskService = {
         })
       }
     })
+
+    return () => {
+      unsubscribeHandler()
+      unsubscribeChannel()
+    }
   }
 }

@@ -118,7 +118,7 @@ export interface DbObject {
   primaryKeyCount?: number
 }
 
-export type DbObjectType = 'table' | 'view' | 'materialized_view' | 'function' | 'event' | 'trigger' | 'sequence'
+export type DbObjectType = 'table' | 'view' | 'materialized_view' | 'function' | 'event' | 'trigger' | 'sequence' | 'query'
 
 // ── Object category per DB type ────────────────────────────────────────────
 
@@ -217,6 +217,15 @@ export interface QueryResult {
   affected_rows: number
   execution_time_ms: number
   row_count?: number
+}
+
+export interface SavedQuery {
+  id: string
+  name: string
+  sql: string
+  connId: string
+  database?: string
+  updatedAt: number
 }
 
 // ── Test result ────────────────────────────────────────────────────────────

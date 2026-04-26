@@ -11,9 +11,10 @@ type MessageHandler<T = unknown> = (data: T) => void
 /** Function that returns the current auth token (or null if not authenticated). */
 type TokenProvider = () => string | null
 
-class WsClient {
+export class WsClient {
   private ws: WebSocket | null = null
   private handlers = new Map<string, Set<MessageHandler>>()
+  private channelRefs = new Map<string, number>()
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private baseUrl: string
   private pingInterval: ReturnType<typeof setInterval> | null = null
@@ -41,6 +42,8 @@ class WsClient {
       this.ws = new WebSocket(url)
 
       this.ws.onopen = () => {
+        this.flushSubscriptions()
+
         // Start heartbeat
         this.pingInterval = setInterval(() => {
           this.send({ type: 'Ping' })
@@ -129,6 +132,26 @@ class WsClient {
     }
   }
 
+  subscribeChannel(channel: string): () => void {
+    const current = this.channelRefs.get(channel) ?? 0
+    this.channelRefs.set(channel, current + 1)
+
+    if (current === 0) {
+      this.send({ type: 'Subscribe', data: { channel } })
+    }
+
+    return () => {
+      const next = (this.channelRefs.get(channel) ?? 1) - 1
+      if (next <= 0) {
+        this.channelRefs.delete(channel)
+        this.send({ type: 'Unsubscribe', data: { channel } })
+        return
+      }
+
+      this.channelRefs.set(channel, next)
+    }
+  }
+
   /** Send a typed message to the backend. */
   send(msg: ClientMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
@@ -144,6 +167,12 @@ class WsClient {
     }
     this.ws?.close()
     this.ws = null
+  }
+
+  private flushSubscriptions(): void {
+    for (const channel of this.channelRefs.keys()) {
+      this.send({ type: 'Subscribe', data: { channel } })
+    }
   }
 }
 

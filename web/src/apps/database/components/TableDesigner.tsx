@@ -2,6 +2,7 @@ import { Copy, Key, Minus, Plus, Save } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, FormSelect, Tabs } from '@/components/ui'
 import { toast } from '@/components/Toast'
+import { dbApi } from '../api'
 import { useDatabaseStore } from '../stores'
 import type { CheckConstraint, ColumnInfo, ForeignKeyInfo, IndexInfo, TriggerInfo, UniqueConstraint } from '../types'
 
@@ -89,6 +90,7 @@ export function TableDesigner() {
   const [saving, setSaving] = useState(false)
 
   const tableName = selectedNode?.name ?? 'new_table'
+  const connId = selectedNode?.connId ?? ''
 
   useEffect(() => {
     if (tableStructure) {
@@ -125,16 +127,6 @@ export function TableDesigner() {
 
   const updateColumn = useCallback((index: number, field: keyof ColumnInfo, value: unknown) => {
     setColumns(prev => prev.map((col, i) => (i === index ? { ...col, [field]: value } : col)))
-  }, [])
-
-  const handleSave = useCallback(async () => {
-    setSaving(true)
-    try {
-      // TODO: call API to save table structure
-      await new Promise(r => setTimeout(r, 500))
-    } finally {
-      setSaving(false)
-    }
   }, [])
 
   const generatedSql = useMemo(() => {
@@ -189,6 +181,23 @@ export function TableDesigner() {
 
     return lines.join('\n')
   }, [columns, indexes, foreignKeys, uniqueConstraints, checkConstraints, tableName, tableComment])
+
+  const handleSave = useCallback(async () => {
+    if (!connId || !generatedSql.trim()) {
+      toast.error('缺少连接上下文，无法保存表结构')
+      return
+    }
+
+    setSaving(true)
+    try {
+      await dbApi.executeDbSql(connId, generatedSql)
+      toast.success(`表 ${tableName} 的结构已提交`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存表结构失败')
+    } finally {
+      setSaving(false)
+    }
+  }, [connId, generatedSql, tableName])
 
   const copyToClipboard = useCallback(() => {
     navigator.clipboard.writeText(generatedSql).then(() => toast.success('已复制'))

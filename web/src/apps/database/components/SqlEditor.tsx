@@ -4,7 +4,7 @@ import { Button, Spinner } from '@/components/ui'
 import { toast } from '@/components/Toast'
 import { dbApi } from '../api'
 import { useDatabaseStore } from '../stores'
-import type { QueryResult } from '../types'
+import type { QueryResult, SavedQuery } from '../types'
 
 function formatSql(sql: string): string {
   const keywords = [
@@ -44,6 +44,25 @@ function formatSql(sql: string): string {
   return result.replace(/^\n/, '').replace(/\n{2,}/g, '\n')
 }
 
+function buildSavedQuery(sql: string, connId: string, connName: string, dbName: string): SavedQuery {
+  const now = Date.now()
+  const firstLine = sql
+    .split('\n')
+    .map(line => line.trim())
+    .find(Boolean)
+  const compact = firstLine ?? '未命名查询'
+  const name = compact.length > 48 ? `${compact.slice(0, 48)}...` : compact
+
+  return {
+    id: `saved-query-${connId}-${now}`,
+    name,
+    sql,
+    connId,
+    database: dbName || connName || undefined,
+    updatedAt: now
+  }
+}
+
 export function SqlEditor() {
   const {
     sqlText,
@@ -52,6 +71,7 @@ export function SqlEditor() {
     setSqlText,
     setSqlResults,
     setSqlActiveResultIndex,
+    upsertSavedQuery,
     selectedNode,
     loading,
     setLoading
@@ -111,8 +131,15 @@ export function SqlEditor() {
   }, [setLoading])
 
   const handleSave = useCallback(() => {
-    // TODO: save query to query list
-  }, [])
+    if (!connId || !sqlText.trim()) {
+      toast.error('请选择连接并输入要保存的 SQL')
+      return
+    }
+
+    const savedQuery = buildSavedQuery(sqlText.trim(), connId, connName, dbName)
+    upsertSavedQuery(savedQuery)
+    toast.success(`已保存查询：${savedQuery.name}`)
+  }, [connId, connName, dbName, sqlText, upsertSavedQuery])
 
   const handleBeautify = useCallback(() => {
     setSqlText(formatSql(sqlText))

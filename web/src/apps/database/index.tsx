@@ -21,9 +21,13 @@ export default function DatabaseApp({ windowId, initialAppState }: AppComponentP
     setConnections,
     tabs,
     activeTabId,
+    sqlText,
+    savedQueries,
     addTab,
     removeTab,
     setActiveTab,
+    setSqlText,
+    setSavedQueries,
     showNewConnectionTypeDialog,
     showConnectionConfigDialog,
     infoPanelVisible,
@@ -36,9 +40,11 @@ export default function DatabaseApp({ windowId, initialAppState }: AppComponentP
     windowId,
     {
       activeTabId,
-      selectedNodeId: useDatabaseStore.getState().selectedNodeId
+      selectedNodeId: useDatabaseStore.getState().selectedNodeId,
+      sqlText,
+      savedQueries
     },
-    [activeTabId]
+    [activeTabId, sqlText, savedQueries]
   )
 
   // Load connections on mount
@@ -60,7 +66,13 @@ export default function DatabaseApp({ windowId, initialAppState }: AppComponentP
     if (initialAppState?.activeTabId) {
       setActiveTab(initialAppState.activeTabId as string)
     }
-  }, [initialAppState, setActiveTab])
+    if (typeof initialAppState?.sqlText === 'string') {
+      setSqlText(initialAppState.sqlText)
+    }
+    if (Array.isArray(initialAppState?.savedQueries)) {
+      setSavedQueries(initialAppState.savedQueries as typeof savedQueries)
+    }
+  }, [initialAppState, setActiveTab, setSavedQueries, setSqlText])
 
   const activeTab = tabs.find(t => t.id === activeTabId)
 

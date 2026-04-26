@@ -12,6 +12,7 @@ import type {
   InfoPanelData,
   ObjectCategory,
   QueryResult,
+  SavedQuery,
   SchemaInfo,
   SortRule,
   TabItem,
@@ -76,9 +77,13 @@ export interface DatabaseStore {
   sqlText: string
   sqlResults: QueryResult[]
   sqlActiveResultIndex: number
+  savedQueries: SavedQuery[]
   setSqlText: (text: string) => void
   setSqlResults: (results: QueryResult[]) => void
   setSqlActiveResultIndex: (index: number) => void
+  setSavedQueries: (queries: SavedQuery[]) => void
+  upsertSavedQuery: (query: SavedQuery) => void
+  removeSavedQuery: (id: string) => void
 
   // ── Info panel ──
   infoPanelVisible: boolean
@@ -199,9 +204,26 @@ export const useDatabaseStore = create<DatabaseStore>((set, get) => ({
   sqlText: '',
   sqlResults: [],
   sqlActiveResultIndex: 0,
+  savedQueries: [],
   setSqlText: text => set({ sqlText: text }),
   setSqlResults: results => set({ sqlResults: results }),
   setSqlActiveResultIndex: index => set({ sqlActiveResultIndex: index }),
+  setSavedQueries: queries => set({ savedQueries: queries }),
+  upsertSavedQuery: query =>
+    set(s => {
+      const existingIndex = s.savedQueries.findIndex(item => item.id === query.id)
+      if (existingIndex === -1) {
+        return { savedQueries: [query, ...s.savedQueries] }
+      }
+
+      const next = [...s.savedQueries]
+      next[existingIndex] = query
+      return { savedQueries: next.sort((left, right) => right.updatedAt - left.updatedAt) }
+    }),
+  removeSavedQuery: id =>
+    set(s => ({
+      savedQueries: s.savedQueries.filter(query => query.id !== id)
+    })),
 
   // Info panel
   infoPanelVisible: false,

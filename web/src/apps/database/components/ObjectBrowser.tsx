@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useDatabaseStore } from '../stores'
-import { type DbEngine, type DbObject, OBJECT_CATEGORIES, type ObjectCategory, type SchemaInfo } from '../types'
+import { type DbEngine, type DbObject, OBJECT_CATEGORIES, type ObjectCategory, type SavedQuery, type SchemaInfo } from '../types'
 
 type ViewMode = 'list' | 'grid'
 type SortField = string
@@ -31,7 +31,17 @@ const CATEGORY_ICONS: Record<string, typeof Table2> = {
   queries: FunctionSquare
 }
 
-function getObjectsFromSchemas(schemas: SchemaInfo[], category: ObjectCategory): DbObject[] {
+function getObjectsFromState(schemas: SchemaInfo[], savedQueries: SavedQuery[], connId: string, category: ObjectCategory): DbObject[] {
+  if (category === 'queries') {
+    return savedQueries
+      .filter(query => query.connId === connId)
+      .map(query => ({
+        name: query.name,
+        type: 'query',
+        comment: query.sql.replace(/\s+/g, ' ').trim().slice(0, 120)
+      }))
+  }
+
   if (category !== 'tables') return []
   const objects: DbObject[] = []
   for (const schema of schemas) {
@@ -48,7 +58,14 @@ function getObjectsFromSchemas(schemas: SchemaInfo[], category: ObjectCategory):
   return objects
 }
 
-function getColumnsForEngine(engine: DbEngine): { key: string; label: string; width?: string }[] {
+function getColumnsForEngine(engine: DbEngine, category: ObjectCategory): { key: string; label: string; width?: string }[] {
+  if (category === 'queries') {
+    return [
+      { key: 'name', label: '名称', width: '30%' },
+      { key: 'comment', label: 'SQL 预览', width: '70%' }
+    ]
+  }
+
   switch (engine) {
     case 'postgresql':
       return [
@@ -87,8 +104,10 @@ export function ObjectBrowser() {
     setObjectSearchQuery,
     selectedNode,
     schemas,
+    savedQueries,
     addTab,
-    setActiveTab
+    setActiveTab,
+    setSqlText
   } = useDatabaseStore()
 
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -101,10 +120,13 @@ export function ObjectBrowser() {
   const connId = selectedNode?.connId ?? ''
 
   const categories = useMemo(() => OBJECT_CATEGORIES[engine] ?? [], [engine])
-  const columns = useMemo(() => getColumnsForEngine(engine), [engine])
+  const columns = useMemo(() => getColumnsForEngine(engine, activeCategory), [engine, activeCategory])
 
   const connSchemas = useMemo(() => schemas[connId] ?? [], [schemas, connId])
-  const objects = useMemo(() => getObjectsFromSchemas(connSchemas, activeCategory), [connSchemas, activeCategory])
+  const objects = useMemo(
+    () => getObjectsFromState(connSchemas, savedQueries, connId, activeCategory),
+    [connSchemas, savedQueries, connId, activeCategory]
+  )
 
   const filtered = useMemo(() => {
     const q = objectSearchQuery.toLowerCase().trim()
@@ -139,6 +161,23 @@ export function ObjectBrowser() {
   const handleDoubleClick = useCallback(
     (obj: DbObject) => {
       if (!connId) return
+      if (activeCategory === 'queries') {
+        const savedQuery = savedQueries.find(query => query.connId === connId && query.name === obj.name)
+        if (!savedQuery) return
+        const tabId = `query-${connId}-${savedQuery.id}`
+        setSqlText(savedQuery.sql)
+        addTab({
+          id: tabId,
+          type: 'query',
+          label: savedQuery.name,
+          connId,
+          database: selectedNode?.database,
+          closable: true
+        })
+        setActiveTab(tabId)
+        return
+      }
+
       const tabId = `data-${connId}-${obj.schema ?? ''}-${obj.name}`
       addTab({
         id: tabId,
@@ -151,7 +190,7 @@ export function ObjectBrowser() {
       })
       setActiveTab(tabId)
     },
-    [connId, addTab, setActiveTab]
+    [activeCategory, connId, addTab, savedQueries, selectedNode?.database, setActiveTab, setSqlText]
   )
 
   const CatIcon = CATEGORY_ICONS[activeCategory] ?? Table2
