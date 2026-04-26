@@ -76,6 +76,11 @@ impl AppPlugin for VfsPlugin {
             )
             // Permissions
             .route("/api/vfs/mounts/{id}/chmod", put(chmod_handler))
+            // Backend capabilities and pre-signed links
+            .route("/api/vfs/mounts/{id}/capabilities", get(capabilities_handler))
+            .route("/api/vfs/mounts/{id}/link", get(link_handler))
+            // Prefix route resolution
+            .route("/api/vfs/resolve", get(resolve_path_handler))
             // Watch (WebSocket)
             .route("/api/vfs/mounts/{id}/watch", get(watch_handler))
             // Tail (WebSocket)
@@ -570,6 +575,62 @@ async fn chmod_handler(
     match mgr.chmod(&id, &body.path, body.mode).await {
         Ok(()) => Json(ApiResponse::ok(serde_json::json!({"updated": true}))).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── Capabilities handler ─────────────────────────────────────────────────
+
+async fn capabilities_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match mgr.capabilities(&id).await {
+        Ok(caps) => Json(ApiResponse::ok(caps)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── Link (pre-signed URL) handler ────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct LinkQuery {
+    path: String,
+}
+
+async fn link_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Query(query): Query<LinkQuery>,
+) -> impl IntoResponse {
+    match mgr.link(&id, &query.path).await {
+        Ok(link) => Json(ApiResponse::ok(link)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(ApiResponse::<()>::err(&e))).into_response(),
+    }
+}
+
+// ─── Prefix route resolution handler ─────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct ResolveQuery {
+    path: String,
+}
+
+async fn resolve_path_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Query(query): Query<ResolveQuery>,
+) -> impl IntoResponse {
+    // Strip `vfs://` prefix if present
+    let clean_path = query.path.strip_prefix("vfs://").unwrap_or(&query.path);
+    match mgr.resolve_mount_by_path(clean_path).await {
+        Ok((mount_id, rel_path)) => Json(ApiResponse::ok(
+            serde_json::json!({"mount_id": mount_id, "path": rel_path}),
+        ))
+        .into_response(),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::err(&e)),
+        )
+            .into_response(),
     }
 }
 

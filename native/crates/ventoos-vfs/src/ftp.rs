@@ -422,6 +422,7 @@ impl FtpConnInfo {
 }
 
 /// Per-mount FTP connection pool (single connection for now; FTP is not thread-safe).
+#[derive(Clone)]
 pub(crate) struct FtpPool {
     inner: Arc<Mutex<HashMap<String, Arc<Mutex<FtpConn>>>>>,
 }

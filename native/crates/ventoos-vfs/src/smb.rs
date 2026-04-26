@@ -8,14 +8,17 @@
 //! - `smb://[user[:pass]@]host[:port]/share[/path]` for direct share access
 
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::sync::Arc;
+use std::time::Instant;
 
+use futures_util::future::try_join_all;
 use smolder_core::auth::NtlmCredentials;
 use smolder_core::facade::{Client, Share};
 use smolder_core::srvsvc::ShareInfo1;
 use smolder_proto::smb::smb2::{
     CloseRequest, CreateDisposition, CreateOptions, CreateRequest, Dialect, GlobalCapabilities,
-    QueryDirectoryFlags, QueryDirectoryRequest, ShareAccess,
+    QueryDirectoryFlags, QueryDirectoryRequest, ReadRequest, ShareAccess,
 };
 use tokio::sync::Mutex;
 use tracing::debug;
@@ -44,18 +47,21 @@ enum SmbTarget {
 /// Each mount keeps a reusable SMB client plus per-share pooled sessions.
 type SharePool = HashMap<String, Arc<Mutex<Option<Share>>>>;
 
+#[derive(Clone)]
 pub(crate) struct SmbClientPool {
-    clients: Mutex<HashMap<String, Arc<Client>>>,
-    shares: Mutex<HashMap<String, SharePool>>,
-    conn_infos: Mutex<HashMap<String, SmbConnInfo>>,
+    clients: Arc<Mutex<HashMap<String, Arc<Client>>>>,
+    shares: Arc<Mutex<HashMap<String, SharePool>>>,
+    conn_infos: Arc<Mutex<HashMap<String, SmbConnInfo>>>,
+    pub(crate) read_cache: ReadHandleCache,
 }
 
 impl SmbClientPool {
     pub fn new() -> Self {
         Self {
-            clients: Mutex::new(HashMap::new()),
-            shares: Mutex::new(HashMap::new()),
-            conn_infos: Mutex::new(HashMap::new()),
+            clients: Arc::new(Mutex::new(HashMap::new())),
+            shares: Arc::new(Mutex::new(HashMap::new())),
+            conn_infos: Arc::new(Mutex::new(HashMap::new())),
+            read_cache: ReadHandleCache::new(),
         }
     }
 
@@ -151,6 +157,7 @@ impl SmbClientPool {
         self.clients.lock().await.remove(mount_id);
         self.shares.lock().await.remove(mount_id);
         self.conn_infos.lock().await.remove(mount_id);
+        self.read_cache.invalidate_mount(mount_id).await;
     }
 
     async fn list_shares(&self, mount_id: &str) -> Result<Vec<ShareInfo1>, String> {
@@ -557,6 +564,318 @@ async fn list_share_directory(
     Ok(nodes)
 }
 
+// ─── Read optimizations ────────────────────────────────────────────────────
+
+/// Maximum size (10 MB) for caching file data in the read handle cache.
+const MAX_CACHED_FILE_SIZE: u64 = 10 * 1024 * 1024;
+/// Maximum number of entries in the read handle cache.
+const MAX_CACHE_ENTRIES: usize = 16;
+/// Files above this threshold (20 MB) benefit from parallel chunked reads.
+const PARALLEL_READ_THRESHOLD: u64 = 20 * 1024 * 1024;
+/// Chunk size for parallel reads (1 MB per request).
+const PARALLEL_CHUNK_SIZE: u64 = 1024 * 1024;
+/// Maximum parallel connections for chunked reads.
+const MAX_PARALLEL_CONNECTIONS: usize = 4;
+
+/// LRU read data cache for frequently-read small files.
+///
+/// Inspired by tokimo-package-vfs:
+/// - Small files (< 10 MB) are cached after first read to avoid open/close round-trips
+/// - Max 16 entries with LRU eviction
+/// - Invalidated on write/delete operations to the cached path
+///
+/// This doesn't cache SMB file handles directly (which requires pinning the Share
+/// connection), but instead caches the read data. For large files, parallel chunked
+/// reads are used instead.
+#[derive(Clone)]
+pub(crate) struct ReadHandleCache {
+    inner: Arc<Mutex<ReadHandleCacheInner>>,
+}
+
+#[derive(Clone)]
+struct ReadHandleCacheInner {
+    /// Mount-share-path → CachedEntry
+    cache: HashMap<String, CachedEntry>,
+    /// LRU order tracking
+    order: VecDeque<String>,
+}
+
+#[derive(Clone)]
+struct CachedEntry {
+    data: Vec<u8>,
+    #[allow(dead_code)]
+    size: u64,
+    last_access: Instant,
+}
+
+impl ReadHandleCache {
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(ReadHandleCacheInner {
+                cache: HashMap::new(),
+                order: VecDeque::new(),
+            })),
+        }
+    }
+
+    /// Build a cache key from (mount_id, share_name, path).
+    fn cache_key(mount_id: &str, share: &str, path: &str) -> String {
+        format!("{mount_id}:{share}:{path}")
+    }
+
+    /// Try to get cached data for a path. Returns `Some(data)` on cache hit.
+    async fn get(&self, mount_id: &str, share: &str, path: &str) -> Option<Vec<u8>> {
+        let mut inner = self.inner.lock().await;
+        let key = Self::cache_key(mount_id, share, path);
+        if inner.cache.contains_key(&key) {
+            // Update LRU order first (no borrow on cache)
+            if let Some(pos) = inner.order.iter().position(|k| k == &key) {
+                inner.order.remove(pos);
+                inner.order.push_back(key.clone());
+            }
+            // Now access cache entry
+            if let Some(entry) = inner.cache.get_mut(&key) {
+                entry.last_access = Instant::now();
+                return Some(entry.data.clone());
+            }
+        }
+        None
+    }
+
+    /// Insert data into cache (only for files <= MAX_CACHED_FILE_SIZE).
+    async fn put(
+        &self,
+        mount_id: &str,
+        share: &str,
+        path: &str,
+        data: Vec<u8>,
+        file_size: u64,
+    ) {
+        if file_size > MAX_CACHED_FILE_SIZE {
+            return; // Don't cache large files
+        }
+        let mut inner = self.inner.lock().await;
+        let key = Self::cache_key(mount_id, share, path);
+
+        // Evict LRU if at capacity
+        if inner.cache.len() >= MAX_CACHE_ENTRIES && !inner.cache.contains_key(&key) {
+            if let Some(lru_key) = inner.order.pop_front() {
+                inner.cache.remove(&lru_key);
+            }
+        }
+
+        // Remove old position if re-inserting, then insert to order
+        let is_existing = inner.order.iter().any(|k| k == &key);
+        if is_existing {
+            inner.order.retain(|k| k != &key);
+        }
+        inner.order.push_back(key.clone());
+
+        inner.cache.insert(
+            key,
+            CachedEntry {
+                data,
+                size: file_size,
+                last_access: Instant::now(),
+            },
+        );
+    }
+
+    /// Invalidate cache entries for a specific path (on write/delete).
+    async fn invalidate(&self, mount_id: &str, share: &str, path: &str) {
+        let mut inner = self.inner.lock().await;
+        let key = Self::cache_key(mount_id, share, path);
+        inner.cache.remove(&key);
+        inner.order.retain(|k| k != &key);
+    }
+
+    /// Invalidate all cache entries for a mount (on disconnect).
+    async fn invalidate_mount(&self, mount_id: &str) {
+        let mut inner = self.inner.lock().await;
+        let prefix = format!("{mount_id}:");
+        inner.cache.retain(|k, _| !k.starts_with(&prefix));
+        inner.order.retain(|k| !k.starts_with(&prefix));
+    }
+}
+
+/// Read a file from SMB with optional caching and parallel chunking.
+///
+/// For small files (< 10 MB): reads via the standard path, caches the data.
+/// For medium files (< 20 MB): reads directly (no caching, no parallel).
+/// For large files (>= 20 MB): reads in parallel chunks using multiple
+/// concurrent Share connections for improved throughput on high-latency links.
+async fn read_file_raw_with_cache(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    vfs_path: &str,
+) -> Result<Vec<u8>, String> {
+    let cache = &pool.read_cache;
+
+    let info = pool.get_info(mount_id).await?;
+    let target = resolve_target(&info, vfs_path);
+    let (share_name, share_path) = match target {
+        SmbTarget::ServerRoot => {
+            return Err("Cannot read the SMB server root; select a share first".to_string());
+        }
+        SmbTarget::Share { share, share_path } => (share, share_path),
+    };
+
+    // Check cache first
+    if let Some(cached) = cache.get(mount_id, &share_name, &share_path).await {
+        return Ok(cached);
+    }
+
+    // Get file size via stat (quick metadata-only, no data read)
+    let file_size = {
+        let mut share = pool.get_share(mount_id, &share_name).await?;
+        let meta = share
+            .stat(&share_path)
+            .await
+            .map_err(|e| format!("SMB stat failed: {e}"))?;
+        pool.put_share(mount_id, &share_name, share).await;
+        meta.size
+    };
+
+    // For large files: parallel chunked reads
+    if file_size >= PARALLEL_READ_THRESHOLD && file_size > 0 {
+        let result = read_file_parallel(pool, mount_id, &share_name, &share_path, file_size).await?;
+        return Ok(result);
+    }
+
+    // Standard read for medium files
+    let mut share = pool.get_share(mount_id, &share_name).await?;
+    let data = share
+        .read(&share_path)
+        .await
+        .map_err(|e| format!("SMB read failed: {e}"))?;
+    pool.put_share(mount_id, &share_name, share).await;
+
+    let file_size_u64 = data.len() as u64;
+
+    // Cache small files for future reads
+    cache
+        .put(mount_id, &share_name, &share_path, data.clone(), file_size_u64)
+        .await;
+
+    Ok(data)
+}
+
+/// Read a large file using parallel chunked reads.
+///
+/// Opens multiple concurrent Share connections, each reading a separate byte range
+/// of the file. Uses `FuturesUnordered`-style concurrency via `try_join_all`.
+///
+/// Maximum `MAX_PARALLEL_CONNECTIONS` concurrent connections to avoid overwhelming
+/// the server.
+async fn read_file_parallel(
+    pool: &SmbClientPool,
+    mount_id: &str,
+    share_name: &str,
+    share_path: &str,
+    file_size: u64,
+) -> Result<Vec<u8>, String> {
+    let num_chunks = (file_size / PARALLEL_CHUNK_SIZE + 1) as usize;
+    let max_conn = num_chunks.min(MAX_PARALLEL_CONNECTIONS);
+    let chunks_per_conn = (num_chunks + max_conn - 1) / max_conn; // ceil division
+
+    // Build range list: each task gets a batch of contiguous byte ranges
+    let mut tasks = Vec::with_capacity(max_conn);
+    for conn_idx in 0..max_conn {
+        let start_chunk = conn_idx * chunks_per_conn;
+        let end_chunk = ((conn_idx + 1) * chunks_per_conn).min(num_chunks);
+        if start_chunk >= end_chunk {
+            break;
+        }
+
+        let mut ranges: Vec<(u64, u32)> = Vec::with_capacity(end_chunk - start_chunk);
+        for chunk_idx in start_chunk..end_chunk {
+            let offset = chunk_idx as u64 * PARALLEL_CHUNK_SIZE;
+            let length = if offset + PARALLEL_CHUNK_SIZE > file_size {
+                (file_size - offset) as u32
+            } else {
+                PARALLEL_CHUNK_SIZE as u32
+            };
+            ranges.push((offset, length));
+        }
+
+        tasks.push(read_chunk_batch(
+            pool.clone(),
+            mount_id.to_string(),
+            share_name.to_string(),
+            share_path.to_string(),
+            ranges,
+        ));
+    }
+
+    // Execute all batches concurrently
+    let batch_results: Vec<Vec<(u64, Vec<u8>)>> = try_join_all(tasks).await?;
+
+    // Reassemble in order
+    let mut result = Vec::with_capacity(file_size as usize);
+    for batch in batch_results {
+        for (_offset, chunk_data) in batch {
+            result.extend_from_slice(&chunk_data);
+        }
+    }
+
+    Ok(result)
+}
+
+/// Read a batch of byte ranges from a single SMB connection.
+///
+/// Opens one Share connection, issues sequential reads for each range,
+/// then closes. This runs concurrently with other batches.
+async fn read_chunk_batch(
+    pool: SmbClientPool,
+    mount_id: String,
+    share_name: String,
+    share_path: String,
+    ranges: Vec<(u64, u32)>,
+) -> Result<Vec<(u64, Vec<u8>)>, String> {
+    let mut share = pool.get_share(&mount_id, &share_name).await?;
+
+    // Open file handle (conn borrow is scoped to this block)
+    let file_id = {
+        let conn = share.connection_mut();
+        let mut create_req = CreateRequest::from_path(&share_path);
+        create_req.desired_access = 0x0001_0001;
+        create_req.share_access = ShareAccess::READ;
+        create_req.create_disposition = CreateDisposition::Open;
+        create_req.create_options = CreateOptions::empty();
+        let open_resp = conn
+            .create(&create_req)
+            .await
+            .map_err(|e| format!("SMB open failed for parallel read: {e}"))?;
+        open_resp.file_id
+    }; // conn borrow ends here
+
+    // Read all chunks (conn borrow is scoped to each iteration)
+    let mut results = Vec::with_capacity(ranges.len());
+    for (offset, length) in &ranges {
+        let req = ReadRequest::for_file(file_id, *offset, *length);
+        let resp = share
+            .connection_mut()
+            .read(&req)
+            .await
+            .map_err(|e| format!("SMB parallel read failed: {e}"))?;
+        results.push((*offset, resp.data));
+    }
+
+    // Close file handle (conn borrow is scoped to this block)
+    {
+        let conn = share.connection_mut();
+        let _ = conn
+            .close(&CloseRequest {
+                flags: 0,
+                file_id,
+            })
+            .await;
+    } // conn borrow ends here
+
+    pool.put_share(&mount_id, &share_name, share).await;
+    Ok(results)
+}
+
 // ─── VFS operations ──────────────────────────────────────────────────────────
 
 /// List directory contents via SMB.
@@ -606,32 +925,13 @@ pub(crate) async fn read_file(
     })
 }
 
-/// Read raw file bytes via SMB.
+/// Read raw file bytes via SMB (with read cache and optional parallel chunking).
 pub(crate) async fn read_file_raw(
     pool: &SmbClientPool,
     mount_id: &str,
     vfs_path: &str,
 ) -> Result<Vec<u8>, String> {
-    let info = pool.get_info(mount_id).await?;
-    let target = resolve_target(&info, vfs_path);
-    let (share_name, share_path) = match target {
-        SmbTarget::ServerRoot => {
-            return Err("Cannot read the SMB server root; select a share first".to_string());
-        }
-        SmbTarget::Share { share, share_path } => (share, share_path),
-    };
-    let mut share = pool.get_share(mount_id, &share_name).await?;
-
-    let result = async {
-        share
-            .read(&share_path)
-            .await
-            .map_err(|e| format!("SMB read failed: {e}"))
-    }
-    .await;
-
-    pool.put_share(mount_id, &share_name, share).await;
-    result
+    read_file_raw_with_cache(pool, mount_id, vfs_path).await
 }
 
 /// Write text content to a file via SMB.
@@ -644,7 +944,7 @@ pub(crate) async fn write_file(
     upload_file(pool, mount_id, vfs_path, content.as_bytes()).await
 }
 
-/// Upload raw binary data to a file via SMB.
+/// Upload raw binary data to a file via SMB (invalidates read cache).
 pub(crate) async fn upload_file(
     pool: &SmbClientPool,
     mount_id: &str,
@@ -670,6 +970,12 @@ pub(crate) async fn upload_file(
     .await;
 
     pool.put_share(mount_id, &share_name, share).await;
+
+    // Invalidate cache for this path after write
+    pool.read_cache
+        .invalidate(mount_id, &share_name, &share_path)
+        .await;
+
     result
 }
 
@@ -704,7 +1010,7 @@ pub(crate) async fn mkdir(
     result
 }
 
-/// Delete a file via SMB.
+/// Delete a file via SMB (invalidates read cache).
 pub(crate) async fn delete(
     pool: &SmbClientPool,
     mount_id: &str,
@@ -729,6 +1035,12 @@ pub(crate) async fn delete(
     .await;
 
     pool.put_share(mount_id, &share_name, share).await;
+
+    // Invalidate cache for this path after delete
+    pool.read_cache
+        .invalidate(mount_id, &share_name, &share_path)
+        .await;
+
     result
 }
 

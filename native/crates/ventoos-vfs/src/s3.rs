@@ -787,6 +787,92 @@ impl S3Client {
         })
     }
 
+    // ── Presigned GET URL ─────────────────────────────────────────────────────
+
+    /// Generate a pre-signed GET URL using AWS SigV4 query authentication.
+    ///
+    /// Returns `(url, expiry_rfc3339)` where:
+    /// - `url` is a direct download URL valid for `expires_in_secs` seconds
+    /// - `expiry_rfc3339` is the expiry time as an RFC 3339 string
+    ///
+    /// Uses `UNSIGNED-PAYLOAD` and only requires the `host` signed header.
+    pub async fn presign_get_url(
+        &self,
+        vfs_path: &str,
+        expires_in_secs: u32,
+    ) -> Result<(String, String), String> {
+        let key = self.vfs_to_s3_key(vfs_path);
+        let (datetime, date) = aws_datetime();
+        let connect_host = self.cfg.request_host();
+        let is_standard_port = (self.cfg.use_tls && self.cfg.port == 443)
+            || (!self.cfg.use_tls && self.cfg.port == 80);
+        let http_host = if is_standard_port {
+            connect_host.clone()
+        } else {
+            format!("{}:{}", connect_host, self.cfg.port)
+        };
+        let path = self.cfg.base_path(&key);
+        let credential =
+            url_encode(&format!("{date}/{}/s3/aws4_request", self.cfg.region));
+        let access_key_encoded = url_encode(&self.cfg.access_key);
+        let full_credential = format!("{access_key_encoded}%2F{credential}");
+
+        // Build query parameters (sorted by key for canonical query string)
+        let mut query_params = vec![
+            ("X-Amz-Algorithm", "AWS4-HMAC-SHA256".to_string()),
+            ("X-Amz-Credential", full_credential),
+            ("X-Amz-Date", datetime.clone()),
+            ("X-Amz-Expires", expires_in_secs.to_string()),
+            ("X-Amz-SignedHeaders", "host".to_string()),
+        ];
+        query_params.sort_by(|a, b| a.0.cmp(b.0));
+
+        // Build canonical query string (URI-encoded keys and values)
+        let canonical_query: String = query_params
+            .iter()
+            .map(|(k, v)| format!("{}={}", url_encode(k), v))
+            .collect::<Vec<_>>()
+            .join("&");
+
+        // Canonical request (UNSIGNED-PAYLOAD for GET)
+        let canonical_request = format!(
+            "GET\n{path}\n{canonical_query}\nhost:{http_host}\n\nhost\nUNSIGNED-PAYLOAD"
+        );
+
+        // String to sign
+        let scope = format!("{date}/{}/s3/aws4_request", self.cfg.region);
+        let string_to_sign = format!(
+            "AWS4-HMAC-SHA256\n{datetime}\n{scope}\n{}",
+            sha256_hex(canonical_request.as_bytes())
+        );
+
+        // Signing key
+        let signing_key = {
+            let k_date = hmac_sha256(
+                format!("AWS4{}", self.cfg.secret_key).as_bytes(),
+                date.as_bytes(),
+            );
+            let k_region = hmac_sha256(&k_date, self.cfg.region.as_bytes());
+            let k_service = hmac_sha256(&k_region, b"s3");
+            hmac_sha256(&k_service, b"aws4_request")
+        };
+
+        let signature = hex(&hmac_sha256(&signing_key, string_to_sign.as_bytes()));
+
+        // Build the final presigned URL
+        let scheme = if self.cfg.use_tls { "https" } else { "http" };
+        let url = format!(
+            "{scheme}://{http_host}{path}?{canonical_query}&X-Amz-Signature={signature}"
+        );
+
+        // Expiry as RFC 3339
+        let now = chrono::Utc::now();
+        let expiry = now + chrono::TimeDelta::seconds(expires_in_secs as i64);
+        let expiry_rfc3339 = expiry.to_rfc3339();
+
+        Ok((url, expiry_rfc3339))
+    }
+
     // ── Search ───────────────────────────────────────────────────────────────
 
     pub async fn search(

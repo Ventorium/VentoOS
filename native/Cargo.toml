@@ -72,6 +72,9 @@ futures-util = "0.3"
 tokio-tungstenite = { version = "0.29", features = ["rustls-tls-webpki-roots"] }
 rumqttc = { version = "0.25", default-features = false, features = ["url", "websocket", "use-rustls-no-provider"] }
 
+# VFS driver registration
+inventory = "0.3"
+
 # SSH
 russh = "0.59"
 russh-sftp = "2.1"

@@ -170,14 +170,15 @@ impl russh::client::Handler for SshHandler {
 }
 
 /// Pool of active SFTP sessions keyed by connection ID.
+#[derive(Clone)]
 pub(crate) struct SftpPool {
-    sessions: RwLock<HashMap<String, Arc<SftpSession>>>,
+    sessions: Arc<RwLock<HashMap<String, Arc<SftpSession>>>>,
 }
 
 impl SftpPool {
     pub fn new() -> Self {
         Self {
-            sessions: RwLock::new(HashMap::new()),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 

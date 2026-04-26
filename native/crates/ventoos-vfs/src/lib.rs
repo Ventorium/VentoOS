@@ -1,5 +1,7 @@
 pub mod archive;
 pub mod chmod;
+pub mod driver;
+pub mod error;
 pub(crate) mod ftp;
 pub(crate) mod k8s_pod;
 /// `VentoOS` Virtual File System.
@@ -20,6 +22,7 @@ pub mod watch;
 pub(crate) mod webdav;
 pub mod webdav_server;
 
+pub use error::VfsError;
 pub use manager::VfsManager;
 pub use routes::VfsPlugin;
 pub use sftp::{InlineSftpProvider, SshAuth, SshConnInfo, SshInfoProvider};

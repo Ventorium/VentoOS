@@ -2028,6 +2028,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "inventory"
+version = "0.3.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4f0c30c76f2f4ccee3fe55a2435f691ca00c0e4bd87abe4f4a851b1d4dac39b"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5129,6 +5138,8 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "flate2",
+ "futures-util",
+ "inventory",
  "mime_guess",
  "quick-xml",
  "reqwest",
@@ -5142,6 +5153,7 @@ dependencies = [
  "smolder-smb-core",
  "tar",
  "tempfile",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-rustls",
  "tracing",

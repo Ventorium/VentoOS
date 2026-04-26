@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 /// The type of filesystem source.
@@ -247,4 +249,37 @@ pub struct VfsSearchReq {
     pub path: String,
     pub query: String,
     pub max_results: Option<usize>,
+}
+
+/// Declares which operations a VFS backend supports.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VfsCapabilities {
+    pub list: bool,
+    pub read: bool,
+    pub mkdir: bool,
+    pub delete_file: bool,
+    pub delete_dir: bool,
+    pub rename: bool,
+    pub copy: bool,
+    pub write: bool,
+    pub chmod: bool,
+    pub search: bool,
+    /// Whether the backend can generate a pre-signed download URL.
+    pub link: bool,
+    /// Whether the backend supports streaming upload via a channel.
+    pub stream_upload: bool,
+}
+
+/// A pre-signed or direct download link returned by a backend driver.
+///
+/// - `url` is `Some` → the client can download directly from this URL.
+/// - `url` is `None`  → the file must be proxied through the `VentoOS` server.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct VfsLink {
+    /// Direct download URL (None = proxy required).
+    pub url: Option<String>,
+    /// Extra HTTP headers to attach when fetching the URL (e.g. Authorization).
+    pub header: HashMap<String, String>,
+    /// Link expiry time as RFC 3339 string (None = no expiry / long-lived).
+    pub expiry: Option<String>,
 }
