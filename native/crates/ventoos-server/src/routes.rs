@@ -1,9 +1,10 @@
-use axum::extract::{Path, Query, State};
+use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::StatusCode;
 use axum::middleware;
-use axum::response::{Html, IntoResponse};
+use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
+use std::net::SocketAddr;
 use chrono::NaiveDate;
 use rust_embed::Embed;
 use std::sync::{Arc, OnceLock};
@@ -228,7 +229,46 @@ pub fn create_webdav_router(state: &AppState) -> Router {
             "/dav/{mount_id}/{*path}",
             axum::routing::any(webdav::webdav_handler),
         )
+        .route_layer(middleware::from_fn(localhost_only))
         .with_state(state.clone())
+}
+
+/// Reject non-localhost requests to /dav to prevent unauthenticated access
+/// from remote hosts (the /dav endpoint has no auth of its own).
+async fn localhost_only(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    // Direct connection IP (available when served over TCP with ConnectInfo)
+    let from_loopback = req
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .is_none_or(|ci| ci.ip().is_loopback()); // allow when no ConnectInfo (e.g. Unix socket)
+
+    // Honor X-Forwarded-For so a reverse proxy cannot bypass the restriction
+    let forwarded_ok = req
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .is_none_or(|s| {
+            let first = s.split(',').next().unwrap_or(s).trim();
+            first == "127.0.0.1" || first == "::1"
+        });
+
+    if !from_loopback || !forwarded_ok {
+        tracing::warn!(
+            "/dav access denied: loopback={}, forwarded_ok={}",
+            from_loopback,
+            forwarded_ok
+        );
+        return (
+            StatusCode::FORBIDDEN,
+            "Forbidden: /dav is only accessible from localhost",
+        )
+            .into_response();
+    }
+
+    next.run(req).await
 }
 
 // --- Health Check ---

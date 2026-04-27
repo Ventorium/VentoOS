@@ -299,9 +299,8 @@ impl LocalMountManager {
     /// Mount using the built-in VentoOS WebDAV server (macOS).
     ///
     /// Strategy (tried in order):
-    /// 1. `mount_webdav -S` — mounts at user-configured path (works on macOS ≤14)
-    /// 2. `osascript` Finder mount volume + symlink — fallback for macOS 15+
-    ///    (mount_webdav was tightened/broken on macOS 15, exit 22 "接口")
+    /// 1. `mount_webdav -S` — mounts at user-configured path
+    /// 2. `osascript` Finder mount volume + symlink — fallback when mount_webdav fails
     async fn mount_webdav_server(
         &self,
         mount_id: &str,
@@ -349,12 +348,11 @@ impl LocalMountManager {
             }
 
             // Strategy 2: fallback — use osascript to mount via Finder.
-            // Finder mounts to /Volumes/<mount_name>, then we create a symlink
-            // at the user-configured mount_point pointing to /Volumes/<mount_name>.
+            // Finder auto-mounts to /Volumes/<auto_name>; we detect the actual
+            // mount point and create a symlink at the user-configured mount_point.
             //
             // Before creating the symlink, remove any existing directory or stale
-            // symlink at mount_point (it was created by create_dir_all above, but
-            // we need a symlink here, not a directory).
+            // symlink at mount_point (it was created by create_dir_all above).
             let _ = std::fs::remove_dir_all(&mount_point);
             let _ = std::fs::remove_file(&mount_point);
 
@@ -375,10 +373,23 @@ impl LocalMountManager {
                 )));
             }
 
-            // Finder mounts to /Volumes/<name>
-            let finder_mount = format!("/Volumes/{}", mount_name);
+            // Finder may mount with an auto-generated volume name.
+            // Ask the system where the URL is actually mounted.
+            let finder_mount = tokio::task::spawn_blocking({
+                let url = webdav_url.clone();
+                move || find_webdav_mount_point_sync(&url)
+            })
+            .await
+            .ok()
+            .flatten();
 
-            // Create symlink at mount_point → /Volumes/<name>
+            let finder_mount = finder_mount.ok_or_else(|| {
+                MountError::WebDav(
+                    "Finder 挂载成功但无法检测挂载点，请手动检查 /Volumes".to_string(),
+                )
+            })?;
+
+            // Create symlink at mount_point → actual Finder mount
             let mp = mount_point.clone();
             let fm = finder_mount.clone();
             tokio::task::spawn_blocking(move || {
@@ -515,28 +526,32 @@ impl LocalMountManager {
                     }
                 }
                 MountBackend::WebDav => {
-                    // Check if the mount point directory is actually a WebDAV mount.
                     #[cfg(target_os = "macos")]
                     {
                         let mp = crate::validate::expand_home(&cfg.mount_point);
-                        if std::path::Path::new(&mp).exists() {
-                            // Check if it's actually mounted via mount_webdav
-                            if let Ok(output) = std::process::Command::new("mount")
-                                .output()
-                            {
-                                let stdout = String::from_utf8_lossy(&output.stdout);
-                                if stdout.contains(&mp) {
-                                    self.state.write().await.insert(
-                                        mount_id.to_string(),
-                                        MountState::MountedWebDav {
-                                            mount_point: mp.clone(),
-                                        },
-                                    );
-                                    return MountStatus::Mounted {
-                                        mount_point: mp,
-                                    };
-                                }
-                            }
+                        let webdav_url = format!("http://localhost:5454/dav/{mount_id}/");
+
+                        // Check if the WebDAV URL is actually mounted (covers both
+                        // mount_webdav direct mounts and Finder fallback mounts).
+                        let is_mounted = tokio::task::spawn_blocking({
+                            let url = webdav_url;
+                            move || find_webdav_mount_point_sync(&url)
+                        })
+                        .await
+                        .ok()
+                        .flatten()
+                        .is_some();
+
+                        if is_mounted || (std::path::Path::new(&mp).exists() && std::fs::read_link(&mp).is_ok()) {
+                            self.state.write().await.insert(
+                                mount_id.to_string(),
+                                MountState::MountedWebDav {
+                                    mount_point: mp.clone(),
+                                },
+                            );
+                            return MountStatus::Mounted {
+                                mount_point: mp,
+                            };
                         }
                     }
                 }
@@ -576,4 +591,24 @@ impl LocalMountManager {
                 }
         }
     }
+}
+
+/// Find the actual mount point for a WebDAV URL by parsing `mount` output.
+/// Returns `Some(mount_point)` if the URL is currently mounted, `None` otherwise.
+#[cfg(target_os = "macos")]
+fn find_webdav_mount_point_sync(webdav_url: &str) -> Option<String> {
+    let output = std::process::Command::new("sh")
+        .args([
+            "-c",
+            &format!("mount | grep '{}' || true", webdav_url),
+        ])
+        .output()
+        .ok()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Parse: http://... on /path/to/mount (webdav, ...)
+    stdout.lines().next().and_then(|line| {
+        line.split(" on ").nth(1)
+            .and_then(|s| s.split(" (").next())
+            .map(|s| s.trim().to_string())
+    })
 }

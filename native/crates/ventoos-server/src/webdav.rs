@@ -64,7 +64,7 @@ async fn handle(
     let path = if tail.is_empty() || tail == "/" {
         "/".to_string()
     } else {
-        format!("/{}", tail.trim_matches('/'))
+        format!("/{}", tail.trim_start_matches('/'))
     };
 
     debug!("WebDAV {method} /{mount_id}{path}");
@@ -108,7 +108,8 @@ async fn propfind(
     match vfs.stat(mount_id, path).await {
         Err(_) => status_response(StatusCode::NOT_FOUND, "Not found"),
         Ok(node) => {
-            let base_href = format!("/dav/{mount_id}{}", encode_path(path));
+            // Directory hrefs MUST end with '/' per RFC 4918
+            let base_href = dav_href(mount_id, path, node.is_dir);
             let mut responses = String::new();
 
             // Self
@@ -123,10 +124,7 @@ async fn propfind(
                 };
                 if let Ok(children) = vfs.list_dir(&list_req).await {
                     for child in &children {
-                        let child_href = format!(
-                            "/dav/{mount_id}{}",
-                            encode_path(&child.path)
-                        );
+                        let child_href = dav_href(mount_id, &child.path, child.is_dir);
                         responses.push_str(&prop_response(&child_href, child));
                     }
                 }
@@ -269,6 +267,17 @@ async fn directory_listing(vfs: &VfsManager, mount_id: &str, path: &str) -> Resp
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/// Build a DAV href for the given mount and path.
+/// Directory hrefs always end with '/' per RFC 4918.
+fn dav_href(mount_id: &str, path: &str, is_dir: bool) -> String {
+    let encoded = encode_path(path);
+    if is_dir && !encoded.ends_with('/') {
+        format!("/dav/{mount_id}{encoded}/")
+    } else {
+        format!("/dav/{mount_id}{encoded}")
+    }
+}
 
 fn encode_path(path: &str) -> String {
     use std::fmt::Write;

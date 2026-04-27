@@ -989,6 +989,16 @@ function MountForm({
 
 // ─── WebDAV Server Settings Panel ──────────────────────────────────────────
 
+function settingsEqual(a: WebDavServerSettings, b: WebDavServerSettings): boolean {
+  return (
+    a.enabled === b.enabled &&
+    a.username === b.username &&
+    a.password === b.password &&
+    a.exposed_mounts.length === b.exposed_mounts.length &&
+    a.exposed_mounts.every(id => b.exposed_mounts.includes(id))
+  )
+}
+
 function WebDavServerPanel({
   mounts,
   onClose,
@@ -998,6 +1008,12 @@ function WebDavServerPanel({
   onClose: () => void
   embedded?: boolean
 }) {
+  const [original, setOriginal] = useState<WebDavServerSettings>({
+    enabled: false,
+    username: '',
+    password: '',
+    exposed_mounts: []
+  })
   const [settings, setSettings] = useState<WebDavServerSettings>({
     enabled: false,
     username: '',
@@ -1005,24 +1021,33 @@ function WebDavServerPanel({
     exposed_mounts: []
   })
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const hasChanges = !settingsEqual(original, settings)
 
-  const saveSettings = (next: WebDavServerSettings) => {
+  const applySettings = (next: WebDavServerSettings) => {
     setSettings(next)
+  }
+
+  const handleSave = () => {
+    setSaving(true)
     vfsApi
-      .updateWebDavServerSettings(next)
+      .updateWebDavServerSettings(settings)
       .then(r => {
+        setOriginal(r.data)
         setSettings(r.data)
         setSaved(true)
         setTimeout(() => setSaved(false), 1500)
       })
       .catch(console.error)
+      .finally(() => setSaving(false))
   }
 
   useEffect(() => {
     vfsApi
       .getWebDavServerSettings()
       .then(r => {
+        setOriginal(r.data)
         setSettings(r.data)
       })
       .catch(() => {})
@@ -1030,7 +1055,7 @@ function WebDavServerPanel({
   }, [])
 
   const toggleMount = (id: string) => {
-    saveSettings({
+    applySettings({
       ...settings,
       exposed_mounts: settings.exposed_mounts.includes(id)
         ? settings.exposed_mounts.filter((m: string) => m !== id)
@@ -1050,7 +1075,7 @@ function WebDavServerPanel({
             <input
               type="checkbox"
               checked={settings.enabled}
-              onChange={e => saveSettings({ ...settings, enabled: e.target.checked })}
+              onChange={e => applySettings({ ...settings, enabled: e.target.checked })}
             />
             启用 WebDAV 服务器（通过 /webdav 路径访问）
           </label>
@@ -1062,14 +1087,14 @@ function WebDavServerPanel({
                   className="vos-input vos-input-sm flex-1"
                   placeholder="访问用户名（留空则无需认证）"
                   value={settings.username}
-                  onChange={e => saveSettings({ ...settings, username: e.target.value })}
+                  onChange={e => applySettings({ ...settings, username: e.target.value })}
                 />
                 <input
                   className="vos-input vos-input-sm flex-1"
                   type="password"
                   placeholder="访问密码"
                   value={settings.password}
-                  onChange={e => saveSettings({ ...settings, password: e.target.value })}
+                  onChange={e => applySettings({ ...settings, password: e.target.value })}
                 />
               </div>
 
@@ -1094,7 +1119,17 @@ function WebDavServerPanel({
             </>
           )}
 
-          {saved && <div className="text-xs text-right text-[var(--vos-accent-primary)]">已保存</div>}
+          <div className="flex items-center justify-end gap-2 mt-1">
+            {saved && <div className="text-xs text-[var(--vos-accent-primary)]">已保存</div>}
+            <button
+              type="button"
+              className="vos-btn-primary vos-btn-sm"
+              disabled={!hasChanges || saving}
+              onClick={handleSave}
+            >
+              {saving ? '保存中...' : '保存'}
+            </button>
+          </div>
         </>
       )}
     </>
