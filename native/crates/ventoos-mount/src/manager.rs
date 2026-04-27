@@ -297,8 +297,11 @@ impl LocalMountManager {
     }
 
     /// Mount using the built-in VentoOS WebDAV server (macOS).
-    /// Uses `mount_webdav -S` to suppress UI dialogs — our WebDAV server has
-    /// no auth so no credential prompt is needed. Mounts at the user-configured path.
+    ///
+    /// Strategy (tried in order):
+    /// 1. `mount_webdav -S` — mounts at user-configured path (works on macOS ≤14)
+    /// 2. `osascript` Finder mount volume + symlink — fallback for macOS 15+
+    ///    (mount_webdav was tightened/broken on macOS 15, exit 22 "接口")
     async fn mount_webdav_server(
         &self,
         mount_id: &str,
@@ -316,23 +319,70 @@ impl LocalMountManager {
             // Build the WebDAV URL pointing to our built-in server.
             let webdav_url = format!("http://localhost:5454/dav/{mount_id}/");
 
-            // Use mount_webdav with -S (suppress all UI dialogs).
-            // Previous exit-22 was caused by mount_webdav trying to show an auth
-            // dialog in a background process without GUI context.
-            // -S skips dialogs entirely — our server needs no auth.
-            let output = tokio::process::Command::new("mount_webdav")
+            // Strategy 1: try mount_webdav -S (mounts at user-configured path)
+            let mount_webdav_result = tokio::process::Command::new("mount_webdav")
                 .args(["-S", &webdav_url, &mount_point])
                 .output()
-                .await
-                .map_err(|e| MountError::WebDav(format!("无法执行 mount_webdav: {e}")))?;
+                .await;
 
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
+            match mount_webdav_result {
+                Ok(output) if output.status.success() => {
+                    self.state.write().await.insert(
+                        mount_id.to_string(),
+                        MountState::MountedWebDav {
+                            mount_point: mount_point.clone(),
+                        },
+                    );
+                    tracing::info!("WebDAV mounted '{mount_name}' at '{mount_point}' via mount_webdav");
+                    return Ok(());
+                }
+                Ok(output) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    tracing::warn!(
+                        "mount_webdav failed (exit {}), falling back to Finder: {stderr}",
+                        output.status.code().unwrap_or(-1)
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!("mount_webdav not available, falling back to Finder: {e}");
+                }
+            }
+
+            // Strategy 2: fallback — use osascript to mount via Finder.
+            // Finder mounts to /Volumes/<mount_name>, then we create a symlink
+            // at the user-configured path pointing to /Volumes/<mount_name>.
+            let script = format!(
+                "tell application \"Finder\" to mount volume \"{webdav_url}\""
+            );
+
+            let osa_output = tokio::process::Command::new("osascript")
+                .args(["-e", &script])
+                .output()
+                .await
+                .map_err(|e| MountError::WebDav(format!("无法执行 osascript: {e}")))?;
+
+            if !osa_output.status.success() {
+                let stderr = String::from_utf8_lossy(&osa_output.stderr);
                 return Err(MountError::WebDav(format!(
-                    "mount_webdav 失败 (exit {}): {stderr}",
-                    output.status.code().unwrap_or(-1)
+                    "Finder 挂载 WebDAV 失败: {stderr}"
                 )));
             }
+
+            // Finder mounts to /Volumes/<name>
+            let finder_mount = format!("/Volumes/{}", mount_name);
+
+            // Create a symlink at the user-configured mount_point → Finder mount path
+            // Remove any stale symlink first
+            let _ = tokio::fs::remove_file(&mount_point).await;
+            let mp = mount_point.clone();
+            let fm = finder_mount.clone();
+            tokio::task::spawn_blocking(move || {
+                std::os::unix::fs::symlink(&fm, &mp)
+                    .map_err(|e| format!("创建符号链接失败 {mp} → {fm}: {e}"))
+            })
+            .await
+            .map_err(|e| MountError::WebDav(format!("symlink task failed: {e}")))?
+            .map_err(MountError::WebDav)?;
 
             self.state.write().await.insert(
                 mount_id.to_string(),
@@ -340,7 +390,9 @@ impl LocalMountManager {
                     mount_point: mount_point.clone(),
                 },
             );
-            tracing::info!("WebDAV mounted '{mount_name}' at '{mount_point}' via {webdav_url}");
+            tracing::info!(
+                "WebDAV mounted '{mount_name}' via Finder at '{finder_mount}', symlinked to '{mount_point}'"
+            );
             Ok(())
         }
         #[cfg(not(target_os = "macos"))]
@@ -373,13 +425,31 @@ impl LocalMountManager {
                 Ok(())
             }
             Some(MountState::MountedWebDav { mount_point }) => {
-                // Use `umount` (or `diskutil unmount`) to detach the WebDAV volume.
+                // Use `umount` (or `diskutil unmount`) to detach the WebDAV volume,
+                // then clean up the symlink if one exists.
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = tokio::process::Command::new("diskutil")
-                        .args(["unmount", &mount_point])
-                        .output()
-                        .await;
+                    // Check if mount_point is a symlink (Finder mount fallback)
+                    let mp = mount_point.clone();
+                    let is_symlink = tokio::task::spawn_blocking(move || {
+                        std::fs::read_link(&mp).ok()
+                    })
+                    .await
+                    .unwrap_or(None);
+                    if let Some(target) = is_symlink {
+                        // Symlink → unmount the target first, then remove symlink
+                        let _ = tokio::process::Command::new("diskutil")
+                            .args(["unmount", target.to_str().unwrap_or_default()])
+                            .output()
+                            .await;
+                        let _ = tokio::fs::remove_file(&mount_point).await;
+                    } else {
+                        // Direct mount_webdav mount
+                        let _ = tokio::process::Command::new("diskutil")
+                            .args(["unmount", &mount_point])
+                            .output()
+                            .await;
+                    }
                 }
                 Ok(())
             }
