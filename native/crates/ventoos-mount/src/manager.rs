@@ -312,14 +312,14 @@ impl LocalMountManager {
         {
             use crate::validate::expand_home;
             let mount_point = expand_home(&config.mount_point);
+            let webdav_url = format!("http://localhost:5454/dav/{mount_id}/");
+
+            // Strategy 1: try mount_webdav -S (mounts at user-configured path)
+            // Create mount point directory first (mount_webdav needs it to exist).
             std::fs::create_dir_all(&mount_point).map_err(|e| {
                 MountError::WebDav(format!("无法创建挂载目录 {mount_point}: {e}"))
             })?;
 
-            // Build the WebDAV URL pointing to our built-in server.
-            let webdav_url = format!("http://localhost:5454/dav/{mount_id}/");
-
-            // Strategy 1: try mount_webdav -S (mounts at user-configured path)
             let mount_webdav_result = tokio::process::Command::new("mount_webdav")
                 .args(["-S", &webdav_url, &mount_point])
                 .output()
@@ -350,7 +350,14 @@ impl LocalMountManager {
 
             // Strategy 2: fallback — use osascript to mount via Finder.
             // Finder mounts to /Volumes/<mount_name>, then we create a symlink
-            // at the user-configured path pointing to /Volumes/<mount_name>.
+            // at the user-configured mount_point pointing to /Volumes/<mount_name>.
+            //
+            // Before creating the symlink, remove any existing directory or stale
+            // symlink at mount_point (it was created by create_dir_all above, but
+            // we need a symlink here, not a directory).
+            let _ = std::fs::remove_dir_all(&mount_point);
+            let _ = std::fs::remove_file(&mount_point);
+
             let script = format!(
                 "tell application \"Finder\" to mount volume \"{webdav_url}\""
             );
@@ -371,9 +378,7 @@ impl LocalMountManager {
             // Finder mounts to /Volumes/<name>
             let finder_mount = format!("/Volumes/{}", mount_name);
 
-            // Create a symlink at the user-configured mount_point → Finder mount path
-            // Remove any stale symlink first
-            let _ = tokio::fs::remove_file(&mount_point).await;
+            // Create symlink at mount_point → /Volumes/<name>
             let mp = mount_point.clone();
             let fm = finder_mount.clone();
             tokio::task::spawn_blocking(move || {
