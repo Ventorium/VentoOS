@@ -4,7 +4,7 @@
  * Renders ephemeral feedback toasts at the top-center of the screen.
  * Lightweight, auto-dismiss, no persistence.
  */
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { AlertCircle, CheckCircle, Info, X, XCircle } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useToastStore } from './store'
@@ -57,11 +57,9 @@ export default function ToastContainer() {
 
   return createPortal(
     <div className="vos-toast-center-container">
-      <AnimatePresence mode="popLayout">
-        {toasts.map(t => (
-          <ToastItem key={t.id} id={t.id} message={t.message} type={t.type} />
-        ))}
-      </AnimatePresence>
+      {toasts.map(t => (
+        <ToastItem key={t.id} id={t.id} message={t.message} type={t.type} />
+      ))}
     </div>,
     document.body
   )

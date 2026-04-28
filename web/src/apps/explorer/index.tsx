@@ -38,7 +38,7 @@ import {
   PreferenceSection,
   PreferenceToggle
 } from '@/components/AppPreferences'
-import { toast } from '@/components/Toast'
+import { toast } from '@/components/Toast/store'
 import { type ApiResponse, request } from '@/infra/api'
 import type { AppComponentProps, AppManifest, AppMenuGroup } from '@/kernel'
 import {
@@ -1022,7 +1022,6 @@ function WebDavServerPanel({
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const hasChanges = !settingsEqual(original, settings)
 
   const applySettings = (next: WebDavServerSettings) => {
@@ -1036,10 +1035,11 @@ function WebDavServerPanel({
       .then(r => {
         setOriginal(r.data)
         setSettings(r.data)
-        setSaved(true)
-        setTimeout(() => setSaved(false), 1500)
+        toast.success('WebDAV 服务器设置已保存')
       })
-      .catch(console.error)
+      .catch(err => {
+        console.error('保存 WebDAV 设置失败:', err)
+      })
       .finally(() => setSaving(false))
   }
 
@@ -1082,7 +1082,7 @@ function WebDavServerPanel({
 
           {settings.enabled && (
             <>
-              <div className="flex gap-2">
+              <div className="flex gap-2 my-2">
                 <input
                   className="vos-input vos-input-sm flex-1"
                   placeholder="访问用户名（留空则无需认证）"
@@ -1120,10 +1120,9 @@ function WebDavServerPanel({
           )}
 
           <div className="flex items-center justify-end gap-2 mt-1">
-            {saved && <div className="text-xs text-[var(--vos-accent-primary)]">已保存</div>}
             <button
               type="button"
-              className="vos-btn-primary vos-btn-sm"
+              className="vos-btn vos-btn-primary vos-btn-sm"
               disabled={!hasChanges || saving}
               onClick={handleSave}
             >

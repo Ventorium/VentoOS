@@ -27,24 +27,35 @@ export function generateToastId(): string {
   return `toast-${Date.now()}-${++_toastCounter}`
 }
 
-export const useToastStore = create<ToastStore>((set, get) => ({
-  toasts: [],
+/* Global singleton to survive Vite HMR module re-instantiation.
+   Without this, `toast()` and `<ToastContainer />` may talk to
+   two different Zustand stores after a hot update. */
+const TOAST_STORE_KEY = '__ventoos_toast_store_v1__'
+const g = typeof window !== 'undefined' ? (window as unknown as Record<string, unknown>) : (globalThis as unknown as Record<string, unknown>)
 
-  addToast(item) {
-    set(s => ({ toasts: [...s.toasts, item] }))
+function createToastStore() {
+  return create<ToastStore>((set, get) => ({
+    toasts: [],
 
-    // Auto-remove after duration
-    if (item.duration > 0) {
-      setTimeout(() => {
-        get().removeToast(item.id)
-      }, item.duration)
+    addToast(item) {
+      set(s => ({ toasts: [...s.toasts, item] }))
+
+      // Auto-remove after duration
+      if (item.duration > 0) {
+        setTimeout(() => {
+          get().removeToast(item.id)
+        }, item.duration)
+      }
+    },
+
+    removeToast(id) {
+      set(s => ({ toasts: s.toasts.filter(t => t.id !== id) }))
     }
-  },
+  }))
+}
 
-  removeToast(id) {
-    set(s => ({ toasts: s.toasts.filter(t => t.id !== id) }))
-  }
-}))
+export const useToastStore = (g[TOAST_STORE_KEY] as ReturnType<typeof createToastStore>) ?? createToastStore()
+g[TOAST_STORE_KEY] = useToastStore
 
 export function toast(message: string, type: ToastType = 'info', duration = 2000) {
   useToastStore.getState().addToast({
