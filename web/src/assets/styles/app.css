@@ -281,7 +281,6 @@ h6 {
   cursor: pointer;
   padding: 0;
   user-select: none;
-  -webkit-user-drag: none;
 }
 
 .vos-dock-icon-inner {

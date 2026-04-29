@@ -10,7 +10,7 @@
  */
 
 import { clsx } from 'clsx'
-import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { Grid3X3 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
@@ -47,7 +47,9 @@ function DockIcon({
   mouseX,
   iconSize,
   magnification,
-  isHorizontal
+  isHorizontal,
+  draggable,
+  onDragStart
 }: {
   label: string
   icon: React.ReactNode
@@ -59,6 +61,8 @@ function DockIcon({
   iconSize: number
   magnification: boolean
   isHorizontal: boolean
+  draggable?: boolean
+  onDragStart?: (e: React.DragEvent) => void
 }) {
   const ref = useRef<HTMLButtonElement>(null)
   const [hovered, setHovered] = useState(false)
@@ -107,7 +111,12 @@ function DockIcon({
   }
 
   return (
-    <div className={clsx('relative flex items-center', isHorizontal ? 'flex-col' : 'flex-row')}>
+    <div
+      className={clsx('relative flex items-center', isHorizontal ? 'flex-col' : 'flex-row')}
+      draggable={draggable ? 'true' : undefined}
+      onDragStart={onDragStart}
+      style={{ width: iconSize, height: iconSize }}
+    >
       {hovered && (
         <motion.div
           initial={{ opacity: 0, y: isHorizontal ? 4 : 0, x: isHorizontal ? 0 : -4 }}
@@ -155,7 +164,9 @@ function DockFolderIcon({
   mouseX,
   magnification,
   onClick,
-  onContextMenu
+  onContextMenu,
+  draggable,
+  onDragStart
 }: {
   folder: DockFolderItem
   appsMap: Map<string, AppManifest>
@@ -165,6 +176,8 @@ function DockFolderIcon({
   magnification: boolean
   onClick: () => void
   onContextMenu?: (e: React.MouseEvent) => void
+  draggable?: boolean
+  onDragStart?: (e: React.DragEvent) => void
 }) {
   const [hovered, setHovered] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)
@@ -195,7 +208,12 @@ function DockFolderIcon({
   const miniPad = iconSize * 0.08
 
   return (
-    <div className={clsx('relative flex items-center', isHorizontal ? 'flex-col' : 'flex-row')}>
+    <div
+      className={clsx('relative flex items-center', isHorizontal ? 'flex-col' : 'flex-row')}
+      draggable={draggable ? 'true' : undefined}
+      onDragStart={onDragStart}
+      style={{ width: iconSize, height: iconSize }}
+    >
       {hovered && (
         <motion.div
           initial={{ opacity: 0, y: isHorizontal ? 4 : 0 }}
@@ -261,6 +279,103 @@ function DockFolderIcon({
         </motion.button>
       </div>
     </div>
+  )
+}
+
+/* ─── Drop Placeholder (drag sort) ─── */
+function DropPlaceholder({
+  item,
+  appsMap,
+  iconSize
+}: {
+  item: DockItem
+  appsMap: Map<string, AppManifest>
+  iconSize: number
+}) {
+  const content =
+    item.type === 'app' ? (
+      (() => {
+        const app = appsMap.get(item.appId)
+        if (!app) return null
+        return (
+          <div
+            style={{
+              width: iconSize * 0.82,
+              height: iconSize * 0.82,
+              opacity: 0.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+              borderRadius: iconSize * 0.22
+            }}
+          >
+            {app.icon}
+          </div>
+        )
+      })()
+    ) : (
+      (() => {
+        const previewAppIds = item.appIds.slice(0, 9)
+        const miniSize = iconSize * 0.22
+        return (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 1,
+              alignItems: 'center',
+              justifyItems: 'center',
+              width: '100%',
+              height: '100%',
+              padding: 4
+            }}
+          >
+            {previewAppIds.map(appId => {
+              const app = appsMap.get(appId)
+              return (
+                <div
+                  key={appId}
+                  style={{
+                    width: miniSize,
+                    height: miniSize,
+                    borderRadius: miniSize * 0.22,
+                    overflow: 'hidden',
+                    flexShrink: 0
+                  }}
+                >
+                  {app?.icon ?? null}
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()
+    )
+
+  return (
+    <motion.div
+      layout
+      initial={{ scale: 0.7, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.7, opacity: 0 }}
+      transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
+      style={{
+        width: iconSize,
+        height: iconSize,
+        borderRadius: iconSize * 0.22,
+        border: '1.5px dashed var(--vos-accent-primary)',
+        background: 'rgba(255,255,255,0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        boxShadow: 'inset 0 0 12px rgba(255,255,255,0.04)',
+        flexShrink: 0
+      }}
+    >
+      {content}
+    </motion.div>
   )
 }
 
@@ -543,6 +658,7 @@ export default function Dock() {
   const renameFolder = useDockLayoutStore(s => s.renameFolder)
   const pinApp = useDockLayoutStore(s => s.pin)
   const unpinApp = useDockLayoutStore(s => s.unpin)
+  const moveItem = useDockLayoutStore(s => s.moveItem)
 
   useEffect(() => {
     if (!loaded && allVisibleApps.length > 0) {
@@ -577,6 +693,71 @@ export default function Dock() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mouseX = useMotionValue(999)
   const isHorizontal = dockPosition === 'bottom'
+
+  // ─── Drag sort state ───
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
+  const [dragOverGap, setDragOverGap] = useState<number | null>(null)
+  const dockItemRefs = useRef<(HTMLDivElement | null)[]>([])
+  const dragEndedRef = useRef(false)
+
+  const hideDragSource = useCallback((index: number) => {
+    requestAnimationFrame(() => {
+      if (dragEndedRef.current) return
+      const el = dockItemRefs.current[index]
+      if (el) {
+        el.style.position = 'absolute'
+        el.style.opacity = '0'
+        el.style.pointerEvents = 'none'
+        el.style.width = '0'
+        el.style.height = '0'
+      }
+    })
+  }, [])
+
+  const resetDragStyles = useCallback(() => {
+    dragEndedRef.current = true
+    dockItemRefs.current.forEach(el => {
+      if (el) {
+        el.style.position = ''
+        el.style.opacity = ''
+        el.style.pointerEvents = ''
+        el.style.width = ''
+        el.style.height = ''
+      }
+    })
+    // clean up any leftover drag clones
+    document.querySelectorAll('.vos-drag-clone').forEach(el => el.remove())
+  }, [])
+
+  const computeGapIndex = useCallback(
+    (e: React.DragEvent) => {
+      const refs = dockItemRefs.current
+      if (refs.length === 0) return 0
+      const pos = isHorizontal ? e.clientX : e.clientY
+      let gap = 0
+      for (let i = 0; i < refs.length; i++) {
+        if (i === draggingIndex) continue
+        const ref = refs[i]
+        if (!ref) continue
+        const rect = ref.getBoundingClientRect()
+        const center = isHorizontal ? rect.left + rect.width / 2 : rect.top + rect.height / 2
+        if (pos >= center) gap = i + 1
+      }
+      return gap
+    },
+    [isHorizontal, draggingIndex]
+  )
+
+  // 全局 dragend 监听，防止拖到 Dock 外时状态未重置
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      resetDragStyles()
+      setDraggingIndex(null)
+      setDragOverGap(null)
+    }
+    document.addEventListener('dragend', handleGlobalDragEnd)
+    return () => document.removeEventListener('dragend', handleGlobalDragEnd)
+  }, [resetDragStyles])
 
   useEffect(() => setVisible(!autoHide), [autoHide])
   const showDock = useCallback(() => {
@@ -871,20 +1052,69 @@ export default function Dock() {
           {displayItems.length > 0 && <DockSeparator isHorizontal={isHorizontal} iconSize={iconSize} />}
 
           {/* Dock items */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: isHorizontal ? 'flex-end' : 'center',
-              flexDirection: isHorizontal ? 'row' : 'column',
-              gap
+          <LayoutGroup>
+            <div
+              data-testid="dock-items"
+              style={{
+                display: 'flex',
+                alignItems: isHorizontal ? 'flex-end' : 'center',
+                flexDirection: isHorizontal ? 'row' : 'column',
+                gap
+              }}
+              onDragOver={e => {
+              e.preventDefault()
+              if (draggingIndex === null) return
+              const gap = computeGapIndex(e)
+              setDragOverGap(gap)
+            }}
+            onDrop={e => {
+              e.preventDefault()
+              if (draggingIndex === null) return
+              const gap = computeGapIndex(e)
+              moveItem(draggingIndex, gap)
+              resetDragStyles()
+              setDraggingIndex(null)
+              setDragOverGap(null)
+            }}
+            onDragLeave={e => {
+              if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+                setDragOverGap(null)
+              }
             }}
           >
-            {displayItems.map(item => {
-              return (
-                <div
-                  key={item.type === 'app' ? item.appId : item.id}
+            {dockItems.flatMap((item, i) => {
+              const key = item.type === 'app' ? item.appId : item.id
+              const els: React.ReactNode[] = []
+              if (dragOverGap === i && draggingIndex !== null) {
+                els.push(
+                  <DropPlaceholder
+                    key="drop-placeholder"
+                    item={dockItems[draggingIndex]}
+                    appsMap={appsMap}
+                    iconSize={iconSize}
+                  />
+                )
+              }
+
+              els.push(
+                <motion.div
+                  key={key}
+                  layout
+                  ref={el => {
+                    dockItemRefs.current[i] = el as HTMLDivElement | null
+                  }}
+                  onDragEnd={() => {
+                    resetDragStyles()
+                    setDraggingIndex(null)
+                    setDragOverGap(null)
+                  }}
                   data-dock-folder={item.type === 'folder' ? item.id : undefined}
-                  style={{ display: 'flex', alignItems: 'center', flexDirection: isHorizontal ? 'row' : 'column' }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexDirection: isHorizontal ? 'row' : 'column',
+                    cursor: 'grab'
+                  }}
                 >
                   {item.type === 'app'
                     ? (() => {
@@ -902,11 +1132,39 @@ export default function Dock() {
                             iconSize={iconSize}
                             magnification={magnification}
                             isHorizontal={isHorizontal}
+                            draggable
+                            onDragStart={e => {
+                              dragEndedRef.current = false
+                              setDraggingIndex(i)
+                              const dt = e.dataTransfer
+                              if (dt && typeof dt.setDragImage === 'function') {
+                                dt.effectAllowed = 'move'
+                                const el = e.currentTarget as HTMLElement
+                                const iconBtn = el.querySelector('.vos-dock-icon') as HTMLElement | null
+                                if (iconBtn) {
+                                  const rect = iconBtn.getBoundingClientRect()
+                                  const clone = iconBtn.cloneNode(true) as HTMLElement
+                                  clone.style.transform = 'none'
+                                  clone.style.opacity = '1'
+                                  clone.style.position = 'fixed'
+                                  clone.style.top = '-9999px'
+                                  clone.style.left = '-9999px'
+                                  clone.style.width = rect.width + 'px'
+                                  clone.style.height = rect.height + 'px'
+                                  clone.style.pointerEvents = 'none'
+                                  clone.style.zIndex = '-1'
+                                  clone.classList.add('vos-drag-clone')
+                                  document.body.appendChild(clone)
+                                  dt.setDragImage(clone, rect.width / 2, rect.height / 2)
+                                }
+                              }
+                              setOpenFolderIndex(null)
+                              hideDragSource(i)
+                            }}
                           />
                         )
                       })()
                     : (() => {
-                        const idx = displayItems.indexOf(item)
                         return (
                           <DockFolderIcon
                             folder={item}
@@ -918,16 +1176,86 @@ export default function Dock() {
                             onClick={() => {
                               const el = document.querySelector(`[data-dock-folder="${item.id}"]`)
                               setFolderAnchorRect(el?.getBoundingClientRect() ?? null)
-                              setOpenFolderIndex(openFolderIndex === idx ? null : idx)
+                              setOpenFolderIndex(openFolderIndex === i ? null : i)
                             }}
-                            onContextMenu={e => handleFolderContextMenu(e, item, idx)}
+                            onContextMenu={e => handleFolderContextMenu(e, item, i)}
+                            draggable
+                            onDragStart={e => {
+                              dragEndedRef.current = false
+                              setDraggingIndex(i)
+                              const dt = e.dataTransfer
+                              if (dt && typeof dt.setDragImage === 'function') {
+                                dt.effectAllowed = 'move'
+                                const el = e.currentTarget as HTMLElement
+                                const iconBtn = el.querySelector('.vos-dock-icon') as HTMLElement | null
+                                if (iconBtn) {
+                                  const rect = iconBtn.getBoundingClientRect()
+                                  const clone = iconBtn.cloneNode(true) as HTMLElement
+                                  clone.style.transform = 'none'
+                                  clone.style.opacity = '1'
+                                  clone.style.position = 'fixed'
+                                  clone.style.top = '-9999px'
+                                  clone.style.left = '-9999px'
+                                  clone.style.width = rect.width + 'px'
+                                  clone.style.height = rect.height + 'px'
+                                  clone.style.pointerEvents = 'none'
+                                  clone.style.zIndex = '-1'
+                                  clone.classList.add('vos-drag-clone')
+                                  document.body.appendChild(clone)
+                                  dt.setDragImage(clone, rect.width / 2, rect.height / 2)
+                                }
+                              }
+                              setOpenFolderIndex(null)
+                              hideDragSource(i)
+                            }}
                           />
                         )
                       })()}
-                </div>
+                </motion.div>
               )
+              return els
             })}
+            {dragOverGap === dockItems.length && draggingIndex !== null && (
+              <DropPlaceholder item={dockItems[draggingIndex]} appsMap={appsMap} iconSize={iconSize} />
+            )}
+
+            {/* Running unpinned items (non-draggable) */}
+            {loaded &&
+              (() => {
+                const pinnedAppIds = new Set(dockItems.flatMap(i => (i.type === 'app' ? [i.appId] : i.appIds)))
+                const runningUnpinned = Array.from(appsMap.values())
+                  .filter(a => !a.hidden && !pinnedAppIds.has(a.id) && runningAppIds.has(a.id))
+                  .map(a => ({ type: 'app' as const, appId: a.id }))
+                return runningUnpinned.map(item => {
+                  const app = appsMap.get(item.appId)
+                  if (!app) return null
+                  return (
+                    <div
+                      key={item.appId}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexDirection: isHorizontal ? 'row' : 'column'
+                      }}
+                    >
+                      <DockIcon
+                        label={app.name}
+                        icon={app.icon}
+                        isRunning={windows.some(w => w.appId === app.id)}
+                        appId={app.id}
+                        onClick={() => handleAppClick(app)}
+                        onContextMenu={e => handleAppContextMenu(e, app)}
+                        mouseX={mouseX}
+                        iconSize={iconSize}
+                        magnification={magnification}
+                        isHorizontal={isHorizontal}
+                      />
+                    </div>
+                  )
+                })
+              })()}
           </div>
+          </LayoutGroup>
 
           {/* Minimized thumbnails */}
           {minimizedWindows.length > 0 && (
@@ -950,7 +1278,7 @@ export default function Dock() {
         {openFolderIndex !== null &&
           folderAnchorRect &&
           (() => {
-            const item = displayItems.find(i => i.type === 'folder' && i.id === openFolderIndex)
+            const item = displayItems[openFolderIndex]
             if (!item || item.type !== 'folder') return null
             return (
               <FolderPopup
