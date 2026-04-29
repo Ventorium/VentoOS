@@ -3,8 +3,108 @@ import { useCallback, useEffect } from 'react'
 import { AppLayout, AppSidebar, EmptyState } from '@/components'
 import { Tabs } from '@/components/ui'
 import type { AppComponentProps } from '@/kernel'
-import { useAppStateSync } from '@/kernel'
+import { useAppStateSync, useEventHandler } from '@/kernel'
+import type { OpenDatabasePayload } from '@/kernel'
+import { createLogger } from '@/infra/logger'
 import { dbApi } from './api'
+
+const logger = createLogger('database/ipc')
+
+/**
+ * Handle open:database events from other apps (e.g. K8s).
+ * Creates or updates a connection based on the event payload,
+ * then optionally auto-connects.
+ */
+function useOpenDatabaseHandler() {
+  const { addConnection, setConnectionStatus, setSchemas, expandNode, connections, setConnections } = useDatabaseStore()
+
+  const handleOpenDatabase = useCallback(
+    async (payload: OpenDatabasePayload) => {
+      logger.info('Received open:database event', { dbType: payload.dbType, name: payload.name, connectionId: payload.connectionId })
+
+      try {
+        let connId = payload.connectionId
+
+        if (connId) {
+          // Update mode: update existing connection
+          await dbApi.updateDbConnection(connId, {
+            name: payload.name,
+            host: payload.host,
+            port: payload.port,
+            database: payload.database,
+            username: payload.username,
+            password: payload.password,
+          })
+          // Re-fetch to get updated record
+          const res = await dbApi.getDbConnections()
+          setConnections(res.data)
+        } else {
+          // Create mode: check if a connection with same host/port/db already exists
+          const existing = connections.find(
+            c => c.engine === payload.dbType && c.host === payload.host && c.port === payload.port && c.database === payload.database
+          )
+
+          if (existing) {
+            connId = existing.id
+            // Update existing
+            await dbApi.updateDbConnection(connId, {
+              name: payload.name ?? existing.name,
+              host: payload.host,
+              port: payload.port,
+              database: payload.database,
+              username: payload.username,
+              password: payload.password,
+            })
+            const res = await dbApi.getDbConnections()
+            setConnections(res.data)
+          } else {
+            // Create new connection
+            const res = await dbApi.createDbConnection({
+              name: payload.name ?? `${payload.dbType} @ ${payload.host}:${payload.port}`,
+              engine: payload.dbType,
+              host: payload.host,
+              port: payload.port,
+              database: payload.database,
+              username: payload.username,
+              password: payload.password,
+            })
+            connId = res.data.id
+            addConnection(res.data)
+          }
+        }
+
+        // Auto-connect if requested
+        if (connId && payload.autoConnect !== false) {
+          setConnectionStatus(connId, 'connecting')
+          try {
+            await dbApi.connectDb(connId)
+            setConnectionStatus(connId, 'connected')
+
+            // Fetch schemas
+            const schemasRes = await dbApi.getDbSchemas(connId)
+            setSchemas(connId, schemasRes.data)
+
+            // Expand tree node
+            expandNode(`conn-${connId}`)
+
+            logger.info('Auto-connected to database', { connId })
+          } catch (err) {
+            setConnectionStatus(connId, 'error')
+            logger.warn('Auto-connect failed', err)
+          }
+        }
+      } catch (err) {
+        logger.error('Failed to handle open:database event', err)
+      }
+    },
+    [addConnection, setConnectionStatus, setSchemas, expandNode, connections, setConnections]
+  )
+
+  // Register handlers for all database event topics
+  useEventHandler('database', 'open:postgres', handleOpenDatabase)
+  useEventHandler('database', 'open:mysql', handleOpenDatabase)
+  useEventHandler('database', 'open:sqlite', handleOpenDatabase)
+}
 import { ConnectionConfigDialog } from './components/ConnectionConfigDialog'
 import { ConnectionTree } from './components/ConnectionTree'
 import { DataView } from './components/DataView'
@@ -16,6 +116,9 @@ import { TableDesigner } from './components/TableDesigner'
 import { useDatabaseStore } from './stores'
 
 export default function DatabaseApp({ windowId, initialAppState }: AppComponentProps) {
+  // Register IPC event handlers for cross-app database opening
+  useOpenDatabaseHandler()
+
   const {
     connections,
     setConnections,

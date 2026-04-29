@@ -6,6 +6,7 @@
  */
 
 import type { ComponentType } from 'react'
+import type { EventEmitDecl, EventHandleDecl } from '../ipc/types'
 
 // ─── Component props passed to every app ───────────────────────────────────
 
@@ -136,4 +137,17 @@ export interface AppManifest {
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   lifecycle?: AppLifecycle
+
+  // ── IPC Event Declarations ────────────────────────────────────────────────
+  /**
+   * Events this app can emit.
+   * The EventBus validates that an app only emits declared topics.
+   */
+  emits?: EventEmitDecl[]
+  /**
+   * Events this app can handle.
+   * The EventBus routes events to registered handlers based on these declarations.
+   * `autoOpen` (default: true) controls whether the app window auto-opens on event.
+   */
+  handles?: EventHandleDecl[]
 }

@@ -31,8 +31,11 @@ export const explorerManifest: AppManifest = {
   multiWindow: true,
   defaultSize: { width: 1000, height: 680 },
   minSize: { width: 700, height: 440 },
-  permissions: ['network', 'connections', 'storage', 'notifications'],
+  permissions: ['network', 'connections', 'storage', 'notifications', 'ipc'],
   hasBackendPlugin: true,
   dependencies: ['fuse'],
+  handles: [
+    { topic: 'open:explorer', autoOpen: true, priority: 0 },
+  ],
   component: () => import('./index')
 }

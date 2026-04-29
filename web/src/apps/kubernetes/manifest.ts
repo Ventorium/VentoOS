@@ -31,8 +31,19 @@ export const kubernetesManifest: AppManifest = {
   multiWindow: false,
   defaultSize: { width: 1100, height: 720 },
   minSize: { width: 800, height: 480 },
-  permissions: ['network', 'connections', 'notifications', 'shell'],
+  permissions: ['network', 'connections', 'notifications', 'shell', 'ipc'],
   hasBackendPlugin: true,
   dependencies: ['tsh'],
+  emits: [
+    { topic: 'open:postgres', description: 'Open PostgreSQL database from K8s service' },
+    { topic: 'open:mysql', description: 'Open MySQL database from K8s service' },
+    { topic: 'open:redis', description: 'Open Redis from K8s service' },
+    { topic: 'open:terminal', description: 'Open terminal to K8s pod/node' },
+    { topic: 'open:explorer', description: 'Open file explorer for K8s resource' },
+    { topic: 'navigate:resource', description: 'Navigate to a K8s resource' },
+  ],
+  handles: [
+    { topic: 'navigate:resource', autoOpen: true, priority: 0 },
+  ],
   component: () => import('./index')
 }

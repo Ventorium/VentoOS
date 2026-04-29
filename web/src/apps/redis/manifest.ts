@@ -31,7 +31,10 @@ export const redisManifest: AppManifest = {
   multiWindow: false,
   defaultSize: { width: 960, height: 640 },
   minSize: { width: 700, height: 440 },
-  permissions: ['network', 'connections', 'notifications'],
+  permissions: ['network', 'connections', 'notifications', 'ipc'],
   hasBackendPlugin: true,
+  handles: [
+    { topic: 'open:redis', autoOpen: true, priority: 0 },
+  ],
   component: () => import('./index')
 }

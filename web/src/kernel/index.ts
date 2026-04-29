@@ -5,6 +5,26 @@
  * This is what shell components and apps import from the kernel.
  */
 
+// ── IPC EventBus ────────────────────────────────────────────────────────────
+export { eventBus } from './ipc'
+export { useEventEmitter, useEventHandler } from './ipc'
+export type {
+  AppEventMap,
+  EventEmitDecl,
+  EventHandleDecl,
+  EventLogEntry,
+  EventPayloadBase,
+  EventPayloadOf,
+  EventRegistration,
+  EventTopic,
+  K8sPortForwardContext,
+  NavigateResourcePayload,
+  OpenDatabasePayload,
+  OpenExplorerPayload,
+  OpenRedisPayload,
+  OpenTerminalPayload,
+  SystemEventMap,
+} from './ipc'
 // ── File defaults ──────────────────────────────────────────────────────────
 export { useFileDefaultsStore } from './apps/file-defaults'
 // ── File icons ─────────────────────────────────────────────────────────────

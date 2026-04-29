@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { eventBus } from '@/kernel'
+import type { EventTopic } from '@/kernel'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { toast } from '@/components/Toast'
 import { notificationService } from '@/services/notification'
@@ -21,6 +23,14 @@ function getRaw(resource: K8sResource): Record<string, unknown> | undefined {
 const COL_MIN = 60
 const COL_MAX = 600
 const STORAGE_KEY_PREFIX = 'vos:k8s:col-widths:'
+
+/** Well-known ports → IPC event topic mapping */
+const PORT_EVENT_MAP: Record<number, { topic: EventTopic; label: string; dbType?: string }> = {
+  5432: { topic: 'open:postgres', label: 'Open PostgreSQL', dbType: 'postgresql' },
+  3306: { topic: 'open:mysql', label: 'Open MySQL', dbType: 'mysql' },
+  6379: { topic: 'open:redis', label: 'Open Redis' },
+  27017: { topic: 'open:terminal', label: 'Open Terminal' },
+}
 
 function loadWidths(kind: string): Record<string, number> | null {
   try {
@@ -167,6 +177,43 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
     openYamlTab(clusterId, resource.namespace, kind, resource.name)
   }
 
+  const handleOpenDatabase = (resource: K8sResource, portEntry: { topic: EventTopic; label: string; dbType?: string }) => {
+    if (!clusterId || !resource.namespace) return
+    const raw = getRaw(resource)
+    const spec = raw?.spec as Record<string, unknown> | undefined
+    const ports = (spec?.ports as Array<Record<string, unknown>> | undefined) ?? []
+    const portInfo = ports.find(p => Number(p.port) === Number(Object.keys(PORT_EVENT_MAP).find(k => PORT_EVENT_MAP[Number(k)] === portEntry)?.[0]))
+    const targetPort = portInfo ? Number(portInfo.targetPort ?? portInfo.port) : undefined
+
+    if (portEntry.topic === 'open:postgres' || portEntry.topic === 'open:mysql') {
+      eventBus.emit('kubernetes', portEntry.topic, {
+        dbType: portEntry.dbType as 'postgresql' | 'mysql',
+        name: `${resource.name} (${portEntry.dbType})`,
+        host: 'localhost',
+        port: targetPort ?? (portEntry.topic === 'open:postgres' ? 5432 : 3306),
+        autoConnect: true,
+        k8sContext: {
+          cluster: clusterId,
+          namespace: resource.namespace,
+          service: resource.name,
+        },
+      })
+    } else if (portEntry.topic === 'open:redis') {
+      eventBus.emit('kubernetes', 'open:redis', {
+        name: resource.name,
+        host: 'localhost',
+        port: targetPort ?? 6379,
+        autoConnect: true,
+        k8sContext: {
+          cluster: clusterId,
+          namespace: resource.namespace,
+          service: resource.name,
+        },
+      })
+    }
+    toast.success(`正在打开 ${portEntry.label}...`)
+  }
+
   const handleDeleteResource = async (resource: K8sResource) => {
     if (!clusterId) return
     try {
@@ -230,6 +277,31 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
     }
 
     if (isService) {
+      const raw = getRaw(resource)
+      const spec = raw?.spec as Record<string, unknown> | undefined
+      const svcPorts = (spec?.ports as Array<Record<string, unknown>> | undefined) ?? []
+
+      // Detect well-known database/redis ports
+      const detectedActions: Array<{ topic: EventTopic; label: string; dbType?: string }> = []
+      for (const p of svcPorts) {
+        const portNum = Number(p.port)
+        const mapping = PORT_EVENT_MAP[portNum]
+        if (mapping && !detectedActions.some(a => a.topic === mapping.topic)) {
+          detectedActions.push(mapping)
+        }
+      }
+
+      if (detectedActions.length > 0) {
+        items.push({ type: 'separator' })
+        for (const action of detectedActions) {
+          items.push({
+            id: `ipc-${action.topic}`,
+            label: action.label,
+            action: () => handleOpenDatabase(resource, action),
+          })
+        }
+      }
+
       items.push(
         { type: 'separator' },
         { id: 'port-forward', label: 'Port Forward...', action: () => {}, disabled: true },

@@ -31,7 +31,10 @@ export const superTerminalManifest: AppManifest = {
   multiWindow: true,
   defaultSize: { width: 1200, height: 720 },
   minSize: { width: 800, height: 500 },
-  permissions: ['network', 'connections', 'shell', 'notifications'],
+  permissions: ['network', 'connections', 'shell', 'notifications', 'ipc'],
   hasBackendPlugin: true,
+  handles: [
+    { topic: 'open:terminal', autoOpen: true, priority: 0 },
+  ],
   component: () => import('./index')
 }

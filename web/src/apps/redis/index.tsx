@@ -18,9 +18,13 @@ import { AppLayout, AppSidebar, EmptyState, Modal, SectionHeader, Spinner } from
 import { FormInput, FormSelect } from '@/components/ui'
 import { PathPickerInput } from '@/shell/FilePicker'
 import type { AppComponentProps } from '@/kernel'
-import { useAppStateSync, useAppStorage } from '@/kernel'
+import { useAppStateSync, useAppStorage, useEventHandler } from '@/kernel'
+import type { OpenRedisPayload } from '@/kernel'
+import { createLogger } from '@/infra/logger'
 import type { CreateRedisConnectionReq, RedisConnectionConfig, RedisKeyInfo, RedisKeyValue } from './api'
 import { redisApi } from './api'
+
+const logger = createLogger('redis/ipc')
 
 // ─── Local Context Menu ────────────────────────────────────────────────────
 
@@ -1121,6 +1125,60 @@ function ValueViewer({
   )
 }
 
+// ─── IPC: Open Redis Handler ───────────────────────────────────────────────
+
+/**
+ * Handle open:redis events from other apps (e.g. K8s).
+ * Creates or finds a connection, then auto-connects.
+ */
+function useOpenRedisHandler(opts: {
+  connections: RedisConnectionConfig[]
+  setConnections: React.Dispatch<React.SetStateAction<RedisConnectionConfig[]>>
+  connectTo: (id: string) => Promise<void>
+}) {
+  const { connections, setConnections, connectTo } = opts
+
+  const handleOpenRedis = useCallback(
+    async (payload: OpenRedisPayload) => {
+      logger.info('Received open:redis event', { host: payload.host, port: payload.port, connectionId: payload.connectionId })
+
+      try {
+        let connId = payload.connectionId
+
+        if (!connId) {
+          // Check if a connection with same host/port already exists
+          const existing = connections.find(c => c.host === payload.host && c.port === payload.port)
+          if (existing) {
+            connId = existing.id
+          } else {
+            // Create new connection
+            const body: CreateRedisConnectionReq = {
+              name: payload.name ?? `Redis @ ${payload.host}:${payload.port}`,
+              host: payload.host,
+              port: payload.port,
+              password: payload.password || undefined,
+            }
+            const res = await redisApi.createRedisConnection(body)
+            connId = res.data.id
+            setConnections(prev => [...prev, res.data])
+          }
+        }
+
+        // Auto-connect if requested
+        if (connId && payload.autoConnect !== false) {
+          await connectTo(connId)
+          logger.info('Auto-connected to Redis', { connId })
+        }
+      } catch (err) {
+        logger.error('Failed to handle open:redis event', err)
+      }
+    },
+    [connections, setConnections, connectTo]
+  )
+
+  useEventHandler('redis', 'open:redis', handleOpenRedis)
+}
+
 // ─── Main app ──────────────────────────────────────────────────────────────
 
 export default function RedisApp({ windowId, initialAppState }: AppComponentProps) {
@@ -1224,6 +1282,9 @@ export default function RedisApp({ windowId, initialAppState }: AppComponentProp
       })
     }
   }
+
+  // Register IPC event handler for cross-app Redis opening
+  useOpenRedisHandler({ connections, setConnections, connectTo })
 
   const switchDb = async (db: number) => {
     if (!selectedConn) return

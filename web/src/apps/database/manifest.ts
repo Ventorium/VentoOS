@@ -32,7 +32,15 @@ export const databaseManifest: AppManifest = {
   multiWindow: false,
   defaultSize: { width: 1060, height: 700 },
   minSize: { width: 800, height: 480 },
-  permissions: ['network', 'connections', 'notifications'],
+  permissions: ['network', 'connections', 'notifications', 'ipc'],
   hasBackendPlugin: true,
+  emits: [
+    { topic: 'open:terminal', description: 'Open terminal from database connection' },
+  ],
+  handles: [
+    { topic: 'open:postgres', autoOpen: true, priority: 0 },
+    { topic: 'open:mysql', autoOpen: true, priority: 0 },
+    { topic: 'open:sqlite', autoOpen: true, priority: 0 },
+  ],
   component: () => import('./index')
 }
