@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect } from 'react'
 
 export interface ModalProps {
   open: boolean
@@ -19,6 +19,16 @@ export interface ModalProps {
 export function Modal({ open, onClose, title, icon, children, footer, width = 420, top, maxHeight }: ModalProps) {
   const overlayStyle: React.CSSProperties =
     top !== undefined ? { alignItems: 'flex-start', paddingTop: typeof top === 'number' ? `${top}px` : top } : {}
+
+  // ESC to close
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); onClose() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, onClose])
 
   return (
     <AnimatePresence>

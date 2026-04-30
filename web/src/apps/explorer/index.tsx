@@ -407,7 +407,7 @@ function MountForm({
   }
 
   return (
-    <div className="vos-modal-overlay">
+    <div className="vos-modal-overlay" onKeyDown={e => e.key === 'Escape' && onClose()}>
       <div className="vos-modal-panel w-[400px]">
         <div className="text-sm font-medium">{isEditing ? '编辑数据源' : '添加数据源'}</div>
         <div>
@@ -942,7 +942,7 @@ function MountForm({
         </div>
         {/* SSH Config Import Modal */}
         {sshConfigHosts && (
-          <div className="vos-modal-overlay">
+          <div className="vos-modal-overlay" onKeyDown={e => e.key === 'Escape' && setSshConfigHosts(null)}>
             <div className="vos-modal-panel w-[420px] max-h-[400px]">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">~/.ssh/config 可用主机</span>
@@ -1139,7 +1139,7 @@ function WebDavServerPanel({
   }
 
   return (
-    <div className="vos-modal-overlay">
+    <div className="vos-modal-overlay" onKeyDown={e => e.key === 'Escape' && onClose()}>
       <div className="vos-modal-panel w-[420px]">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">WebDAV 服务器设置</div>
@@ -3745,7 +3745,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
           )}
           {/* New folder overlay */}
           {newFolderState.visible && (
-            <div className="vos-modal-overlay">
+            <div className="vos-modal-overlay" onKeyDown={e => e.key === 'Escape' && setNewFolderState({ visible: false, colPath: '', name: '' })}>
               <div className="vos-modal-panel w-[320px]">
                 <div className="text-sm font-medium">新建文件夹</div>
                 <input
@@ -3783,7 +3783,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
 
           {/* New file overlay */}
           {newFileState.visible && (
-            <div className="vos-modal-overlay">
+            <div className="vos-modal-overlay" onKeyDown={e => e.key === 'Escape' && setNewFileState({ visible: false, dirPath: '', name: '' })}>
               <div className="vos-modal-panel w-[320px]">
                 <div className="text-sm font-medium">新建文件</div>
                 <input
@@ -3835,6 +3835,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
             <div
               className="vos-modal-overlay"
               onClick={() => setOpenWithState({ visible: false, node: null, apps: [], showAll: false })}
+              onKeyDown={e => e.key === 'Escape' && setOpenWithState({ visible: false, node: null, apps: [], showAll: false })}
             >
               <div className="vos-modal-panel w-[300px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">打开方式</div>
@@ -3917,7 +3918,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
 
           {/* Set default open-with dialog */}
           {defaultOpenState.visible && defaultOpenState.node && selectedMount && (
-            <div className="vos-modal-overlay" onClick={() => setDefaultOpenState(s => ({ ...s, visible: false }))}>
+            <div className="vos-modal-overlay" onClick={() => setDefaultOpenState(s => ({ ...s, visible: false }))} onKeyDown={e => e.key === 'Escape' && setDefaultOpenState(s => ({ ...s, visible: false }))}>
               <div className="vos-modal-panel w-[360px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">设置默认打开方式</div>
                 <div className="text-xs text-[var(--vos-text-tertiary)]">
@@ -3984,7 +3985,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
 
           {/* Compress dialog */}
           {compressState.visible && (
-            <div className="vos-modal-overlay" onClick={() => setCompressState(s => ({ ...s, visible: false }))}>
+            <div className="vos-modal-overlay" onClick={() => setCompressState(s => ({ ...s, visible: false }))} onKeyDown={e => e.key === 'Escape' && setCompressState(s => ({ ...s, visible: false }))}>
               <div className="vos-modal-panel w-[380px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">压缩文件</div>
                 <div className="text-xs text-[var(--vos-text-tertiary)]">压缩 {compressState.items.length} 个项目</div>
@@ -4101,7 +4102,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
 
           {/* Extract password dialog */}
           {extractPasswordState.visible && (
-            <div className="vos-modal-overlay" onClick={() => setExtractPasswordState(s => ({ ...s, visible: false }))}>
+            <div className="vos-modal-overlay" onClick={() => setExtractPasswordState(s => ({ ...s, visible: false }))} onKeyDown={e => e.key === 'Escape' && setExtractPasswordState(s => ({ ...s, visible: false }))}>
               <div className="vos-modal-panel w-[340px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium">解压需要密码</div>
                 <div className="text-xs text-[var(--vos-text-tertiary)]">该压缩文件已加密，请输入密码后解压</div>
@@ -4169,7 +4170,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
 
           {/* Properties dialog */}
           {propertiesState.visible && propertiesState.node && (
-            <div className="vos-modal-overlay" onClick={() => setPropertiesState({ visible: false, node: null })}>
+            <div className="vos-modal-overlay" onClick={() => setPropertiesState({ visible: false, node: null })} onKeyDown={e => e.key === 'Escape' && setPropertiesState({ visible: false, node: null })}>
               <div className="vos-modal-panel w-[380px]" onClick={e => e.stopPropagation()}>
                 <div className="text-sm font-medium mb-3">属性</div>
                 <div className="flex flex-col gap-2 text-xs">

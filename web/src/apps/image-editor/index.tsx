@@ -25,11 +25,13 @@ import {
   Redo2,
   RotateCcw,
   RotateCw,
+  Save,
   Undo2,
   X,
   ZoomIn
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { vfsApi } from '@/apps/explorer/api'
 import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import type { AppComponentProps } from '@/kernel'
@@ -81,6 +83,7 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
   // History for undo/redo
   const historyRef = useRef<HistoryEntry[]>([])
   const historyIdxRef = useRef(-1)
+  const savedIdxRef = useRef(0)
 
   // Drawing state
   const isDrawingRef = useRef(false)
@@ -94,13 +97,20 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const panStartRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
 
+  // Brush cursor follower
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null)
+
   // Export dialog
   const [showExport, setShowExport] = useState(false)
   const [exportFormat, setExportFormat] = useState<'png' | 'jpeg' | 'webp'>('png')
-  const [exportQuality, setExportQuality] = useState(90)
+  const [exportQuality, setExportQuality] = useState(100)
+  const [showExportPicker, setShowExportPicker] = useState(false)
 
   // Image dimensions
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 })
+  const [dirty, setDirty] = useState(false)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
 
   const pushHistory = useCallback(() => {
     const canvas = canvasRef.current
@@ -112,6 +122,9 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
     historyRef.current = historyRef.current.slice(0, idx)
     historyRef.current.push({ imageData: data })
     historyIdxRef.current = idx
+    setDirty(idx !== savedIdxRef.current)
+    setCanUndo(idx > 0)
+    setCanRedo(false)
   }, [])
 
   const undo = useCallback(() => {
@@ -125,6 +138,9 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
     const ctx = canvas.getContext('2d')
     ctx?.putImageData(entry.imageData, 0, 0)
     setImgSize({ w: entry.imageData.width, h: entry.imageData.height })
+    setDirty(historyIdxRef.current !== savedIdxRef.current)
+    setCanUndo(historyIdxRef.current > 0)
+    setCanRedo(historyIdxRef.current < historyRef.current.length - 1)
   }, [])
 
   const redo = useCallback(() => {
@@ -138,6 +154,9 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
     const ctx = canvas.getContext('2d')
     ctx?.putImageData(entry.imageData, 0, 0)
     setImgSize({ w: entry.imageData.width, h: entry.imageData.height })
+    setDirty(historyIdxRef.current !== savedIdxRef.current)
+    setCanUndo(historyIdxRef.current > 0)
+    setCanRedo(historyIdxRef.current < historyRef.current.length - 1)
   }, [])
 
   // Load image from VFS or sourceUrl
@@ -174,6 +193,8 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
     if (ctx) {
       ctx.drawImage(img, 0, 0)
       pushHistory()
+      savedIdxRef.current = 0
+      setDirty(false)
     }
     // Fit to view
     if (containerRef.current) {
@@ -183,7 +204,21 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
       setZoom(scale)
     }
     pendingImgRef.current = null
+    setOffset({ x: 0, y: 0 })
   }, [loaded, pushHistory])
+
+  // Wheel zoom
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      e.preventDefault()
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1
+      setZoom(z => Math.min(10, Math.max(0.1, z * factor)))
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [])
 
   // ── Transform operations ──
 
@@ -365,19 +400,80 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
   }, [pushHistory])
 
   const handleExport = useCallback(() => {
+    setShowExport(false)
+    setShowExportPicker(true)
+  }, [])
+
+  // Save to original VFS file (overwrite)
+  const handleSave = useCallback(async () => {
+    if (!mountId || !node || readOnly) return
     const canvas = canvasRef.current
     if (!canvas) return
-    const mimeType = `image/${exportFormat}`
-    const quality = exportFormat === 'png' ? undefined : exportQuality / 100
-    const dataUrl = canvas.toDataURL(mimeType, quality)
 
-    const a = document.createElement('a')
-    const baseName = node?.name?.replace(/\.[^.]+$/, '') ?? 'image'
-    a.download = `${baseName}.${exportFormat === 'jpeg' ? 'jpg' : exportFormat}`
-    a.href = dataUrl
-    a.click()
-    setShowExport(false)
-  }, [exportFormat, exportQuality, node])
+    const ext = node.name.split('.').pop()?.toLowerCase() ?? 'png'
+    let mimeType = 'image/png'
+    if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg'
+    else if (ext === 'webp') mimeType = 'image/webp'
+
+    canvas.toBlob(async blob => {
+      if (!blob) return
+      const file = new File([blob], node.name, { type: mimeType })
+      try {
+        await vfsApi.uploadVfsFile(mountId, node.path, file)
+        savedIdxRef.current = historyIdxRef.current
+        setDirty(false)
+      } catch (err) {
+        console.error('Save failed:', err)
+      }
+    }, mimeType)
+  }, [mountId, node, readOnly])
+
+  // Export to VFS directory
+  const handleExportConfirm = useCallback(
+    async (result: VfsPickerResult) => {
+      setShowExportPicker(false)
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      const mimeType = `image/${exportFormat}`
+      const quality = exportFormat === 'png' ? undefined : exportQuality / 100
+      const ext = exportFormat === 'jpeg' ? 'jpg' : exportFormat
+      const baseName = node?.name?.replace(/\.[^.]+$/, '') ?? 'image'
+      const fileName = `${baseName}.${ext}`
+
+      canvas.toBlob(async blob => {
+        if (!blob) return
+        const destDir = result.path.replace(/^vfs:\/\/[^/]+/, '') || '/'
+        const destPath = destDir === '/' ? `/${fileName}` : `${destDir}/${fileName}`
+        const file = new File([blob], fileName, { type: mimeType })
+        try {
+          await vfsApi.uploadVfsFile(result.mountId, destPath, file)
+        } catch (err) {
+          console.error('Export failed:', err)
+        }
+      }, mimeType, quality)
+    },
+    [exportFormat, exportQuality, node]
+  )
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey
+      if (mod && e.key === 's') {
+        e.preventDefault()
+        if (dirty) handleSave()
+      } else if (mod && e.shiftKey && e.key === 'z') {
+        e.preventDefault()
+        redo()
+      } else if (mod && e.key === 'z') {
+        e.preventDefault()
+        undo()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [handleSave, undo, redo, dirty])
 
   // ── Tool button style ──
   const toolBtn = (active: boolean) =>
@@ -398,6 +494,20 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
     <div className="w-full h-full flex flex-col bg-[var(--vos-bg-primary)]">
       {/* Toolbar */}
       <div className="flex items-center gap-[2px] px-2 py-1 border-b border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] shrink-0 flex-wrap">
+        {/* Save */}
+        {!readOnly && mountId && node && (
+          <button
+            type="button"
+            title="保存 (⌘S)"
+            className={toolBtn(dirty)}
+            disabled={!dirty}
+            style={!dirty ? { opacity: 0.4, cursor: 'default' } : undefined}
+            onClick={handleSave}
+          >
+            <Save size={16} />
+          </button>
+        )}
+
         {/* Tools group */}
         <button type="button" title="移动" className={toolBtn(tool === 'move')} onClick={() => setTool('move')}>
           <Move size={16} />
@@ -477,10 +587,24 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
             <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
 
             {/* Undo / Redo */}
-            <button type="button" title="撤销" className={toolBtn(false)} onClick={undo}>
+            <button
+              type="button"
+              title="撤销"
+              className={toolBtn(false)}
+              disabled={!canUndo}
+              style={!canUndo ? { opacity: 0.4, cursor: 'default' } : undefined}
+              onClick={undo}
+            >
               <Undo2 size={16} />
             </button>
-            <button type="button" title="重做" className={toolBtn(false)} onClick={redo}>
+            <button
+              type="button"
+              title="重做"
+              className={toolBtn(false)}
+              disabled={!canRedo}
+              style={!canRedo ? { opacity: 0.4, cursor: 'default' } : undefined}
+              onClick={redo}
+            >
               <Redo2 size={16} />
             </button>
           </>
@@ -534,18 +658,26 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
         style={{
           background: 'repeating-conic-gradient(#e5e5e5 0% 25%, #fff 0% 50%) 50% / 16px 16px',
           cursor:
-            tool === 'move'
-              ? 'grab'
-              : tool === 'crop'
-                ? 'crosshair'
-                : tool === 'brush' || tool === 'eraser'
+            tool === 'brush' || tool === 'eraser'
+              ? 'none'
+              : tool === 'move'
+                ? 'grab'
+                : tool === 'crop'
                   ? 'crosshair'
                   : 'default'
         }}
         onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
+        onMouseMove={e => {
+          handleMouseMove(e)
+          if (tool === 'brush' || tool === 'eraser') {
+            setCursorPos({ x: e.clientX, y: e.clientY })
+          }
+        }}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseLeave={() => {
+          handleMouseUp()
+          setCursorPos(null)
+        }}
       >
         <div
           className="absolute left-1/2 top-1/2"
@@ -573,38 +705,57 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
             />
           )}
         </div>
+        {/* Brush cursor follower */}
+        {(tool === 'brush' || tool === 'eraser') && cursorPos && (
+          <div
+            className="fixed pointer-events-none border border-[var(--vos-text-primary)] rounded-full"
+            style={{
+              width: brushSize,
+              height: brushSize,
+              left: cursorPos.x - brushSize / 2,
+              top: cursorPos.y - brushSize / 2,
+              opacity: 0.8,
+              zIndex: 9999
+            }}
+          />
+        )}
       </div>
 
       {/* Export dialog */}
       {showExport && (
         <div
-          className="absolute inset-0 vos-flex-center bg-[rgba(0,0,0,0.4)] z-[100]"
+          className="absolute inset-0 vos-flex-center z-[100]"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
           onClick={() => setShowExport(false)}
+          onKeyDown={e => e.key === 'Escape' && setShowExport(false)}
         >
           <div
-            className="bg-[var(--vos-bg-secondary)] rounded-xl p-5 w-[320px] flex flex-col gap-3"
+            className="rounded-xl p-5 w-[320px] flex flex-col gap-3"
+            style={{ backgroundColor: 'var(--vos-bg-secondary)' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-sm text-[var(--vos-text-primary)]">导出图片</span>
+              <span className="font-semibold text-sm" style={{ color: 'var(--vos-text-primary)' }}>导出图片</span>
               <button
                 type="button"
                 onClick={() => setShowExport(false)}
-                className="bg-transparent border-none cursor-pointer text-[var(--vos-text-tertiary)]"
+                className="bg-transparent border-none cursor-pointer"
+                style={{ color: 'var(--vos-text-tertiary)' }}
               >
                 <X size={16} />
               </button>
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-xs text-[var(--vos-text-secondary)]">格式</label>
+              <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>格式</label>
               <div className="flex gap-[6px]">
                 {(['png', 'jpeg', 'webp'] as const).map(fmt => (
                   <button
                     key={fmt}
                     type="button"
                     onClick={() => setExportFormat(fmt)}
-                    className="flex-1 py-[6px] rounded-md text-[var(--vos-text-primary)] cursor-pointer text-xs"
+                    className="flex-1 py-[6px] rounded-md cursor-pointer text-xs"
                     style={{
+                      color: 'var(--vos-text-primary)',
                       border:
                         exportFormat === fmt
                           ? '2px solid var(--vos-accent-primary)'
@@ -618,24 +769,23 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
                 ))}
               </div>
             </div>
-            {exportFormat !== 'png' && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-[var(--vos-text-secondary)]">质量: {exportQuality}%</label>
-                <input
-                  type="range"
-                  min={10}
-                  max={100}
-                  step={5}
-                  value={exportQuality}
-                  onChange={e => setExportQuality(Number(e.target.value))}
-                  className="accent-[var(--vos-accent-primary)]"
-                />
-              </div>
-            )}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs" style={{ color: 'var(--vos-text-secondary)' }}>质量: {exportQuality}%</label>
+              <input
+                type="range"
+                min={10}
+                max={100}
+                step={5}
+                value={exportQuality}
+                onChange={e => setExportQuality(Number(e.target.value))}
+                className="accent-[var(--vos-accent-primary)]"
+              />
+            </div>
             <button
               type="button"
               onClick={handleExport}
-              className="py-2 rounded-lg border-none bg-[var(--vos-accent-primary)] text-white cursor-pointer font-semibold text-[13px]"
+              className="py-2 rounded-lg border-none text-white cursor-pointer font-semibold text-[13px]"
+              style={{ backgroundColor: 'var(--vos-accent-primary)' }}
             >
               导出
             </button>
@@ -645,6 +795,9 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
       <AnimatePresence>
         {showFilePicker && (
           <VfsFilePickerModal mode="file" onConfirm={handleFilePickerConfirm} onClose={closeFilePicker} />
+        )}
+        {showExportPicker && (
+          <VfsFilePickerModal mode="directory" onConfirm={handleExportConfirm} onClose={() => setShowExportPicker(false)} />
         )}
       </AnimatePresence>
     </div>

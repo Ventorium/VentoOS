@@ -28,7 +28,7 @@ import {
   X,
   Zap
 } from 'lucide-react'
-import { FormSelect } from '@/components/ui'
+import { FormSelect, ModalOverlay } from '@/components/ui'
 import { useCallback, useEffect, useState } from 'react'
 import type { PreferenceGroup } from '@/components/PreferencesPanel'
 import PreferencesPanel from '@/components/PreferencesPanel'
@@ -316,7 +316,7 @@ function ServersTab({
       )}
 
       {sshConfigHosts && (
-        <div className="vos-modal-overlay" onClick={() => setSshConfigHosts(null)}>
+        <ModalOverlay onClose={() => setSshConfigHosts(null)}>
           <motion.div
             className="vos-modal max-w-[480px]"
             initial={{ scale: 0.93, opacity: 0 }}
@@ -372,11 +372,11 @@ function ServersTab({
               ))}
             </div>
           </motion.div>
-        </div>
+        </ModalOverlay>
       )}
 
       {passwordPrompt && (
-        <div className="vos-modal-overlay" onClick={() => setPasswordPrompt(null)}>
+        <ModalOverlay onClose={() => setPasswordPrompt(null)}>
           <motion.div
             className="vos-modal max-w-[380px]"
             initial={{ scale: 0.93, opacity: 0 }}
@@ -424,7 +424,7 @@ function ServersTab({
               </button>
             </div>
           </motion.div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   )
@@ -478,7 +478,7 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   }
 
   return (
-    <div className="vos-modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <motion.div
         className="vos-modal"
         initial={{ scale: 0.93, opacity: 0 }}
@@ -619,14 +619,14 @@ function SshServerForm({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           </button>
         </div>
       </motion.div>
-    </div>
+    </ModalOverlay>
   )
 }
 
 /* ─── Shell Modal ──────────────────────────────────────────── */
 function ShellModal({ server, onClose }: { server: SshServer; onClose: () => void }) {
   return (
-    <div className="vos-modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <motion.div
         className="vos-modal w-[800px] h-[500px]"
         initial={{ scale: 0.93, opacity: 0 }}
@@ -646,7 +646,7 @@ function ShellModal({ server, onClose }: { server: SshServer; onClose: () => voi
           <WebShellEmbed target={server.id} />
         </div>
       </motion.div>
-    </div>
+    </ModalOverlay>
   )
 }
 
@@ -818,7 +818,7 @@ function PortMappingForm({
   }
 
   return (
-    <div className="vos-modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <motion.div
         className="vos-modal"
         initial={{ scale: 0.93, opacity: 0 }}
@@ -894,7 +894,7 @@ function PortMappingForm({
           </button>
         </div>
       </motion.div>
-    </div>
+    </ModalOverlay>
   )
 }
 
@@ -1080,7 +1080,7 @@ function ExposureForm({
   }
 
   return (
-    <div className="vos-modal-overlay" onClick={onClose}>
+    <ModalOverlay onClose={onClose}>
       <motion.div
         className="vos-modal"
         initial={{ scale: 0.93, opacity: 0 }}
@@ -1204,7 +1204,7 @@ function ExposureForm({
           </button>
         </div>
       </motion.div>
-    </div>
+    </ModalOverlay>
   )
 }
 

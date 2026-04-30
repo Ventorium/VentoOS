@@ -23,6 +23,7 @@ export {
 } from './FormInput'
 export { FormField, FormRow, type FormFieldProps, type FormRowProps } from './FormField'
 export { Modal, type ModalProps } from './Modal'
+export { ModalOverlay } from './ModalOverlay'
 export { SectionHeader, type SectionHeaderProps, Toolbar, type ToolbarProps } from './SectionHeader'
 export { Spinner, type SpinnerProps } from './Spinner'
 export { StatusBadge, type StatusBadgeProps } from './StatusBadge'

@@ -895,7 +895,7 @@ function LockScreenPanel() {
 
       {/* Change Password Dialog */}
       {showChangePassword && (
-        <div className="vos-modal-overlay" onClick={() => setShowChangePassword(false)}>
+        <div className="vos-modal-overlay" onClick={() => setShowChangePassword(false)} onKeyDown={e => e.key === 'Escape' && setShowChangePassword(false)}>
           <div className="vos-modal" style={{ width: 360, zIndex: 7000 }} onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <h3 className="text-[15px] font-semibold mb-4">修改解锁密码</h3>
@@ -2061,7 +2061,7 @@ const PANELS: Record<Category, React.ComponentType> = {
 /* ---- About VentoOS Dialog (in Settings) ---- */
 function AboutVentoOSDialog({ onClose }: { onClose: () => void }) {
   return (
-    <div className="vos-modal-overlay" onClick={onClose}>
+    <div className="vos-modal-overlay" onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()}>
       <div className="vos-modal w-[340px] p-0 relative z-[7000]" onClick={e => e.stopPropagation()}>
         <div className="px-[28px] pt-[28px] pb-[24px] text-center">
           <div className="flex justify-center mb-[14px]">

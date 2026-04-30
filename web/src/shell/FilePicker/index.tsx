@@ -102,6 +102,15 @@ function FilePickerModal({
     loadDir(currentPath)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ESC to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); onClose() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   function handleNodeClick(node: LocalFsNode) {
     if (node.is_dir) {
       loadDir(node.path)
@@ -397,6 +406,15 @@ export function VfsFilePickerModal({
       })
       .catch(console.error)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ESC to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); onClose() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
 
   const selectMount = (mount: VfsMount) => {
     setSelectedMount(mount)
