@@ -3,28 +3,31 @@
  *
  * Browse, extract, and create archive files.
  * Supports zip/7z/rar/tar.gz/tar.bz2/tar.xz/tar.zst.
- *
- * Backend: Rust ventoos-vfs archive module (enhanced with tokimo-universal-archiver approach)
- * Frontend: Lists archive contents, extract/compress UI, password support
  */
 
 import { AnimatePresence } from 'framer-motion'
-import { Archive, ArrowLeft, Download, FileText, Folder, Key, Loader2, PackageOpen } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { Archive, ChevronRight, Download, FileText, Folder, Image, Key, Loader2, PackageOpen, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import { request } from '@/infra/api'
+import { vfsApi, type ArchiveEntry } from '@/apps/explorer/api'
 import type { AppComponentProps } from '@/kernel'
-import { useWindowActions } from '@/kernel'
+import { openWindow, useWindowActions } from '@/kernel'
+import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
-interface ArchiveEntry {
-  path: string
-  size: number
-  compressed_size?: number
-  is_dir: boolean
-  modified?: string
-  encrypted?: boolean
+const HIDDEN_FILES = new Set(['.ds_store', '.localized', 'thumbs.db'])
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'])
+
+function isHiddenFile(path: string): boolean {
+  const name = path.split('/').filter(Boolean).pop()?.toLowerCase() ?? ''
+  return HIDDEN_FILES.has(name) || name.startsWith('._')
+}
+
+function getFileExt(name: string): string {
+  const dot = name.lastIndexOf('.')
+  return dot >= 0 ? name.slice(dot + 1).toLowerCase() : ''
 }
 
 type Phase = 'loading' | 'listing' | 'extracting' | 'error'
@@ -59,6 +62,33 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
   const [needsPassword, setNeedsPassword] = useState(false)
   const [extractProgress, setExtractProgress] = useState('')
 
+  // Selection state
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+  const lastClickedPathRef = useRef<string | null>(null)
+
+  // Extract destination picker state
+  const [showExtractPicker, setShowExtractPicker] = useState(false)
+
+  // Context menu (system-wide store)
+  const showContextMenu = useContextMenuStore(s => s.show)
+
+  // Filter entries for current directory — only direct children
+  const filteredEntries = entries.filter(e => {
+    const p = e.path
+    if (!currentDir) {
+      // Root level: only show items whose path has exactly 1 segment
+      const parts = p.split('/').filter(Boolean)
+      return parts.length === 1
+    }
+    const prefix = currentDir.endsWith('/') ? currentDir : `${currentDir}/`
+    if (!p.startsWith(prefix)) return false
+    const rest = p.slice(prefix.length)
+    if (!rest) return false
+    const parts = rest.split('/').filter(Boolean)
+    // Direct children only: 1 part, or 2 parts where last is empty (dir trailing slash)
+    return parts.length === 1
+  })
+
   const loadArchiveContents = useCallback(
     async (pwd?: string) => {
       if (!mountId || !node) {
@@ -69,23 +99,19 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
       try {
         setPhase('loading')
-        const params = new URLSearchParams({ path: node.path })
-        if (pwd) params.set('password', pwd)
 
-        const data = await request<{ entries?: ArchiveEntry[]; error?: string; password_required?: boolean }>(
-          'GET',
-          `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/list?${params}`
-        )
+        const result = await vfsApi.listArchiveContents(mountId, node.path, pwd)
 
-        if (data.password_required) {
+        if (result.data.password_required) {
           setNeedsPassword(true)
           setPhase('listing')
           return
         }
 
-        if (data.error) throw new Error(data.error)
+        if (result.data.error) throw new Error(result.data.error)
 
-        setEntries(data.entries ?? [])
+        // Filter out hidden/system files
+        setEntries((result.data.entries ?? []).filter(e => !isHiddenFile(e.path)))
         setNeedsPassword(false)
         setPhase('listing')
       } catch (err) {
@@ -101,13 +127,18 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
     loadArchiveContents()
   }, [loadArchiveContents])
 
+  // Clear selection when directory changes
+  useEffect(() => {
+    setSelectedPaths(new Set())
+    lastClickedPathRef.current = null
+  }, [currentDir])
+
   const handleExtractAll = useCallback(async () => {
     if (!mountId || !node) return
     try {
       setPhase('extracting')
       setExtractProgress('正在解压…')
 
-      // Extract to same directory as the archive
       const archiveDir = node.path.substring(0, node.path.lastIndexOf('/')) || '/'
       const archiveName = node.name.replace(/\.[^.]+$/, '')
       const destDir = `${archiveDir}/${archiveName}`
@@ -136,19 +167,127 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
     a.click()
   }, [mountId, node])
 
-  // Filter entries for current directory
-  const filteredEntries = entries.filter(e => {
-    if (!currentDir) {
-      // Root level: show only top-level items
-      const parts = e.path.split('/').filter(Boolean)
-      return parts.length === 1 || (parts.length === 2 && e.is_dir && e.path.endsWith('/'))
-    }
-    const prefix = currentDir.endsWith('/') ? currentDir : `${currentDir}/`
-    if (!e.path.startsWith(prefix)) return false
-    const rest = e.path.slice(prefix.length)
-    const parts = rest.split('/').filter(Boolean)
-    return parts.length === 1 || (parts.length === 2 && e.is_dir)
-  })
+  // --- Selection logic ---
+
+  const handleClickEntry = useCallback(
+    (entry: ArchiveEntry, e: React.MouseEvent) => {
+      const path = entry.path
+
+      if (e.shiftKey && lastClickedPathRef.current) {
+        // Range select
+        const paths = filteredEntries.map(en => en.path)
+        const anchorIdx = paths.indexOf(lastClickedPathRef.current)
+        const currentIdx = paths.indexOf(path)
+        if (anchorIdx >= 0 && currentIdx >= 0) {
+          const [start, end] = anchorIdx < currentIdx ? [anchorIdx, currentIdx] : [currentIdx, anchorIdx]
+          const rangePaths = paths.slice(start, end + 1)
+          setSelectedPaths(prev => {
+            const next = new Set(e.metaKey || e.ctrlKey ? prev : [])
+            for (const p of rangePaths) next.add(p)
+            return next
+          })
+        }
+      } else if (e.metaKey || e.ctrlKey) {
+        // Toggle individual
+        setSelectedPaths(prev => {
+          const next = new Set(prev)
+          if (next.has(path)) next.delete(path)
+          else next.add(path)
+          return next
+        })
+      } else {
+        // Single select (replace)
+        setSelectedPaths(prev => (prev.size === 1 && prev.has(path) ? prev : new Set([path])))
+      }
+
+      lastClickedPathRef.current = path
+    },
+    [filteredEntries]
+  )
+
+  // Double-click: enter dir or open file in file-viewer
+  const handleDoubleClickEntry = useCallback(
+    async (entry: ArchiveEntry) => {
+      if (entry.is_dir) {
+        setCurrentDir(entry.path.replace(/\/$/, ''))
+        return
+      }
+      if (!mountId || !node) return
+
+      // Fetch blob and open in system file-viewer
+      try {
+        const blob = await vfsApi.readArchiveEntry(mountId, node.path, entry.path)
+        const blobUrl = URL.createObjectURL(blob)
+        const fileName = entry.path.split('/').filter(Boolean).pop() ?? entry.path
+        openWindow('file-viewer', {
+          title: fileName,
+          appState: { blobUrl, fileName }
+        })
+      } catch (err) {
+        console.error('Failed to open in file-viewer:', err)
+      }
+    },
+    [mountId, node]
+  )
+
+  // --- Context menu ---
+
+  const handleContextMenu = useCallback(
+    (entry: ArchiveEntry, e: React.MouseEvent) => {
+      e.preventDefault()
+      // If right-clicked item not in selection, select it exclusively
+      if (!selectedPaths.has(entry.path)) {
+        setSelectedPaths(new Set([entry.path]))
+        lastClickedPathRef.current = entry.path
+      }
+      showContextMenu(e.clientX, e.clientY, [
+        {
+          id: 'extract',
+          label: '解压',
+          action: () => setShowExtractPicker(true)
+        }
+      ])
+    },
+    [selectedPaths, showContextMenu]
+  )
+
+  // Extract selected entries to a VFS directory
+  const handleExtractConfirm = useCallback(
+    async (result: VfsPickerResult) => {
+      setShowExtractPicker(false)
+      if (!mountId || !node || selectedPaths.size === 0) return
+
+      const selected = filteredEntries.filter(e => selectedPaths.has(e.path) && !e.is_dir)
+      if (selected.length === 0) return
+
+      const destMountId = result.mountId
+      const destDir = result.path.replace(/^vfs:\/\/[^/]+/, '') || '/'
+
+      setPhase('extracting')
+      let done = 0
+      for (const entry of selected) {
+        setExtractProgress(`正在解压 ${done + 1}/${selected.length}: ${entry.path.split('/').filter(Boolean).pop()}`)
+        try {
+          const blob = await vfsApi.readArchiveEntry(mountId, node.path, entry.path)
+          const fileName = entry.path.split('/').filter(Boolean).pop() ?? entry.path
+          const destPath = destDir === '/' ? `/${fileName}` : `${destDir}/${fileName}`
+          const file = new File([blob], fileName)
+          await vfsApi.uploadVfsFile(destMountId, destPath, file)
+          done++
+        } catch (err) {
+          console.error('Extract failed for:', entry.path, err)
+        }
+      }
+      setExtractProgress(`解压完成: ${done} 个文件`)
+      setTimeout(() => setPhase('listing'), 2000)
+    },
+    [mountId, node, selectedPaths, filteredEntries]
+  )
+
+  // Breadcrumb path segments
+  const breadcrumbSegments = currentDir
+    ? currentDir.split('/').filter(Boolean)
+    : []
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`
@@ -185,13 +324,17 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
     )
   }
 
+  const hasSelection = selectedPaths.size > 0
+
   return (
     <div className="w-full h-full flex flex-col bg-[var(--vos-bg-primary)]">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-[6px] border-b border-b-[var(--vos-border-subtle)] bg-[var(--vos-bg-secondary)] shrink-0">
         <Archive size={16} className="text-[var(--vos-accent-warning)]" />
         <span className="text-[13px] font-medium flex-1 text-[var(--vos-text-primary)]">{node?.name ?? 'Archive'}</span>
-        <span className="text-[11px] text-[var(--vos-text-tertiary)]">{entries.length} 项</span>
+        <span className="text-[11px] text-[var(--vos-text-tertiary)]">
+          {hasSelection ? `已选 ${selectedPaths.size} / ${filteredEntries.length}` : `${filteredEntries.length} 项`}
+        </span>
         <button
           type="button"
           onClick={handleExtractAll}
@@ -233,21 +376,36 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
         </div>
       )}
 
-      {/* Breadcrumb */}
-      {currentDir && (
-        <div className="flex items-center gap-1 px-3 py-1 border-b border-b-[var(--vos-border-subtle)] text-xs">
-          <button
-            type="button"
-            onClick={() => setCurrentDir('')}
-            className="bg-transparent border-none cursor-pointer text-[var(--vos-accent-primary)] flex items-center gap-[2px]"
-          >
-            <ArrowLeft size={12} />
-            根目录
-          </button>
-          <span className="text-[var(--vos-text-tertiary)]">/</span>
-          <span className="text-[var(--vos-text-primary)]">{currentDir}</span>
-        </div>
-      )}
+      {/* Breadcrumb — hierarchical navigation */}
+      <div className="flex items-center gap-0 px-3 py-1 border-b border-b-[var(--vos-border-subtle)] text-xs overflow-x-auto shrink-0">
+        <button
+          type="button"
+          onClick={() => setCurrentDir('')}
+          className="bg-transparent border-none cursor-pointer text-[var(--vos-accent-primary)] shrink-0 hover:underline"
+        >
+          根目录
+        </button>
+        {breadcrumbSegments.map((seg, idx) => {
+          const targetDir = breadcrumbSegments.slice(0, idx + 1).join('/')
+          const isLast = idx === breadcrumbSegments.length - 1
+          return (
+            <span key={targetDir} className="flex items-center shrink-0">
+              <ChevronRight size={10} className="mx-1 text-[var(--vos-text-tertiary)]" />
+              {isLast ? (
+                <span className="text-[var(--vos-text-primary)] font-medium">{seg}</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCurrentDir(targetDir)}
+                  className="bg-transparent border-none cursor-pointer text-[var(--vos-accent-primary)] hover:underline"
+                >
+                  {seg}
+                </button>
+              )}
+            </span>
+          )
+        })}
+      </div>
 
       {/* File list */}
       <div className="flex-1 overflow-auto">
@@ -256,23 +414,29 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
         ) : (
           filteredEntries.map(entry => {
             const name = entry.path.split('/').filter(Boolean).pop() ?? entry.path
+            const ext = getFileExt(name)
+            const isImage = IMAGE_EXTS.has(ext)
+            const isSelected = selectedPaths.has(entry.path)
             return (
               <div
                 key={entry.path}
-                className={`flex items-center gap-2 px-3 py-[6px] border-b border-b-[var(--vos-border-subtle)] text-xs ${entry.is_dir ? 'cursor-pointer' : 'cursor-default'}`}
-                onClick={() => {
-                  if (entry.is_dir) setCurrentDir(entry.path.replace(/\/$/, ''))
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && entry.is_dir) setCurrentDir(entry.path.replace(/\/$/, ''))
-                }}
+                className={`flex items-center gap-2 px-3 py-[6px] border-b border-b-[var(--vos-border-subtle)] text-xs cursor-pointer select-none ${
+                  isSelected
+                    ? 'bg-[var(--vos-accent-primary)]/15 text-[var(--vos-text-primary)]'
+                    : 'hover:bg-[var(--vos-bg-item-hover)] text-[var(--vos-text-primary)]'
+                }`}
+                onClick={e => handleClickEntry(entry, e)}
+                onDoubleClick={() => handleDoubleClickEntry(entry)}
+                onContextMenu={e => handleContextMenu(entry, e)}
               >
                 {entry.is_dir ? (
                   <Folder size={14} className="text-[var(--vos-accent-warning)] shrink-0" />
+                ) : isImage ? (
+                  <Image size={14} className="text-[var(--vos-accent-primary)] shrink-0" />
                 ) : (
                   <FileText size={14} className="text-[var(--vos-text-tertiary)] shrink-0" />
                 )}
-                <span className="flex-1 text-[var(--vos-text-primary)]">{name}</span>
+                <span className="flex-1 truncate">{name}</span>
                 {entry.encrypted && <Key size={12} className="text-[var(--vos-accent-warning)]" />}
                 {!entry.is_dir && (
                   <span className="text-[var(--vos-text-tertiary)] text-[11px]">{formatSize(entry.size)}</span>
@@ -282,9 +446,13 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
           })
         )}
       </div>
+
       <AnimatePresence>
         {showFilePicker && (
           <VfsFilePickerModal mode="file" onConfirm={handleFilePickerConfirm} onClose={closeFilePicker} />
+        )}
+        {showExtractPicker && (
+          <VfsFilePickerModal mode="directory" onConfirm={handleExtractConfirm} onClose={() => setShowExtractPicker(false)} />
         )}
       </AnimatePresence>
     </div>
