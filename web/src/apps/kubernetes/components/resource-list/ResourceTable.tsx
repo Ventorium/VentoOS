@@ -26,10 +26,9 @@ const STORAGE_KEY_PREFIX = 'vos:k8s:col-widths:'
 
 /** Well-known ports → IPC event topic mapping */
 const PORT_EVENT_MAP: Record<number, { topic: EventTopic; label: string; dbType?: string }> = {
-  5432: { topic: 'open:postgres', label: 'Open PostgreSQL', dbType: 'postgresql' },
-  3306: { topic: 'open:mysql', label: 'Open MySQL', dbType: 'mysql' },
-  6379: { topic: 'open:redis', label: 'Open Redis' },
-  27017: { topic: 'open:terminal', label: 'Open Terminal' },
+  5432: { topic: 'open:postgres', label: '在数据库中打开 (PostgreSQL)', dbType: 'postgresql' },
+  3306: { topic: 'open:mysql', label: '在数据库中打开 (MySQL)', dbType: 'mysql' },
+  6379: { topic: 'open:redis', label: '在 Redis 中打开' },
 }
 
 function loadWidths(kind: string): Record<string, number> | null {
@@ -177,39 +176,39 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
     openYamlTab(clusterId, resource.namespace, kind, resource.name)
   }
 
-  const handleOpenDatabase = (resource: K8sResource, portEntry: { topic: EventTopic; label: string; dbType?: string }) => {
+  const handleOpenDatabase = (
+    resource: K8sResource,
+    portEntry: { topic: EventTopic; label: string; dbType?: string },
+    matchedPort: number
+  ) => {
     if (!clusterId || !resource.namespace) return
+
+    // Extract targetPort from service spec for the matched port
     const raw = getRaw(resource)
     const spec = raw?.spec as Record<string, unknown> | undefined
-    const ports = (spec?.ports as Array<Record<string, unknown>> | undefined) ?? []
-    const portInfo = ports.find(p => Number(p.port) === Number(Object.keys(PORT_EVENT_MAP).find(k => PORT_EVENT_MAP[Number(k)] === portEntry)?.[0]))
-    const targetPort = portInfo ? Number(portInfo.targetPort ?? portInfo.port) : undefined
+    const svcPorts = (spec?.ports as Array<Record<string, unknown>> | undefined) ?? []
+    const portInfo = svcPorts.find(p => Number(p.port) === matchedPort)
+    const targetPort = portInfo ? Number(portInfo.targetPort ?? portInfo.port) : matchedPort
+
+    const payload = {
+      name: `${resource.name} (${portEntry.dbType ?? 'redis'})`,
+      host: 'localhost',
+      port: targetPort,
+      autoConnect: true,
+      k8sContext: {
+        cluster: clusterId,
+        namespace: resource.namespace,
+        service: resource.name,
+      },
+    }
 
     if (portEntry.topic === 'open:postgres' || portEntry.topic === 'open:mysql') {
       eventBus.emit('kubernetes', portEntry.topic, {
+        ...payload,
         dbType: portEntry.dbType as 'postgresql' | 'mysql',
-        name: `${resource.name} (${portEntry.dbType})`,
-        host: 'localhost',
-        port: targetPort ?? (portEntry.topic === 'open:postgres' ? 5432 : 3306),
-        autoConnect: true,
-        k8sContext: {
-          cluster: clusterId,
-          namespace: resource.namespace,
-          service: resource.name,
-        },
       })
     } else if (portEntry.topic === 'open:redis') {
-      eventBus.emit('kubernetes', 'open:redis', {
-        name: resource.name,
-        host: 'localhost',
-        port: targetPort ?? 6379,
-        autoConnect: true,
-        k8sContext: {
-          cluster: clusterId,
-          namespace: resource.namespace,
-          service: resource.name,
-        },
-      })
+      eventBus.emit('kubernetes', 'open:redis', payload)
     }
     toast.success(`正在打开 ${portEntry.label}...`)
   }
@@ -282,12 +281,12 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
       const svcPorts = (spec?.ports as Array<Record<string, unknown>> | undefined) ?? []
 
       // Detect well-known database/redis ports
-      const detectedActions: Array<{ topic: EventTopic; label: string; dbType?: string }> = []
+      const detectedActions: Array<{ port: number; topic: EventTopic; label: string; dbType?: string }> = []
       for (const p of svcPorts) {
         const portNum = Number(p.port)
         const mapping = PORT_EVENT_MAP[portNum]
         if (mapping && !detectedActions.some(a => a.topic === mapping.topic)) {
-          detectedActions.push(mapping)
+          detectedActions.push({ port: portNum, ...mapping })
         }
       }
 
@@ -297,7 +296,7 @@ export function ResourceTable({ resources, kind, selected, onSelectChange }: Pro
           items.push({
             id: `ipc-${action.topic}`,
             label: action.label,
-            action: () => handleOpenDatabase(resource, action),
+            action: () => handleOpenDatabase(resource, action, action.port),
           })
         }
       }
