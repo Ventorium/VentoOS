@@ -174,6 +174,17 @@ export const vfsApi = {
     return request<ApiResponse<ArchiveListResult>>('GET', `/api/vfs/mounts/${mountId}/archive/list?${params}`)
   },
 
+  readArchiveEntry: async (mountId: string, archivePath: string, entryName: string): Promise<Blob> => {
+    const headers = getAuthHeaders()
+    const params = new URLSearchParams({ path: archivePath, entry: entryName })
+    const res = await fetch(`/api/vfs/mounts/${mountId}/archive/read?${params}`, { headers })
+    if (!res.ok) {
+      handleUnauthorized(res)
+      throw new Error(`HTTP ${res.status}`)
+    }
+    return res.blob()
+  },
+
   // WebDAV
   getWebDavServerSettings: () => request<ApiResponse<WebDavServerSettings>>('GET', '/api/vfs/webdav-server/settings'),
   updateWebDavServerSettings: (body: WebDavServerSettings) =>

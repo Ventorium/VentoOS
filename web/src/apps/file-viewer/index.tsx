@@ -370,6 +370,10 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
 
   const mountId = win?.appState?.mountId as string | undefined
   const node = win?.appState?.node as VfsNode | undefined
+  // blobUrl mode: opened from archive-editor or other apps that pass a pre-fetched blob URL
+  const externalBlobUrl = win?.appState?.blobUrl as string | undefined
+  const externalFileName = win?.appState?.fileName as string | undefined
+  const isBlobMode = !!externalBlobUrl
 
   const [textContent, setTextContent] = useState<VfsFileContent | null>(null)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
@@ -380,28 +384,24 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const ext = node ? getExt(node.name) : ''
+  const fileName = externalFileName ?? node?.name
+  const ext = fileName ? getExt(fileName) : ''
   const isImage = IMAGE_EXTS.has(ext)
   const isPdf = PDF_EXTS.has(ext)
   const isMd = MD_EXTS.has(ext)
   const isVideo = VIDEO_EXTS.has(ext)
   const isAudio = AUDIO_EXTS.has(ext)
-  const isText = node ? isTextFile(node.name) : false
+  const isText = fileName ? isTextFile(fileName) : false
   const isCode = CODE_EXTS.has(ext)
 
-  // Set window title when node changes
+  // Set window title when fileName changes
   useEffect(() => {
-    if (node?.name) setTitle(node.name)
-  }, [node?.name, setTitle])
+    if (fileName) setTitle(fileName)
+  }, [fileName, setTitle])
 
-  // Fetch file content
+  // Fetch file content — supports both VFS mode and blobUrl mode
   // biome-ignore lint/correctness/useExhaustiveDependencies: mountId+node.path are real deps
   useEffect(() => {
-    if (!mountId || !node) {
-      setLoading(false)
-      return
-    }
-
     setLoading(true)
     setError(null)
     setTextContent(null)
@@ -409,6 +409,57 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
     setHexData(null)
     setEditing(false)
     let cleanup: (() => void) | null = null
+
+    // blobUrl mode: use the pre-fetched blob URL directly
+    if (isBlobMode) {
+      if (isImage || isPdf || isVideo || isAudio) {
+        setBlobUrl(externalBlobUrl!)
+        setLoading(false)
+        // Note: the caller (archive-editor) owns the blob URL lifecycle
+      } else if (isText) {
+        // Fetch the blob URL as text
+        fetch(externalBlobUrl!)
+          .then(r => r.text())
+          .then(text => {
+            // Check if binary
+            const isBinary = /[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 8192))
+            if (isBinary) {
+              fetch(externalBlobUrl!)
+                .then(r => r.arrayBuffer())
+                .then(buf => setHexData(buf))
+                .finally(() => setLoading(false))
+            } else {
+              setTextContent({
+                path: externalFileName ?? '',
+                size: text.length,
+                content: text,
+                is_binary: false,
+                truncated: false
+              })
+              setEditContent(text)
+              setLoading(false)
+            }
+          })
+          .catch(e => {
+            setError(e instanceof Error ? e.message : '加载失败')
+            setLoading(false)
+          })
+      } else {
+        // Binary / unknown
+        fetch(externalBlobUrl!)
+          .then(r => r.arrayBuffer())
+          .then(buf => setHexData(buf))
+          .catch(e => setError(e instanceof Error ? e.message : '加载失败'))
+          .finally(() => setLoading(false))
+      }
+      return () => { cleanup?.() }
+    }
+
+    // VFS mode: use mountId + node
+    if (!mountId || !node) {
+      setLoading(false)
+      return
+    }
 
     if (isImage || isPdf || isVideo || isAudio) {
       vfsApi
@@ -487,7 +538,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
     return () => window.removeEventListener('keydown', handler)
   }, [editing, handleSave])
 
-  if (!mountId || !node) {
+  if (!isBlobMode && (!mountId || !node)) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-[var(--vos-text-tertiary)]">
         <FileText size={32} className="opacity-30 mb-2" />
@@ -501,7 +552,7 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
       {/* ── Toolbar ── */}
       <div className="flex items-center px-3 py-2 gap-2 flex-shrink-0 border-b-[0.5px] border-b-solid border-b-[var(--vos-border-subtle)]">
         <FileText size={13} className="text-[var(--vos-text-tertiary)] shrink-0" />
-        <span className="text-xs font-medium flex-1 truncate text-[var(--vos-text-primary)]">{node.name}</span>
+        <span className="text-xs font-medium flex-1 truncate text-[var(--vos-text-primary)]">{fileName ?? '未命名'}</span>
 
         {/* Edit / Save buttons for text files */}
         {isText &&
@@ -607,11 +658,11 @@ export default function FileViewerApp({ windowId }: AppComponentProps) {
       </div>
 
       {/* ── Footer ── */}
-      {(textContent || node.size !== undefined) && (
+      {(textContent || node?.size !== undefined) && (
         <div className="flex items-center gap-4 px-3 py-1.5 text-[11px] flex-shrink-0 border-t-[0.5px] border-t-solid border-t-[var(--vos-border-subtle)] text-[var(--vos-text-tertiary)]">
           {textContent && <span>{fmtSize(textContent.size)}</span>}
-          {!textContent && node.size !== undefined && node.size !== null && <span>{fmtSize(node.size)}</span>}
-          {node.modified && <span>{new Date(node.modified).toLocaleString()}</span>}
+          {!textContent && node?.size !== undefined && node?.size !== null && <span>{fmtSize(node.size)}</span>}
+          {node?.modified && <span>{new Date(node.modified).toLocaleString()}</span>}
         </div>
       )}
       <AnimatePresence>

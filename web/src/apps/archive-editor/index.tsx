@@ -13,7 +13,7 @@ import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import { request } from '@/infra/api'
 import { vfsApi, type ArchiveEntry } from '@/apps/explorer/api'
 import type { AppComponentProps } from '@/kernel'
-import { openWindow, useWindowActions } from '@/kernel'
+import { getApp, getAppsForFile, openWindow, useFileDefaultsStore, useWindowActions } from '@/kernel'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
@@ -205,26 +205,42 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
     [filteredEntries]
   )
 
-  // Double-click: enter dir or open file in file-viewer
+  // Double-click: enter dir or open file in the appropriate app (read-only)
   const handleDoubleClickEntry = useCallback(
-    async (entry: ArchiveEntry) => {
+    (entry: ArchiveEntry) => {
       if (entry.is_dir) {
         setCurrentDir(entry.path.replace(/\/$/, ''))
         return
       }
       if (!mountId || !node) return
 
-      // Fetch blob and open in system file-viewer
-      try {
-        const blob = await vfsApi.readArchiveEntry(mountId, node.path, entry.path)
-        const blobUrl = URL.createObjectURL(blob)
-        const fileName = entry.path.split('/').filter(Boolean).pop() ?? entry.path
-        openWindow('file-viewer', {
-          title: fileName,
-          appState: { blobUrl, fileName }
-        })
-      } catch (err) {
-        console.error('Failed to open in file-viewer:', err)
+      const fileName = entry.path.split('/').filter(Boolean).pop() ?? entry.path
+      const ext = getFileExt(fileName)
+      const sourceUrl = `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/read?path=${encodeURIComponent(node.path)}&entry=${encodeURIComponent(entry.path)}`
+      const appState = { sourceUrl, fileName, readOnly: true }
+
+      // 1. Check default app
+      const defaultAppId = useFileDefaultsStore.getState().getDefault(ext)
+      if (defaultAppId) {
+        const defaultApp = getApp(defaultAppId)
+        if (defaultApp) {
+          openWindow(defaultApp.id, { title: fileName, appState })
+          return
+        }
+      }
+
+      // 2. Find associated apps (prefer open apps over preview apps)
+      const associatedApps = getAppsForFile(ext)
+      const openApps = associatedApps.filter(
+        a => a.fileOpenAssociations?.includes(ext) || a.fileAssociations?.includes(ext)
+      )
+      const appsToUse = openApps.length > 0 ? openApps : associatedApps
+      if (appsToUse.length >= 1) {
+        openWindow(appsToUse[0].id, { title: fileName, appState })
+      } else {
+        // 3. Fallback to file-viewer (supports blobUrl mode)
+        const blobUrl = `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/read?path=${encodeURIComponent(node.path)}&entry=${encodeURIComponent(entry.path)}`
+        openWindow('file-viewer', { title: fileName, appState: { blobUrl, fileName } })
       }
     },
     [mountId, node]

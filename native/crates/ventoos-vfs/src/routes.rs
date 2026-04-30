@@ -67,6 +67,10 @@ impl AppPlugin for VfsPlugin {
                 get(archive_list_handler),
             )
             .route(
+                "/api/vfs/mounts/{id}/archive/read",
+                get(archive_read_entry_handler),
+            )
+            .route(
                 "/api/vfs/mounts/{id}/archive/extract",
                 post(archive_extract_handler),
             )
@@ -486,6 +490,44 @@ async fn extract_handler(
 struct ArchiveListQuery {
     path: String,
     password: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct ArchiveReadQuery {
+    path: String,
+    entry: String,
+}
+
+async fn archive_read_entry_handler(
+    State(mgr): State<Arc<VfsManager>>,
+    Path(id): Path<String>,
+    Query(q): Query<ArchiveReadQuery>,
+) -> impl IntoResponse {
+    match mgr.read_archive_entry(&id, &q.path, &q.entry).await {
+        Ok(data) => {
+            // Guess content type from entry extension
+            let content_type = mime_guess::from_path(std::path::Path::new(&q.entry))
+                .first_or_octet_stream()
+                .to_string();
+            (
+                StatusCode::OK,
+                [
+                    (axum::http::header::CONTENT_TYPE, content_type),
+                    (
+                        axum::http::header::CONTENT_LENGTH,
+                        data.len().to_string(),
+                    ),
+                ],
+                data,
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::err(&e)),
+        )
+            .into_response(),
+    }
 }
 
 async fn archive_list_handler(

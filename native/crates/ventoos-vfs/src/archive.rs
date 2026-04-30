@@ -4,7 +4,7 @@
 //! For remote providers, files are streamed via read/write APIs.
 
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use zesven::write::EntryMeta;
@@ -305,6 +305,29 @@ fn parse_sevenz_list_output(output: &str) -> Vec<ArchiveEntry> {
     entries
 }
 
+/// Decode a zip entry's raw name bytes.
+/// Tries UTF-8 first; if that fails or produces mojibake, falls back to GB18030.
+fn decode_zip_name(raw: &[u8]) -> String {
+    // 1. Try UTF-8
+    if let Ok(s) = std::str::from_utf8(raw) {
+        // Check if the UTF-8 result looks like mojibake:
+        // GBK-encoded Chinese bytes decoded as CP437 produce sequences of
+        // accented Latin chars (é, ç, ü, etc.) without any CJK characters.
+        // If the string contains CJK chars, it's genuine UTF-8.
+        let has_cjk = s.chars().any(|c| {
+            matches!(c as u32, 0x4e00..=0x9fff | 0x3400..=0x4dbf | 0xf900..=0xfaff)
+        });
+        if has_cjk || s.is_ascii() {
+            return s.to_string();
+        }
+        // Looks like possible mojibake — try GB18030 below
+    }
+
+    // 2. Try GB18030 (superset of GBK)
+    let (decoded, _encoding, _had_errors) = encoding_rs::GB18030.decode(raw);
+    decoded.into_owned()
+}
+
 fn list_zip(archive_path: &Path) -> Result<ArchiveListResult, String> {
     let file = std::fs::File::open(archive_path).map_err(|e| format!("Failed to open: {e}"))?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Invalid zip: {e}"))?;
@@ -312,9 +335,10 @@ fn list_zip(archive_path: &Path) -> Result<ArchiveListResult, String> {
     let mut entries = Vec::new();
     for i in 0..archive.len() {
         let entry = archive
-            .by_index_raw(i)
+            .by_index(i)
             .map_err(|e| format!("Entry error: {e}"))?;
-        let path = entry.name().to_string();
+        // Use name_raw() to get original bytes, then decode with GB18030 fallback
+        let path = decode_zip_name(entry.name_raw());
         let is_dir = entry.is_dir();
         let size = entry.size();
         let compressed_size = Some(entry.compressed_size());
@@ -335,6 +359,66 @@ fn list_zip(archive_path: &Path) -> Result<ArchiveListResult, String> {
         password_required: false,
         error: None,
     })
+}
+
+/// Read a single file entry from a zip archive.
+/// Uses name_raw() + encoding detection to match GBK-encoded filenames.
+pub fn read_zip_entry(archive_path: &Path, entry_name: &str) -> Result<Vec<u8>, String> {
+    let file = std::fs::File::open(archive_path).map_err(|e| format!("Failed to open: {e}"))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Invalid zip: {e}"))?;
+
+    // Find the index by matching decoded names
+    let mut target_index: Option<usize> = None;
+    for i in 0..archive.len() {
+        let entry = archive
+            .by_index(i)
+            .map_err(|e| format!("Entry error: {e}"))?;
+        if decode_zip_name(entry.name_raw()) == entry_name {
+            target_index = Some(i);
+            break;
+        }
+    }
+
+    let idx = target_index.ok_or_else(|| format!("Entry not found: {entry_name}"))?;
+    let mut entry = archive
+        .by_index(idx)
+        .map_err(|e| format!("Entry error: {e}"))?;
+    let mut buf = Vec::new();
+    entry
+        .read_to_end(&mut buf)
+        .map_err(|e| format!("Read error: {e}"))?;
+    Ok(buf)
+}
+
+/// Read a single file entry from a tar.gz archive.
+pub fn read_tar_gz_entry(archive_path: &Path, entry_name: &str) -> Result<Vec<u8>, String> {
+    let file = std::fs::File::open(archive_path).map_err(|e| format!("Failed to open: {e}"))?;
+    let dec = flate2::read::GzDecoder::new(file);
+    let mut archive = tar::Archive::new(dec);
+
+    for entry in archive
+        .entries()
+        .map_err(|e| format!("Failed to read entries: {e}"))?
+    {
+        let mut entry = entry.map_err(|e| format!("Entry error: {e}"))?;
+        let path = entry
+            .path()
+            .map_err(|e| format!("Path error: {e}"))?
+            .to_string_lossy()
+            .to_string();
+        if path == entry_name || path == format!("{entry_name}/") {
+            if entry.header().entry_type().is_dir() {
+                return Ok(Vec::new());
+            }
+            let mut buf = Vec::new();
+            entry
+                .read_to_end(&mut buf)
+                .map_err(|e| format!("Read error: {e}"))?;
+            return Ok(buf);
+        }
+    }
+
+    Err(format!("Entry not found: {entry_name}"))
 }
 
 /// Extract the last component of a relative path for use as archive entry name.
@@ -605,10 +689,13 @@ pub fn extract_zip(
                 .map_err(|e| format!("Zip entry error: {e}"))?
         };
 
-        let Some(name) = entry.enclosed_name() else {
-            // Skip entries with unsafe paths
+        // Decode filename with GB18030 fallback (same as list_zip / read_zip_entry)
+        let decoded = decode_zip_name(entry.name_raw());
+        // Skip entries with unsafe paths
+        if decoded.contains("..") || decoded.starts_with('/') {
             continue;
-        };
+        }
+        let name = PathBuf::from(&decoded);
         let out_path = canonical_dest.join(&name);
 
         // Security: ensure extraction stays within dest_dir
@@ -904,6 +991,105 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(extract_dir.join("mydir/inner.txt")).unwrap(),
             "Inner content"
+        );
+    }
+
+    /// Test that decode_zip_name correctly handles GBK-encoded bytes.
+    #[test]
+    fn test_decode_zip_name_gbk() {
+        // "测试文件.txt" in GBK bytes
+        let gbk_bytes: &[u8] = &[
+            0xB2, 0xE2, 0xCA, 0xD4, 0xCE, 0xC4, 0xBC, 0xFE, 0x2E, 0x74, 0x78, 0x74,
+        ];
+        let decoded = decode_zip_name(gbk_bytes);
+        assert_eq!(decoded, "测试文件.txt", "GBK bytes should decode to Chinese");
+    }
+
+    /// Test that decode_zip_name handles UTF-8 correctly.
+    #[test]
+    fn test_decode_zip_name_utf8() {
+        let utf8_bytes = "hello世界.txt".as_bytes();
+        let decoded = decode_zip_name(utf8_bytes);
+        assert_eq!(decoded, "hello世界.txt");
+    }
+
+    /// Test that decode_zip_name handles ASCII correctly.
+    #[test]
+    fn test_decode_zip_name_ascii() {
+        let ascii_bytes = b"readme.txt";
+        let decoded = decode_zip_name(ascii_bytes);
+        assert_eq!(decoded, "readme.txt");
+    }
+
+    /// Test that extract_zip correctly decodes GBK-encoded filenames.
+    /// Creates a zip using the zip crate, then patches the UTF-8 flag
+    /// to simulate a Chinese Windows-created archive.
+    #[test]
+    fn test_extract_zip_gbk_filename() {
+        use std::io::Write;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+
+        // "测试文件.txt" in GBK bytes
+        let gbk_name: &[u8] = &[
+            0xB2, 0xE2, 0xCA, 0xD4, 0xCE, 0xC4, 0xBC, 0xFE, 0x2E, 0x74, 0x78, 0x74,
+        ];
+        let content = b"Hello GBK world";
+
+        // Step 1: Create a zip with a 12-char placeholder matching GBK name length
+        let zip_path = root.join("gbk_test.zip");
+        {
+            let file = std::fs::File::create(&zip_path).unwrap();
+            let mut zip = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            zip.start_file("abcdefghijkl", options).unwrap();
+            zip.write_all(content).unwrap();
+            zip.finish().unwrap();
+        }
+
+        // Step 2: Patch the zip — replace filename with GBK bytes and clear UTF-8 flag
+        let mut data = std::fs::read(&zip_path).unwrap();
+
+        // Local file header: flags at offset 6, name at offset 30
+        let flags_local = u16::from_le_bytes([data[6], data[7]]);
+        data[6..8].copy_from_slice(&(flags_local & !(1 << 11)).to_le_bytes());
+        data[30..42].copy_from_slice(gbk_name);
+
+        // Find central directory entry
+        // EOCD starts with PK\x05\x06
+        let eocd_pos = data
+            .windows(4)
+            .rposition(|w| w == b"PK\x05\x06")
+            .expect("EOCD not found");
+        let cd_offset = u32::from_le_bytes([
+            data[eocd_pos + 16],
+            data[eocd_pos + 17],
+            data[eocd_pos + 18],
+            data[eocd_pos + 19],
+        ]) as usize;
+
+        // Central directory entry: flags at cd_offset+8, name at cd_offset+46
+        let flags_cd = u16::from_le_bytes([data[cd_offset + 8], data[cd_offset + 9]]);
+        let patched_flags_cd = flags_cd & !(1 << 11);
+        data[cd_offset + 8..cd_offset + 10].copy_from_slice(&patched_flags_cd.to_le_bytes());
+        data[cd_offset + 46..cd_offset + 58].copy_from_slice(gbk_name);
+
+        std::fs::write(&zip_path, &data).unwrap();
+
+        // Step 3: Extract and verify
+        let extract_dir = root.join("extracted");
+        extract_zip(&zip_path, &extract_dir, None).unwrap();
+
+        let expected = extract_dir.join("测试文件.txt");
+        assert!(
+            expected.exists(),
+            "Expected '测试文件.txt' to exist after extraction"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&expected).unwrap(),
+            "Hello GBK world"
         );
     }
 

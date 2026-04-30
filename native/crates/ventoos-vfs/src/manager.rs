@@ -970,6 +970,72 @@ impl VfsManager {
         }
     }
 
+    /// Read a single file entry from within an archive.
+    pub async fn read_archive_entry(
+        &self,
+        mount_id: &str,
+        archive_path: &str,
+        entry_name: &str,
+    ) -> Result<Vec<u8>, String> {
+        let mount = self
+            .mounts
+            .read()
+            .await
+            .get(mount_id)
+            .cloned()
+            .ok_or("Mount not found")?;
+
+        let path_str = archive_path.to_string();
+        let entry = entry_name.to_string();
+
+        if mount.kind == VfsSourceKind::Local {
+            let root = std::path::Path::new(&mount.root);
+            let ap = Self::resolve_local_path(root, archive_path)?;
+            tokio::task::spawn_blocking(move || {
+                let fmt = crate::archive::ArchiveFormat::from_path(&path_str);
+                match fmt {
+                    Some(crate::archive::ArchiveFormat::Zip) => {
+                        crate::archive::read_zip_entry(&ap, &entry)
+                    }
+                    Some(crate::archive::ArchiveFormat::TarGz) => {
+                        crate::archive::read_tar_gz_entry(&ap, &entry)
+                    }
+                    _ => Err(format!(
+                        "Reading entries not supported for this archive format"
+                    )),
+                }
+            })
+            .await
+            .map_err(|e| format!("Read archive entry task failed: {e}"))?
+        } else {
+            // Remote: download archive to temp then read entry
+            let data = self.read_file_raw(mount_id, archive_path).await?;
+            let temp_dir =
+                tempfile::TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
+            let temp_file = temp_dir
+                .path()
+                .join(std::path::Path::new(archive_path).file_name().unwrap_or_default());
+            tokio::fs::write(&temp_file, &data)
+                .await
+                .map_err(|e: std::io::Error| format!("Failed to write temp file: {e}"))?;
+
+            tokio::task::spawn_blocking(move || {
+                let fmt = crate::archive::ArchiveFormat::from_path(&path_str);
+                match fmt {
+                    Some(crate::archive::ArchiveFormat::Zip) => {
+                        crate::archive::read_zip_entry(&temp_file, &entry)
+                    }
+                    Some(crate::archive::ArchiveFormat::TarGz) => {
+                        crate::archive::read_tar_gz_entry(&temp_file, &entry)
+                    }
+                    _ => Err("Reading entries not supported for this archive format".to_string()),
+                }
+            })
+            .await
+            .map_err(|e| format!("Read archive entry task failed: {e}"))?
+        }
+    }
+
     /// Resolve and validate a path within the mount root, returning the canonical path.
     fn resolve_local_path(
         root: &std::path::Path,

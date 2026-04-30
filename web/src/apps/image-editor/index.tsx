@@ -47,6 +47,8 @@ interface HistoryEntry {
 export default function ImageEditor({ windowId, initialAppState }: AppComponentProps) {
   const [mountId, setMountId] = useState((initialAppState?.mountId as string) ?? '')
   const [node, setNode] = useState(initialAppState?.node as { name: string; path: string } | undefined)
+  const sourceUrl = (initialAppState?.sourceUrl as string) ?? ''
+  const readOnly = (initialAppState?.readOnly as boolean) ?? false
 
   const { setTitle } = useWindowActions(windowId)
 
@@ -137,40 +139,43 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
     setImgSize({ w: entry.imageData.width, h: entry.imageData.height })
   }, [])
 
-  // Load image from VFS
+  // Load image from VFS or sourceUrl
   useEffect(() => {
-    if (!mountId || !node) {
+    if (!sourceUrl && (!mountId || !node)) {
       setError('No file specified')
       return
     }
 
     const token = useAuthStore.getState().token
-    const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}${token ? `&token=${encodeURIComponent(token)}` : ''}`
+    const url = sourceUrl || `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node!.path)}${token ? `&token=${encodeURIComponent(token)}` : ''}`
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      canvas.width = img.naturalWidth
-      canvas.height = img.naturalHeight
-      setImgSize({ w: img.naturalWidth, h: img.naturalHeight })
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.drawImage(img, 0, 0)
-        pushHistory()
-      }
       setLoaded(true)
-      // Fit to view
-      if (containerRef.current) {
-        const cw = containerRef.current.clientWidth - 40
-        const ch = containerRef.current.clientHeight - 40
-        const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight, 1)
-        setZoom(scale)
-      }
+      // Defer canvas draw to next tick so <canvas> is rendered
+      setTimeout(() => {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        setImgSize({ w: img.naturalWidth, h: img.naturalHeight })
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0)
+          pushHistory()
+        }
+        // Fit to view
+        if (containerRef.current) {
+          const cw = containerRef.current.clientWidth - 40
+          const ch = containerRef.current.clientHeight - 40
+          const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight, 1)
+          setZoom(scale)
+        }
+      }, 0)
     }
     img.onerror = () => setError('Failed to load image')
     img.src = url
-  }, [mountId, node, pushHistory])
+  }, [mountId, node, sourceUrl, pushHistory])
 
   // ── Transform operations ──
 
@@ -389,81 +394,89 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
         <button type="button" title="移动" className={toolBtn(tool === 'move')} onClick={() => setTool('move')}>
           <Move size={16} />
         </button>
-        <button type="button" title="画笔" className={toolBtn(tool === 'brush')} onClick={() => setTool('brush')}>
-          <Paintbrush size={16} />
-        </button>
-        <button type="button" title="橡皮擦" className={toolBtn(tool === 'eraser')} onClick={() => setTool('eraser')}>
-          <Eraser size={16} />
-        </button>
-        <button type="button" title="裁剪" className={toolBtn(tool === 'crop')} onClick={() => setTool('crop')}>
-          <Crop size={16} />
-        </button>
-
-        <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
-
-        {/* Brush options */}
-        {(tool === 'brush' || tool === 'eraser') && (
+        {!readOnly && (
           <>
-            {tool === 'brush' && (
-              <input
-                type="color"
-                value={brushColor}
-                onChange={e => setBrushColor(e.target.value)}
-                className="w-[28px] h-[28px] border-none rounded cursor-pointer p-0"
-                title="画笔颜色"
-              />
-            )}
-            <div className="flex items-center gap-1 text-[11px] text-[var(--vos-text-secondary)]">
-              <Minus size={12} />
-              <input
-                type="range"
-                min={1}
-                max={50}
-                value={brushSize}
-                onChange={e => setBrushSize(Number(e.target.value))}
-                className="w-[80px] accent-[var(--vos-accent-primary)]"
-              />
-              <Plus size={12} />
-              <span className="min-w-[20px]">{brushSize}</span>
-            </div>
+            <button type="button" title="画笔" className={toolBtn(tool === 'brush')} onClick={() => setTool('brush')}>
+              <Paintbrush size={16} />
+            </button>
+            <button type="button" title="橡皮擦" className={toolBtn(tool === 'eraser')} onClick={() => setTool('eraser')}>
+              <Eraser size={16} />
+            </button>
+            <button type="button" title="裁剪" className={toolBtn(tool === 'crop')} onClick={() => setTool('crop')}>
+              <Crop size={16} />
+            </button>
           </>
         )}
 
-        {/* Transform group */}
-        <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
-        <button type="button" title="逆时针旋转" className={toolBtn(false)} onClick={() => rotate(-90)}>
-          <RotateCcw size={16} />
-        </button>
-        <button type="button" title="顺时针旋转" className={toolBtn(false)} onClick={() => rotate(90)}>
-          <RotateCw size={16} />
-        </button>
-        <button type="button" title="水平翻转" className={toolBtn(false)} onClick={() => flip('h')}>
-          <FlipHorizontal2 size={16} />
-        </button>
-        <button type="button" title="垂直翻转" className={toolBtn(false)} onClick={() => flip('v')}>
-          <FlipVertical2 size={16} />
-        </button>
+        {!readOnly && (
+          <>
+            <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
 
-        {cropRect && (
-          <button
-            type="button"
-            title="应用裁剪"
-            className={cn(toolBtn(false), 'bg-[var(--vos-accent-success)] text-white text-[11px] w-auto px-2')}
-            onClick={applyCrop}
-          >
-            应用裁剪
-          </button>
+            {/* Brush options */}
+            {(tool === 'brush' || tool === 'eraser') && (
+              <>
+                {tool === 'brush' && (
+                  <input
+                    type="color"
+                    value={brushColor}
+                    onChange={e => setBrushColor(e.target.value)}
+                    className="w-[28px] h-[28px] border-none rounded cursor-pointer p-0"
+                    title="画笔颜色"
+                  />
+                )}
+                <div className="flex items-center gap-1 text-[11px] text-[var(--vos-text-secondary)]">
+                  <Minus size={12} />
+                  <input
+                    type="range"
+                    min={1}
+                    max={50}
+                    value={brushSize}
+                    onChange={e => setBrushSize(Number(e.target.value))}
+                    className="w-[80px] accent-[var(--vos-accent-primary)]"
+                  />
+                  <Plus size={12} />
+                  <span className="min-w-[20px]">{brushSize}</span>
+                </div>
+              </>
+            )}
+
+            {/* Transform group */}
+            <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
+            <button type="button" title="逆时针旋转" className={toolBtn(false)} onClick={() => rotate(-90)}>
+              <RotateCcw size={16} />
+            </button>
+            <button type="button" title="顺时针旋转" className={toolBtn(false)} onClick={() => rotate(90)}>
+              <RotateCw size={16} />
+            </button>
+            <button type="button" title="水平翻转" className={toolBtn(false)} onClick={() => flip('h')}>
+              <FlipHorizontal2 size={16} />
+            </button>
+            <button type="button" title="垂直翻转" className={toolBtn(false)} onClick={() => flip('v')}>
+              <FlipVertical2 size={16} />
+            </button>
+
+            {cropRect && (
+              <button
+                type="button"
+                title="应用裁剪"
+                className={cn(toolBtn(false), 'bg-[var(--vos-accent-success)] text-white text-[11px] w-auto px-2')}
+                onClick={applyCrop}
+              >
+                应用裁剪
+              </button>
+            )}
+
+            <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
+
+            {/* Undo / Redo */}
+            <button type="button" title="撤销" className={toolBtn(false)} onClick={undo}>
+              <Undo2 size={16} />
+            </button>
+            <button type="button" title="重做" className={toolBtn(false)} onClick={redo}>
+              <Redo2 size={16} />
+            </button>
+          </>
         )}
-
-        <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
-
-        {/* Undo / Redo */}
-        <button type="button" title="撤销" className={toolBtn(false)} onClick={undo}>
-          <Undo2 size={16} />
-        </button>
-        <button type="button" title="重做" className={toolBtn(false)} onClick={redo}>
-          <Redo2 size={16} />
-        </button>
 
         <div className="w-px h-[20px] bg-[var(--vos-border-subtle)] mx-1" />
 

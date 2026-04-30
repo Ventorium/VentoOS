@@ -12,6 +12,8 @@ export interface FileTab {
   isNew?: boolean
   /** Preview mode: tab replaced when another file is single-clicked */
   isPreview?: boolean
+  /** Read-only mode (e.g. from archive preview) */
+  readOnly?: boolean
 }
 
 // ─── Workspace ───────────────────────────────────────────────────────────────

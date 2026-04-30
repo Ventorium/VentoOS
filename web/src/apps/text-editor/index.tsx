@@ -65,6 +65,8 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
   const appState = initialAppState as TextEditorState | undefined
   const [mountId, setMountId] = useState(appState?.mountId ?? '')
   const [node, setNode] = useState(appState?.node as { path: string; name: string; is_dir: boolean } | undefined)
+  const sourceUrl = (initialAppState?.sourceUrl as string) ?? ''
+  const readOnly = (initialAppState?.readOnly as boolean) ?? false
 
   const { setTitle } = useWindowActions(windowId)
 
@@ -80,6 +82,26 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
 
   // Load file content
   useEffect(() => {
+    if (sourceUrl) {
+      // Archive preview mode: fetch raw bytes and decode as text
+      setLoading(true)
+      setError(null)
+      fetch(sourceUrl)
+        .then(resp => {
+          if (!resp.ok) throw new Error(`Failed to fetch: ${resp.statusText}`)
+          return resp.text()
+        })
+        .then(text => {
+          setContent(text)
+          setSavedContent(text)
+          setLoading(false)
+        })
+        .catch(err => {
+          setError(String(err))
+          setLoading(false)
+        })
+      return
+    }
     if (!mountId || !node) return
     setLoading(true)
     setError(null)
@@ -95,7 +117,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
         setError(String(err))
         setLoading(false)
       })
-  }, [mountId, node?.path])
+  }, [mountId, node?.path, sourceUrl])
 
   // Save file
   const handleSave = useCallback(async () => {
@@ -159,7 +181,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
   // Line count
   const lineCount = content.split('\n').length
 
-  if (!mountId || !node) {
+  if (!sourceUrl && (!mountId || !node)) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[var(--vos-bg-primary)] text-[var(--vos-text-tertiary)]">
         <div className="text-center text-sm">
@@ -191,27 +213,30 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-1.5 flex-shrink-0 [border-bottom:0.5px_solid_var(--vos-border-subtle)] bg-[var(--vos-bg-surface)]">
         <span className="text-xs font-medium flex-1 truncate text-[var(--vos-text-primary)]">
-          {node.name}
-          {hasChanges && <span className="text-[var(--vos-accent-warning)] ml-1">●</span>}
+          {(initialAppState?.fileName as string) ?? node?.name ?? ''}
+          {!readOnly && hasChanges && <span className="text-[var(--vos-accent-warning)] ml-1">●</span>}
         </span>
         <span className="text-[10px] text-[var(--vos-text-tertiary)]">
           {language.toUpperCase()} · {lineCount} 行
+          {readOnly && <span className="ml-1 text-[var(--vos-accent-warning)]">只读</span>}
         </span>
-        <button
-          type="button"
-          className="vos-btn-reset flex items-center gap-1 px-2 py-0.5 rounded text-xs"
-          style={{
-            background: hasChanges ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)',
-            color: hasChanges ? '#fff' : 'var(--vos-text-tertiary)',
-            cursor: hasChanges ? 'pointer' : 'default',
-            opacity: saving ? 0.6 : 1
-          }}
-          onClick={handleSave}
-          disabled={!hasChanges || saving}
-        >
-          <Save size={11} />
-          {saving ? '保存中…' : '保存'}
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            className="vos-btn-reset flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+            style={{
+              background: hasChanges ? 'var(--vos-accent-primary)' : 'var(--vos-bg-input)',
+              color: hasChanges ? '#fff' : 'var(--vos-text-tertiary)',
+              cursor: hasChanges ? 'pointer' : 'default',
+              opacity: saving ? 0.6 : 1
+            }}
+            onClick={handleSave}
+            disabled={!hasChanges || saving}
+          >
+            <Save size={11} />
+            {saving ? '保存中…' : '保存'}
+          </button>
+        )}
       </div>
 
       {/* Editor area */}
@@ -229,6 +254,7 @@ export default function TextEditor({ windowId, initialAppState }: AppComponentPr
           className="flex-1 p-2 resize-none border-none outline-none bg-transparent text-[var(--vos-text-primary)] text-[12px] leading-[20px] font-mono [tab-size:2]"
           value={content}
           onChange={e => setContent(e.target.value)}
+          readOnly={readOnly}
           spellCheck={false}
           autoComplete="off"
           autoCorrect="off"

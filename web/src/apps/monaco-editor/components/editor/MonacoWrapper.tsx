@@ -26,7 +26,7 @@ export default function MonacoWrapper({ editorRef, onMount }: Props) {
   useEffect(() => {
     saveRef.current = async () => {
       const tab = useEditorStore.getState().getActiveTab()
-      if (!tab) return
+      if (!tab || tab.readOnly) return
       const content = editorRef.current?.getValue() ?? tab.content
       if (content === tab.savedContent && !tab.isNew) return
       try {
@@ -93,6 +93,7 @@ export default function MonacoWrapper({ editorRef, onMount }: Props) {
       value={activeTab.content}
       theme={resolvedTheme === 'dark' ? 'vos-dark' : 'vos-light'}
       options={{
+        readOnly: activeTab?.readOnly ?? false,
         fontSize: 13,
         fontFamily: '"Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, Menlo, monospace',
         fontLigatures: true,

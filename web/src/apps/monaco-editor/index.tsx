@@ -37,6 +37,8 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
   const initMountId = (initialAppState?.mountId as string) ?? ''
   const initNode = initialAppState?.node as VfsNode | undefined
   const initDirNode = initialAppState?.dirNode as VfsNode | undefined
+  const initSourceUrl = (initialAppState?.sourceUrl as string) ?? ''
+  const initReadOnly = (initialAppState?.readOnly as boolean) ?? false
 
   const { setTitle } = useWindowActions(windowId)
   const isMac = /Mac/.test(navigator.userAgent)
@@ -116,7 +118,7 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
   // ── Save handler ──────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     const tab = useEditorStore.getState().getActiveTab()
-    if (!tab) return
+    if (!tab || tab.readOnly) return
     const content = tab.content
     if (content === tab.savedContent && !tab.isNew) return
     try {
@@ -278,6 +280,10 @@ export default function MonacoEditorApp({ windowId, initialAppState }: AppCompon
             .setActiveTab(savedTabs.find(t => t.path === savedActivePath)?.mountId + '::' + savedActivePath ?? null)
         }, 100)
       }
+    } else if (initSourceUrl) {
+      // Archive preview mode: open from sourceUrl
+      const fileName = (initialAppState?.fileName as string) ?? 'file'
+      openFile('', { name: fileName, path: fileName, is_dir: false }, undefined, initSourceUrl, initReadOnly)
     } else if (initNode && initMountId) {
       openFile(initMountId, initNode)
     }

@@ -20,7 +20,7 @@ interface EditorStore {
   getActiveTab: () => FileTab | null
 
   // Actions
-  openFile: (mountId: string, node: VfsNode, revealPos?: { line: number; col: number }) => Promise<void>
+  openFile: (mountId: string, node: VfsNode, revealPos?: { line: number; col: number }, sourceUrl?: string, readOnly?: boolean) => Promise<void>
   openNewUntitled: () => void
   closeTab: (tabId: string) => void
   setActiveTab: (tabId: string) => void
@@ -49,8 +49,8 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
     return tabs.find(t => t.id === activeTabId) ?? null
   },
 
-  async openFile(mountId, node, _revealPos) {
-    const tabId = makeTabId(mountId, node.path)
+  async openFile(mountId, node, _revealPos, sourceUrl, readOnly) {
+    const tabId = sourceUrl ? `source::${sourceUrl}` : makeTabId(mountId, node.path)
     const { tabs } = get()
     const existing = tabs.find(t => t.id === tabId)
 
@@ -64,10 +64,17 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
 
     set({ loadingFile: true })
     try {
-      const r = await vfsApi.readVfsFile(mountId, node.path, 16 * 1024 * 1024)
-      const content = r.data.is_binary
-        ? `// Binary file: ${node.name}\n// Cannot be displayed as text.`
-        : (r.data.content ?? '')
+      let content: string
+      if (sourceUrl) {
+        const resp = await fetch(sourceUrl)
+        if (!resp.ok) throw new Error(`Failed to fetch: ${resp.statusText}`)
+        content = await resp.text()
+      } else {
+        const r = await vfsApi.readVfsFile(mountId, node.path, 16 * 1024 * 1024)
+        content = r.data.is_binary
+          ? `// Binary file: ${node.name}\n// Cannot be displayed as text.`
+          : (r.data.content ?? '')
+      }
       const newTab: FileTab = {
         id: tabId,
         mountId,
@@ -75,7 +82,8 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         content,
         savedContent: content,
         language: getLanguageFromFilename(node.name),
-        isPreview: true
+        isPreview: true,
+        readOnly
       }
 
       set(state => {

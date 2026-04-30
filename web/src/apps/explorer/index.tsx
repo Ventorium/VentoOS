@@ -1209,7 +1209,8 @@ function ColumnView({
   onColumnContextMenu,
   onRenameChange,
   onRenameConfirm,
-  onRenameCancel
+  onRenameCancel,
+  onRubberBandSelect
 }: {
   mountId: string
   columns: ColumnData[]
@@ -1227,6 +1228,7 @@ function ColumnView({
   onRenameChange: (val: string) => void
   onRenameConfirm: () => void
   onRenameCancel: () => void
+  onRubberBandSelect: (colIndex: number, entryNames: Set<string>) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const colScrollRefs = useRef<Map<number, HTMLDivElement>>(new Map())
@@ -1304,6 +1306,87 @@ function ColumnView({
     onMoveFile(srcPath, colPath, srcMountId)
   }
 
+  // ── Rubber-band (marquee) selection ─────────────────────────────────
+
+  const [rubberBand, setRubberBand] = useState<{
+    active: boolean
+    colIndex: number
+    startY: number
+    currentY: number
+    scrollEl: HTMLDivElement | null
+  }>({ active: false, colIndex: -1, startY: 0, currentY: 0, scrollEl: null })
+
+  const rubberBandRef = useRef(rubberBand)
+  rubberBandRef.current = rubberBand
+
+  const handleRubberBandMouseDown = useCallback(
+    (colIndex: number, e: React.MouseEvent) => {
+      // Only start on left click on empty area (not on items)
+      if (e.button !== 0) return
+      if ((e.target as HTMLElement).closest('[data-vfs-entry]')) return
+
+      const colEl = colScrollRefs.current.get(colIndex)
+      if (!colEl) return
+
+      const rect = colEl.getBoundingClientRect()
+      const startY = e.clientY - rect.top + colEl.scrollTop
+
+      setRubberBand({ active: true, colIndex, startY, currentY: startY, scrollEl: colEl })
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!rubberBand.active) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rb = rubberBandRef.current
+      if (!rb.active || !rb.scrollEl) return
+      const rect = rb.scrollEl.getBoundingClientRect()
+      const currentY = e.clientY - rect.top + rb.scrollEl.scrollTop
+      setRubberBand(prev => ({ ...prev, currentY }))
+    }
+
+    const handleMouseUp = () => {
+      const rb = rubberBandRef.current
+      if (!rb.active) return
+
+      // Collect entries within the rubber band rectangle
+      const colEl = rb.scrollEl
+      if (colEl) {
+        const rect = colEl.getBoundingClientRect()
+        const top = Math.min(rb.startY, rb.currentY)
+        const bottom = Math.max(rb.startY, rb.currentY)
+        const colRectTop = colEl.scrollTop
+
+        const selected = new Set<string>()
+        const items = colEl.querySelectorAll('[data-vfs-entry]')
+        for (const item of items) {
+          const itemRect = item.getBoundingClientRect()
+          const itemTop = itemRect.top - rect.top + colRectTop
+          const itemBottom = itemTop + itemRect.height
+          if (itemBottom >= top && itemTop <= bottom) {
+            const name = (item as HTMLElement).dataset.vfsEntry
+            if (name) selected.add(name)
+          }
+        }
+
+        if (selected.size > 0) {
+          onRubberBandSelect(rb.colIndex, selected)
+        }
+      }
+
+      setRubberBand({ active: false, colIndex: -1, startY: 0, currentY: 0, scrollEl: null })
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [rubberBand.active, onRubberBandSelect])
+
   return (
     <div ref={scrollRef} className="flex-1 flex overflow-x-auto overflow-y-hidden min-w-0 scroll-smooth">
       {columns.map((col, colIdx) => {
@@ -1339,7 +1422,26 @@ function ColumnView({
                   if (el) colScrollRefs.current.set(colIdx, el)
                   else colScrollRefs.current.delete(colIdx)
                 }}
+                onMouseDown={e => handleRubberBandMouseDown(colIdx, e)}
+                style={{ position: 'relative' }}
               >
+                {/* Rubber-band selection overlay */}
+                {rubberBand.active && rubberBand.colIndex === colIdx && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      top: Math.min(rubberBand.startY, rubberBand.currentY),
+                      height: Math.abs(rubberBand.currentY - rubberBand.startY),
+                      background: 'rgba(59,130,246,0.15)',
+                      border: '1px solid rgba(59,130,246,0.5)',
+                      borderRadius: 2,
+                      pointerEvents: 'none',
+                      zIndex: 10
+                    }}
+                  />
+                )}
                 {col.entries.map(entry => {
                   const isPrimary = col.selected === entry.name
                   const isLastCol = colIdx === columns.length - 1
@@ -2468,6 +2570,28 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
 
   const clearMultiSelect = () => setMultiSelect(new Map())
 
+  const handleRubberBandSelect = useCallback(
+    (colIdx: number, entryNames: Set<string>) => {
+      setActiveColumn(colIdx)
+      setMultiSelect(prev => {
+        const next = new Map(prev)
+        next.set(colIdx, entryNames)
+        return next
+      })
+      // Update the primary selection to the last item in the set
+      const lastName = Array.from(entryNames).pop()
+      if (lastName) {
+        setSelectAnchor({ col: colIdx, name: lastName })
+        setColumns(prev => {
+          const updated = [...prev]
+          updated[colIdx] = { ...updated[colIdx], selected: lastName }
+          return updated
+        })
+      }
+    },
+    []
+  )
+
   const getSelectedEntries = (colIdx: number): VfsNode[] => {
     const names = multiSelect.get(colIdx)
     if (!names || names.size === 0) {
@@ -2769,15 +2893,20 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
 
     // 2. If no default, check all associated apps
     const associatedApps = getAppsForFile(ext)
-    if (associatedApps.length === 1) {
+    // Prefer apps with fileOpenAssociations / fileAssociations over filePreviewAssociations
+    const openApps = associatedApps.filter(
+      a => a.fileOpenAssociations?.includes(ext.toLowerCase()) || a.fileAssociations?.includes(ext.toLowerCase())
+    )
+    const appsToUse = openApps.length > 0 ? openApps : associatedApps
+    if (appsToUse.length === 1) {
       // Single app — open directly AND auto-register as default for this ext
       if (ext) {
-        useFileDefaultsStore.getState().setDefault(ext, associatedApps[0].id)
+        useFileDefaultsStore.getState().setDefault(ext, appsToUse[0].id)
       }
-      openWindow(associatedApps[0].id, { appState: { mountId: selectedMount, node: entry } })
-    } else if (associatedApps.length > 1) {
+      openWindow(appsToUse[0].id, { appState: { mountId: selectedMount, node: entry } })
+    } else if (appsToUse.length > 1) {
       // Multiple apps — show "Open With" dialog
-      setOpenWithState({ visible: true, node: entry, apps: associatedApps, showAll: false })
+      setOpenWithState({ visible: true, node: entry, apps: appsToUse, showAll: false })
     } else {
       // 3. Fallback to file viewer
       handleOpenViewer(selectedMount, entry)
@@ -4302,6 +4431,7 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
                 onRenameChange={setRenameValue}
                 onRenameConfirm={handleRenameConfirm}
                 onRenameCancel={() => setRenamingPath(null)}
+                onRubberBandSelect={handleRubberBandSelect}
               />
 
               {/* Info / preview panel */}

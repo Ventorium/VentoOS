@@ -26,6 +26,8 @@ type AppMode = 'nofile' | 'loading' | 'editor' | 'error'
 export default function OfficeEditor({ windowId, initialAppState }: AppComponentProps) {
   const [mountId, setMountId] = useState((initialAppState?.mountId as string) ?? '')
   const [node, setNode] = useState(initialAppState?.node as { name: string; path: string } | undefined)
+  const sourceUrl = (initialAppState?.sourceUrl as string) ?? ''
+  const readOnly = (initialAppState?.readOnly as boolean) ?? false
 
   const { setTitle } = useWindowActions(windowId)
 
@@ -72,6 +74,7 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
       }
 
       if (e.data?.type === 'saveDocument') {
+        if (readOnly) return
         const mId = currentMountIdRef.current
         const nd = currentNodeRef.current
         const { data: binData, option } = e.data.data
@@ -130,7 +133,7 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
 
   // Open document: fetch, convert, send to iframe
   useEffect(() => {
-    if (!mountId || !node) {
+    if (!sourceUrl && (!mountId || !node)) {
       setMode('nofile')
       return
     }
@@ -146,18 +149,19 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
         await Promise.all([initX2TScript(), Promise.resolve()])
         await initX2T()
 
-        // Fetch file from VFS
-        const url = `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node.path)}`
+        // Fetch file — use sourceUrl if provided (archive preview), otherwise VFS raw endpoint
+        const url = sourceUrl || `/api/vfs/mounts/${encodeURIComponent(mountId)}/raw?path=${encodeURIComponent(node!.path)}`
         const resp = await fetch(url, { headers: getAuthHeaders() })
         if (!resp.ok) throw new Error(`Failed to fetch: ${resp.statusText}`)
         const blob = await resp.blob()
-        const file = new File([blob], node.name)
+        const fileName = (initialAppState?.fileName as string) ?? node?.name ?? 'document'
+        const file = new File([blob], fileName)
 
         // Convert to OnlyOffice bin format
         const { bin, media } = await convertDocument(file)
         mediaRef.current = media as Record<string, string>
 
-        const fileExt = node.name.split('.').pop()?.toLowerCase() ?? ''
+        const fileExt = fileName.split('.').pop()?.toLowerCase() ?? ''
 
         if (cancelled) return
 
@@ -169,7 +173,7 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
             {
               type: 'openDocument',
               token,
-              payload: { bin, media, fileExt, fileName: node.name }
+              payload: { bin, media, fileExt, fileName, readOnly }
             },
             '*'
           )
@@ -190,7 +194,7 @@ export default function OfficeEditor({ windowId, initialAppState }: AppComponent
     return () => {
       cancelled = true
     }
-  }, [mountId, node?.path]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mountId, node?.path, sourceUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup on unmount
   useEffect(() => {
