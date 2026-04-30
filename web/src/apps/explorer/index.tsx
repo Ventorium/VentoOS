@@ -3210,8 +3210,17 @@ export default function ExplorerApp({ windowId, initialAppState }: AppComponentP
               setConfirmState(s => ({ ...s, visible: false }))
               try {
                 await vfsApi.deleteVfs(selectedMount, entry.path)
+                // Clear selectedNode/preview if affected
+                if (selectedNode && (selectedNode.path === entry.path || selectedNode.path.startsWith(`${entry.path}/`))) {
+                  setSelectedNode(null)
+                  setPreview(null)
+                }
+                // Truncate child columns when deleting a directory
+                if (entry.is_dir) {
+                  setColumns(prev => prev.slice(0, colIdx + 1))
+                }
                 clearMultiSelect()
-                refreshColumn(colIdx)
+                await refreshColumn(colIdx)
               } catch (err) {
                 console.error('Delete failed:', err)
               }

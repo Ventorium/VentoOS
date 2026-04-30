@@ -12,6 +12,7 @@ import type { VfsPickerResult } from '@/hooks/useFileOpenMenu'
 import { useFileOpenMenu } from '@/hooks/useFileOpenMenu'
 import { request } from '@/infra/api'
 import { vfsApi, type ArchiveEntry } from '@/apps/explorer/api'
+import { useAuthStore } from '@/services/auth'
 import type { AppComponentProps } from '@/kernel'
 import { getApp, getAppsForFile, openWindow, useFileDefaultsStore, useWindowActions } from '@/kernel'
 import { useContextMenuStore } from '@/shell/ContextMenu/store'
@@ -73,21 +74,53 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
   const showContextMenu = useContextMenuStore(s => s.show)
 
   // Filter entries for current directory — only direct children
-  const filteredEntries = entries.filter(e => {
-    const p = e.path
-    if (!currentDir) {
-      // Root level: only show items whose path has exactly 1 segment
-      const parts = p.split('/').filter(Boolean)
-      return parts.length === 1
+  // Also synthesize virtual directory entries for archives without explicit dir entries
+  const filteredEntries = (() => {
+    const seen = new Set<string>()
+    const result: ArchiveEntry[] = []
+
+    for (const e of entries) {
+      const p = e.path
+      if (!currentDir) {
+        // Root level
+        const parts = p.split('/').filter(Boolean)
+        if (parts.length === 1) {
+          if (!seen.has(parts[0])) {
+            seen.add(parts[0])
+            result.push(e)
+          }
+        } else if (parts.length > 1) {
+          // Synthesize virtual directory from first path segment
+          const dirName = parts[0]
+          if (!seen.has(dirName)) {
+            seen.add(dirName)
+            result.push({ path: `${dirName}/`, size: 0, is_dir: true, encrypted: false })
+          }
+        }
+      } else {
+        const prefix = currentDir.endsWith('/') ? currentDir : `${currentDir}/`
+        if (!p.startsWith(prefix)) continue
+        const rest = p.slice(prefix.length)
+        if (!rest) continue
+        const restParts = rest.split('/').filter(Boolean)
+        if (restParts.length === 1) {
+          // Direct child file
+          if (!seen.has(restParts[0])) {
+            seen.add(restParts[0])
+            result.push(e)
+          }
+        } else if (restParts.length > 1) {
+          // Synthesize virtual directory from next path segment
+          const dirName = restParts[0]
+          if (!seen.has(dirName)) {
+            seen.add(dirName)
+            result.push({ path: `${prefix}${dirName}/`, size: 0, is_dir: true, encrypted: false })
+          }
+        }
+      }
     }
-    const prefix = currentDir.endsWith('/') ? currentDir : `${currentDir}/`
-    if (!p.startsWith(prefix)) return false
-    const rest = p.slice(prefix.length)
-    if (!rest) return false
-    const parts = rest.split('/').filter(Boolean)
-    // Direct children only: 1 part, or 2 parts where last is empty (dir trailing slash)
-    return parts.length === 1
-  })
+    return result
+  })()
 
   const loadArchiveContents = useCallback(
     async (pwd?: string) => {
@@ -216,31 +249,38 @@ export default function ArchiveEditor({ windowId, initialAppState }: AppComponen
 
       const fileName = entry.path.split('/').filter(Boolean).pop() ?? entry.path
       const ext = getFileExt(fileName)
-      const sourceUrl = `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/read?path=${encodeURIComponent(node.path)}&entry=${encodeURIComponent(entry.path)}`
-      const appState = { sourceUrl, fileName, readOnly: true }
+      const token = useAuthStore.getState().token
+      const baseUrl = `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/read?path=${encodeURIComponent(node.path)}&entry=${encodeURIComponent(entry.path)}`
+      const sourceUrl = token ? `${baseUrl}&token=${encodeURIComponent(token)}` : baseUrl
+
+      // Resolve the target app
+      let targetAppId: string | null = null
 
       // 1. Check default app
       const defaultAppId = useFileDefaultsStore.getState().getDefault(ext)
       if (defaultAppId) {
         const defaultApp = getApp(defaultAppId)
-        if (defaultApp) {
-          openWindow(defaultApp.id, { title: fileName, appState })
-          return
-        }
+        if (defaultApp) targetAppId = defaultApp.id
       }
 
       // 2. Find associated apps (prefer open apps over preview apps)
-      const associatedApps = getAppsForFile(ext)
-      const openApps = associatedApps.filter(
-        a => a.fileOpenAssociations?.includes(ext) || a.fileAssociations?.includes(ext)
-      )
-      const appsToUse = openApps.length > 0 ? openApps : associatedApps
-      if (appsToUse.length >= 1) {
-        openWindow(appsToUse[0].id, { title: fileName, appState })
+      if (!targetAppId) {
+        const associatedApps = getAppsForFile(ext)
+        const openApps = associatedApps.filter(
+          a => a.fileOpenAssociations?.includes(ext) || a.fileAssociations?.includes(ext)
+        )
+        const appsToUse = openApps.length > 0 ? openApps : associatedApps
+        if (appsToUse.length >= 1) targetAppId = appsToUse[0].id
+      }
+
+      // 3. Fallback to file-viewer
+      if (!targetAppId) targetAppId = 'file-viewer'
+
+      // file-viewer uses blobUrl; all other apps use sourceUrl
+      if (targetAppId === 'file-viewer') {
+        openWindow('file-viewer', { title: fileName, appState: { blobUrl: sourceUrl, fileName } })
       } else {
-        // 3. Fallback to file-viewer (supports blobUrl mode)
-        const blobUrl = `/api/vfs/mounts/${encodeURIComponent(mountId)}/archive/read?path=${encodeURIComponent(node.path)}&entry=${encodeURIComponent(entry.path)}`
-        openWindow('file-viewer', { title: fileName, appState: { blobUrl, fileName } })
+        openWindow(targetAppId, { title: fileName, appState: { sourceUrl, fileName, readOnly: true } })
       }
     },
     [mountId, node]
