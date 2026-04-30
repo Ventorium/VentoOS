@@ -28,7 +28,7 @@ export const imageEditorManifest: AppManifest = {
   author: { name: 'VentoOS' },
   description: '打开和编辑图片 — 旋转、裁剪、绘画、导出',
   icon: React.createElement(ImageEditorIcon),
-  fileOpenAssociations: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'],
+  fileOpenAssociations: ['png', 'jpg', 'jpeg', 'webp', 'svg', 'bmp', 'ico', 'avif'],
   multiWindow: true,
   defaultSize: { width: 960, height: 700 },
   minSize: { width: 640, height: 480 },

@@ -19,7 +19,7 @@ import { useContextMenuStore } from '@/shell/ContextMenu/store'
 import { VfsFilePickerModal } from '@/shell/FilePicker'
 
 const HIDDEN_FILES = new Set(['.ds_store', '.localized', 'thumbs.db'])
-const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'])
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'webp', 'svg', 'bmp', 'ico', 'avif'])
 
 function isHiddenFile(path: string): boolean {
   const name = path.split('/').filter(Boolean).pop()?.toLowerCase() ?? ''

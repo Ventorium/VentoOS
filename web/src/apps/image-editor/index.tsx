@@ -70,6 +70,7 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const pendingImgRef = useRef<HTMLImageElement | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
   const [tool, setTool] = useState<Tool>('move')
@@ -151,31 +152,38 @@ export default function ImageEditor({ windowId, initialAppState }: AppComponentP
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
+      pendingImgRef.current = img
       setLoaded(true)
-      // Defer canvas draw to next tick so <canvas> is rendered
-      setTimeout(() => {
-        const canvas = canvasRef.current
-        if (!canvas) return
-        canvas.width = img.naturalWidth
-        canvas.height = img.naturalHeight
-        setImgSize({ w: img.naturalWidth, h: img.naturalHeight })
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          ctx.drawImage(img, 0, 0)
-          pushHistory()
-        }
-        // Fit to view
-        if (containerRef.current) {
-          const cw = containerRef.current.clientWidth - 40
-          const ch = containerRef.current.clientHeight - 40
-          const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight, 1)
-          setZoom(scale)
-        }
-      }, 0)
     }
     img.onerror = () => setError('Failed to load image')
     img.src = url
-  }, [mountId, node, sourceUrl, pushHistory])
+  }, [mountId, node, sourceUrl])
+
+  // Draw image to canvas once loaded and canvas is mounted
+  useEffect(() => {
+    if (!loaded) return
+    const img = pendingImgRef.current
+    if (!img) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    canvas.width = img.naturalWidth
+    canvas.height = img.naturalHeight
+    setImgSize({ w: img.naturalWidth, h: img.naturalHeight })
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.drawImage(img, 0, 0)
+      pushHistory()
+    }
+    // Fit to view
+    if (containerRef.current) {
+      const cw = containerRef.current.clientWidth - 40
+      const ch = containerRef.current.clientHeight - 40
+      const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight, 1)
+      setZoom(scale)
+    }
+    pendingImgRef.current = null
+  }, [loaded, pushHistory])
 
   // ── Transform operations ──
 
