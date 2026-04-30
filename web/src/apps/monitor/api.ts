@@ -41,10 +41,19 @@ export interface ProcessMetrics {
   uptime_seconds: number
 }
 
+export interface NetworkTrafficInfo {
+  interface_name: string
+  bytes_sent: number
+  bytes_received: number
+  packets_sent: number
+  packets_received: number
+}
+
 export interface SystemMetrics {
   cpu: CpuInfo
   memory: MemoryInfo
   disks: DiskInfo[]
+  network: NetworkTrafficInfo[]
   timestamp: string
   os_type: string
   hostname: string

@@ -15,7 +15,7 @@
 
 import { createLogger } from '@/infra/logger'
 import { useAppStore } from '../apps/store'
-import type { EventLogEntry, EventPayloadBase, EventPayloadOf, EventRegistration, EventTopic } from './types'
+import type { EventLogEntry, EventPayloadBase, EventPayloadOf, EventRegistration, EventTopic, HandlerTraceResult } from './types'
 
 const logger = createLogger('kernel/ipc')
 
@@ -57,6 +57,17 @@ class EventBusImpl {
   private eventLog: EventLogEntry[] = []
   /** Track processed event IDs to prevent duplicate processing */
   private processedEvents = new Set<string>()
+  /** Subscribers for real-time event log notifications */
+  private listeners = new Set<(entry: EventLogEntry) => void>()
+
+  /**
+   * Subscribe to real-time event log updates.
+   * Returns an unsubscribe function.
+   */
+  subscribe(listener: (entry: EventLogEntry) => void): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
 
   /**
    * Register an event handler for an application.
@@ -212,17 +223,23 @@ class EventBusImpl {
       }
     }
 
-    // 7. Execute handlers
-    this.logEvent(eventId, topic, senderId, targetAppIds, fullPayload)
+    // 7. Execute handlers with timing
+    const handlerResults: HandlerTraceResult[] = []
+    const emitStart = performance.now()
     logger.info(`Emitting "${topic}" from "${senderId}" to ${targetAppIds.join(', ')}`)
 
     for (const reg of sorted) {
+      const start = performance.now()
       try {
         await reg.handler(fullPayload)
+        handlerResults.push({ appId: reg.appId, durationMs: performance.now() - start, success: true })
       } catch (err) {
+        handlerResults.push({ appId: reg.appId, durationMs: performance.now() - start, success: false, error: String(err) })
         logger.error(`Handler error: ${reg.appId} → ${topic}`, err)
       }
     }
+
+    this.logEvent(eventId, topic, senderId, targetAppIds, fullPayload, handlerResults, performance.now() - emitStart)
   }
 
   /**
@@ -281,7 +298,9 @@ class EventBusImpl {
     topic: string,
     senderId: string,
     targetAppIds: string[],
-    payload: Record<string, unknown>
+    payload: Record<string, unknown>,
+    handlerResults?: HandlerTraceResult[],
+    durationMs?: number
   ): void {
     const entry: EventLogEntry = {
       eventId,
@@ -290,11 +309,18 @@ class EventBusImpl {
       targetAppIds,
       timestamp: Date.now(),
       payload: sanitizePayload(payload),
+      handlerResults,
+      durationMs,
     }
 
     this.eventLog.push(entry)
     if (this.eventLog.length > LOG_BUFFER_SIZE) {
       this.eventLog = this.eventLog.slice(-LOG_BUFFER_SIZE)
+    }
+
+    // Notify subscribers
+    for (const listener of this.listeners) {
+      try { listener(entry) } catch { /* ignore listener errors */ }
     }
   }
 }

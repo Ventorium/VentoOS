@@ -74,6 +74,16 @@ pub struct ProcessMetrics {
     pub uptime_seconds: u64,
 }
 
+/// Network traffic counters for a single interface.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkTrafficInfo {
+    pub interface_name: String,
+    pub bytes_sent: u64,
+    pub bytes_received: u64,
+    pub packets_sent: u64,
+    pub packets_received: u64,
+}
+
 /// Network interface information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkInterfaceInfo {
@@ -101,6 +111,8 @@ pub struct SystemMetrics {
     pub os_type: String,
     /// Hostname
     pub hostname: String,
+    /// Per-interface network traffic counters
+    pub network: Vec<NetworkTrafficInfo>,
 }
 
 #[cfg(test)]
@@ -144,6 +156,7 @@ mod tests {
             timestamp: "2026-04-07T00:00:00Z".to_string(),
             os_type: "linux".to_string(),
             hostname: "test-host".to_string(),
+            network: vec![],
         }
     }
 

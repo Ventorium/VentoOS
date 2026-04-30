@@ -153,6 +153,14 @@ export interface EventRegistration<T extends EventTopic = EventTopic> {
 
 // ─── Event Log Entry ────────────────────────────────────────────────────────
 
+/** Per-handler execution trace result */
+export interface HandlerTraceResult {
+  appId: string
+  durationMs: number
+  success: boolean
+  error?: string
+}
+
 /** Event log entry for debugging */
 export interface EventLogEntry {
   eventId: string
@@ -162,4 +170,8 @@ export interface EventLogEntry {
   timestamp: number
   /** Sanitized payload (passwords redacted) */
   payload: Record<string, unknown>
+  /** Per-handler execution results */
+  handlerResults?: HandlerTraceResult[]
+  /** Total emit duration in ms */
+  durationMs?: number
 }

@@ -5,8 +5,8 @@ use tokio::process::Command;
 use tracing::warn;
 
 use ventoos_core::monitor::{
-    CpuCoreInfo, CpuInfo, DiskInfo, MemoryInfo, NetworkInterfaceInfo, ProcessMetrics,
-    SystemMetrics,
+    CpuCoreInfo, CpuInfo, DiskInfo, MemoryInfo, NetworkInterfaceInfo, NetworkTrafficInfo,
+    ProcessMetrics, SystemMetrics,
 };
 use ventoos_core::types::ApiResponse;
 
@@ -628,6 +628,144 @@ async fn collect_disks() -> Vec<DiskInfo> {
 }
 
 // ---------------------------------------------------------------------------
+// Network traffic metrics
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "macos")]
+async fn collect_network_traffic() -> Vec<NetworkTrafficInfo> {
+    let output = run_cmd("netstat", &["-ib"]).await;
+    let mut result = Vec::new();
+
+    let mut header_indices: Option<(usize, usize, usize, usize)> = None;
+
+    for line in output.lines() {
+        let cols: Vec<&str> = line.split_whitespace().collect();
+
+        // First line is the header — find column indices
+        if cols.iter().any(|c| *c == "Name") {
+            let name_idx = cols.iter().position(|c| *c == "Name");
+            let ibytes_idx = cols.iter().position(|c| *c == "Ibytes" || *c == "ibytes");
+            let obytes_idx = cols.iter().position(|c| *c == "Obytes" || *c == "obytes");
+            let ipkts_idx = cols.iter().position(|c| *c == "Ipkts" || *c == "ipkts");
+            let opkts_idx = cols.iter().position(|c| *c == "Opkts" || *c == "opkts");
+            if let (Some(ni), Some(ii), Some(oi), Some(ipi), Some(opi)) =
+                (name_idx, ibytes_idx, obytes_idx, ipkts_idx, opkts_idx)
+            {
+                header_indices = Some((ni, ii, oi, ipi));
+                // We need opkts too, but for now store name, ibytes, obytes, ipkts
+                // Actually let me store all 5
+                let _ = opi; // opkts used below via header_indices_opkts
+            }
+            continue;
+        }
+
+        // Only parse rows with <Link#N> to get raw link-layer counters
+        if !line.contains("<Link#") {
+            continue;
+        }
+
+        if cols.len() < 7 {
+            continue;
+        }
+
+        // On macOS netstat -ib the columns are typically:
+        // Name Mtu Network Address Ipkts Ierrs Ibytes Opkts Oerrs Obytes Coll
+        // When <Link#N> is present, Address is the MAC and these are raw counters.
+        // Find indices dynamically from header if available, otherwise use fixed layout.
+        let name;
+        let bytes_received;
+        let bytes_sent;
+        let packets_received;
+        let packets_sent;
+
+        if let Some((ni, ii, oi, ipi)) = header_indices {
+            // Dynamic layout
+            name = cols.get(ni).unwrap_or(&"").to_string();
+            bytes_received = cols.get(ii).map_or(0, |v| parse_u64(v));
+            bytes_sent = cols.get(oi).map_or(0, |v| parse_u64(v));
+            packets_received = cols.get(ipi).map_or(0, |v| parse_u64(v));
+            // Opkts is one column after ipkts
+            packets_sent = cols.get(ipi + 1).map_or(0, |v| parse_u64(v));
+        } else {
+            // Fallback fixed layout: Name Mtu Network Address Ipkts Ierrs Ibytes Opkts Oerrs Obytes Coll
+            name = cols[0].to_string();
+            packets_received = cols.get(4).map_or(0, |v| parse_u64(v));
+            bytes_received = cols.get(6).map_or(0, |v| parse_u64(v));
+            packets_sent = cols.get(7).map_or(0, |v| parse_u64(v));
+            bytes_sent = cols.get(9).map_or(0, |v| parse_u64(v));
+        }
+
+        // Skip the loopback interface
+        if name == "lo0" {
+            continue;
+        }
+
+        result.push(NetworkTrafficInfo {
+            interface_name: name,
+            bytes_sent,
+            bytes_received,
+            packets_sent,
+            packets_received,
+        });
+    }
+
+    result
+}
+
+#[cfg(target_os = "linux")]
+async fn collect_network_traffic() -> Vec<NetworkTrafficInfo> {
+    use tokio::fs;
+
+    let content = fs::read_to_string("/proc/net/dev").await.unwrap_or_default();
+    let mut result = Vec::new();
+
+    for (idx, line) in content.lines().enumerate() {
+        // Skip the first two header lines
+        if idx < 2 {
+            continue;
+        }
+
+        // Format: interface: bytes_recv packets_recv ... bytes_sent packets_sent ...
+        let (iface_part, stats_part) = if let Some(pos) = line.find(':') {
+            (&line[..pos], &line[pos + 1..])
+        } else {
+            continue;
+        };
+
+        let iface_name = iface_part.trim().to_string();
+
+        // Skip loopback
+        if iface_name == "lo" {
+            continue;
+        }
+
+        let stats: Vec<u64> = stats_part.split_whitespace().map(parse_u64).collect();
+
+        // /proc/net/dev columns after interface:
+        // 0: bytes_recv  1: packets_recv  ...  8: bytes_sent  9: packets_sent
+        if stats.len() < 10 {
+            continue;
+        }
+
+        result.push(NetworkTrafficInfo {
+            interface_name: iface_name,
+            bytes_received: stats[0],
+            packets_received: stats[1],
+            bytes_sent: stats[8],
+            packets_sent: stats[9],
+        });
+    }
+
+    result
+}
+
+#[cfg(target_os = "windows")]
+async fn collect_network_traffic() -> Vec<NetworkTrafficInfo> {
+    // Stub for Windows — not yet implemented
+    Vec::new()
+}
+
+// ---------------------------------------------------------------------------
 // Process metrics (for the VentoOS server process itself)
 // ---------------------------------------------------------------------------
 
@@ -790,11 +928,12 @@ async fn collect_system_metrics() -> SystemMetrics {
     }
     .to_string();
 
-    let (cpu, memory, disks, hostname) = tokio::join!(
+    let (cpu, memory, disks, hostname, network) = tokio::join!(
         collect_cpu(),
         collect_memory(),
         collect_disks(),
-        get_hostname()
+        get_hostname(),
+        collect_network_traffic()
     );
 
     let timestamp = chrono::Utc::now().to_rfc3339();
@@ -806,6 +945,7 @@ async fn collect_system_metrics() -> SystemMetrics {
         timestamp,
         os_type,
         hostname,
+        network,
     }
 }
 

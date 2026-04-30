@@ -15,6 +15,7 @@ export type {
   EventPayloadOf,
   EventRegistration,
   EventTopic,
+  HandlerTraceResult,
   K8sPortForwardContext,
   NavigateResourcePayload,
   OpenDatabasePayload,
