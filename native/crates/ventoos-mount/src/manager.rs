@@ -9,7 +9,7 @@ use ventoos_vfs::VfsManager;
 use ventoos_vfs::types::{LocalMountConfig, MountBackend};
 
 use crate::types::{FileProviderAvailability, MountError, MountStatus};
-use crate::validate::{expand_home, validate_mount_path};
+use crate::validate::{expand_home, validate_mount_path, validate_fskit_path};
 
 /// Handle to an active FUSE mount task.
 pub(crate) struct MountHandle {
@@ -178,6 +178,13 @@ impl LocalMountManager {
 
         // Validate and expand path.
         validate_mount_path(&config.mount_point).map_err(MountError::PathError)?;
+
+        // On macOS 15.4+ the FSKit backend requires mount points under /Volumes.
+        #[cfg(target_os = "macos")]
+        if crate::fuse_impl::is_fskit_available() {
+            validate_fskit_path(&config.mount_point).map_err(MountError::PathError)?;
+        }
+
         let mount_point = expand_home(&config.mount_point);
 
         // Ensure mount point directory exists.

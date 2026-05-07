@@ -42,6 +42,21 @@ pub fn validate_mount_path(path: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Validate that a mount path is compatible with the FSKit backend.
+///
+/// FSKit requires mount points to be under `/Volumes`.
+/// Returns `Ok(())` if valid, or `Err(message)`.
+pub fn validate_fskit_path(path: &str) -> Result<(), String> {
+    // Expand ~ first so we check the real absolute path.
+    let expanded = expand_home(path);
+    if !expanded.starts_with("/Volumes/") && expanded != "/Volumes" {
+        return Err(
+            "macOS 15.4+ 使用 FSKit 后端，挂载路径必须在 /Volumes 目录下（例如 /Volumes/my-mount）".to_string()
+        );
+    }
+    Ok(())
+}
+
 /// Expand a leading `~` to the current user's home directory.
 /// Falls back to `/` if `HOME` env is not set.
 pub fn expand_home(path: &str) -> String {

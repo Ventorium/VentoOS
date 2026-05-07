@@ -407,6 +407,31 @@ impl Filesystem for VfsFuse {
     }
 }
 
+// ── macOS version detection ──────────────────────────────────────────────────
+
+/// Read the macOS product version string (e.g. "15.4.1").
+#[cfg(target_os = "macos")]
+fn read_macos_version() -> Option<String> {
+    let output = std::process::Command::new("sw_vers")
+        .arg("-productVersion")
+        .output()
+        .ok()?;
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Returns `true` if the current macOS version supports FSKit (>= 15.4).
+#[cfg(target_os = "macos")]
+pub(crate) fn is_fskit_available() -> bool {
+    let version = match read_macos_version() {
+        Some(v) => v,
+        None => return false,
+    };
+    let mut parts = version.split('.');
+    let major: u32 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    let minor: u32 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    major > 15 || (major == 15 && minor >= 4)
+}
+
 // ── Mount entry point ─────────────────────────────────────────────────────────
 
 pub(crate) async fn run_fuse_mount(
@@ -422,12 +447,22 @@ pub(crate) async fn run_fuse_mount(
     let result = tokio::task::spawn_blocking(move || {
         let fs = VfsFuse::new(mount_id.clone(), vfs, rt, notify);
         let mut config = fuser::Config::default();
-        config.mount_options = vec![
+
+        let mut options = vec![
             MountOption::FSName(format!("ventoos-{mount_id}")),
             MountOption::DefaultPermissions,
             // Set volume name so Finder shows the source name instead of "macFUSE Volume 0"
             MountOption::CUSTOM(format!("volname={mount_name}")),
         ];
+
+        // On macOS 15.4+ use FSKit backend instead of the kernel extension.
+        // FSKit is Apple's modern user-space filesystem API.
+        #[cfg(target_os = "macos")]
+        if is_fskit_available() {
+            options.push(MountOption::CUSTOM("backend=fskit".to_string()));
+        }
+
+        config.mount_options = options;
         fuser::mount2(fs, &mount_point, &config)
     })
     .await;
