@@ -296,7 +296,7 @@ function SystemTab({
                   <div className="flex items-center gap-2">
                     <ArrowDownToLine size={14} className="text-[var(--vos-accent-success, #10b981)]" />
                     <div>
-                      <div className="text-xs text-[var(--vos-text-secondary)]">下行速度</div>
+                      <div className="text-xs text-[var(--vos-accent-success, #10b981)]">下行速度</div>
                       <div className="text-sm font-semibold tabular-nums text-[var(--vos-accent-success, #10b981)]">
                         {formatBytesSpeed(lastDown)}
                       </div>
@@ -305,7 +305,7 @@ function SystemTab({
                   <div className="flex items-center gap-2">
                     <ArrowUpFromLine size={14} className="text-[var(--vos-accent-warning, #f59e0b)]" />
                     <div>
-                      <div className="text-xs text-[var(--vos-text-secondary)]">上行速度</div>
+                      <div className="text-xs text-[var(--vos-accent-warning, #f59e0b)]">上行速度</div>
                       <div className="text-sm font-semibold tabular-nums text-[var(--vos-accent-warning, #f59e0b)]">
                         {formatBytesSpeed(lastUp)}
                       </div>
@@ -318,7 +318,7 @@ function SystemTab({
                 </div>
               </div>
               <div className={`${monCard} flex-1 min-w-[260px]`}>
-                <LineChart data={netSeries} width={400} height={120} formatValue={formatBytesSpeed} />
+                <LineChart data={netSeries} width={400} height={120} showLabels={false} formatValue={formatBytesSpeed} />
               </div>
             </div>
           </div>
@@ -1130,7 +1130,7 @@ export default function MonitorApp({ windowId }: AppComponentProps) {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-[120px] shrink-0 border-r border-[var(--vos-border-subtle)] vos-flex-col py-2 gap-[2px]">
+        <div className="w-[148px] shrink-0 border-r border-[var(--vos-border-subtle)] vos-flex-col py-2 gap-[2px]">
           {tabs.map(t => (
             <button
               key={t.id}
