@@ -903,11 +903,14 @@ async fn fuse_mount_handler(
             serde_json::json!({"mounted": true, "mount_point": local_cfg.mount_point}),
         ))
         .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::err(e.to_string())),
-        )
-            .into_response(),
+        Err(e) => {
+            tracing::error!("FUSE mount failed for {id}: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::err(e.to_string())),
+            )
+                .into_response()
+        }
     }
 }
 

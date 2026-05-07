@@ -193,6 +193,7 @@ function MountForm({
   const [mountBackend, setMountBackend] = useState<MountBackend>(mountToEdit?.local_mount?.backend ?? 'fuse')
   const [fuseAvailable, setFuseAvailable] = useState<boolean | null>(null)
   const [fuseChecking, setFuseChecking] = useState(false)
+  const [fskitAvailable, setFskitAvailable] = useState(false)
   const [fileProviderStatus, setFileProviderStatus] = useState<FileProviderDiagnostics | null>(null)
   const [installingFileProvider, setInstallingFileProvider] = useState(false)
   const [installFileProviderError, setInstallFileProviderError] = useState<string | null>(null)
@@ -202,13 +203,15 @@ function MountForm({
     setFuseChecking(true)
     try {
       const [fuseRes, fpRes] = await Promise.all([
-        request<ApiResponse<{ available: boolean }>>('GET', '/api/dependencies/check-fuse'),
+        request<ApiResponse<{ available: boolean; fskit_available?: boolean }>>('GET', '/api/dependencies/check-fuse'),
         vfsApi.checkFileProvider()
       ])
       setFuseAvailable(fuseRes.data?.available ?? false)
+      setFskitAvailable(fuseRes.data?.fskit_available ?? false)
       setFileProviderStatus(fpRes.data ?? null)
     } catch {
       setFuseAvailable(false)
+      setFskitAvailable(false)
       setFileProviderStatus(null)
     } finally {
       setFuseChecking(false)
@@ -245,6 +248,12 @@ function MountForm({
   const validateMountPath = (v: string): string | null => {
     if (!v.trim()) return '挂载路径不能为空'
     if (v.length > 512) return '路径长度不能超过 512 字符'
+    // FSKit (macOS 15.4+) requires mount points under /Volumes
+    if (fskitAvailable && mountBackend === 'fuse') {
+      if (!v.startsWith('/Volumes/')) {
+        return 'macOS 15.4+ 使用 FSKit 后端，挂载路径必须在 /Volumes 目录下（如 /Volumes/my-mount）'
+      }
+    }
     const segments = v.replace(/^~\//, '').split('/')
     for (const seg of segments) {
       if (seg === '.' || seg === '..') return '路径段不能为 . 或 ..'
@@ -264,7 +273,7 @@ function MountForm({
     setName(v)
     setNameError(validateName(v))
     if (!localMountEnabled) {
-      setLocalMountPath(`~/mnt/${v || 'source'}`)
+      setLocalMountPath(fskitAvailable ? `/Volumes/${v || 'source'}` : `~/mnt/${v || 'source'}`)
     }
   }
 
@@ -736,7 +745,9 @@ function MountForm({
                   if (enabled) {
                     checkFuseDep()
                     if (!localMountPath) {
-                      const defaultPath = `~/mnt/${name || 'source'}`
+                      const defaultPath = fskitAvailable
+                        ? `/Volumes/${name || 'source'}`
+                        : `~/mnt/${name || 'source'}`
                       setLocalMountPath(defaultPath)
                       setLocalMountPathError(null)
                     }
@@ -795,6 +806,9 @@ function MountForm({
                     style={{ background: 'rgba(52, 199, 89, 0.1)', color: 'var(--vos-accent-success)' }}
                   >
                     FUSE 依赖已安装
+                    {fskitAvailable && (
+                      <span style={{ color: 'var(--vos-text-secondary)' }}> · 使用 FSKit 后端（macOS 15.4+），挂载路径须在 /Volumes 下</span>
+                    )}
                   </div>
                 )}
                 {!fuseChecking && mountBackend === 'fileprovider' && fileProviderStatus?.available === false && (
@@ -874,7 +888,7 @@ function MountForm({
                   <>
                     <input
                       className="vos-input vos-input-sm"
-                      placeholder={`~/mnt/${name || 'source'}`}
+                      placeholder={fskitAvailable && mountBackend === 'fuse' ? `/Volumes/${name || 'source'}` : `~/mnt/${name || 'source'}`}
                       value={localMountPath}
                       onChange={e => handleLocalMountPathChange(e.target.value)}
                     />

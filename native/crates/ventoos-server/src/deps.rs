@@ -317,9 +317,16 @@ async fn check_fuse() -> Json<ApiResponse<serde_json::Value>> {
     let all_ok = deps.iter().all(|d| d.installed);
     let platform = current_platform();
 
+    // FSKit is available on macOS 15.4+ and requires mount points under /Volumes.
+    #[cfg(target_os = "macos")]
+    let fskit_available = ventoos_mount::is_fskit_available();
+    #[cfg(not(target_os = "macos"))]
+    let fskit_available = false;
+
     Json(ApiResponse::ok(serde_json::json!({
         "available": all_ok,
         "platform": platform,
+        "fskit_available": fskit_available,
         "dependencies": deps,
     })))
 }

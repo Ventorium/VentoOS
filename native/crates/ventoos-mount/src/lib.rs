@@ -32,3 +32,15 @@ pub use manager::LocalMountManager;
 pub use types::{FileProviderAvailability, MountError, MountStatus};
 pub use validate::{validate_mount_path, validate_fskit_path};
 pub use ventoos_vfs::types::MountBackend;
+
+/// Returns `true` on macOS 15.4+ where the FSKit backend is available.
+#[cfg(target_os = "macos")]
+pub fn is_fskit_available() -> bool {
+    fuse_impl::is_fskit_available()
+}
+
+/// Always `false` on non-macOS platforms.
+#[cfg(not(target_os = "macos"))]
+pub fn is_fskit_available() -> bool {
+    false
+}
