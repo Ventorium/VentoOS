@@ -188,7 +188,44 @@ impl LocalMountManager {
         let mount_point = expand_home(&config.mount_point);
 
         // Ensure mount point directory exists.
-        tokio::fs::create_dir_all(&mount_point).await?;
+        // Under /Volumes on macOS, we need elevated privileges to create directories.
+        #[cfg(target_os = "macos")]
+        {
+            if !std::path::Path::new(&mount_point).exists() {
+                let created = if mount_point.starts_with("/Volumes/") {
+                    // Use osascript to prompt for admin password and create the directory.
+                    let mp = &mount_point;
+                    let output = std::process::Command::new("osascript")
+                        .args([
+                            "-e",
+                            &format!("do shell script \"mkdir -p '{mp}'\" with administrator privileges"),
+                        ])
+                        .output();
+                    match output {
+                        Ok(o) if o.status.success() => true,
+                        Ok(o) => {
+                            let stderr = String::from_utf8_lossy(&o.stderr);
+                            tracing::warn!("osascript mkdir failed: {stderr}");
+                            // Fall back to regular mkdir (will fail with permission denied)
+                            false
+                        }
+                        Err(e) => {
+                            tracing::warn!("osascript mkdir failed: {e}");
+                            false
+                        }
+                    }
+                } else {
+                    false
+                };
+                if !created {
+                    tokio::fs::create_dir_all(&mount_point).await?;
+                }
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            tokio::fs::create_dir_all(&mount_point).await?;
+        }
 
         // Clean up any stale mount at the same point.
         #[cfg(any(target_os = "linux", target_os = "macos"))]
