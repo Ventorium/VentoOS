@@ -419,7 +419,8 @@ fn read_macos_version() -> Option<String> {
     Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-/// Returns `true` if the current macOS version supports FSKit (>= 15.4).
+/// Returns `true` if the current macOS version supports FSKit (>= 15.4)
+/// **and** the installed libfuse3 library supports the `backend=fskit` option.
 #[cfg(target_os = "macos")]
 pub(crate) fn is_fskit_available() -> bool {
     let version = match read_macos_version() {
@@ -429,7 +430,26 @@ pub(crate) fn is_fskit_available() -> bool {
     let mut parts = version.split('.');
     let major: u32 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
     let minor: u32 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
-    major > 15 || (major == 15 && minor >= 4)
+    if !(major > 15 || (major == 15 && minor >= 4)) {
+        return false;
+    }
+    // The `backend=fskit` option is handled by libfuse3 (which the fuser crate links),
+    // not by the mount_macfuse binary. Check libfuse3 for the "fskit" string.
+    let libfuse3_path = "/usr/local/lib/libfuse3.dylib";
+    if std::path::Path::new(libfuse3_path).exists()
+        && let Ok(output) = std::process::Command::new("strings")
+            .arg(libfuse3_path)
+            .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.contains("fskit") && stdout.contains("backend") {
+            return true;
+        }
+    }
+    tracing::info!(
+        "macOS supports FSKit but libfuse3 does not support backend=fskit — skipping FSKit"
+    );
+    false
 }
 
 // ── Mount entry point ─────────────────────────────────────────────────────────
